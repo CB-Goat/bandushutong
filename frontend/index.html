@@ -1,0 +1,3195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>伴读书童 - 儿童课外阅读</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'KaiTi', 'STKaiti', 'AR PL UKai CN', '楷体', cursive, serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            overflow: hidden;
+        }
+
+        /* 导航栏 */
+        .navbar {
+            background: linear-gradient(135deg, #2d5016 0%, #1a3a0a 100%);
+            color: #e8e0c8;
+            padding: 15px 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #8B7355;
+        }
+
+        .navbar h1 {
+            font-size: 20px;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            letter-spacing: 4px;
+        }
+
+        .navbar .back-btn {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #e8e0c8;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .navbar .back-btn:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        /* 主容器 */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 70px 15px 20px;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 页面切换 */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* 阅读页布局 */
+        #readerPage.active { height: calc(100vh - 90px); display: flex; flex-direction: column; }
+
+        /* ===== 首页 - 书架 ===== */
+        .upload-area {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 2px dashed #2d5016;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: #4a8c2a;
+            background: #f0f7ec;
+        }
+
+        .upload-area .icon { font-size: 48px; margin-bottom: 10px; }
+        .upload-area p { color: #666; font-size: 14px; font-family: -apple-system, sans-serif; }
+
+        .book-list { display: grid; gap: 15px; }
+
+        .book-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .book-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+
+        .book-card .cover {
+            width: 60px; height: 80px;
+            background: linear-gradient(135deg, #2d5016 0%, #1a3a0a 100%);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 24px; flex-shrink: 0;
+        }
+
+        .book-card .info { flex: 1; }
+        .book-card .title { font-size: 16px; font-weight: 600; margin-bottom: 5px; font-family: -apple-system, sans-serif; }
+        .book-card .meta { font-size: 12px; color: #999; font-family: -apple-system, sans-serif; }
+        .book-stats-row { display: flex; gap: 12px; margin-top: 6px; font-size: 12px; color: #666; flex-wrap: wrap; }
+        .book-stats-row span { background: #f0f0f0; padding: 2px 8px; border-radius: 10px; }
+
+        /* ===== 目录页 ===== */
+        .catalog-page { padding: 15px; }
+        .catalog-book-header { margin-bottom: 15px; }
+        .catalog-book-title { font-size: 20px; font-weight: 600; color: #2d5016; }
+        .catalog-book-meta { font-size: 13px; color: #888; margin-top: 4px; }
+        .catalog-chapter { margin-bottom: 8px; }
+        .catalog-chapter-header { 
+            display: flex; align-items: center; gap: 8px; 
+            padding: 10px 12px; background: #f8f8f5; border-radius: 8px;
+            cursor: default; font-size: 14px;
+        }
+        .catalog-chapter-header .ch-label { font-weight: 600; color: #2d5016; }
+        .catalog-chapter-header .ch-stats { font-size: 12px; color: #999; margin-left: auto; display: flex; gap: 10px; }
+        .catalog-section {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px 8px 36px; cursor: pointer;
+            border-radius: 6px; transition: background 0.15s;
+            font-size: 13px;
+        }
+        .catalog-section:hover { background: #f0f0e8; }
+        .catalog-section .sec-status { 
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        .catalog-section .sec-status.read { background: #4CAF50; }
+        .catalog-section .sec-status.reading { background: #FF9800; }
+        .catalog-section .sec-status.unread { background: #ddd; }
+        .catalog-section .sec-title { flex: 1; color: #333; }
+        .catalog-section .sec-info { font-size: 12px; color: #999; display: flex; gap: 10px; }
+
+        /* ===== 阅读页 - 黑板风格 ===== */
+        .reader-header {
+            background: #3a3226;
+            padding: 12px 20px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 2px solid #8B7355;
+            border-bottom: none;
+        }
+
+        .reader-header .book-title {
+            font-size: 16px;
+            color: #e8e0c8;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .reader-header .progress {
+            font-size: 12px;
+            color: #c8b896;
+        }
+
+        /* 导航栏：包含上一节、下一节、进度条、播放按钮、编辑点评按钮 */
+        .section-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            background: #3a3226;
+            padding: 10px 15px;
+            border-left: 2px solid #8B7355;
+            border-right: 2px solid #8B7355;
+            flex-wrap: wrap;
+        }
+
+        .section-nav button {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #e8e0c8;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .section-nav button:hover:not(:disabled) {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .section-nav button:disabled {
+            color: #665e50;
+            cursor: not-allowed;
+            border-color: transparent;
+        }
+
+        .section-nav .play-btn {
+            background: linear-gradient(135deg, #4a8c2a 0%, #2d5016 100%);
+            border: 2px solid #6ab04c;
+            color: #f0e8d0;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .section-nav .play-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* 编辑点评按钮 */
+        .section-nav .edit-annotation-btn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #FFD700;
+            font-size: 13px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: inherit;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+
+        .section-nav .edit-annotation-btn:hover {
+            background: rgba(255, 215, 0, 0.25);
+        }
+
+        .section-nav .edit-annotation-btn.active {
+            background: rgba(255, 215, 0, 0.35);
+            border-color: #FFD700;
+            box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+        }
+
+        /* 顶部进度条区域 */
+        .section-nav .progress-area {
+            flex: 1;
+            max-width: 200px;
+            padding: 0 10px;
+        }
+
+        .section-nav .progress-bar {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .section-nav .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6ab04c, #f0e8d0);
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 2px;
+        }
+
+        .section-nav .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #8a7e6a;
+            margin-top: 3px;
+            font-family: -apple-system, sans-serif;
+        }
+
+        /* 黑板主体 */
+        .chalkboard {
+            background: #2a4a1a;
+            border: 3px solid #8B7355;
+            border-top: none;
+            border-radius: 0;
+            padding: 20px 20px;
+            position: relative;
+            overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-image:
+                radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.02) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(0,0,0,0.1) 0%, transparent 50%),
+                linear-gradient(180deg, #2a4a1a 0%, #1e3a12 50%, #2a4a1a 100%);
+            box-shadow:
+                inset 0 0 60px rgba(0,0,0,0.3),
+                0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        /* 黑板边框木纹效果 */
+        .chalkboard::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border: 8px solid transparent;
+            border-image: linear-gradient(135deg, #a08060, #8B7355, #6d5a3e, #8B7355, #a08060) 1;
+            pointer-events: none;
+            border-radius: 0;
+        }
+
+        /* 粉笔文字容器 - 固定高度，内部滚动 */
+        .chalkboard .chalk-text {
+            position: relative;
+            z-index: 1;
+            font-size: 22px;
+            line-height: 2.2;
+            color: #f0e8d0;
+            text-shadow:
+                0 0 5px rgba(240,232,208,0.3),
+                1px 1px 0 rgba(0,0,0,0.2);
+            letter-spacing: 1px;
+            height: 500px;
+            max-height: 500px;
+            flex-shrink: 0;
+            overflow: hidden;
+            padding-bottom: 10px;
+        }
+
+        /* 粉笔字效果 - 每个字符 */
+        .chalkboard .chalk-char {
+            display: inline;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            cursor: default;
+        }
+
+        .chalkboard .chalk-char.visible {
+            opacity: 1;
+            text-shadow:
+                0 0 4px rgba(240,232,208,0.4),
+                0 0 8px rgba(240,232,208,0.1),
+                1px 1px 0 rgba(0,0,0,0.15);
+        }
+
+        /* 标点符号稍小 */
+        .chalkboard .chalk-char.punct {
+            font-size: 18px;
+        }
+
+        /* 段落换行 */
+        .chalkboard .chalk-linebreak {
+            display: block;
+            height: 10px;
+        }
+
+        /* 点评编辑模式下的文字选中效果 */
+        .chalkboard .chalk-char.selectable {
+            cursor: pointer;
+        }
+
+        .chalkboard .chalk-char.selectable:hover {
+            background: rgba(255, 215, 0, 0.2);
+            border-radius: 2px;
+        }
+
+        .chalkboard .chalk-char.selected {
+            background: rgba(255, 215, 0, 0.35);
+            border-radius: 2px;
+        }
+
+        /* 点评标记样式 - 波浪下划线 + 金色加粗 */
+        .chalkboard .chalk-char.annotated {
+            color: #FFD700 !important;
+            font-weight: bold;
+            text-decoration: underline wavy #FFD700;
+            text-underline-offset: 4px;
+        }
+
+        /* 点评序号上标 */
+        .annotation-superscript {
+            font-size: 12px;
+            color: #FFD700;
+            vertical-align: super;
+            font-weight: bold;
+            margin-left: 1px;
+            text-shadow: 0 0 4px rgba(255, 215, 0, 0.4);
+            cursor: pointer;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* 赏析点评区域 - 填充剩余空间 */
+        .chalkboard .analysis-area {
+            position: relative;
+            z-index: 1;
+            border-top: 2px dashed rgba(240,232,208,0.2);
+            padding-top: 12px;
+            margin-top: 15px;
+            flex: 1;
+            min-height: 80px;
+            overflow-y: auto;
+        }
+
+        .chalkboard .analysis-area .label {
+            font-size: 14px;
+            color: rgba(240,232,208,0.5);
+            margin-bottom: 8px;
+        }
+
+        .chalkboard .analysis-area .content {
+            font-size: 16px;
+            line-height: 1.8;
+            color: rgba(240,232,208,0.8);
+        }
+
+        /* 点评原文引用样式 */
+        .chalkboard .analysis-area .content .original-text {
+            color: #FFD700;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+
+        /* 点评内容样式 */
+        .chalkboard .analysis-area .content .comment-text {
+            color: rgba(240,232,208,0.9);
+        }
+
+        /* 赏析点评标签区域 */
+        .chalkboard .analysis-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .chalkboard .analysis-tabs .tab {
+            padding: 6px 14px;
+            border-radius: 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(240,232,208,0.1);
+            color: rgba(240,232,208,0.5);
+            border: 1px solid rgba(240,232,208,0.15);
+        }
+
+        .chalkboard .analysis-tabs .tab:hover {
+            background: rgba(240,232,208,0.15);
+        }
+
+        .chalkboard .analysis-tabs .tab.active {
+            background: rgba(255, 215, 0, 0.25);
+            color: #FFD700;
+            border-color: rgba(255, 215, 0, 0.4);
+            font-weight: bold;
+        }
+
+        .chalkboard .analysis-tabs .tab.summary-tab {
+            background: rgba(100, 200, 100, 0.2);
+            color: #90EE90;
+            border-color: rgba(100, 200, 100, 0.3);
+        }
+
+        .chalkboard .analysis-tabs .tab.summary-tab.active {
+            background: rgba(100, 200, 100, 0.35);
+            color: #90EE90;
+            border-color: rgba(100, 200, 100, 0.5);
+        }
+
+        /* 点评内容显示区域 */
+        .chalkboard .analysis-area .annotation-display {
+            display: none;
+            padding: 10px 15px;
+            background: rgba(255, 215, 0, 0.08);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 8px;
+            margin-top: 8px;
+        }
+
+        .chalkboard .analysis-area .annotation-display.active {
+            display: block;
+        }
+
+        .chalkboard .analysis-area .annotation-display .annotation-index {
+            font-size: 18px;
+            color: #FFD700;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .chalkboard .analysis-area .annotation-display .annotation-original {
+            font-size: 14px;
+            color: rgba(240,232,208,0.6);
+            margin-bottom: 6px;
+            font-style: italic;
+        }
+
+        .chalkboard .analysis-area .annotation-display .annotation-comment {
+            font-size: 16px;
+            line-height: 1.8;
+            color: #f0e8d0;
+        }
+
+        .chalkboard .analysis-area .annotation-display .annotation-comment .comment-char {
+            display: inline;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .chalkboard .analysis-area .annotation-display .annotation-comment .comment-char.visible {
+            opacity: 1;
+        }
+
+        /* 粉笔灰效果 */
+        .chalkboard::after {
+            content: '';
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+            width: 60px;
+            height: 3px;
+            background: rgba(240,232,208,0.08);
+            border-radius: 2px;
+            transform: rotate(-5deg);
+            pointer-events: none;
+        }
+
+        /* 等待提示 */
+        .chalkboard .wait-hint {
+            color: rgba(240,232,208,0.4);
+            font-size: 16px;
+            text-align: center;
+            padding-top: 80px;
+            letter-spacing: 2px;
+        }
+
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-family: -apple-system, sans-serif;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px; height: 20px;
+            border: 2px solid #2d5016;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        /* 点评输入弹窗 */
+        .annotation-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .annotation-modal-overlay.active {
+            display: flex;
+        }
+
+        .annotation-modal {
+            background: #3a3226;
+            border: 2px solid #8B7355;
+            border-radius: 12px;
+            padding: 25px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .annotation-modal .modal-title {
+            font-size: 18px;
+            color: #e8e0c8;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .annotation-modal .selected-text {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #FFD700;
+            line-height: 1.6;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .annotation-modal textarea {
+            width: 100%;
+            height: 100px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 16px;
+            color: #f0e8d0;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+        }
+
+        .annotation-modal textarea:focus {
+            border-color: #FFD700;
+            box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+        }
+
+        .annotation-modal .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .annotation-modal .modal-buttons button {
+            padding: 10px 24px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s;
+        }
+
+        .annotation-modal .btn-cancel {
+            background: rgba(255,255,255,0.1);
+            color: #e8e0c8;
+        }
+
+        .annotation-modal .btn-cancel:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .annotation-modal .btn-save {
+            background: linear-gradient(135deg, #4a8c2a 0%, #2d5016 100%);
+            border-color: #6ab04c;
+            color: #f0e8d0;
+        }
+
+        .annotation-modal .btn-save:hover {
+            opacity: 0.9;
+        }
+
+        /* 响应式 */
+        @media (max-width: 480px) {
+            .container { padding: 70px 10px 20px; }
+            .chalkboard { padding: 15px 18px; }
+            .chalkboard .chalk-text { font-size: 20px; line-height: 2; }
+            .section-nav { gap: 8px; }
+            .section-nav button { padding: 6px 10px; font-size: 13px; }
+            .section-nav .progress-area { max-width: 140px; }
+            .section-nav .edit-annotation-btn { padding: 6px 10px; font-size: 12px; }
+        }
+        /* ===== 管理页面样式 ===== */
+        .admin-page { padding: 15px; }
+        .admin-page h2 { font-size: 20px; margin-bottom: 15px; color: #2d5016; border-bottom: 2px solid #2d5016; padding-bottom: 8px; }
+        .admin-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .admin-card h3 { font-size: 16px; margin-bottom: 12px; color: #333; display: flex; justify-content: space-between; align-items: center; }
+        .admin-card h3 .btn { font-size: 12px; padding: 4px 12px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; font-family: -apple-system, sans-serif; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; }
+        .form-group input:focus, .form-group textarea:focus { border-color: #2d5016; outline: none; box-shadow: 0 0 0 2px rgba(45,80,22,0.1); }
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+        .btn-primary { background: #2d5016; color: white; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-family: inherit; }
+        .btn-primary:hover { background: #3a6b1e; }
+        .btn-danger { background: #dc3545; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: inherit; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #ddd; background: white; cursor: pointer; font-family: inherit; }
+        .btn-sm:hover { background: #f0f0f0; }
+        .btn-sm.active { background: #2d5016; color: white; border-color: #2d5016; }
+
+        /* 书籍管理列表 */
+        .book-admin-item { display: flex; align-items: center; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+        .book-admin-item:hover { background: #f8f9fa; border-color: #2d5016; }
+        .book-admin-item .book-info { flex: 1; }
+        .book-admin-item .book-info .title { font-size: 15px; font-weight: 600; color: #333; }
+        .book-admin-item .book-info .meta { font-size: 12px; color: #999; margin-top: 2px; font-family: -apple-system, sans-serif; }
+        .book-admin-item .book-actions { display: flex; gap: 6px; }
+
+        /* 章节管理 */
+        .chapter-item { display: flex; align-items: center; padding: 10px 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 6px; }
+        .chapter-item .ch-info { flex: 1; }
+        .chapter-item .ch-info .ch-title { font-size: 14px; font-weight: 600; }
+        .chapter-item .ch-info .ch-meta { font-size: 12px; color: #999; font-family: -apple-system, sans-serif; }
+
+        /* 节管理 */
+        .section-item { display: flex; align-items: center; padding: 8px 12px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 4px; font-size: 13px; }
+        .section-item .sec-info { flex: 1; }
+        .section-item .sec-info .sec-title { font-weight: 500; }
+        .section-item .sec-info .sec-meta { font-size: 11px; color: #999; font-family: -apple-system, sans-serif; }
+
+        /* 状态标签 */
+        .status-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-family: -apple-system, sans-serif; }
+        .status-unread { background: #e9ecef; color: #6c757d; }
+        .status-reading { background: #fff3cd; color: #856404; }
+        .status-read { background: #d4edda; color: #155724; }
+
+        /* ===== 书目浏览页面 ===== */
+        .browse-page { padding: 15px; }
+        .browse-page h2 { font-size: 20px; margin-bottom: 15px; color: #2d5016; }
+        .browse-book-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); cursor: pointer; transition: all 0.2s; border-left: 4px solid #2d5016; }
+        .browse-book-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .browse-book-card .bb-title { font-size: 16px; font-weight: 600; color: #333; margin-bottom: 4px; }
+        .browse-book-card .bb-author { font-size: 13px; color: #666; margin-bottom: 6px; }
+        .browse-book-card .bb-stats { display: flex; gap: 15px; font-size: 12px; color: #999; font-family: -apple-system, sans-serif; }
+        .browse-book-card .bb-progress { height: 4px; background: #e9ecef; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+        .browse-book-card .bb-progress-fill { height: 100%; background: #2d5016; border-radius: 2px; transition: width 0.3s; }
+
+        /* 章节浏览 */
+        .chapter-browse-item { background: white; border-radius: 10px; padding: 12px 15px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .chapter-browse-item .cb-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .chapter-browse-item .cb-title { font-size: 15px; font-weight: 600; color: #333; }
+        .chapter-browse-item .cb-meta { font-size: 12px; color: #999; font-family: -apple-system, sans-serif; }
+        .section-browse-item { display: flex; align-items: center; padding: 8px 12px; margin-top: 4px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+        .section-browse-item:hover { background: #f0f7ec; }
+        .section-browse-item .sb-title { flex: 1; font-size: 14px; color: #444; }
+        .section-browse-item .sb-words { font-size: 12px; color: #999; margin-right: 10px; font-family: -apple-system, sans-serif; }
+
+        /* 模态框 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; }
+        .modal-box { background: white; border-radius: 12px; padding: 24px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        .modal-box h3 { font-size: 18px; margin-bottom: 16px; color: #333; }
+        .modal-box .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+        .modal-box .modal-actions .btn { padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; border: none; font-family: inherit; }
+    </style>
+    <!-- 思考气泡CSS -->
+    <style>
+    .thought-bubble {
+        display: inline-block;
+        cursor: pointer;
+        font-size: 14px;
+        margin-left: 2px;
+        vertical-align: super;
+        transition: transform 0.2s;
+    }
+    .thought-bubble:hover { transform: scale(1.3); }
+    .chalk-char.thought-selected { background: rgba(255, 152, 0, 0.3); border-radius: 2px; }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <button class="back-btn" id="backBtn" style="display:none">&larr; 返回</button>
+        <h1>伴读书童</h1>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <button class="navbar-btn" id="adminBtn" onclick="showPage('adminPage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">⚙️ 管理</button>
+            <button class="navbar-btn" id="homeBtn" onclick="showPage('homePage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">🏠 返回书架</button>
+            <button class="navbar-btn" id="logoutBtn" onclick="logout()" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">退出</button>
+            <div style="width:60px"></div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- 登录页 -->
+        <div class="page active" id="loginPage">
+            <div style="max-width:400px;margin:60px auto;padding:30px;">
+                <h1 style="text-align:center;color:#2d5016;margin-bottom:30px;font-size:28px;">伴读书童</h1>
+                <div style="background:white;border-radius:12px;padding:30px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+                    <h3 style="margin:0 0 20px;text-align:center;color:#333;">登录 / 注册</h3>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">手机号码</label>
+                        <input type="tel" id="loginPhone" placeholder="请输入手机号" maxlength="11" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">授权码</label>
+                        <input type="text" id="loginAuthCode" placeholder="请输入授权码" maxlength="6" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                    </div>
+                    <button onclick="doLogin()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">登录 / 注册</button>
+                    <p id="loginError" style="color:red;font-size:13px;text-align:center;margin-top:10px;display:none;"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 首页 - 书架 -->
+        <div class="page" id="homePage">
+            <div class="book-list" id="bookList"></div>
+        </div>
+
+        <!-- 目录页 -->
+        <div class="page" id="catalogPage">
+            <div class="catalog-page">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                    <button class="btn btn-sm" onclick="showPage('homePage')">← 返回书架</button>
+                    <div>
+                        <div class="catalog-book-title" id="catalogBookTitle"></div>
+                        <div class="catalog-book-meta" id="catalogBookMeta"></div>
+                    </div>
+                </div>
+                <div id="catalogContent"></div>
+            </div>
+        </div>
+
+        <!-- 阅读页 -->
+        <div class="page" id="readerPage">
+            <div class="reader-header">
+                <span class="book-title" id="readerBookTitle">书名</span>
+                <span class="progress" id="readerProgress">第 1 / 10 节</span>
+            </div>
+            <div class="section-nav">
+                <button id="prevSection" onclick="reader.prevSection()">&larr; 上一节</button>
+                <button id="nextSection" onclick="reader.nextSection()">下一节 &rarr;</button>
+                <div class="progress-area">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="time-display">
+                        <span id="currentTime">0 字</span>
+                        <span id="totalTime">0 字</span>
+                    </div>
+                </div>
+                <button class="play-btn" id="playBtn" onclick="player.toggle()">&#9654;</button>
+                <button class="edit-annotation-btn" id="editAnnotationBtn" onclick="thoughtEditor.toggleEditMode()">💡 添加思考</button>
+            </div>
+            <div class="chalkboard" id="chalkboard">
+                <div class="chalk-text" id="chalkText">
+                    <div class="wait-hint">点击 &#9654; 开始朗读</div>
+                </div>
+                <div class="analysis-area" id="analysisArea">
+                    <div class="analysis-tabs" id="analysisTabs">
+                        <div class="tab active" data-tab="famous">名言赏析</div>
+                    </div>
+                    <div class="content" id="analysisContent"></div>
+                    <div class="annotation-display" id="annotationDisplay">
+                        <div class="annotation-index" id="annotationIndex"></div>
+                        <div class="annotation-original" id="annotationOriginal"></div>
+                        <div class="annotation-comment" id="annotationComment"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 思考输入弹窗 -->
+        <div id="thoughtModalOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;">
+            <div style="background:white;border-radius:12px;padding:24px;width:90%;max-width:450px;">
+                <h3 style="margin:0 0 12px;">💭 添加思考</h3>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:12px;color:#999;">选中的原文：</label>
+                    <p id="thoughtOriginalText" style="background:#f5f5f5;padding:8px;border-radius:6px;font-size:13px;margin:4px 0 0;max-height:80px;overflow-y:auto;"></p>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label style="font-size:12px;color:#999;">我的思考：</label>
+                    <textarea id="thoughtContent" rows="4" placeholder="在这里写下你的思考..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-top:4px;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+                </div>
+                <input type="hidden" id="thoughtStartChar">
+                <input type="hidden" id="thoughtEndChar">
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button class="btn" onclick="thoughtEditor._closeModal()">取消</button>
+                    <button class="btn btn-primary" onclick="thoughtEditor.saveThought()">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 管理页面 -->
+        <div class="page" id="adminPage">
+        <div class="admin-page">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                <h2 style="margin:0;border:none;padding:0;">📚 书目管理</h2>
+                <button class="btn btn-sm" onclick="showPage('homePage')">← 返回书架</button>
+            </div>
+            
+            <!-- 上传Word文件 -->
+            <div class="admin-card">
+                <h3>📤 上传书籍文件</h3>
+                <div class="upload-area" id="uploadArea" style="margin:10px 0;">
+                    <div class="icon">📄</div>
+                    <p>点击上传 Word 书籍文件（.docx）</p>
+                    <input type="file" id="fileInput" accept=".docx" style="display:none">
+                </div>
+            </div>
+
+            <!-- 添加新书 -->
+            <div class="admin-card">
+                <h3>添加新书 <button class="btn btn-sm" onclick="toggleAddBookForm()">＋ 新增</button></h3>
+                <div id="addBookForm" style="display:none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>书名 *</label>
+                            <input type="text" id="newBookTitle" placeholder="请输入书名">
+                        </div>
+                        <div class="form-group">
+                            <label>作者</label>
+                            <input type="text" id="newBookAuthor" placeholder="请输入作者">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>作者国籍</label>
+                            <input type="text" id="newBookNationality" placeholder="如：中国、英国">
+                        </div>
+                        <div class="form-group">
+                            <label>版本</label>
+                            <input type="text" id="newBookVersion" placeholder="如：第1版">
+                        </div>
+                    </div>
+                    <div style="text-align:right;margin-top:10px;">
+                        <button class="btn btn-primary" onclick="adminAddBook()">保存</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 用户管理 -->
+            <div class="admin-card" id="userManageCard">
+                <h3>👤 用户管理</h3>
+                <div id="adminUserList"></div>
+            </div>
+
+            <!-- 订阅审批 -->
+            <div class="admin-card" id="subRequestCard">
+                <h3>📋 订阅审批</h3>
+                <div id="adminSubRequests"></div>
+            </div>
+
+            <!-- 书籍列表 -->
+            <div class="admin-card">
+                <h3>书籍列表</h3>
+                <div id="adminBookList"><div style="color:#999;padding:20px;text-align:center;">点击书籍进行管理</div></div>
+            </div>
+            
+            <!-- 书籍详情编辑区 -->
+            <div id="adminBookDetail" style="display:none;">
+                <div class="admin-card">
+                    <h3 id="adminDetailTitle">书籍详情</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>书名</label>
+                            <input type="text" id="editBookTitle">
+                        </div>
+                        <div class="form-group">
+                            <label>作者</label>
+                            <input type="text" id="editBookAuthor">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>作者国籍</label>
+                            <input type="text" id="editBookNationality">
+                        </div>
+                        <div class="form-group">
+                            <label>版本</label>
+                            <input type="text" id="editBookVersion">
+                        </div>
+                    </div>
+                    <div style="text-align:right;margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
+                        <button class="btn btn-danger" onclick="adminDeleteBook()">删除此书</button>
+                        <button class="btn btn-primary" onclick="adminSaveBook()">保存修改</button>
+                    </div>
+                </div>
+                
+                <!-- 章节管理 -->
+                <div class="admin-card">
+                    <h3>章节管理 <button class="btn btn-sm" onclick="adminAddChapter()">＋ 添加章节</button></h3>
+                    <div id="adminChapterList"></div>
+                </div>
+                
+                <!-- 节管理 -->
+                <div class="admin-card" id="adminSectionCard" style="display:none;">
+                    <h3 id="adminSectionTitle">小节管理</h3>
+                    <div id="adminSectionList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 书目浏览页面 -->
+    <div class="page" id="browsePage">
+        <div class="browse-page">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                <h2 style="margin:0;">📖 选择阅读</h2>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-sm" onclick="showPage('homePage')">🏠 首页</button>
+                    <button class="btn btn-sm" onclick="showPage('adminPage')">⚙️ 管理</button>
+                </div>
+            </div>
+            <div id="browseBookList"></div>
+            
+            <!-- 章节浏览区 -->
+            <div id="browseChapterArea" style="display:none;margin-top:15px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                    <button class="btn btn-sm" onclick="browseBackToBooks()">← 返回书目</button>
+                    <h3 id="browseBookTitle" style="font-size:18px;color:#2d5016;"></h3>
+                </div>
+                <div id="browseChapterList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- 编辑模态框 -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-box">
+            <h3 id="editModalTitle">编辑</h3>
+            <div id="editModalContent"></div>
+            <div class="modal-actions">
+                <button class="btn" style="background:#eee;" onclick="closeEditModal()">取消</button>
+                <button class="btn btn-primary" id="editModalSave" onclick="">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 点评输入弹窗 -->
+    <div class="annotation-modal-overlay" id="annotationModalOverlay">
+        <div class="annotation-modal">
+            <div class="modal-title">添加点评</div>
+            <div class="selected-text" id="annotationSelectedText"></div>
+            <textarea id="annotationInput" placeholder="请输入点评内容..."></textarea>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="annotationEditor.cancelModal()">取消</button>
+                <button class="btn-save" onclick="annotationEditor.saveAnnotation()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audioPlayer" preload="auto" style="display:none"></audio>
+
+    <script>
+        const API_BASE = '/api';
+
+        // 点评序号映射：1 -> ①, 2 -> ②, ...
+        const CIRCLED_NUMBERS = ['\u2460','\u2461','\u2462','\u2463','\u2464','\u2465','\u2466','\u2467','\u2468','\u2469','\u246A','\u246B','\u246C','\u246D','\u246E','\u246F','\u2470','\u2471','\u2472','\u2473'];
+
+        function getCircledNumber(num) {
+            if (num >= 1 && num <= 20) return CIRCLED_NUMBERS[num - 1];
+            return String(num);
+        }
+
+        const state = {
+            currentUser: null,  // 当前登录用户
+            books: [],
+            currentBook: null,
+            currentSections: [],
+            currentSectionIndex: 0,
+            isPlaying: false,
+            // 当前节的点评数据
+            currentAnnotations: [],
+            // 编辑点评模式
+            isAnnotationEditMode: false,
+            // 点评播放状态
+            isPlayingAnnotation: false,
+            annotationPlaybackPaused: false,
+            // 管理和浏览页面状态
+            adminCurrentBookId: null,
+            adminCurrentChapterId: null,
+            browseCurrentBookId: null,
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initDatabase();
+            checkLogin();
+            setupEventListeners();
+        });
+
+        async function initDatabase() {
+            try { await fetch(API_BASE + '/init', { method: 'POST' }); } catch(e) {}
+        }
+
+        function setupEventListeners() {
+            document.getElementById('uploadArea').addEventListener('click', function() {
+                document.getElementById('fileInput').click();
+            });
+            document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+            document.getElementById('backBtn').addEventListener('click', function() {
+                // 保存阅读进度（含当前滚动位置）
+                reader.saveProgress(reader._currentPosition);
+                showPage('catalogPage');
+                player.stop();
+                annotationEditor.exitEditMode();
+            });
+            var audio = document.getElementById('audioPlayer');
+            audio.addEventListener('timeupdate', player.onTimeUpdate);
+            audio.addEventListener('ended', player.onEnded);
+            audio.addEventListener('loadedmetadata', player.onLoadedMetadata);
+        }
+
+        async function handleFileUpload(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            var formData = new FormData();
+            formData.append('file', file);
+            try {
+                showLoading('正在解析书籍...');
+                var response = await fetch(API_BASE + '/upload', { method: 'POST', body: formData });
+                var data = await response.json();
+                if (response.ok) {
+                    alert('上传成功！共解析出 ' + data.sections_count + ' 个小节');
+                    loadBooks();
+                } else {
+                    alert('上传失败: ' + data.error);
+                }
+            } catch (e) {
+                alert('上传出错: ' + e.message);
+            } finally { hideLoading(); }
+        }
+
+        // ===== 目录页 =====
+        async function showBookCatalog(bookId) {
+            showLoading('加载目录...');
+            try {
+                // 获取书籍基本信息
+                var bookResp = await fetch(API_BASE + '/books/' + bookId);
+                var bookData = await bookResp.json();
+                var book = bookData.book;
+                var sections = bookData.sections || [];
+
+                document.getElementById('catalogBookTitle').textContent = book.title || '';
+
+                // 获取阅读状态和统计
+                var stResp = await fetch(API_BASE + '/books/' + bookId + '/reading-status');
+                var stData = await stResp.json();
+                var statusMap = {};
+                (stData.statuses || []).forEach(function(s) { statusMap[s.section_id] = s.status; });
+                var stats = stData.stats || {};
+
+                // 获取章节
+                var chResp = await fetch(API_BASE + '/books/' + bookId + '/chapters');
+                var chData = await chResp.json();
+                var chapters = chData.chapters || [];
+
+                var totalSec = stats.total_sections || sections.length || 0;
+                var readSec = stats.read || 0;
+                var totalCh = chapters.length;
+                var totalWords = sections.reduce(function(sum, s) { return sum + (s.word_count || 0); }, 0);
+                var totalAnno = sections.reduce(function(sum, s) { return sum + (s.annotations || []).length; }, 0);
+                var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
+
+                document.getElementById('catalogBookMeta').textContent = 
+                    (book.author || '') + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') +
+                    (book.version ? ' · ' + book.version : '') +
+                    '  |  ' + (totalCh > 0 ? totalCh + '章' : '') + totalSec + '节' +
+                    '  |  已读' + readSec + '节' +
+                    '  |  ' + wordsStr + '字' +
+                    '  |  点评' + totalAnno;
+
+                // 构建节ID -> 评注数映射
+                var annoMap = {};
+                sections.forEach(function(sec) {
+                    annoMap[sec.id] = (sec.annotations || []).length;
+                });
+
+                // 保存到state供后续检查使用
+                state.catalogSections = sections;
+                state.catalogStatusMap = statusMap;
+
+                var container = document.getElementById('catalogContent');
+                container.innerHTML = '';
+
+                if (chapters.length === 0) {
+                    // 无章节，直接列出所有节
+                    sections.forEach(function(sec) {
+                        var status = statusMap[sec.id] || 'unread';
+                        var div = document.createElement('div');
+                        div.className = 'catalog-section';
+                        div.innerHTML = '<span class="sec-status ' + status + '"></span>' +
+                            '<span class="sec-title">第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                            '<span class="sec-info">' +
+                            '<span>' + (sec.word_count || 0) + '字</span>' +
+                            '<span>点评' + (annoMap[sec.id] || 0) + '</span>' +
+                            '</span>';
+                        div.onclick = function() { openBookSection(bookId, sec.id, sec.section_number); };
+                        container.appendChild(div);
+                    });
+                } else {
+                    // 有章节，按章分组
+                    chapters.forEach(function(ch) {
+                        var chDiv = document.createElement('div');
+                        chDiv.className = 'catalog-chapter';
+
+                        // 该章的节
+                        var chSections = sections.filter(function(s) { return s.chapter_id === ch.id; });
+                        var chReadCount = chSections.filter(function(s) { return (statusMap[s.id] || '') === 'read'; }).length;
+                        var chWords = chSections.reduce(function(sum, s) { return sum + (s.word_count || 0); }, 0);
+                        var chAnno = chSections.reduce(function(sum, s) { return sum + (annoMap[s.id] || 0); }, 0);
+
+                        var header = document.createElement('div');
+                        header.className = 'catalog-chapter-header';
+                        header.innerHTML = '<span class="ch-label">第' + ch.chapter_number + '章 ' + (ch.title || '') + '</span>' +
+                            '<span class="ch-stats">' +
+                            '<span>' + chSections.length + '节</span>' +
+                            '<span>已读' + chReadCount + '节</span>' +
+                            '<span>' + chWords + '字</span>' +
+                            '<span>点评' + chAnno + '</span>' +
+                            '</span>';
+                        chDiv.appendChild(header);
+
+                        // 该章下的节（缩进）
+                        chSections.forEach(function(sec) {
+                            var status = statusMap[sec.id] || 'unread';
+                            var secDiv = document.createElement('div');
+                            secDiv.className = 'catalog-section';
+                            secDiv.innerHTML = '<span class="sec-status ' + status + '"></span>' +
+                                '<span class="sec-title">第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                '<span class="sec-info">' +
+                                '<span>' + (sec.word_count || 0) + '字</span>' +
+                                '<span>点评' + (annoMap[sec.id] || 0) + '</span>' +
+                                '</span>';
+                            secDiv.onclick = function() { openBookSection(bookId, sec.id, sec.section_number); };
+                            chDiv.appendChild(secDiv);
+                        });
+
+                        container.appendChild(chDiv);
+                    });
+                }
+
+                showPage('catalogPage');
+            } catch (e) {
+                alert('加载目录失败: ' + e.message);
+            } finally { hideLoading(); }
+        }
+
+        function openBookSection(bookId, sectionId, sectionNumber) {
+            // 免费用户只能读前3节
+            if (state.currentUser && state.currentUser.role !== 'admin' && sectionNumber > 3) {
+                var subs = state.userSubscriptions || [];
+                if (subs.indexOf(bookId) === -1) {
+                    if (confirm('免费用户只能阅读前3节。要阅读全文，请联系作者订阅。是否提交订阅申请？')) {
+                        fetch(API_BASE + '/books/' + bookId + '/subscribe', {
+                            method: 'POST', headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({user_id: state.currentUser.id})
+                        }).then(function(r) { return r.json(); }).then(function(d) { alert(d.message || '申请已提交'); });
+                    }
+                    return;
+                }
+            }
+            // 检查是否是第一节或上一节已读完
+            if (sectionNumber > 1) {
+                // 找到上一节的状态
+                var prevSection = state.catalogSections.find(function(s) { return s.section_number === sectionNumber - 1; });
+                if (prevSection && state.catalogStatusMap[prevSection.id] !== 'read') {
+                    alert('请先完成第' + (sectionNumber - 1) + '节的阅读，才能继续阅读下一节。');
+                    return;
+                }
+            }
+            // 设置阅读状态为"在读"
+            fetch(API_BASE + '/sections/' + sectionId + '/status', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({book_id: bookId, status: 'reading'})
+            });
+            // 打开阅读器并跳转到指定节
+            openBook(bookId);
+            setTimeout(function() {
+                for (var i = 0; i < state.currentSections.length; i++) {
+                    if (state.currentSections[i].id === sectionId) {
+                        state.currentSectionIndex = i;
+                        reader.renderCurrentSection();
+                        break;
+                    }
+                }
+            }, 500);
+        }
+
+        async function loadBooks() {
+            try {
+                var response = await fetch(API_BASE + '/books');
+                var data = await response.json();
+                state.books = data.books || [];
+                if (state.currentUser && state.currentUser.role !== 'admin') {
+                    fetch(API_BASE + '/user/subscriptions?user_id=' + state.currentUser.id).then(function(r) { return r.json(); }).then(function(d) {
+                        state.userSubscriptions = d.book_ids || [];
+                        renderBookList();
+                    });
+                    return;
+                }
+                state.userSubscriptions = [];
+                renderBookList();
+            } catch (e) { console.error('加载书籍失败:', e); }
+        }
+
+        function renderBookList() {
+            var container = document.getElementById('bookList');
+            if (state.books.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">📖</div><p>还没有书籍，去管理页上传吧</p></div>';
+                return;
+            }
+            container.innerHTML = state.books.map(function(book) {
+                var safeTitle = (book.title || '').replace(/[<>"'&]/g, function(c) {
+                    return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
+                });
+                var safeAuthor = (book.author || '').replace(/[<>"'&]/g, function(c) {
+                    return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
+                });
+                var rs = book.reading_stats || {};
+                var totalSec = rs.total_sections || book.total_sections || 0;
+                var readSec = rs.read || 0;
+                var totalCh = book.total_chapters || 0;
+                var totalWords = book.total_words || 0;
+                var totalAnno = book.total_annotations || 0;
+                var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
+                var accessLabel = '';
+                if (state.currentUser && state.currentUser.role !== 'admin') {
+                    accessLabel = '<span style="color:#FF9800;font-size:11px;">免费</span>';
+                }
+                return '<div class="book-card" onclick="showBookCatalog(' + book.id + ')">' +
+                    '<div class="cover">📚</div>' +
+                    '<div class="info">' +
+                    '<div class="title">' + safeTitle + '</div>' +
+                    '<div class="meta">' + safeAuthor + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + (book.version ? ' · ' + book.version : '') + '</div>' +
+                    '<div class="book-stats-row">' +
+                    '<span>' + (totalCh > 0 ? totalCh + '章' : '') + totalSec + '节</span>' +
+                    '<span>已读' + readSec + '节</span>' +
+                    '<span>' + wordsStr + '字</span>' +
+                    '<span>点评' + totalAnno + '</span>' +
+                    accessLabel +
+                    '</div>' +
+                    '</div></div>';
+            }).join('');
+        }
+
+        async function openBook(bookId) {
+            try {
+                showLoading('正在加载...');
+                var response = await fetch(API_BASE + '/books/' + bookId);
+                var data = await response.json();
+                if (!response.ok) { alert('加载失败: ' + data.error); return; }
+
+                state.currentBook = data.book;
+                state.currentSections = data.sections;
+                state.currentProgress = data.progress || null;
+                state.currentSectionIndex = 0;
+
+                if (data.progress && data.progress.current_section_id) {
+                    var index = state.currentSections.findIndex(function(s) { return s.id === data.progress.current_section_id; });
+                    if (index !== -1) state.currentSectionIndex = index;
+                }
+
+                showPage('readerPage');
+                document.getElementById('backBtn').style.display = 'block';
+                reader.renderCurrentSection();
+            } catch (e) {
+                alert('加载出错: ' + e.message);
+            } finally { hideLoading(); }
+        }
+
+        // ===== 阅读器 =====
+        var reader = {
+            _allChars: [],
+            _totalChars: 0,
+            _container: null,
+            _containerHeight: 0,
+
+            renderCurrentSection: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return;
+
+                document.getElementById('readerBookTitle').textContent = state.currentBook.title;
+                document.getElementById('readerProgress').textContent =
+                    '第 ' + (state.currentSectionIndex + 1) + ' / ' + state.currentSections.length + ' 节';
+
+                document.getElementById('prevSection').disabled = state.currentSectionIndex === 0;
+                document.getElementById('nextSection').disabled =
+                    state.currentSectionIndex >= state.currentSections.length - 1;
+
+                // 加载当前节的点评数据
+                state.currentAnnotations = (section.annotations || []).slice();
+                // 按 annotation_index 排序
+                state.currentAnnotations.sort(function(a, b) { return a.annotation_index - b.annotation_index; });
+
+                // 准备粉笔字
+                this._prepareChalkText(section.content);
+
+                // 重置赏析区域
+                analysisManager.init();
+                document.getElementById('annotationDisplay').classList.remove('active');
+
+                // 如果有点评，在文字中标记点评序号
+                this._renderAnnotationMarkers();
+
+                // 加载用户思考
+                if (typeof thoughtEditor !== 'undefined') thoughtEditor.loadThoughts();
+
+                // 使用浏览器 TTS
+                player.useBrowserTTS();
+
+                // 设置滚动监听
+                this.setupScrollListener();
+
+                // 恢复阅读断点位置
+                this.restorePosition();
+
+                this.saveProgress();
+            },
+
+            _prepareChalkText: function(content) {
+                var container = document.getElementById('chalkText');
+                container.innerHTML = '';
+                container.scrollTop = 0;
+                this._allChars = [];
+
+                // 标点符号集合
+                var puncts = '\uFF0C\u3002\uFF01\uFF1F\u3001\uFF1B\uFF1A\u201C\u201D\u2018\u2019\uFF08\uFF09\u3010\u3011\u300A\u300B\u2014\u2026\u00B7,.!?\;:\'\"()-[]{}';
+
+                // 按段落分割
+                var paragraphs = content.split('\n').filter(function(p) { return p.trim(); });
+
+                var charIndex = 0;
+
+                paragraphs.forEach(function(para, pIdx) {
+                    if (pIdx > 0) {
+                        var br = document.createElement('div');
+                        br.className = 'chalk-linebreak';
+                        br.style.height = '10px';
+                        container.appendChild(br);
+                    }
+
+                    var paraDiv = document.createElement('div');
+                    paraDiv.className = 'chalk-line';
+                    paraDiv.style.textIndent = '2em';
+
+                    for (var ci = 0; ci < para.length; ci++) {
+                        var char = para[ci];
+                        var span = document.createElement('span');
+                        span.className = 'chalk-char';
+                        if (puncts.indexOf(char) >= 0) span.classList.add('punct');
+                        span.textContent = char;
+                        span.dataset.index = charIndex;
+                        paraDiv.appendChild(span);
+                        reader._allChars.push(span);
+                        charIndex++;
+                    }
+
+                    container.appendChild(paraDiv);
+                });
+
+                this._totalChars = charIndex;
+
+                this._container = container;
+                this._containerHeight = container.clientHeight;
+
+                document.getElementById('totalTime').textContent = this._totalChars + ' 字';
+                document.getElementById('currentTime').textContent = '0 字';
+                document.getElementById('progressFill').style.width = '0%';
+            },
+
+            // 在文字中渲染点评序号标记（仅在触发后显示）
+            _renderAnnotationMarkers: function() {
+                // 先清除已有的标记
+                var existingMarkers = document.querySelectorAll('.annotation-superscript');
+                existingMarkers.forEach(function(m) { m.remove(); });
+
+                // 只为已触发的点评点显示序号
+                var annotations = state.currentAnnotations;
+                for (var i = 0; i < annotations.length; i++) {
+                    var ann = annotations[i];
+                    // 只有已触发的点评点才显示序号
+                    if (ann._triggered && ann.end_char >= 0 && ann.end_char < this._allChars.length) {
+                        var endIdx = ann.end_char;
+                        var endCharSpan = this._allChars[endIdx];
+                        var sup = document.createElement('span');
+                        sup.className = 'annotation-superscript';
+                        sup.textContent = getCircledNumber(ann.annotation_index);
+                        sup.dataset.annotationId = ann.id;
+                        sup.title = ann.comment;
+                        // 插入到 end_char 后面
+                        endCharSpan.parentNode.insertBefore(sup, endCharSpan.nextSibling);
+                    }
+                }
+            },
+
+            // 显示单个点评点序号（在触发后调用）
+            _showAnnotationMarker: function(annotation) {
+                if (annotation.end_char >= 0 && annotation.end_char < this._allChars.length) {
+                    var endCharSpan = this._allChars[annotation.end_char];
+                    var sup = document.createElement('span');
+                    sup.className = 'annotation-superscript';
+                    sup.textContent = getCircledNumber(annotation.annotation_index);
+                    sup.dataset.annotationId = annotation.id;
+                    sup.title = annotation.comment;
+                    // 插入到 end_char 后面
+                    endCharSpan.parentNode.insertBefore(sup, endCharSpan.nextSibling);
+                }
+            },
+
+            // 显示到第 N 个字符
+            revealCharsUpTo: function(index) {
+                var target = Math.min(index, this._totalChars);
+
+                for (var i = 0; i < target; i++) {
+                    if (!this._allChars[i].classList.contains('visible')) {
+                        this._allChars[i].classList.add('visible');
+                    }
+                }
+
+                // 滚动
+                if (target > 0 && target <= this._allChars.length) {
+                    var lastChar = this._allChars[target - 1];
+                    var charRect = lastChar.getBoundingClientRect();
+                    var containerRect = this._container.getBoundingClientRect();
+
+                    if (charRect.bottom > containerRect.bottom - 10) {
+                        var scrollAmount = charRect.bottom - containerRect.bottom + 50;
+                        this._container.scrollTop += scrollAmount;
+                    }
+                }
+
+                // 更新进度
+                var percent = this._totalChars ? (target / this._totalChars) * 100 : 0;
+                document.getElementById('progressFill').style.width = percent + '%';
+                document.getElementById('currentTime').textContent = target + ' 字';
+
+                // 检查是否到达某个点评点的 end_char 位置
+                this._checkAnnotationTrigger(target);
+            },
+
+            // 检查是否触发点评播放
+            _checkAnnotationTrigger: function(currentCharIndex) {
+                if (state.isPlayingAnnotation) return; // 正在播放点评中，不重复触发
+
+                var annotations = state.currentAnnotations;
+                for (var i = 0; i < annotations.length; i++) {
+                    var ann = annotations[i];
+                    if (!ann._triggered && currentCharIndex >= ann.end_char) {
+                        ann._triggered = true;
+                        // 立即设置标志，防止句子结束后继续朗读
+                        state.isPlayingAnnotation = true;
+                        // 使用闭包保存当前的 annotation 引用
+                        (function(triggeredAnn) {
+                            // 停顿1秒后再触发点评播放
+                            setTimeout(function() {
+                                player._triggerAnnotationPlayback(triggeredAnn);
+                            }, 1000);
+                        })(ann);
+                        break; // 一次只处理一个点评
+                    }
+                }
+            },
+
+            // 高亮点评原文
+            _highlightAnnotation: function(annotation) {
+                var startIdx = annotation.start_char;
+                var endIdx = annotation.end_char;
+                for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
+                    this._allChars[i].classList.add('annotated');
+                }
+            },
+
+            // 清除点评高亮
+            _clearAnnotationHighlight: function(annotation) {
+                if (!annotation) return;
+                var startIdx = annotation.start_char;
+                var endIdx = annotation.end_char;
+                for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
+                    this._allChars[i].classList.remove('annotated');
+                }
+            },
+
+            // 显示全部文字
+            revealAll: function() {
+                this._allChars.forEach(function(c) { c.classList.add('visible'); });
+                document.getElementById('progressFill').style.width = '100%';
+                document.getElementById('currentTime').textContent = this._totalChars + ' 字';
+
+                this._container.scrollTop = this._container.scrollHeight;
+            },
+
+            // 清除所有文字显示
+            hideAll: function() {
+                this._allChars.forEach(function(c) { c.classList.remove('visible'); });
+                // 清除点评高亮
+                this._allChars.forEach(function(c) { c.classList.remove('annotated'); });
+                // 清除点评序号标记
+                var existingMarkers = document.querySelectorAll('.annotation-superscript');
+                existingMarkers.forEach(function(m) { m.remove(); });
+                if (this._container) this._container.scrollTop = 0;
+                document.getElementById('progressFill').style.width = '0%';
+                document.getElementById('currentTime').textContent = '0 字';
+                // 重置点评触发状态
+                state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
+                // 隐藏点评显示区域
+                document.getElementById('annotationDisplay').classList.remove('active');
+                // 重置赏析区域
+                analysisManager.reset();
+            },
+
+            prevSection: function() {
+                if (state.currentSectionIndex > 0) {
+                    state.currentSectionIndex--;
+                    this.renderCurrentSection();
+                }
+            },
+
+            nextSection: function() {
+                if (state.currentSectionIndex < state.currentSections.length - 1) {
+                    state.currentSectionIndex++;
+                    this.renderCurrentSection();
+                }
+            },
+
+            saveProgress: function(position) {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return;
+                var pos = position !== undefined ? position : this._currentPosition || 0;
+                fetch(API_BASE + '/progress', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ book_id: state.currentBook.id, section_id: section.id, position: pos })
+                }).catch(function(e) { console.error('保存进度失败:', e); });
+            },
+
+            _currentPosition: 0,
+            _scrollListener: null,
+            _saveTimer: null,
+
+            setupScrollListener: function() {
+                var self = this;
+                var container = document.getElementById('chalkboard');
+                if (this._scrollListener) {
+                    container.removeEventListener('scroll', this._scrollListener);
+                }
+                if (this._saveTimer) {
+                    clearInterval(this._saveTimer);
+                }
+                this._scrollListener = function() {
+                    var scrollTop = container.scrollTop;
+                    var scrollHeight = container.scrollHeight;
+                    var clientHeight = container.clientHeight;
+                    // 计算当前已读字数
+                    var scrollPercent = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
+                    self._currentPosition = Math.floor(self._totalChars * scrollPercent);
+                    document.getElementById('currentTime').textContent = self._currentPosition + ' 字';
+                    document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
+                    // 已读字数等于总字数时，标记为已读
+                    if (self._currentPosition >= self._totalChars) {
+                        self.markSectionRead();
+                    }
+                };
+                container.addEventListener('scroll', this._scrollListener);
+                // 每3秒自动保存一次阅读断点
+                this._saveTimer = setInterval(function() {
+                    if (self._currentPosition > 0) {
+                        self.saveProgress(self._currentPosition);
+                    }
+                }, 3000);
+            },
+
+            markSectionRead: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return;
+                // 检查是否已标记为已读
+                if (section._markedRead) return;
+                section._markedRead = true;
+                // 调用API设置状态为已读
+                fetch(API_BASE + '/sections/' + section.id + '/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ book_id: state.currentBook.id, status: 'read' })
+                }).then(function() {
+                    console.log('已标记为已读: 第' + section.section_number + '节');
+                }).catch(function(e) { console.error('标记已读失败:', e); });
+            },
+
+            restorePosition: function() {
+                var self = this;
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section || !state.currentProgress) return;
+                // 只对保存断点的那一节恢复位置
+                if (state.currentProgress.current_section_id !== section.id) return;
+                var savedPosition = state.currentProgress.current_position || 0;
+                if (savedPosition <= 0) return;
+                setTimeout(function() {
+                    var container = document.getElementById('chalkboard');
+                    if (!container || self._totalChars <= 0) return;
+                    var scrollPercent = savedPosition / self._totalChars;
+                    scrollPercent = Math.min(scrollPercent, 1);
+                    var scrollTarget = scrollPercent * (container.scrollHeight - container.clientHeight);
+                    container.scrollTop = scrollTarget;
+                    self._currentPosition = savedPosition;
+                    document.getElementById('currentTime').textContent = savedPosition + ' 字';
+                    document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
+                }, 100);
+            }
+        };
+
+        // ===== 赏析区域管理器 =====
+        var analysisManager = {
+            tabs: [
+                { id: 'famous', label: '名言赏析', content: '' }
+            ],
+            currentTab: 'famous',
+            rotationTimer: null,
+            isRotating: false,
+
+            // 初始化
+            init: function() {
+                this.tabs = [{ id: 'famous', label: '名言赏析', content: '世界上最快而又最慢，最长而又最短，最平凡而又最珍贵，最易被忽视而又最令人后悔的就是时间。——高尔基《童年》' }];
+                this.currentTab = 'famous';
+                this.stopRotation();
+                this.renderTabs();
+                this.showTab('famous');
+            },
+
+            // 添加点评标签
+            addAnnotationTab: function(annotation) {
+                var tabId = 'annotation_' + annotation.id;
+                var tabLabel = '点评' + getCircledNumber(annotation.annotation_index);
+                
+                // 检查是否已存在
+                var exists = this.tabs.some(function(t) { return t.id === tabId; });
+                if (exists) return;
+
+                // 点评内容：原文在前（金色），点评在后（白色）
+                var contentHtml = '<div class="original-text">「' + annotation.original_text + '」</div>' +
+                                  '<div class="comment-text">' + annotation.comment + '</div>';
+
+                this.tabs.push({
+                    id: tabId,
+                    label: tabLabel,
+                    content: contentHtml,
+                    annotationId: annotation.id,
+                    isHtml: true
+                });
+
+                // 添加点评时暂停轮巡
+                this.stopRotation();
+                this.renderTabs();
+                this.showTab(tabId);
+            },
+
+            // 添加梗概小结标签
+            addSummaryTab: function(summary) {
+                var tabId = 'summary';
+                var exists = this.tabs.some(function(t) { return t.id === tabId; });
+                if (exists) return;
+
+                this.tabs.push({
+                    id: tabId,
+                    label: '小结',
+                    content: summary,
+                    isSummary: true
+                });
+
+                this.renderTabs();
+                this.showTab(tabId);
+                // 小结标签也参与轮巡，从当前标签开始轮巡
+                if (this.tabs.length > 1) {
+                    this.stopRotation();
+                    this.startRotationFrom(tabId);
+                }
+            },
+
+            // 渲染标签
+            renderTabs: function() {
+                var tabsContainer = document.getElementById('analysisTabs');
+                tabsContainer.innerHTML = '';
+
+                var self = this;
+                this.tabs.forEach(function(tab) {
+                    var tabEl = document.createElement('div');
+                    tabEl.className = 'tab' + (tab.id === self.currentTab ? ' active' : '') + (tab.isSummary ? ' summary-tab' : '');
+                    tabEl.textContent = tab.label;
+                    tabEl.onclick = function() {
+                        // 点击标签切换到该标签，并作为轮巡起点
+                        self.showTab(tab.id);
+                        // 如果有多个标签，重新开始轮巡（从当前点击的标签开始）
+                        if (self.tabs.length > 1) {
+                            self.stopRotation();
+                            self.startRotationFrom(tab.id);
+                        }
+                    };
+                    tabsContainer.appendChild(tabEl);
+                });
+            },
+
+            // 从指定标签开始轮巡
+            startRotationFrom: function(startTabId) {
+                if (this.rotationTimer) return;
+                this.isRotating = true;
+                this.currentTab = startTabId;
+
+                var self = this;
+                this.rotationTimer = setInterval(function() {
+                    var currentIndex = self.tabs.findIndex(function(t) { return t.id === self.currentTab; });
+                    var nextIndex = (currentIndex + 1) % self.tabs.length;
+                    self.showTab(self.tabs[nextIndex].id);
+                }, 10000); // 10秒切换
+            },
+
+            // 显示指定标签内容
+            showTab: function(tabId) {
+                this.currentTab = tabId;
+                var tab = this.tabs.find(function(t) { return t.id === tabId; });
+                
+                if (tab) {
+                    var contentEl = document.getElementById('analysisContent');
+                    if (tab.isHtml) {
+                        contentEl.innerHTML = tab.content;
+                    } else {
+                        contentEl.textContent = tab.content;
+                    }
+                }
+
+                this.renderTabs();
+            },
+
+            // 开始轮巡
+            startRotation: function() {
+                this.startRotationFrom(this.currentTab);
+            },
+
+            // 停止轮巡
+            stopRotation: function() {
+                if (this.rotationTimer) {
+                    clearInterval(this.rotationTimer);
+                    this.rotationTimer = null;
+                }
+                this.isRotating = false;
+            },
+
+            // 点评阅读完，继续原文时恢复轮巡
+            resumeRotation: function() {
+                if (this.tabs.length > 1 && !this.isRotating) {
+                    this.startRotationFrom(this.currentTab);
+                }
+            },
+
+            // 重置
+            reset: function() {
+                this.stopRotation();
+                this.init();
+            }
+        };
+
+        // ===== 播放器 =====
+        var player = {
+            audio: document.getElementById('audioPlayer'),
+            mode: 'tts',
+            _ttsSentenceIndex: 0,
+            _ttsCharTimer: null,
+            _ttsSentences: [],
+            _annotationResumeCallback: null, // 点评播放完后恢复朗读的回调
+
+            useBrowserTTS: function() {
+                this.mode = 'tts';
+                this._ttsSentenceIndex = 0;
+                document.getElementById('playBtn').textContent = '\u25B6';
+                state.isPlaying = false;
+            },
+
+            load: function(url) {
+                this.mode = 'audio';
+                this.stopTTS();
+                this.audio.src = url;
+                this.audio.load();
+                document.getElementById('playBtn').textContent = '\u25B6';
+                state.isPlaying = false;
+            },
+
+            toggle: function() {
+                if (state.isPlaying) { this.pause(); } else { this.play(); }
+            },
+
+            play: function() {
+                if (this.mode === 'tts') {
+                    this.playTTS();
+                } else {
+                    this.audio.play().catch(function(e) {
+                        player.useBrowserTTS();
+                        player.playTTS();
+                    });
+                }
+                state.isPlaying = true;
+                document.getElementById('playBtn').textContent = '\u23F8';
+            },
+
+            pause: function() {
+                if (this.mode === 'tts') { this.pauseTTS(); }
+                else { this.audio.pause(); }
+                state.isPlaying = false;
+                document.getElementById('playBtn').textContent = '\u25B6';
+            },
+
+            stop: function() {
+                this.stopTTS();
+                this.audio.pause();
+                this.audio.currentTime = 0;
+                state.isPlaying = false;
+                state.isPlayingAnnotation = false;
+                document.getElementById('playBtn').textContent = '\u25B6';
+            },
+
+            prev: function() {
+                if (this.mode === 'tts') {
+                    this._ttsSentenceIndex = Math.max(0, this._ttsSentenceIndex - 1);
+                    this._speakCurrentSentence();
+                } else {
+                    this.audio.currentTime = Math.max(0, this.audio.currentTime - 5);
+                }
+            },
+
+            next: function() {
+                if (this.mode === 'tts') {
+                    var total = this._ttsSentences.length;
+                    this._ttsSentenceIndex = Math.min(total - 1, this._ttsSentenceIndex + 1);
+                    this._speakCurrentSentence();
+                } else {
+                    this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + 5);
+                }
+            },
+
+            // ===== 触发点评播放 =====
+            _triggerAnnotationPlayback: function(annotation) {
+                var self = this;
+                state.isPlayingAnnotation = true;
+
+                // a. 暂停原文朗读
+                window.speechSynthesis.cancel();
+
+                // b. 标记原文：波浪下划线 + 金色加粗
+                reader._highlightAnnotation(annotation);
+
+                // c. 显示序号（在停顿1秒后显示）
+                reader._showAnnotationMarker(annotation);
+
+                // d. 赏析区域显示点评
+                this._showAnnotationInAnalysis(annotation);
+
+                // e. 语音播报点评（语速 0.8x）
+                this._speakAnnotation(annotation, function() {
+                    console.log('=== 点评播报完成回调开始 ===');
+                    
+                    // 判断是否是最后一个评论点
+                    var isLastAnnotation = true;
+                    var annotations = state.currentAnnotations;
+                    for (var i = 0; i < annotations.length; i++) {
+                        console.log('annotation[' + i + ']._triggered:', annotations[i]._triggered);
+                        if (!annotations[i]._triggered) {
+                            isLastAnnotation = false;
+                            break;
+                        }
+                    }
+
+                    console.log('isLastAnnotation:', isLastAnnotation);
+
+                    // 如果是最后一个评论点，直接结束，不说"回到原文"
+                    if (isLastAnnotation) {
+                        console.log('>>> 最后一个评论点，直接结束 <<<');
+                        state.isPlayingAnnotation = false;
+                        state.isPlaying = false;
+                        document.getElementById('playBtn').textContent = '\u25B6';
+                        reader.revealAll();
+                        // 调用 onTTSEnd 显示梗概小结
+                        self.onTTSEnd();
+                        return;
+                    }
+                    
+                    console.log('>>> 继续说回到原文 <<<');
+
+                    // f. 点评播完后，语音说"回到原文"，停顿1秒
+                    var returnUtterance = new SpeechSynthesisUtterance('回到原文');
+                    returnUtterance.lang = 'zh-CN';
+                    returnUtterance.rate = 0.9;
+                    returnUtterance.pitch = 1.1;
+
+                    returnUtterance.onend = function() {
+                        // 停顿1秒后继续原文朗读
+                        setTimeout(function() {
+                            // 点评高亮保持显示，不清除
+                            state.isPlayingAnnotation = false;
+
+                            // 隐藏点评显示区域
+                            document.getElementById('annotationDisplay').classList.remove('active');
+
+                            // 恢复标签轮巡
+                            analysisManager.resumeRotation();
+
+                            // 继续原文朗读 - 从点评点之后的位置继续
+                            if (state.isPlaying) {
+                                self._resumeFromAnnotation(annotation);
+                            }
+                        }, 1000);
+                    };
+
+                    returnUtterance.onerror = function() {
+                        setTimeout(function() {
+                            // 点评高亮保持显示，不清除
+                            state.isPlayingAnnotation = false;
+                            document.getElementById('annotationDisplay').classList.remove('active');
+
+                            // 恢复标签轮巡
+                            analysisManager.resumeRotation();
+
+                            if (state.isPlaying) {
+                                self._resumeFromAnnotation(annotation);
+                            }
+                        }, 1000);
+                    };
+
+                    window.speechSynthesis.speak(returnUtterance);
+                });
+            },
+
+            // 从点评点之后的位置继续朗读
+            _resumeFromAnnotation: function(annotation) {
+                var self = this;
+                var content = state.currentSections[state.currentSectionIndex].content;
+                var resumeCharIndex = annotation.end_char + 1;
+
+                // 找到点评点结束位置所在的句子索引
+                var charCount = 0;
+                var currentSentenceIndex = 0;
+                var sentenceStartChar = 0;
+
+                for (var i = 0; i < this._ttsSentences.length; i++) {
+                    if (charCount + this._ttsSentences[i].length > resumeCharIndex) {
+                        currentSentenceIndex = i;
+                        sentenceStartChar = charCount;
+                        break;
+                    }
+                    charCount += this._ttsSentences[i].length;
+                    currentSentenceIndex = i + 1;
+                    sentenceStartChar = charCount;
+                }
+
+                // 计算点评点在当前句子中的偏移
+                var currentSentence = this._ttsSentences[currentSentenceIndex] || '';
+                var offsetInSentence = resumeCharIndex - sentenceStartChar;
+
+                // 确保点评点之后的文字都已显示
+                reader.revealCharsUpTo(resumeCharIndex);
+
+                // 如果点评点在句子中间，先朗读该句子的剩余部分
+                if (offsetInSentence > 0 && offsetInSentence < currentSentence.length) {
+                    var remainingText = currentSentence.substring(offsetInSentence);
+
+                    var utterance = new SpeechSynthesisUtterance(remainingText);
+                    utterance.lang = 'zh-CN';
+                    utterance.rate = 0.9;
+                    utterance.pitch = 1.1;
+
+                    utterance.onend = function() {
+                        // 剩余部分读完后，继续下一句
+                        self._ttsSentenceIndex = currentSentenceIndex + 1;
+                        self._speakCurrentSentence();
+                    };
+
+                    utterance.onerror = function() {
+                        self._ttsSentenceIndex = currentSentenceIndex + 1;
+                        self._speakCurrentSentence();
+                    };
+
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    // 点评点在句子末尾或刚好在边界，直接从下一句开始
+                    this._ttsSentenceIndex = currentSentenceIndex + 1;
+                    this._speakCurrentSentence();
+                }
+            },
+
+            // 在赏析区域显示点评内容
+            _showAnnotationInAnalysis: function(annotation) {
+                // 使用赏析管理器添加点评标签
+                analysisManager.addAnnotationTab(annotation);
+            },
+
+            // 语音播报点评内容
+            _speakAnnotation: function(annotation, onDone) {
+                var utterance = new SpeechSynthesisUtterance(annotation.comment);
+                utterance.lang = 'zh-CN';
+                utterance.rate = 0.8; // 更慢的语速
+                utterance.pitch = 1.1;
+
+                utterance.onend = function() {
+                    if (onDone) onDone();
+                };
+
+                utterance.onerror = function() {
+                    if (onDone) onDone();
+                };
+
+                window.speechSynthesis.speak(utterance);
+            },
+
+            // ===== Web Speech API TTS + 逐字显示 =====
+            playTTS: function() {
+                if (!('speechSynthesis' in window)) {
+                    alert('您的浏览器不支持语音朗读功能');
+                    return;
+                }
+
+                window.speechSynthesis.cancel();
+                clearTimeout(this._ttsCharTimer);
+
+                var content = state.currentSections[state.currentSectionIndex].content;
+                this._ttsSentences = content.split(/([。！？\n]+)/).filter(function(s) { return s.trim(); });
+                this._ttsSentences = this._ttsSentences.reduce(function(acc, cur, i) {
+                    if (i % 2 === 0) acc.push(cur);
+                    else if (acc.length > 0) acc[acc.length - 1] += cur;
+                    return acc;
+                }, []);
+
+                // 从断点位置找到对应的句子索引
+                var savedPosition = reader._currentPosition || 0;
+                var charCount = 0;
+                this._ttsSentenceIndex = 0;
+                for (var i = 0; i < this._ttsSentences.length; i++) {
+                    charCount += this._ttsSentences[i].length;
+                    if (charCount > savedPosition) {
+                        this._ttsSentenceIndex = i;
+                        break;
+                    }
+                    if (i === this._ttsSentences.length - 1) {
+                        this._ttsSentenceIndex = i;
+                    }
+                }
+
+                // 如果已有文字显示（断点恢复），不要清除
+                if (savedPosition <= 0) {
+                    reader.hideAll();
+                }
+                this._speakCurrentSentence();
+            },
+
+            _speakCurrentSentence: function() {
+                if (this._ttsSentenceIndex >= this._ttsSentences.length) {
+                    this.onTTSEnd();
+                    return;
+                }
+
+                var sentence = this._ttsSentences[this._ttsSentenceIndex];
+
+                var startChar = 0;
+                for (var i = 0; i < this._ttsSentenceIndex; i++) {
+                    startChar += this._ttsSentences[i].length;
+                }
+
+                var utterance = new SpeechSynthesisUtterance(sentence);
+                utterance.lang = 'zh-CN';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.1;
+
+                var chars = sentence.split('');
+                var totalChars = chars.length;
+                var charIdx = 0;
+                var startTime = null;
+                var animationId = null;
+                var self = this;
+
+                utterance.onstart = function() {
+                    startTime = Date.now();
+                    var animate = function() {
+                        if (!state.isPlaying || charIdx >= totalChars) return;
+
+                        var elapsed = Date.now() - startTime;
+                        var expectedChars = Math.floor(elapsed / 220);
+
+                        if (expectedChars > charIdx) {
+                            charIdx = expectedChars;
+                            reader.revealCharsUpTo(startChar + Math.min(charIdx, totalChars));
+                        }
+
+                        animationId = requestAnimationFrame(animate);
+                    };
+                    animate();
+                };
+
+                utterance.onend = function() {
+                    if (animationId) cancelAnimationFrame(animationId);
+
+                    // 如果是因为触发点评而中断的，不继续下一句
+                    if (state.isPlayingAnnotation) return;
+
+                    self._ttsSentenceIndex++;
+                    if (self._ttsSentenceIndex < self._ttsSentences.length && state.isPlaying) {
+                        reader.revealCharsUpTo(startChar + totalChars);
+                        setTimeout(function() { self._speakCurrentSentence(); }, 300);
+                    } else {
+                        reader.revealAll();
+                        self.onTTSEnd();
+                    }
+                };
+
+                utterance.onerror = function(e) {
+                    if (animationId) cancelAnimationFrame(animationId);
+
+                    if (state.isPlayingAnnotation) return;
+
+                    reader.revealCharsUpTo(startChar + totalChars);
+                    self._ttsSentenceIndex++;
+                    if (state.isPlaying) {
+                        setTimeout(function() { self._speakCurrentSentence(); }, 300);
+                    }
+                };
+
+                window.speechSynthesis.speak(utterance);
+            },
+
+            pauseTTS: function() {
+                window.speechSynthesis.pause();
+                clearTimeout(this._ttsCharTimer);
+            },
+
+            stopTTS: function() {
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                clearTimeout(this._ttsCharTimer);
+            },
+
+            onTTSEnd: function() {
+                var self = this;
+                state.isPlaying = false;
+                document.getElementById('playBtn').textContent = '\u25B6';
+
+                // 将当前节标记为已读
+                var section = state.currentSections[state.currentSectionIndex];
+                if (section && state.currentBook) {
+                    fetch(API_BASE + '/sections/' + section.id + '/status', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({book_id: state.currentBook.id, status: 'read'})
+                    }).catch(function() {});
+                }
+
+                // 播放"回顾一下，这部分主要讲了什么内容？"
+                var thinkUtterance = new SpeechSynthesisUtterance('回顾一下，这部分主要讲了什么内容？');
+                thinkUtterance.lang = 'zh-CN';
+                thinkUtterance.rate = 0.9;
+                thinkUtterance.pitch = 1.1;
+
+                thinkUtterance.onend = function() {
+                    // 等待3秒后生成并显示梗概小结
+                    setTimeout(function() {
+                        self._generateAndShowSummary();
+                    }, 3000);
+                };
+
+                window.speechSynthesis.speak(thinkUtterance);
+            },
+
+            // 生成并显示梗概小结（取自文章附属的小结内容）
+            _generateAndShowSummary: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                var summary = (section && section.summary) ? section.summary : '';
+
+                if (!summary) {
+                    // 没有附属小结，直接跳过
+                    if (state.currentSectionIndex < state.currentSections.length - 1) {
+                        setTimeout(function() { reader.nextSection(); }, 2000);
+                    }
+                    return;
+                }
+
+                // 添加梗概小结标签
+                analysisManager.addSummaryTab(summary);
+
+                // 语音播报小结
+                var summaryUtterance = new SpeechSynthesisUtterance(summary);
+                summaryUtterance.lang = 'zh-CN';
+                summaryUtterance.rate = 0.85;
+                summaryUtterance.pitch = 1.1;
+
+                summaryUtterance.onend = function() {
+                    // 小结播报完后，如果还有下一节，等待2秒后切换
+                    if (state.currentSectionIndex < state.currentSections.length - 1) {
+                        setTimeout(function() { reader.nextSection(); }, 2000);
+                    }
+                };
+
+                window.speechSynthesis.speak(summaryUtterance);
+            },
+
+            onTimeUpdate: function() {
+                if (this.mode !== 'audio') return;
+                var current = this.audio.currentTime;
+                var duration = this.audio.duration || 0;
+                var percent = duration ? (current / duration) * 100 : 0;
+                document.getElementById('progressFill').style.width = percent + '%';
+                document.getElementById('currentTime').textContent = formatTime(current);
+
+                var total = reader._totalChars || 1;
+                var charIdx = Math.floor((current / duration) * total);
+                reader.revealCharsUpTo(charIdx);
+            },
+
+            onEnded: function() {
+                if (this.mode !== 'audio') return;
+                state.isPlaying = false;
+                document.getElementById('playBtn').textContent = '\u25B6';
+                reader.revealAll();
+                if (state.currentSectionIndex < state.currentSections.length - 1) {
+                    setTimeout(function() { reader.nextSection(); }, 1000);
+                }
+            },
+
+            onLoadedMetadata: function() {
+                if (this.mode !== 'audio') return;
+                document.getElementById('totalTime').textContent = formatTime(this.audio.duration);
+            }
+        };
+
+        // ===== 点评编辑器 =====
+        var annotationEditor = {
+            _selectStartIndex: -1,
+            _selectEndIndex: -1,
+            _isSelecting: false,
+
+            toggleEditMode: function() {
+                if (state.isAnnotationEditMode) {
+                    this.exitEditMode();
+                } else {
+                    this.enterEditMode();
+                }
+            },
+
+            enterEditMode: function() {
+                // 如果正在播放，先暂停
+                if (state.isPlaying) {
+                    player.pause();
+                }
+
+                state.isAnnotationEditMode = true;
+                var btn = document.getElementById('editAnnotationBtn');
+                btn.classList.add('active');
+                btn.textContent = '退出编辑';
+
+                // 让所有已显示的文字可选
+                var allChars = reader._allChars;
+                for (var i = 0; i < allChars.length; i++) {
+                    allChars[i].classList.add('selectable');
+                    allChars[i].addEventListener('click', this._onCharClick);
+                }
+            },
+
+            exitEditMode: function() {
+                state.isAnnotationEditMode = false;
+                var btn = document.getElementById('editAnnotationBtn');
+                btn.classList.remove('active');
+                btn.textContent = '编辑点评';
+
+                // 移除可选状态和事件
+                var allChars = reader._allChars;
+                for (var i = 0; i < allChars.length; i++) {
+                    allChars[i].classList.remove('selectable');
+                    allChars[i].classList.remove('selected');
+                    allChars[i].removeEventListener('click', this._onCharClick);
+                }
+
+                this._selectStartIndex = -1;
+                this._selectEndIndex = -1;
+                this._isSelecting = false;
+            },
+
+            _onCharClick: function(e) {
+                var charSpan = e.target;
+                if (!charSpan.classList.contains('chalk-char')) return;
+
+                var index = parseInt(charSpan.dataset.index, 10);
+                if (isNaN(index)) return;
+
+                if (!annotationEditor._isSelecting) {
+                    // 第一次点击：选择起始字
+                    annotationEditor._clearSelection();
+                    annotationEditor._selectStartIndex = index;
+                    annotationEditor._selectEndIndex = index;
+                    annotationEditor._isSelecting = true;
+                    charSpan.classList.add('selected');
+                } else {
+                    // 第二次点击：选择结束字
+                    annotationEditor._selectEndIndex = index;
+                    annotationEditor._isSelecting = false;
+
+                    // 确保 start <= end
+                    var start = Math.min(annotationEditor._selectStartIndex, annotationEditor._selectEndIndex);
+                    var end = Math.max(annotationEditor._selectStartIndex, annotationEditor._selectEndIndex);
+
+                    // 高亮选中区域
+                    annotationEditor._highlightSelection(start, end);
+
+                    // 弹出输入框
+                    annotationEditor._showModal(start, end);
+                }
+            },
+
+            _clearSelection: function() {
+                var allChars = reader._allChars;
+                for (var i = 0; i < allChars.length; i++) {
+                    allChars[i].classList.remove('selected');
+                }
+            },
+
+            _highlightSelection: function(start, end) {
+                this._clearSelection();
+                for (var i = start; i <= end && i < reader._allChars.length; i++) {
+                    reader._allChars[i].classList.add('selected');
+                }
+            },
+
+            _showModal: function(start, end) {
+                // 获取选中的原文
+                var originalText = '';
+                for (var i = start; i <= end && i < reader._allChars.length; i++) {
+                    originalText += reader._allChars[i].textContent;
+                }
+
+                document.getElementById('annotationSelectedText').textContent = originalText;
+                document.getElementById('annotationInput').value = '';
+                document.getElementById('annotationModalOverlay').classList.add('active');
+
+                // 存储选中的范围
+                this._pendingStart = start;
+                this._pendingEnd = end;
+                this._pendingOriginalText = originalText;
+
+                // 聚焦输入框
+                setTimeout(function() {
+                    document.getElementById('annotationInput').focus();
+                }, 100);
+            },
+
+            cancelModal: function() {
+                document.getElementById('annotationModalOverlay').classList.remove('active');
+                this._clearSelection();
+                this._selectStartIndex = -1;
+                this._selectEndIndex = -1;
+                this._isSelecting = false;
+            },
+
+            saveAnnotation: function() {
+                var comment = document.getElementById('annotationInput').value.trim();
+                if (!comment) {
+                    alert('请输入点评内容');
+                    return;
+                }
+
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return;
+
+                var self = this;
+                var start = this._pendingStart;
+                var end = this._pendingEnd;
+                var originalText = this._pendingOriginalText;
+
+                // 计算点评序号
+                var nextIndex = state.currentAnnotations.length + 1;
+
+                fetch(API_BASE + '/sections/' + section.id + '/annotations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        start_char: start,
+                        end_char: end,
+                        original_text: originalText,
+                        comment: comment
+                    })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.error) {
+                        alert('保存点评失败: ' + data.error);
+                        return;
+                    }
+
+                    // 使用后端返回的 annotation_index，如果没有则用本地计算的
+                    var newAnnotation = {
+                        id: data.id || data.annotation_id || Date.now(),
+                        annotation_index: data.annotation_index || nextIndex,
+                        start_char: start,
+                        end_char: end,
+                        original_text: originalText,
+                        comment: comment
+                    };
+
+                    state.currentAnnotations.push(newAnnotation);
+                    state.currentAnnotations.sort(function(a, b) { return a.annotation_index - b.annotation_index; });
+
+                    // 重新渲染点评标记
+                    reader._renderAnnotationMarkers();
+
+                    // 关闭弹窗
+                    self.cancelModal();
+
+                    alert('点评保存成功！');
+                })
+                .catch(function(e) {
+                    alert('保存点评出错: ' + e.message);
+                });
+            }
+        };
+
+        var thoughtEditor = {
+            isEditMode: false,
+            _startChar: -1,
+            _endChar: -1,
+
+            toggleEditMode: function() {
+                if (this.isEditMode) {
+                    this.exitEditMode();
+                } else {
+                    this.enterEditMode();
+                }
+            },
+
+            enterEditMode: function() {
+                this.isEditMode = true;
+                player.pause();
+                var btn = document.getElementById('editAnnotationBtn');
+                if (btn) btn.textContent = '✓ 完成思考';
+                // 让已显示的文字可点击
+                var chars = document.querySelectorAll('.chalk-char.visible');
+                chars.forEach(function(c) {
+                    c.classList.add('selectable');
+                    c.addEventListener('click', thoughtEditor._onCharClick);
+                });
+            },
+
+            exitEditMode: function() {
+                this.isEditMode = false;
+                this._startChar = -1;
+                this._endChar = -1;
+                var btn = document.getElementById('editAnnotationBtn');
+                if (btn) btn.textContent = '💡 添加思考';
+                var chars = document.querySelectorAll('.chalk-char.selectable');
+                chars.forEach(function(c) {
+                    c.classList.remove('selectable', 'selected');
+                    c.removeEventListener('click', thoughtEditor._onCharClick);
+                });
+            },
+
+            _onCharClick: function(e) {
+                var charSpan = e.currentTarget;
+                var charIndex = parseInt(charSpan.dataset.index);
+                if (thoughtEditor._startChar === -1) {
+                    thoughtEditor._startChar = charIndex;
+                    thoughtEditor._highlightSelection(charIndex, charIndex);
+                } else {
+                    thoughtEditor._endChar = charIndex;
+                    var start = Math.min(thoughtEditor._startChar, thoughtEditor._endChar);
+                    var end = Math.max(thoughtEditor._startChar, thoughtEditor._endChar);
+                    thoughtEditor._highlightSelection(start, end);
+                    thoughtEditor._showModal(start, end);
+                }
+            },
+
+            _highlightSelection: function(start, end) {
+                // 清除之前的高亮
+                document.querySelectorAll('.chalk-char.thought-selected').forEach(function(c) {
+                    c.classList.remove('thought-selected');
+                });
+                reader._allChars.forEach(function(c, i) {
+                    if (i >= start && i <= end) c.classList.add('thought-selected');
+                });
+            },
+
+            _showModal: function(start, end) {
+                var originalText = '';
+                for (var i = start; i <= end && i < reader._allChars.length; i++) {
+                    originalText += reader._allChars[i].textContent;
+                }
+                var modal = document.getElementById('thoughtModalOverlay');
+                document.getElementById('thoughtOriginalText').textContent = originalText;
+                document.getElementById('thoughtContent').value = '';
+                document.getElementById('thoughtStartChar').value = start;
+                document.getElementById('thoughtEndChar').value = end;
+                modal.style.display = 'flex';
+            },
+
+            saveThought: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section || !state.currentUser) { alert('请先登录'); return; }
+                var content = document.getElementById('thoughtContent').value.trim();
+                if (!content) { alert('请输入思考内容'); return; }
+                var startChar = parseInt(document.getElementById('thoughtStartChar').value);
+                var endChar = parseInt(document.getElementById('thoughtEndChar').value);
+                var originalText = document.getElementById('thoughtOriginalText').textContent;
+                fetch(API_BASE + '/sections/' + section.id + '/thoughts', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: state.currentUser.id,
+                        start_char: startChar, end_char: endChar,
+                        original_text: originalText, content: content
+                    })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.thought_id) {
+                        alert('思考已保存');
+                        thoughtEditor.exitEditMode();
+                        thoughtEditor._closeModal();
+                        thoughtEditor.loadThoughts();
+                    } else {
+                        alert(data.error || '保存失败');
+                    }
+                });
+            },
+
+            _closeModal: function() {
+                document.getElementById('thoughtModalOverlay').style.display = 'none';
+                this._startChar = -1;
+                this._endChar = -1;
+                document.querySelectorAll('.chalk-char.thought-selected').forEach(function(c) {
+                    c.classList.remove('thought-selected');
+                });
+            },
+
+            loadThoughts: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section || !state.currentUser) return;
+                var url = API_BASE + '/sections/' + section.id + '/thoughts?user_id=' + state.currentUser.id;
+                fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+                    // 清除旧的气泡
+                    document.querySelectorAll('.thought-bubble').forEach(function(b) { b.remove(); });
+                    (data.thoughts || []).forEach(function(t) {
+                        thoughtEditor._addBubble(t);
+                    });
+                });
+            },
+
+            _addBubble: function(thought) {
+                var endIdx = thought.end_char;
+                if (endIdx < 0 || endIdx >= reader._allChars.length) return;
+                var endCharSpan = reader._allChars[endIdx];
+                var bubble = document.createElement('span');
+                bubble.className = 'thought-bubble';
+                bubble.textContent = '💭';
+                bubble.title = thought.content;
+                bubble.dataset.thoughtId = thought.id;
+                bubble.onclick = function(e) {
+                    e.stopPropagation();
+                    thoughtEditor._showDetail(thought);
+                };
+                endCharSpan.parentNode.insertBefore(bubble, endCharSpan.nextSibling);
+            },
+
+            _showDetail: function(thought) {
+                var content = thought.content || '';
+                var original = thought.original_text || '';
+                alert('【我的思考】\n原文：' + original + '\n\n思考：' + content);
+            }
+        };
+
+        // ===== 管理员功能 =====
+        var admin = {
+            loadBooks: function() {
+                var list = document.getElementById('adminBookList');
+                if (!list) return;
+                list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">加载中...</div>';
+                
+                fetch(API_BASE + '/books')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        list.innerHTML = '';
+                        if (!data.books || data.books.length === 0) {
+                            list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">暂无书籍</div>';
+                            return;
+                        }
+                        data.books.forEach(function(book) {
+                            var div = document.createElement('div');
+                            div.className = 'book-admin-item';
+                            div.innerHTML = '<div class="book-info">' +
+                                '<div class="title">' + (book.title || '无标题') + '</div>' +
+                                '<div class="meta">' + (book.author || '未知作者') + ' | ' + (book.total_sections || 0) + '节</div>' +
+                                '</div>' +
+                                '<div class="book-actions">' +
+                                '<button class="btn btn-sm" onclick="event.stopPropagation();admin.editBook(' + book.id + ')">编辑</button>' +
+                                '<button class="btn btn-sm" style="color:#dc3545;" onclick="event.stopPropagation();admin.deleteBookConfirm(' + book.id + ')">删除</button>' +
+                                '</div>';
+                            div.onclick = function() { admin.editBook(book.id); };
+                            list.appendChild(div);
+                        });
+                    })
+                    .catch(function(e) {
+                        list.innerHTML = '<div style="color:red;padding:20px;text-align:center;">加载失败: ' + e.message + '</div>';
+                    });
+            },
+            
+            editBook: function(bookId) {
+                state.adminCurrentBookId = bookId;
+                fetch(API_BASE + '/books/' + bookId).then(function(r) { return r.json(); }).then(function(data) {
+                    var book = data.book;
+                    document.getElementById('editBookTitle').value = book.title || '';
+                    document.getElementById('editBookAuthor').value = book.author || '';
+                    document.getElementById('editBookNationality').value = book.author_nationality || '';
+                    document.getElementById('editBookVersion').value = book.version || '';
+                    document.getElementById('adminDetailTitle').textContent = '编辑：' + book.title;
+                    document.getElementById('adminBookDetail').style.display = 'block';
+                    admin.loadChapters(bookId);
+                });
+            },
+            
+            loadChapters: function(bookId) {
+                fetch(API_BASE + '/books/' + bookId + '/chapters').then(function(r) { return r.json(); }).then(function(data) {
+                    var list = document.getElementById('adminChapterList');
+                    list.innerHTML = '';
+                    if (data.chapters.length === 0) {
+                        list.innerHTML = '<div style="color:#999;font-size:13px;padding:10px;">暂无章节，所有节为独立节</div>';
+                        admin.loadSections(bookId, null);
+                    } else {
+                        data.chapters.forEach(function(ch) {
+                            var div = document.createElement('div');
+                            div.className = 'chapter-item';
+                            div.innerHTML = '<div class="ch-info">' +
+                                '<div class="ch-title">第' + ch.chapter_number + '章 ' + (ch.title || '') + '</div>' +
+                                '<div class="ch-meta">' + (ch.section_count || 0) + '节 | ' + (ch.total_words || 0) + '字</div>' +
+                                '</div>' +
+                                '<div style="display:flex;gap:4px;">' +
+                                '<button class="btn btn-sm" onclick="admin.editChapter(' + ch.id + ')">编辑</button>' +
+                                '<button class="btn btn-sm" style="color:#dc3545;" onclick="admin.deleteChapterConfirm(' + ch.id + ',' + bookId + ')">删除</button>' +
+                                '</div>';
+                            list.appendChild(div);
+                        });
+                        document.getElementById('adminSectionCard').style.display = 'none';
+                    }
+                });
+            },
+            
+            loadSections: function(bookId, chapterId) {
+                state.adminCurrentChapterId = chapterId;
+                var url = chapterId ? API_BASE + '/chapters/' + chapterId + '/sections' : API_BASE + '/books/' + bookId;
+                // 对于没有章节的情况，获取书籍的所有节
+                if (!chapterId) {
+                    fetch(API_BASE + '/books/' + bookId).then(function(r) { return r.json(); }).then(function(data) {
+                        admin.renderSections(data.sections || [], chapterId);
+                    });
+                } else {
+                    fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+                        admin.renderSections(data.sections || [], chapterId);
+                    });
+                }
+            },
+            
+            renderSections: function(sections, chapterId) {
+                var card = document.getElementById('adminSectionCard');
+                var list = document.getElementById('adminSectionList');
+                var title = document.getElementById('adminSectionTitle');
+                card.style.display = 'block';
+                title.textContent = chapterId ? '小节管理' : '独立小节管理';
+                list.innerHTML = '';
+                sections.forEach(function(sec) {
+                    var div = document.createElement('div');
+                    div.className = 'section-item';
+                    div.innerHTML = '<div class="sec-info">' +
+                        '<div class="sec-title">第' + sec.section_number + '节 ' + (sec.title || '') + '</div>' +
+                        '<div class="sec-meta">' + (sec.word_count || len(sec.content || '')) + '字</div>' +
+                        '</div>' +
+                        '<div style="display:flex;gap:4px;">' +
+                        '<button class="btn btn-sm" onclick="admin.editSection(' + sec.id + ')">编辑</button>' +
+                        '<button class="btn btn-sm" style="color:#dc3545;" onclick="admin.deleteSectionConfirm(' + sec.id + ')">删除</button>' +
+                        '</div>';
+                    list.appendChild(div);
+                });
+            },
+            
+            addChapter: function() {
+                var bookId = state.adminCurrentBookId;
+                if (!bookId) return;
+                // 获取当前最大章号
+                fetch(API_BASE + '/books/' + bookId + '/chapters').then(function(r) { return r.json(); }).then(function(data) {
+                    var nextNum = data.chapters.length + 1;
+                    fetch(API_BASE + '/books/' + bookId + '/chapters', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({chapter_number: nextNum, title: '第' + nextNum + '章'})
+                    }).then(function() { admin.loadChapters(bookId); });
+                });
+            },
+            
+            editChapter: function(chapterId) {
+                fetch(API_BASE + '/chapters/' + chapterId).then(function(r) { return r.json(); }).catch(function() {});
+                // 简单实现：用模态框编辑
+                var ch = {id: chapterId}; // 需要从列表获取
+                document.getElementById('editModalTitle').textContent = '编辑章节';
+                document.getElementById('editModalContent').innerHTML = '<div class="form-group"><label>章节标题</label><input type="text" id="modalChapterTitle"></div>';
+                document.getElementById('editModalSave').onclick = function() {
+                    var title = document.getElementById('modalChapterTitle').value;
+                    fetch(API_BASE + '/chapters/' + chapterId, {
+                        method: 'PUT', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({title: title})
+                    }).then(function() { closeEditModal(); admin.loadChapters(state.adminCurrentBookId); });
+                };
+                document.getElementById('editModal').classList.add('active');
+            },
+            
+            editSection: function(sectionId) {
+                fetch(API_BASE + '/books/' + state.adminCurrentBookId).then(function(r) { return r.json(); }).then(function(data) {
+                    var section = null;
+                    (data.sections || []).forEach(function(s) { if (s.id === sectionId) section = s; });
+                    if (!section) return;
+                    document.getElementById('editModalTitle').textContent = '编辑小节';
+                    document.getElementById('editModalContent').innerHTML = 
+                        '<div class="form-group"><label>节名</label><input type="text" id="modalSecTitle" value="' + (section.title || '') + '"></div>' +
+                        '<div class="form-group"><label>小结</label><textarea id="modalSecSummary" rows="3">' + (section.summary || '') + '</textarea></div>';
+                    document.getElementById('editModalSave').onclick = function() {
+                        fetch(API_BASE + '/admin/sections/' + sectionId, {
+                            method: 'PUT', headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                title: document.getElementById('modalSecTitle').value,
+                                summary: document.getElementById('modalSecSummary').value,
+                                content: section.content
+                            })
+                        }).then(function() { closeEditModal(); admin.editBook(state.adminCurrentBookId); });
+                    };
+                    document.getElementById('editModal').classList.add('active');
+                });
+            },
+            
+            deleteBookConfirm: function(bookId) {
+                if (confirm('确定要删除这本书吗？所有章、节和点评都会被删除！')) {
+                    fetch(API_BASE + '/admin/books/' + bookId, {method: 'DELETE'}).then(function() {
+                        document.getElementById('adminBookDetail').style.display = 'none';
+                        admin.loadBooks();
+                    });
+                }
+            },
+            
+            deleteChapterConfirm: function(chapterId, bookId) {
+                if (confirm('确定要删除这个章节吗？章节下所有小节和点评都会被删除！')) {
+                    fetch(API_BASE + '/chapters/' + chapterId, {method: 'DELETE'}).then(function() {
+                        admin.loadChapters(bookId);
+                    });
+                }
+            },
+            
+            deleteSectionConfirm: function(sectionId) {
+                if (confirm('确定要删除这个小节吗？')) {
+                    fetch(API_BASE + '/admin/sections/' + sectionId, {method: 'DELETE'}).then(function() {
+                        admin.editBook(state.adminCurrentBookId);
+                    });
+                }
+            }
+        };
+
+        function toggleAddBookForm() {
+            var form = document.getElementById('addBookForm');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function adminAddBook() {
+            var title = document.getElementById('newBookTitle').value.trim();
+            if (!title) { alert('请输入书名'); return; }
+            fetch(API_BASE + '/books', {method: 'POST'}).then(function(r) { return r.json(); }).catch(function() {});
+            // 直接用数据库API添加
+            fetch(API_BASE + '/upload', {
+                method: 'POST',
+                headers: {},
+                body: JSON.stringify({title: title})
+            }).catch(function() {});
+            // 简单方案：直接调用init然后手动添加
+            alert('请通过上传TXT文件添加书籍，或联系管理员手动添加。');
+        }
+
+        function adminSaveBook() {
+            var bookId = state.adminCurrentBookId;
+            fetch(API_BASE + '/admin/books/' + bookId, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    title: document.getElementById('editBookTitle').value,
+                    author: document.getElementById('editBookAuthor').value,
+                    author_nationality: document.getElementById('editBookNationality').value,
+                    version: document.getElementById('editBookVersion').value
+                })
+            }).then(function(r) { return r.json(); }).then(function() {
+                alert('保存成功');
+                admin.loadBooks();
+            });
+        }
+
+        function adminDeleteBook() { admin.deleteBookConfirm(state.adminCurrentBookId); }
+
+        function closeEditModal() { document.getElementById('editModal').classList.remove('active'); }
+
+        // ===== 浏览功能 =====
+        var browse = {
+            loadBooks: function() {
+                fetch(API_BASE + '/books').then(function(r) { return r.json(); }).then(function(data) {
+                    var list = document.getElementById('browseBookList');
+                    list.innerHTML = '';
+                    document.getElementById('browseChapterArea').style.display = 'none';
+                    data.books.forEach(function(book) {
+                        // 获取阅读统计
+                        fetch(API_BASE + '/books/' + book.id + '/reading-status').then(function(r) { return r.json(); }).then(function(stats) {
+                            var total = stats.stats.total_sections || 0;
+                            var readCount = stats.stats.read || 0;
+                            var percent = total > 0 ? Math.round(readCount / total * 100) : 0;
+                            var div = document.createElement('div');
+                            div.className = 'browse-book-card';
+                            div.innerHTML = '<div class="bb-title">' + book.title + '</div>' +
+                                '<div class="bb-author">' + (book.author || '未知作者') + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</div>' +
+                                '<div class="bb-stats">' +
+                                '<span>' + total + '节</span>' +
+                                '<span>已读 ' + readCount + '/' + total + '</span>' +
+                                '</div>' +
+                                '<div class="bb-progress"><div class="bb-progress-fill" style="width:' + percent + '%"></div></div>';
+                            div.onclick = function() { browse.openBook(book.id, book.title); };
+                            list.appendChild(div);
+                        });
+                    });
+                });
+            },
+            
+            openBook: function(bookId, title) {
+                state.browseCurrentBookId = bookId;
+                document.getElementById('browseBookTitle').textContent = title;
+                document.getElementById('browseBookList').style.display = 'none';
+                document.getElementById('browseChapterArea').style.display = 'block';
+                
+                // 获取章节和节
+                fetch(API_BASE + '/books/' + bookId + '/chapters').then(function(r) { return r.json(); }).then(function(data) {
+                    var list = document.getElementById('browseChapterList');
+                    list.innerHTML = '';
+                    
+                    if (data.chapters.length === 0) {
+                        // 没有章节，直接显示所有节
+                        fetch(API_BASE + '/books/' + bookId).then(function(r) { return r.json(); }).then(function(bookData) {
+                            var statusMap = {};
+                            fetch(API_BASE + '/books/' + bookId + '/reading-status').then(function(r) { return r.json(); }).then(function(s) {
+                                (s.statuses || []).forEach(function(st) { statusMap[st.section_id] = st.status; });
+                                (bookData.sections || []).forEach(function(sec) {
+                                    var status = statusMap[sec.id] || 'unread';
+                                    var statusLabel = status === 'read' ? '已读' : status === 'reading' ? '在读' : '待读';
+                                    var statusClass = 'status-' + status;
+                                    var div = document.createElement('div');
+                                    div.className = 'section-browse-item';
+                                    div.innerHTML = '<span class="status-tag ' + statusClass + '">' + statusLabel + '</span>' +
+                                        '<span class="sb-title">第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                        '<span class="sb-words">' + (sec.word_count || 0) + '字</span>';
+                                    div.onclick = function() { browse.openSection(bookId, sec.id, sec.section_number); };
+                                    list.appendChild(div);
+                                });
+                            });
+                        });
+                    } else {
+                        // 有章节，按章节分组显示
+                        data.chapters.forEach(function(ch) {
+                            var chDiv = document.createElement('div');
+                            chDiv.className = 'chapter-browse-item';
+                            chDiv.innerHTML = '<div class="cb-header"><div><div class="cb-title">第' + ch.chapter_number + '章 ' + (ch.title || '') + '</div>' +
+                                '<div class="cb-meta">' + (ch.section_count || 0) + '节 | ' + (ch.total_words || 0) + '字</div></div></div>';
+                            list.appendChild(chDiv);
+                            
+                            // 加载该章的节
+                            fetch(API_BASE + '/chapters/' + ch.id + '/sections').then(function(r) { return r.json(); }).then(function(secData) {
+                                fetch(API_BASE + '/books/' + bookId + '/reading-status').then(function(r) { return r.json(); }).then(function(s) {
+                                    var statusMap = {};
+                                    (s.statuses || []).forEach(function(st) { statusMap[st.section_id] = st.status; });
+                                    (secData.sections || []).forEach(function(sec) {
+                                        var status = statusMap[sec.id] || 'unread';
+                                        var statusLabel = status === 'read' ? '已读' : status === 'reading' ? '在读' : '待读';
+                                        var statusClass = 'status-' + status;
+                                        var secDiv = document.createElement('div');
+                                        secDiv.className = 'section-browse-item';
+                                        secDiv.innerHTML = '<span class="status-tag ' + statusClass + '">' + statusLabel + '</span>' +
+                                            '<span class="sb-title">第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                            '<span class="sb-words">' + (sec.word_count || 0) + '字</span>';
+                                        secDiv.onclick = function() { browse.openSection(bookId, sec.id, sec.section_number); };
+                                        chDiv.appendChild(secDiv);
+                                    });
+                                });
+                            });
+                        });
+                    }
+                });
+            },
+            
+            openSection: function(bookId, sectionId, sectionNumber) {
+                // 设置阅读状态为"在读"
+                fetch(API_BASE + '/sections/' + sectionId + '/status', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({book_id: bookId, status: 'reading'})
+                });
+                
+                // 打开阅读器
+                openBook(bookId);
+                // 跳转到指定节
+                setTimeout(function() {
+                    for (var i = 0; i < state.currentSections.length; i++) {
+                        if (state.currentSections[i].id === sectionId) {
+                            state.currentSectionIndex = i;
+                            reader.renderCurrentSection();
+                            break;
+                        }
+                    }
+                }, 500);
+            }
+        };
+
+        function browseBackToBooks() {
+            document.getElementById('browseBookList').style.display = 'block';
+            document.getElementById('browseChapterArea').style.display = 'none';
+            browse.loadBooks();
+        }
+
+        function adminLoadBooks() { admin.loadBooks(); }
+        function browseLoadBooks() { browse.loadBooks(); }
+
+        // ===== 用户系统 =====
+        function doLogin() {
+            var phone = document.getElementById('loginPhone').value.trim();
+            var authCode = document.getElementById('loginAuthCode').value.trim();
+            var errEl = document.getElementById('loginError');
+            if (!phone || !authCode) { errEl.textContent = '请输入手机号和授权码'; errEl.style.display = 'block'; return; }
+            errEl.style.display = 'none';
+            // 先尝试登录
+            fetch(API_BASE + '/auth/login', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({phone: phone, auth_code: authCode})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.user) {
+                    onLoginSuccess(data.user);
+                } else {
+                    // 登录失败，尝试注册
+                    fetch(API_BASE + '/auth/register', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({phone: phone, auth_code: authCode})
+                    }).then(function(r2) { return r2.json(); }).then(function(data2) {
+                        if (data2.user) {
+                            onLoginSuccess(data2.user);
+                        } else {
+                            errEl.textContent = data2.error || '注册失败'; errEl.style.display = 'block';
+                        }
+                    });
+                }
+            }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
+        }
+
+        function onLoginSuccess(user) {
+            state.currentUser = user;
+            localStorage.setItem('userId', user.id);
+            // 系统用户显示管理按钮
+            if (user.role === 'admin') {
+                document.getElementById('adminBtn').style.display = '';
+            } else {
+                document.getElementById('adminBtn').style.display = 'none';
+            }
+            document.getElementById('logoutBtn').style.display = '';
+            showPage('homePage');
+            loadBooks();
+        }
+
+        function logout() {
+            state.currentUser = null;
+            localStorage.removeItem('userId');
+            document.getElementById('adminBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'none';
+            document.getElementById('loginPhone').value = '';
+            document.getElementById('loginAuthCode').value = '';
+            showPage('loginPage');
+        }
+
+        function checkLogin() {
+            var userId = localStorage.getItem('userId');
+            if (userId) {
+                fetch(API_BASE + '/auth/check?user_id=' + userId).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.user) {
+                        onLoginSuccess(data.user);
+                    } else {
+                        showPage('loginPage');
+                    }
+                }).catch(function() { showPage('loginPage'); });
+            } else {
+                showPage('loginPage');
+            }
+        }
+
+        // ===== 页面切换 =====
+        function showPage(pageId) {
+            if (pageId !== 'loginPage' && !state.currentUser) { showPage('loginPage'); return; }
+            document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+            document.getElementById(pageId).classList.add('active');
+
+            // 管理页面显示"返回书架"按钮，隐藏"管理"按钮
+            if (pageId === 'adminPage') {
+                document.getElementById('adminBtn').style.display = 'none';
+                document.getElementById('homeBtn').style.display = '';
+                if (typeof admin !== 'undefined' && admin.loadBooks) admin.loadBooks();
+                loadAdminUsers();
+                loadSubRequests();
+            } else {
+                document.getElementById('homeBtn').style.display = 'none';
+                // 系统用户显示"管理"按钮
+                if (state.currentUser && state.currentUser.role === 'admin') {
+                    document.getElementById('adminBtn').style.display = '';
+                }
+            }
+
+            if (pageId === 'browsePage') {
+                if (typeof browse !== 'undefined' && browse.loadBooks) {
+                    browse.loadBooks();
+                }
+            }
+        }
+
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            var mins = Math.floor(seconds / 60);
+            var secs = Math.floor(seconds % 60);
+            return mins + ':' + (secs < 10 ? '0' : '') + secs;
+        }
+
+        function showLoading(text) {
+            var div = document.createElement('div');
+            div.className = 'loading';
+            div.id = 'loadingIndicator';
+            div.textContent = text;
+            document.body.appendChild(div);
+        }
+
+        function hideLoading() {
+            var el = document.getElementById('loadingIndicator');
+            if (el) el.remove();
+        }
+
+        // 用户管理
+        function loadAdminUsers() {
+            fetch(API_BASE + '/admin/users').then(function(r) { return r.json(); }).then(function(data) {
+                var list = document.getElementById('adminUserList');
+                if (!data.users || data.users.length === 0) { list.innerHTML = '<p style="color:#999;">暂无用户</p>'; return; }
+                list.innerHTML = '<table style="width:100%;font-size:13px;border-collapse:collapse;">' +
+                    '<tr style="background:#f5f5f5;"><th style="padding:8px;text-align:left;">手机号</th><th style="padding:8px;">角色</th><th style="padding:8px;">授权码</th><th style="padding:8px;">操作</th></tr>' +
+                    data.users.map(function(u) {
+                        var roleLabel = u.role === 'admin' ? '系统用户' : '普通用户';
+                        var roleColor = u.role === 'admin' ? '#2d5016' : '#666';
+                        return '<tr style="border-bottom:1px solid #eee;"><td style="padding:8px;">' + u.phone + '</td>' +
+                            '<td style="padding:8px;text-align:center;color:' + roleColor + ';">' + roleLabel + '</td>' +
+                            '<td style="padding:8px;text-align:center;"><button class="btn btn-sm" onclick="resetAuthCode(' + u.id + ')">重置</button></td>' +
+                            '<td style="padding:8px;text-align:center;"><button class="btn btn-sm" onclick="toggleUserRole(' + u.id + ',\'' + u.role + '\')">' + (u.role === 'admin' ? '设为普通' : '设为系统') + '</button></td></tr>';
+                    }).join('') + '</table>';
+            });
+        }
+
+        function toggleUserRole(userId, currentRole) {
+            var newRole = currentRole === 'admin' ? 'user' : 'admin';
+            fetch(API_BASE + '/admin/users/' + userId + '/role', {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({role: newRole})
+            }).then(function() { loadAdminUsers(); });
+        }
+
+        function resetAuthCode(userId) {
+            fetch(API_BASE + '/admin/users/' + userId + '/auth-code', {method: 'POST'}).then(function(r) { return r.json(); }).then(function(d) {
+                alert('新授权码: ' + d.auth_code);
+            });
+        }
+
+        // 订阅审批
+        function loadSubRequests() {
+            fetch(API_BASE + '/admin/subscription-requests').then(function(r) { return r.json(); }).then(function(data) {
+                var list = document.getElementById('adminSubRequests');
+                if (!data.requests || data.requests.length === 0) { list.innerHTML = '<p style="color:#999;">暂无订阅申请</p>'; return; }
+                list.innerHTML = data.requests.map(function(r) {
+                    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee;font-size:13px;">' +
+                        '<span>用户ID:' + r.user_id + ' 申请订阅 书籍ID:' + r.book_id + '</span>' +
+                        '<div><button class="btn btn-sm" style="background:#4CAF50;" onclick="approveSub(' + r.id + ')">通过</button> ' +
+                        '<button class="btn btn-sm" style="background:#f44336;" onclick="rejectSub(' + r.id + ')">拒绝</button></div></div>';
+                }).join('');
+            });
+        }
+
+        function approveSub(reqId) {
+            fetch(API_BASE + '/admin/subscription-requests/' + reqId + '/approve', {method: 'POST'}).then(function() { loadSubRequests(); });
+        }
+
+        function rejectSub(reqId) {
+            fetch(API_BASE + '/admin/subscription-requests/' + reqId + '/reject', {method: 'POST'}).then(function() { loadSubRequests(); });
+        }
+    </script>
+</body>
+</html>
