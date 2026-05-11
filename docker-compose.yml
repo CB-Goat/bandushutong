@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  bandushutong:
+    build: .
+    container_name: bandushutong
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./books:/app/books
+      - ./audio_files:/app/audio_files
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
