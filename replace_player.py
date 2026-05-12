@@ -5,10 +5,26 @@
 import re
 
 with open('frontend/index.html', 'r', encoding='utf-8') as f:
-    content = f.read()
+    lines = f.readlines()
+
+# 找到 player 对象的起始和结束行
+start_line = -1
+end_line = -1
+for i, line in enumerate(lines):
+    if '// ===== 时间轴播放器' in line:
+        start_line = i
+    if '// ===== 点评编辑器' in line:
+        end_line = i
+        break
+
+if start_line == -1 or end_line == -1:
+    print("未找到播放器代码边界！start={}, end={}".format(start_line, end_line))
+    exit(1)
+
+print("找到播放器代码: 第{}行 到 第{}行".format(start_line + 1, end_line + 1))
 
 # 新的播放器代码
-new_player = '''        // ===== 时间轴播放器（统一使用预生成音频）=====
+new_player = r'''        // ===== 时间轴播放器（统一使用预生成音频）=====
         var player = {
             audio: document.getElementById('audioPlayer'),
             mode: 'timeline',
@@ -27,14 +43,14 @@ new_player = '''        // ===== 时间轴播放器（统一使用预生成音�
                 this.audio.onended = function() {
                     self.isPlaying = false;
                     state.isPlaying = false;
-                    document.getElementById('playBtn').textContent = '\\u25B6';
+                    document.getElementById('playBtn').textContent = '\u25B6';
                     self.onAudioEnd();
                 };
                 this.audio.onerror = function() {
                     console.error('音频播放错误');
                     self.isPlaying = false;
                     state.isPlaying = false;
-                    document.getElementById('playBtn').textContent = '\\u25B6';
+                    document.getElementById('playBtn').textContent = '\u25B6';
                 };
             },
 
@@ -115,7 +131,7 @@ new_player = '''        // ===== 时间轴播放器（统一使用预生成音�
                     this.audio.play();
                     this.isPlaying = true;
                     state.isPlaying = true;
-                    document.getElementById('playBtn').textContent = '\\u23F8';
+                    document.getElementById('playBtn').textContent = '\u23F8';
                 } else if (this.mode === 'generating') {
                     this._showTTSStatus('语音正在生成中，请稍候...');
                 }
@@ -125,7 +141,7 @@ new_player = '''        // ===== 时间轴播放器（统一使用预生成音�
                 this.audio.pause();
                 this.isPlaying = false;
                 state.isPlaying = false;
-                document.getElementById('playBtn').textContent = '\\u25B6';
+                document.getElementById('playBtn').textContent = '\u25B6';
             },
 
             stop: function() {
@@ -134,7 +150,7 @@ new_player = '''        // ===== 时间轴播放器（统一使用预生成音�
                 this.isPlaying = false;
                 state.isPlaying = false;
                 this.currentTime = 0;
-                document.getElementById('playBtn').textContent = '\\u25B6';
+                document.getElementById('playBtn').textContent = '\u25B6';
             },
 
             _updateDisplayByTime: function() {
@@ -154,7 +170,7 @@ new_player = '''        // ===== 时间轴播放器（统一使用预生成音�
                 var self = this;
                 var section = state.currentSections[state.currentSectionIndex];
                 if (!section) return;
-                document.getElementById('playBtn').textContent = '\\u23F3';
+                document.getElementById('playBtn').textContent = '\u23F3';
                 fetch(API_BASE + '/sections/' + section.id + '/generate-audio', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'}
@@ -166,16 +182,16 @@ new_player = '''        // ===== 时间轴播放器（统一使用预生成音�
                                 self.audio.play();
                                 self.isPlaying = true;
                                 state.isPlaying = true;
-                                document.getElementById('playBtn').textContent = '\\u23F8';
+                                document.getElementById('playBtn').textContent = '\u23F8';
                             } else { setTimeout(checkReady, 300); }
                         };
                         setTimeout(checkReady, 300);
                     } else {
-                        document.getElementById('playBtn').textContent = '\\u25B6';
+                        document.getElementById('playBtn').textContent = '\u25B6';
                         alert('音频生成失败: ' + (data.error || '未知错误'));
                     }
                 }).catch(function(e) {
-                    document.getElementById('playBtn').textContent = '\\u25B6';
+                    document.getElementById('playBtn').textContent = '\u25B6';
                     alert('请求失败: ' + e.message);
                 });
             },
@@ -195,17 +211,14 @@ new_player = '''        // ===== 时间轴播放器（统一使用预生成音�
                     setTimeout(function() { reader.nextSection(); }, 3000);
                 }
             }
-        };'''
+        };
 
-# 替换 player 对象（从 "// ===== 时间轴播放器" 到 "// ===== 点评编辑器" 之前）
-pattern = r'// ===== 时间轴播放器.*?(?=\n\s*// ===== 点评编辑器 =====)'
-replacement = new_player.rstrip() + '\n'
+'''
 
-content_new = re.sub(pattern, replacement, content, flags=re.DOTALL)
+# 替换
+new_lines = lines[:start_line] + [new_player] + lines[end_line:]
 
-if content_new == content:
-    print("未找到匹配的播放器代码，请检查")
-else:
-    with open('frontend/index.html', 'w', encoding='utf-8') as f:
-        f.write(content_new)
-    print("播放器替换成功！")
+with open('frontend/index.html', 'w', encoding='utf-8') as f:
+    f.writelines(new_lines)
+
+print("替换完成！原{}行 -> 新{}行".format(end_line - start_line, len(new_player.split('\n'))))
