@@ -1161,20 +1161,18 @@
                 var chData = await chResp.json();
                 var chapters = chData.chapters || [];
 
+                // 计算当前用户的思考数量（遍历所有节的思考）
+                var thoughtsCount = 0;
+                sections.forEach(function(sec) {
+                    thoughtsCount += (sec.thoughts || []).length;
+                });
+
                 var totalSec = stats.total_sections || sections.length || 0;
                 var readSec = stats.read || 0;
                 var totalCh = chapters.length;
                 var totalWords = sections.reduce(function(sum, s) { return sum + (s.word_count || 0); }, 0);
                 var totalAnno = sections.reduce(function(sum, s) { return sum + (s.annotations || []).length; }, 0);
                 var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
-
-                document.getElementById('navbarTitle').innerHTML += '<div style="font-size:11px;margin-top:2px;">' +
-                    (book.author ? book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') : '') +
-                    (book.version ? ' · ' + book.version : '') +
-                    '  |  ' + (totalCh > 0 ? totalCh + '章' : '') + totalSec + '节' +
-                    '  |  已读' + readSec + '节' +
-                    '  |  ' + wordsStr + '字' +
-                    '</div>';
 
                 // 构建节ID -> 评注数映射
                 var annoMap = {};
@@ -1188,6 +1186,12 @@
 
                 var container = document.getElementById('catalogContent');
                 container.innerHTML = '';
+
+                // 添加统计信息
+                var statsDiv = document.createElement('div');
+                statsDiv.style.cssText = 'background:#f8f8f5;border-radius:8px;padding:12px 15px;margin-bottom:15px;font-size:14px;color:#666;';
+                statsDiv.innerHTML = '本书共：' + totalSec + '节 | ' + wordsStr + '字 | ' + totalAnno + '点评 | 已读' + readSec + '节 | 思考' + thoughtsCount + '条';
+                container.appendChild(statsDiv);
 
                 if (chapters.length === 0) {
                     // 无章节，直接列出所有节
