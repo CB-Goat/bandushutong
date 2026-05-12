@@ -1962,7 +1962,7 @@
                 fetch(API_BASE + '/sections/' + sectionId + '/audio-timeline')
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
-                        if (data.audio_path && data.char_timeline) {
+                        if (data.audio_path && data.char_timeline && data.char_timeline.length > 0) {
                             // 使用时间轴模式
                             self.mode = 'timeline';
                             self.audioUrl = data.audio_path;
@@ -1970,14 +1970,23 @@
                             self.charTimeline = data.char_timeline || [];
                             self.audio.src = self.audioUrl;
                             console.log('加载时间轴音频:', self.audioUrl, '时长:', self.audioDuration);
-                        } else {
-                            // 降级到浏览器 TTS
+                        } else if (self._browserTTSSupported) {
+                            // 浏览器支持 TTS，降级使用
                             self._useBrowserTTS();
+                        } else {
+                            // 浏览器不支持 TTS，标记需要服务端生成
+                            self.mode = 'server_tts';
+                            self.audioUrl = null;
+                            console.log('无预生成音频，浏览器不支持TTS，将在播放时按需生成');
                         }
                     })
                     .catch(function() {
-                        // 降级到浏览器 TTS
-                        self._useBrowserTTS();
+                        if (self._browserTTSSupported) {
+                            self._useBrowserTTS();
+                        } else {
+                            self.mode = 'server_tts';
+                            self.audioUrl = null;
+                        }
                     });
             },
 
@@ -2006,6 +2015,9 @@
                     this.isPlaying = true;
                     state.isPlaying = true;
                     document.getElementById('playBtn').textContent = '\u23F8';
+                } else if (this.mode === 'server_tts') {
+                    // 按需生成音频
+                    this._playServerTTS();
                 } else {
                     this._playBrowserTTS();
                 }
@@ -2056,6 +2068,44 @@
                     var percent = (time / this.audioDuration) * 100;
                     document.getElementById('progressFill').style.width = percent + '%';
                 }
+            },
+
+            // ===== 服务端按需生成音频（百度TTS）=====
+            _playServerTTS: function() {
+                var self = this;
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return;
+
+                document.getElementById('playBtn').textContent = '\u23F3';
+
+                // 调用后端生成音频和时间轴
+                fetch(API_BASE + '/sections/' + section.id + '/generate-audio', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) {
+                        // 生成成功，重新加载时间轴
+                        self.loadSection(section.id);
+                        // 等待加载完成后自动播放
+                        setTimeout(function() {
+                            if (self.mode === 'timeline' && self.audioUrl) {
+                                self.audio.play();
+                                self.isPlaying = true;
+                                state.isPlaying = true;
+                                document.getElementById('playBtn').textContent = '\u23F8';
+                            } else {
+                                document.getElementById('playBtn').textContent = '\u25B6';
+                                alert('音频加载失败，请重试');
+                            }
+                        }, 500);
+                    } else {
+                        document.getElementById('playBtn').textContent = '\u25B6';
+                        alert('语音合成失败: ' + (data.error || '未知错误') + '\n\n请确认管理员已配置百度TTS密钥。');
+                    }
+                }).catch(function(e) {
+                    document.getElementById('playBtn').textContent = '\u25B6';
+                    alert('语音合成请求失败: ' + e.message);
+                });
             },
 
             _playBrowserTTS: function() {
