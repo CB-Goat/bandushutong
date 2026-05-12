@@ -129,6 +129,15 @@ def upload_book():
             old_chapters = get_chapters_by_book(book_id)
             for ch in old_chapters:
                 delete_chapter(ch['id'])
+            # 直接删除所有旧的节（防止无章节时残留）
+            from backend.database import get_db as _get_db
+            _conn = _get_db()
+            _c = _conn.cursor()
+            _c.execute('DELETE FROM annotations WHERE section_id IN (SELECT id FROM sections WHERE book_id=?)', (book_id,))
+            _c.execute('DELETE FROM sections WHERE book_id=?', (book_id,))
+            _c.execute('DELETE FROM chapters WHERE book_id=?', (book_id,))
+            _conn.commit()
+            _conn.close()
         else:
             # 添加新书籍到数据库
             book_id = add_book(title=title, author=author, file_path=filepath)
