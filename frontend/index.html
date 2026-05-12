@@ -67,11 +67,13 @@
         }
 
         /* 页面切换 */
-        .page { display: none; }
-        .page.active { display: block; }
+        .page { display: none; overflow-y: auto; flex: 1; }
+        .page.active { display: flex; flex-direction: column; }
 
         /* 阅读页布局 */
         #readerPage.active { height: calc(100vh - 90px); display: flex; flex-direction: column; }
+        #catalogPage.active { height: calc(100vh - 60px); display: flex; flex-direction: column; }
+        #catalogPage.active > .catalog-page { flex: 1; overflow-y: auto; }
 
         /* ===== 首页 - 书架 ===== */
         .upload-area {
@@ -127,33 +129,33 @@
         .book-stats-row span { background: #f0f0f0; padding: 2px 8px; border-radius: 10px; }
 
         /* ===== 目录页 ===== */
-        .catalog-page { padding: 15px; }
+        .catalog-page { padding: 15px; overflow-y: auto; flex: 1; }
         .catalog-book-header { margin-bottom: 15px; }
         .catalog-book-title { font-size: 20px; font-weight: 600; color: #2d5016; }
-        .catalog-book-meta { font-size: 13px; color: #888; margin-top: 4px; }
+        .catalog-book-meta { font-size: 14px; color: #888; margin-top: 4px; }
         .catalog-chapter { margin-bottom: 8px; }
-        .catalog-chapter-header { 
-            display: flex; align-items: center; gap: 8px; 
-            padding: 10px 12px; background: #f8f8f5; border-radius: 8px;
-            cursor: default; font-size: 14px;
+        .catalog-chapter-header {
+            display: flex; align-items: center; gap: 8px;
+            padding: 12px 15px; background: #f8f8f5; border-radius: 8px;
+            cursor: default; font-size: 16px;
         }
         .catalog-chapter-header .ch-label { font-weight: 600; color: #2d5016; }
-        .catalog-chapter-header .ch-stats { font-size: 12px; color: #999; margin-left: auto; display: flex; gap: 10px; }
+        .catalog-chapter-header .ch-stats { font-size: 13px; color: #999; margin-left: auto; display: flex; gap: 10px; }
         .catalog-section {
             display: flex; align-items: center; gap: 8px;
-            padding: 8px 12px 8px 36px; cursor: pointer;
+            padding: 10px 12px 10px 36px; cursor: pointer;
             border-radius: 6px; transition: background 0.15s;
-            font-size: 13px;
+            font-size: 15px;
         }
         .catalog-section:hover { background: #f0f0e8; }
-        .catalog-section .sec-status { 
+        .catalog-section .sec-status {
             width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
         }
         .catalog-section .sec-status.read { background: #4CAF50; }
         .catalog-section .sec-status.reading { background: #FF9800; }
         .catalog-section .sec-status.unread { background: #ddd; }
         .catalog-section .sec-title { flex: 1; color: #333; }
-        .catalog-section .sec-info { font-size: 12px; color: #999; display: flex; gap: 10px; }
+        .catalog-section .sec-info { font-size: 13px; color: #999; display: flex; gap: 10px; }
 
         /* ===== 阅读页 - 黑板风格 ===== */
         .reader-header {
