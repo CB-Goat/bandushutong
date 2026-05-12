@@ -59,6 +59,8 @@ def init_db():
             content TEXT NOT NULL,
             audio_path TEXT,
             has_audio BOOLEAN DEFAULT 0,
+            audio_duration REAL DEFAULT 0,  -- 音频时长（秒）
+            char_timeline TEXT,  -- 每个字符显示时间点的JSON数组
             word_count INTEGER DEFAULT 0,
             summary TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -665,6 +667,37 @@ def update_section_audio(section_id, audio_path):
     )
     conn.commit()
     conn.close()
+
+def update_section_audio_timeline(section_id, audio_duration, char_timeline):
+    """更新小节的音频时长和字符时间轴"""
+    conn = get_db()
+    cursor = conn.cursor()
+    import json
+    cursor.execute(
+        'UPDATE sections SET audio_duration = ?, char_timeline = ? WHERE id = ?',
+        (audio_duration, json.dumps(char_timeline), section_id)
+    )
+    conn.commit()
+    conn.close()
+
+def get_section_audio_timeline(section_id):
+    """获取小节的音频时间轴信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'SELECT audio_path, audio_duration, char_timeline FROM sections WHERE id = ?',
+        (section_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        import json
+        return {
+            'audio_path': row['audio_path'],
+            'audio_duration': row['audio_duration'],
+            'char_timeline': json.loads(row['char_timeline']) if row['char_timeline'] else []
+        }
+    return None
 
 def update_section_word_count(section_id, word_count):
     """更新小节字数"""

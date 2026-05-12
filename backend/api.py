@@ -270,6 +270,47 @@ def tts_status():
         'server_tts': is_configured()
     })
 
+@api_bp.route('/sections/<int:section_id>/audio-timeline', methods=['GET'])
+def get_section_audio_timeline_api(section_id):
+    """获取节的音频时间轴信息"""
+    from backend.database import get_section_audio_timeline
+    timeline = get_section_audio_timeline(section_id)
+    if timeline:
+        return jsonify(timeline)
+    else:
+        return jsonify({'error': '音频时间轴不存在'}), 404
+
+@api_bp.route('/sections/<int:section_id>/generate-audio', methods=['POST'])
+def generate_section_audio_api(section_id):
+    """为节生成音频和时间轴"""
+    from backend.database import get_section, update_section_audio_timeline
+    from backend.baidu_tts import generate_section_audio_with_timeline
+    
+    section = get_section(section_id)
+    if not section:
+        return jsonify({'error': '节不存在'}), 404
+    
+    result = generate_section_audio_with_timeline(
+        section['content'], 
+        section_id,
+        speed=5,
+        person=0  # 普通女声
+    )
+    
+    if result:
+        update_section_audio_timeline(
+            section_id,
+            result['audio_duration'],
+            result['char_timeline']
+        )
+        return jsonify({
+            'success': True,
+            'audio_path': result['audio_path'],
+            'audio_duration': result['audio_duration']
+        })
+    else:
+        return jsonify({'error': '音频生成失败'}), 500
+
 @api_bp.route('/audio/<path:filename>', methods=['GET'])
 def serve_audio(filename):
     """提供音频文件"""

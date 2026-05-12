@@ -174,6 +174,130 @@ def is_configured():
     return bool(BAIDU_TTS_APP_ID and BAIDU_TTS_API_KEY and BAIDU_TTS_SECRET_KEY)
 
 
+def generate_section_audio_with_timeline(text, section_id, speed=5, person=0):
+    """
+    生成节的完整音频并计算字符时间轴
+    
+    返回: {
+        'audio_path': 音频文件路径,
+        'audio_duration': 音频时长（秒）,
+        'char_timeline': [每个字符显示的时间点数组]
+    }
+    """
+    import subprocess
+    import math
+    
+    token = get_access_token()
+    if not token:
+        return None
+    
+    # 分段处理（每段约 500 字符）
+    segments = []
+    current = ''
+    for char in text:
+        current += char
+        if len(current.encode('utf-8')) >= 900 or char in '。！？\n':
+            if current.strip():
+                segments.append(current.strip())
+            current = ''
+    if current.strip():
+        segments.append(current.strip())
+    
+    if not segments:
+        return None
+    
+    # 计算每段对应的字符范围
+    char_ranges = []
+    char_pos = 0
+    for seg in segments:
+        seg_chars = len(seg)
+        char_ranges.append((char_pos, char_pos + seg_chars))
+        char_pos += seg_chars
+    
+    # 合成所有段
+    audio_files = []
+    for i, seg in enumerate(segments):
+        params = {
+            'tok': token,
+            'tex': seg,
+            'per': person,
+            'spd': speed,
+            'pit': 5,
+            'vol': 5,
+            'aue': 3,
+            'cuid': 'bandushutong_app',
+            'lan': 'zh',
+            'ctp': 1
+        }
+        
+        try:
+            response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
+            content_type = response.headers.get('Content-Type', '')
+            
+            if 'audio' in content_type:
+                filename = f'section_{section_id}_{i}.mp3'
+                filepath = os.path.join(AUDIO_DIR, filename)
+                with open(filepath, 'wb') as f:
+                    f.write(response.content)
+                audio_files.append(filepath)
+            else:
+                print(f"段 {i} 合成失败: {response.text}")
+                return None
+        except Exception as e:
+            print(f"段 {i} 合成异常: {e}")
+            return None
+    
+    # 合并音频文件
+    if len(audio_files) == 1:
+        final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
+        os.rename(audio_files[0], final_path)
+    else:
+        # 使用 ffmpeg 合并
+        final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
+        list_file = os.path.join(AUDIO_DIR, f'section_{section_id}_list.txt')
+        with open(list_file, 'w') as f:
+            for af in audio_files:
+                f.write(f"file '{af}'\n")
+        
+        try:
+            subprocess.run([
+                'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+                '-i', list_file, '-c', 'copy', final_path
+            ], check=True, capture_output=True)
+            # 删除临时文件
+            for af in audio_files:
+                os.remove(af)
+            os.remove(list_file)
+        except Exception as e:
+            print(f"合并音频失败: {e}")
+            # 如果合并失败，使用第一段
+            final_path = audio_files[0]
+    
+    # 获取音频时长
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
+            capture_output=True, text=True
+        )
+        audio_duration = float(result.stdout.strip())
+    except:
+        # 估算时长：按每分钟 200 字
+        audio_duration = len(text) / 200 * 60
+    
+    # 生成字符时间轴
+    # 假设字符均匀分布在音频时长内
+    char_timeline = []
+    for i in range(len(text)):
+        char_timeline.append(round(i / len(text) * audio_duration, 3))
+    
+    return {
+        'audio_path': f'audio_files/section_{section_id}.mp3',
+        'audio_duration': audio_duration,
+        'char_timeline': char_timeline
+    }
+
+
 if __name__ == '__main__':
     if is_configured():
         print("百度 TTS 已配置")
