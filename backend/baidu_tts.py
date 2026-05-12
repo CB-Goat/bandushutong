@@ -266,7 +266,7 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=0):
             result = subprocess.run([
                 'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
                 '-i', list_file, '-c', 'copy', final_path
-            ], check=True, capture_output=True, text=True, cwd=AUDIO_DIR)
+            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=AUDIO_DIR)
             print(f"[TTS] 合并成功: {final_path}")
             # 删除临时文件
             for af in audio_files:
