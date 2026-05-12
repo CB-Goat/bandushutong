@@ -266,23 +266,37 @@ def parse_docx_file(file_path):
             else:
                 current_section['content'] = text
 
-            # 检查该正文段落是否有批注 -> 作为点评
+            # 检查该正文段落是否有批注
             if i in para_comments:
                 for cm in para_comments[i]:
-                    # 找到批注原文在当前节content中的字符位置
-                    original_text = text  # 批注关联的段落文本
-                    start_char = current_section['content'].rfind(original_text)
-                    if start_char >= 0:
-                        end_char = start_char + len(original_text) - 1
+                    original_text = text
+                    
+                    # 判断是小结还是点评：
+                    # 如果该节还没有小结，且这是节的第一个正文段落，
+                    # 且批注的 start_para 等于标题段落的 para_idx，
+                    # 则认为是引用了标题的批注 -> 作为小结
+                    is_first_body_para = (current_section['content'] == text)
+                    cm_start_para = cm.get('start_para', 0)
+                    heading_para_idx = i - 1  # 标题在正文前一个段落
+                    
+                    if is_first_body_para and not current_section.get('summary') and cm_start_para == heading_para_idx:
+                        # 这是对节标题的批注 -> 作为小结
+                        current_section['summary'] = cm.get('text', '')
+                        print(f"[Parser] 节{section_number} 标题批注作为小结: {cm.get('text', '')[:50]}...")
                     else:
-                        start_char = 0
-                        end_char = len(text) - 1
-                    current_section['annotations'].append({
-                        'original_text': original_text,
-                        'comment': cm.get('text', ''),
-                        'start_char': start_char,
-                        'end_char': end_char
-                    })
+                        # 这是对正文的批注 -> 作为点评
+                        start_char = current_section['content'].rfind(original_text)
+                        if start_char >= 0:
+                            end_char = start_char + len(original_text) - 1
+                        else:
+                            start_char = 0
+                            end_char = len(text) - 1
+                        current_section['annotations'].append({
+                            'original_text': original_text,
+                            'comment': cm.get('text', ''),
+                            'start_char': start_char,
+                            'end_char': end_char
+                        })
 
     # 保存最后一个节
     if current_section and current_section.get('content'):
