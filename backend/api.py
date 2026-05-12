@@ -309,7 +309,8 @@ def generate_section_audio_api(section_id):
         update_section_audio_timeline(
             section_id,
             result['audio_duration'],
-            result['char_timeline']
+            result['char_timeline'],
+            result['audio_path']
         )
         return jsonify({
             'success': True,

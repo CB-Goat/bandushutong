@@ -686,15 +686,21 @@ def update_section_audio(section_id, audio_path):
     conn.commit()
     conn.close()
 
-def update_section_audio_timeline(section_id, audio_duration, char_timeline):
+def update_section_audio_timeline(section_id, audio_duration, char_timeline, audio_path=None):
     """更新小节的音频时长和字符时间轴"""
     conn = get_db()
     cursor = conn.cursor()
     import json
-    cursor.execute(
-        'UPDATE sections SET audio_duration = ?, char_timeline = ? WHERE id = ?',
-        (audio_duration, json.dumps(char_timeline), section_id)
-    )
+    if audio_path:
+        cursor.execute(
+            'UPDATE sections SET audio_path = ?, has_audio = 1, audio_duration = ?, char_timeline = ? WHERE id = ?',
+            (audio_path, audio_duration, json.dumps(char_timeline), section_id)
+        )
+    else:
+        cursor.execute(
+            'UPDATE sections SET audio_duration = ?, char_timeline = ? WHERE id = ?',
+            (audio_duration, json.dumps(char_timeline), section_id)
+        )
     conn.commit()
     conn.close()
 

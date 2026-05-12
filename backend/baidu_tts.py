@@ -340,7 +340,7 @@ def generate_book_audio(book_id, person=0, speed=5):
             try:
                 result = generate_section_audio_with_timeline(content, section_id, speed=speed, person=person)
                 if result:
-                    update_section_audio_timeline(section_id, result['audio_duration'], result['char_timeline'])
+                    update_section_audio_timeline(section_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
                     done_count += 1
                     update_book_tts_status(book_id, 'generating', f'{done_count}/{total}')
                     print(f"[TTS] 节 {section_id} 完成 ({done_count}/{total})")
