@@ -248,30 +248,48 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=0):
             return None
     
     # 合并音频文件
+    final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
+    
     if len(audio_files) == 1:
-        final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
         os.rename(audio_files[0], final_path)
+        print(f"[TTS] 单段音频，直接重命名为 {final_path}")
     else:
         # 使用 ffmpeg 合并
-        final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
         list_file = os.path.join(AUDIO_DIR, f'section_{section_id}_list.txt')
         with open(list_file, 'w') as f:
             for af in audio_files:
-                f.write(f"file '{af}'\n")
+                # 使用相对路径避免单引号问题
+                f.write(f"file '{os.path.basename(af)}'\n")
         
         try:
-            subprocess.run([
+            print(f"[TTS] 开始合并 {len(audio_files)} 个音频段...")
+            result = subprocess.run([
                 'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
                 '-i', list_file, '-c', 'copy', final_path
-            ], check=True, capture_output=True)
+            ], check=True, capture_output=True, text=True, cwd=AUDIO_DIR)
+            print(f"[TTS] 合并成功: {final_path}")
             # 删除临时文件
             for af in audio_files:
                 os.remove(af)
             os.remove(list_file)
+        except subprocess.CalledProcessError as e:
+            print(f"[TTS] 合并音频失败: {e}")
+            print(f"[TTS] ffmpeg stderr: {e.stderr}")
+            # 如果合并失败，尝试使用第一段作为 fallback
+            if audio_files:
+                print(f"[TTS] 使用第一段作为 fallback: {audio_files[0]}")
+                os.rename(audio_files[0], final_path)
+                # 删除其他段
+                for af in audio_files[1:]:
+                    try:
+                        os.remove(af)
+                    except:
+                        pass
+            else:
+                return None
         except Exception as e:
-            print(f"合并音频失败: {e}")
-            # 如果合并失败，使用第一段
-            final_path = audio_files[0]
+            print(f"[TTS] 合并异常: {e}")
+            return None
     
     # 获取音频时长
     try:
