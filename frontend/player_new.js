@@ -117,28 +117,50 @@ var player = {
     },
 
     play: function() {
-        console.log('播放，当前模式:', this.mode, '音频URL:', this.audioUrl);
+        console.log('播放，当前模式:', this.mode, '音频URL:', this.audioUrl, 'readyState:', this.audio.readyState);
         if (this.mode === 'timeline' && this.audioUrl) {
             var self = this;
-            // 确保音频已加载
-            if (this.audio.readyState < 2) {
-                console.log('音频尚未准备好，等待加载...');
-                this.audio.load();
+            // readyState: 0=未初始化, 1=已设置src, 2=正在加载, 3=部分加载, 4=完全加载
+            if (this.audio.readyState < 3) {
+                console.log('音频尚未准备好，等待 canplay 事件...');
+                document.getElementById('playBtn').textContent = '\u23F3';
+                // 等待音频可以播放
+                var onCanPlay = function() {
+                    console.log('音频可以播放了，开始播放');
+                    self.audio.removeEventListener('canplay', onCanPlay);
+                    self._doPlay();
+                };
+                this.audio.addEventListener('canplay', onCanPlay);
+                // 超时处理
+                setTimeout(function() {
+                    self.audio.removeEventListener('canplay', onCanPlay);
+                    if (!self.isPlaying) {
+                        console.log('等待超时，尝试直接播放');
+                        self._doPlay();
+                    }
+                }, 3000);
+            } else {
+                this._doPlay();
             }
-            this.audio.play().then(function() {
-                console.log('播放成功');
-                self.isPlaying = true;
-                state.isPlaying = true;
-                document.getElementById('playBtn').textContent = '\u23F8';
-            }).catch(function(e) {
-                console.error('播放失败:', e);
-                alert('音频播放失败: ' + e.message);
-            });
         } else if (this.mode === 'generating') {
             this._showTTSStatus('语音正在生成中，请稍候...');
         } else {
             console.log('无法播放，模式:', this.mode, 'URL:', this.audioUrl);
         }
+    },
+
+    _doPlay: function() {
+        var self = this;
+        this.audio.play().then(function() {
+            console.log('播放成功');
+            self.isPlaying = true;
+            state.isPlaying = true;
+            document.getElementById('playBtn').textContent = '\u23F8';
+        }).catch(function(e) {
+            console.error('播放失败:', e);
+            document.getElementById('playBtn').textContent = '\u25B6';
+            // 不弹出alert，避免打断用户体验
+        });
     },
 
     pause: function() {
