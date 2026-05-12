@@ -2331,7 +2331,7 @@
                 if (!section) return;
 
                 // 显示加载提示
-                document.getElementById('playBtn').textContent = '...';
+                document.getElementById('playBtn').textContent = '⏳';
 
                 // 调用服务端合成
                 console.log('调用服务端 TTS...');
@@ -2350,6 +2350,11 @@
                     if (data.success && data.audio_urls && data.audio_urls.length > 0) {
                         self._serverAudioUrls = data.audio_urls;
                         self._serverAudioIndex = 0;
+                        // 计算每段音频对应的字符范围
+                        self._buildServerAudioCharMap();
+                        // 设置播放状态
+                        state.isPlaying = true;
+                        document.getElementById('playBtn').textContent = '\u23F8';
                         self._playServerAudioSequence();
                     } else {
                         alert('语音合成失败: ' + (data.error || '未知错误'));
@@ -2364,6 +2369,20 @@
                 });
             },
 
+            // 构建每段音频对应的字符范围
+            _buildServerAudioCharMap: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                var totalChars = (section && section.content) ? section.content.length : 0;
+                var segCount = this._serverAudioUrls.length;
+                this._serverCharMap = [];
+                for (var i = 0; i < segCount; i++) {
+                    this._serverCharMap.push({
+                        startChar: Math.floor(totalChars * i / segCount),
+                        endChar: Math.floor(totalChars * (i + 1) / segCount)
+                    });
+                }
+            },
+
             _playServerAudioSequence: function() {
                 var self = this;
                 if (this._serverAudioIndex >= this._serverAudioUrls.length) {
@@ -2372,6 +2391,12 @@
                 }
 
                 var url = this._serverAudioUrls[this._serverAudioIndex];
+                var charMap = this._serverCharMap[this._serverAudioIndex];
+                var segTotalChars = charMap.endChar - charMap.startChar;
+
+                // 先显示当前段之前的所有文字
+                reader.revealCharsUpTo(charMap.startChar);
+
                 this.audio.src = url;
                 this.audio.play().catch(function(e) {
                     console.error('音频播放失败:', e);
@@ -2379,31 +2404,25 @@
                     self._playServerAudioSequence();
                 });
 
-                // 逐字显示动画
-                var section = state.currentSections[state.currentSectionIndex];
-                var totalChars = (section && section.content) ? section.content.length : 0;
-                var audioDuration = 0;
-                var charProgress = 0;
+                // 逐字显示动画 - 使用 timeupdate 事件
+                this.audio.ontimeupdate = function() {
+                    if (!state.isPlaying) return;
+                    var current = self.audio.currentTime || 0;
+                    var duration = self.audio.duration || 1;
+                    var segProgress = current / duration;
+                    var charProgress = charMap.startChar + Math.floor(segProgress * segTotalChars);
+                    reader.revealCharsUpTo(charProgress);
 
-                this.audio.onloadedmetadata = function() {
-                    audioDuration = self.audio.duration || 10;
-                    var charsPerSecond = totalChars / audioDuration;
-
-                    clearInterval(self._serverAudioTimer);
-                    self._serverAudioTimer = setInterval(function() {
-                        if (!state.isPlaying) return;
-                        var elapsed = self.audio.currentTime || 0;
-                        charProgress = Math.min(totalChars, Math.floor(elapsed * charsPerSecond));
-                        reader.revealCharsUpTo(charProgress);
-                        var percent = audioDuration ? (elapsed / audioDuration) * 100 : 0;
-                        document.getElementById('progressFill').style.width = percent + '%';
-                    }, 200);
+                    // 总进度
+                    var section = state.currentSections[state.currentSectionIndex];
+                    var totalChars = (section && section.content) ? section.content.length : 0;
+                    var totalProgress = totalChars > 0 ? (charProgress / totalChars) * 100 : 0;
+                    document.getElementById('progressFill').style.width = totalProgress + '%';
                 };
 
                 this.audio.onended = function() {
-                    clearInterval(self._serverAudioTimer);
-                    reader.revealAll();
-                    document.getElementById('progressFill').style.width = '100%';
+                    // 确保当前段文字全部显示
+                    reader.revealCharsUpTo(charMap.endChar);
                     self._serverAudioIndex++;
                     if (self._serverAudioIndex < self._serverAudioUrls.length && state.isPlaying) {
                         setTimeout(function() { self._playServerAudioSequence(); }, 300);
@@ -2413,7 +2432,7 @@
                 };
 
                 this.audio.onerror = function() {
-                    clearInterval(self._serverAudioTimer);
+                    reader.revealCharsUpTo(charMap.endChar);
                     self._serverAudioIndex++;
                     self._playServerAudioSequence();
                 };
