@@ -2175,15 +2175,31 @@
 
             // ===== TTS 朗读（自动降级）=====
             playTTS: function() {
-                // 优先使用浏览器 TTS
+                var self = this;
+                // 实时检测浏览器 TTS 支持
+                this._browserTTSSupported = 'speechSynthesis' in window && window.speechSynthesis;
+                
                 if (this._browserTTSSupported) {
-                    this._playBrowserTTS();
-                } else if (this._serverTTSAvailable) {
-                    // 降级到服务端 TTS
-                    this._playServerTTS();
-                } else {
-                    alert('您的浏览器不支持语音朗读功能，且服务端 TTS 未配置。请联系管理员配置百度语音合成服务。');
+                    // 尝试使用浏览器 TTS
+                    try {
+                        this._playBrowserTTS();
+                        return;
+                    } catch(e) {
+                        console.log('浏览器 TTS 失败，尝试服务端:', e);
+                    }
                 }
+                
+                // 降级到服务端 TTS
+                console.log('浏览器不支持或失败，检查服务端 TTS...');
+                fetch(API_BASE + '/tts/status').then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.server_tts) {
+                        self._playServerTTS();
+                    } else {
+                        alert('您的浏览器不支持语音朗读功能，且服务端 TTS 未配置。\n\n请联系管理员配置百度语音合成服务（AppID、API Key、Secret Key）。');
+                    }
+                }).catch(function() {
+                    alert('无法连接到语音服务，请检查网络或联系管理员。');
+                });
             },
 
             // ===== 浏览器 Web Speech API TTS =====
@@ -2318,6 +2334,7 @@
                 document.getElementById('playBtn').textContent = '...';
 
                 // 调用服务端合成
+                console.log('调用服务端 TTS...');
                 fetch(API_BASE + '/tts/synthesize', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -2325,7 +2342,11 @@
                         text: section.content,
                         section_id: section.id
                     })
-                }).then(function(r) { return r.json(); }).then(function(data) {
+                }).then(function(r) {
+                    console.log('TTS 响应状态:', r.status);
+                    return r.json();
+                }).then(function(data) {
+                    console.log('TTS 响应数据:', data);
                     if (data.success && data.audio_urls && data.audio_urls.length > 0) {
                         self._serverAudioUrls = data.audio_urls;
                         self._serverAudioIndex = 0;
@@ -2336,6 +2357,7 @@
                         state.isPlaying = false;
                     }
                 }).catch(function(e) {
+                    console.error('TTS 请求异常:', e);
                     alert('语音合成请求失败: ' + e.message);
                     document.getElementById('playBtn').textContent = '\u25B6';
                     state.isPlaying = false;
