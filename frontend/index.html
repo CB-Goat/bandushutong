@@ -1137,6 +1137,7 @@
         // ===== 目录页 =====
         async function showBookCatalog(bookId) {
             showLoading('加载目录...');
+            showPage('catalogPage');
             try {
                 // 获取书籍基本信息
                 var bookResp = await fetch(API_BASE + '/books/' + bookId);
@@ -1144,8 +1145,9 @@
                 var book = bookData.book;
                 var sections = bookData.sections || [];
 
+                // 设置导航栏标题
                 document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
-                    (book.author ? ' <small style="font-size:11px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
+                    (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
 
                 // 获取阅读状态和统计
                 var stResp = await fetch(API_BASE + '/books/' + bookId + '/reading-status');
@@ -1244,7 +1246,6 @@
                     });
                 }
 
-                showPage('catalogPage');
             } catch (e) {
                 alert('加载目录失败: ' + e.message);
             } finally { hideLoading(); }
@@ -3115,10 +3116,9 @@
                 document.getElementById('backBtn').style.display = 'block';
                 // 标题已在 openBook 中设置
             } else if (pageId === 'catalogPage') {
-                // 目录页显示返回按钮，设置书名标题
+                // 目录页显示返回按钮
                 document.getElementById('backBtn').style.display = 'block';
-                // 显示书名（等待 showBookCatalog 填充详细信息）
-                document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">加载中...</span>';
+                // 标题由 showBookCatalog 设置，这里不覆盖
             } else {
                 // 其他页面隐藏返回按钮
                 document.getElementById('backBtn').style.display = 'none';
