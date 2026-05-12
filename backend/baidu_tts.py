@@ -292,7 +292,7 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=0):
         char_timeline.append(round(i / len(text) * audio_duration, 3))
     
     return {
-        'audio_path': f'audio_files/section_{section_id}.mp3',
+        'audio_path': f'/api/audio/section_{section_id}.mp3',
         'audio_duration': audio_duration,
         'char_timeline': char_timeline
     }
