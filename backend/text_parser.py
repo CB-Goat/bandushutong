@@ -272,27 +272,39 @@ def parse_docx_file(file_path):
                     original_text = text
                     
                     # 判断是小结还是点评：
-                    # 如果该节还没有小结，且这是节的第一个正文段落，
-                    # 且批注的 start_para 等于标题段落的 para_idx，
-                    # 则认为是引用了标题的批注 -> 作为小结
+                    # commentRangeStart 在段落结束后触发，所以 start_para 比实际段落大1
+                    # 如果批注的 start_para-1 等于标题段落索引，则是对标题的批注 -> 小结
                     is_first_body_para = (current_section['content'] == text)
                     cm_start_para = cm.get('start_para', 0)
                     heading_para_idx = i - 1  # 标题在正文前一个段落
                     
-                    if is_first_body_para and not current_section.get('summary') and cm_start_para == heading_para_idx:
+                    # start_para-1 是实际引用的段落（因为RangeStart在段落结束后触发）
+                    actual_para_idx = cm_start_para - 1
+                    
+                    if is_first_body_para and not current_section.get('summary') and actual_para_idx == heading_para_idx:
                         # 这是对节标题的批注 -> 作为小结
                         current_section['summary'] = cm.get('text', '')
                         print(f"[Parser] 节{section_number} 标题批注作为小结: {cm.get('text', '')[:50]}...")
                     else:
                         # 这是对正文的批注 -> 作为点评
-                        start_char = current_section['content'].rfind(original_text)
+                        # 找到批注原文在节内容中的位置
+                        cm_end_para = cm.get('end_para', cm_start_para)
+                        # 如果批注跨多个段落，需要找到准确的原文
+                        if cm_start_para == cm_end_para:
+                            # 单段落批注，原文就是当前段落
+                            annotated_text = text
+                        else:
+                            # 跨段落批注，取范围文本
+                            annotated_text = text
+                        
+                        start_char = current_section['content'].rfind(annotated_text)
                         if start_char >= 0:
-                            end_char = start_char + len(original_text) - 1
+                            end_char = start_char + len(annotated_text) - 1
                         else:
                             start_char = 0
                             end_char = len(text) - 1
                         current_section['annotations'].append({
-                            'original_text': original_text,
+                            'original_text': annotated_text,
                             'comment': cm.get('text', ''),
                             'start_char': start_char,
                             'end_char': end_char
