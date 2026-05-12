@@ -197,6 +197,14 @@ def init_db():
         cursor.execute('ALTER TABLE sections ADD COLUMN summary TEXT')
     except:
         pass
+    try:
+        cursor.execute('ALTER TABLE sections ADD COLUMN audio_duration REAL DEFAULT 0')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE sections ADD COLUMN char_timeline TEXT')
+    except:
+        pass
 
     conn.commit()
     conn.close()
