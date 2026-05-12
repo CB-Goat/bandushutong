@@ -201,7 +201,15 @@ def upload_book():
             ch_sections = [s for s in sections if s.get('chapter_number') == ch_num]
             ch_total_words = sum(len(s.get('content', '')) for s in ch_sections)
             update_chapter_info(ch_id, len(ch_sections), ch_total_words)
-        
+
+        # 预生成所有节的音频（异步，不阻塞返回）
+        try:
+            from backend.baidu_tts import generate_book_audio
+            generate_book_audio(book_id)
+            print(f"[TTS] 已开始为书籍 {book_id} 预生成音频")
+        except Exception as e:
+            print(f"[TTS] 预生成音频失败: {e}")
+
         return jsonify({
             'message': '更新成功' if is_update else '上传成功',
             'book_id': book_id,

@@ -298,6 +298,69 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=0):
     }
 
 
+def generate_book_audio(book_id, person=0, speed=5):
+    """
+    为书籍的所有节预生成音频
+
+    参数:
+        book_id: 书籍ID
+        person: 发音人 0=女声, 1=男声
+        speed: 语速 0-15
+    """
+    import sys
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from backend.database import get_sections_by_book, update_section_audio_timeline
+
+    # 检查是否已配置
+    if not is_configured():
+        print("[TTS] 百度TTS未配置，跳过音频生成")
+        return False
+
+    sections = get_sections_by_book(book_id)
+    if not sections:
+        print(f"[TTS] 书籍 {book_id} 没有找到任何节")
+        return False
+
+    print(f"[TTS] 开始为书籍 {book_id} 生成 {len(sections)} 个节的音频...")
+
+    for i, section in enumerate(sections):
+        section_id = section['id']
+        content = section.get('content', '')
+
+        # 检查是否已有音频
+        if section.get('has_audio') and section.get('audio_path'):
+            print(f"[TTS] 节 {section_id} 已有音频，跳过")
+            continue
+
+        if not content or len(content.strip()) == 0:
+            print(f"[TTS] 节 {section_id} 内容为空，跳过")
+            continue
+
+        print(f"[TTS] 生成节 {section_id} ({i+1}/{len(sections)})...")
+
+        try:
+            result = generate_section_audio_with_timeline(content, section_id, speed=speed, person=person)
+
+            if result:
+                update_section_audio_timeline(
+                    section_id,
+                    result['audio_duration'],
+                    result['char_timeline']
+                )
+                print(f"[TTS] 节 {section_id} 生成成功，时长 {result['audio_duration']:.1f}秒")
+            else:
+                print(f"[TTS] 节 {section_id} 生成失败")
+
+        except Exception as e:
+            print(f"[TTS] 节 {section_id} 生成异常: {e}")
+
+        # 避免请求过快
+        time.sleep(0.5)
+
+    print(f"[TTS] 书籍 {book_id} 音频生成完成")
+    return True
+
+
 if __name__ == '__main__':
     if is_configured():
         print("百度 TTS 已配置")
