@@ -1142,7 +1142,8 @@
                 var book = bookData.book;
                 var sections = bookData.sections || [];
 
-                document.getElementById('catalogBookTitle').textContent = book.title || '';
+                document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
+                    (book.author ? ' <small style="font-size:11px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
 
                 // 获取阅读状态和统计
                 var stResp = await fetch(API_BASE + '/books/' + bookId + '/reading-status');
@@ -1163,13 +1164,13 @@
                 var totalAnno = sections.reduce(function(sum, s) { return sum + (s.annotations || []).length; }, 0);
                 var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
 
-                document.getElementById('catalogBookMeta').textContent = 
-                    (book.author || '') + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') +
+                document.getElementById('navbarTitle').innerHTML += '<div style="font-size:11px;margin-top:2px;">' +
+                    (book.author ? book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') : '') +
                     (book.version ? ' · ' + book.version : '') +
                     '  |  ' + (totalCh > 0 ? totalCh + '章' : '') + totalSec + '节' +
                     '  |  已读' + readSec + '节' +
                     '  |  ' + wordsStr + '字' +
-                    '  |  点评' + totalAnno;
+                    '</div>';
 
                 // 构建节ID -> 评注数映射
                 var annoMap = {};
@@ -3114,18 +3115,8 @@
             } else if (pageId === 'catalogPage') {
                 // 目录页显示返回按钮，设置书名标题
                 document.getElementById('backBtn').style.display = 'block';
-                // 显示书名
-                if (state.currentBook) {
-                    var catTitle = state.currentBook.title;
-                    if (state.currentBook.author) {
-                        catTitle += ' <small style="font-size:12px;">' + state.currentBook.author;
-                        if (state.currentBook.author_nationality) {
-                            catTitle += ' [' + state.currentBook.author_nationality + ']';
-                        }
-                        catTitle += '</small>';
-                    }
-                    document.getElementById('navbarTitle').innerHTML = catTitle;
-                }
+                // 显示书名（等待 showBookCatalog 填充详细信息）
+                document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">加载中...</span>';
             } else {
                 // 其他页面隐藏返回按钮
                 document.getElementById('backBtn').style.display = 'none';
