@@ -783,7 +783,7 @@
     <!-- 导航栏 -->
     <nav class="navbar">
         <button class="back-btn" id="backBtn" style="display:none">&larr; 返回</button>
-        <h1>伴读书童</h1>
+        <h1 id="navbarTitle">伴读书童</h1>
         <div style="display:flex;gap:8px;align-items:center;">
             <button class="navbar-btn" id="adminBtn" onclick="showPage('adminPage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">⚙️ 管理</button>
             <button class="navbar-btn" id="homeBtn" onclick="showPage('homePage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">🏠 返回书架</button>
@@ -1358,6 +1358,13 @@
                 state.currentSections = data.sections;
                 state.currentProgress = data.progress || null;
                 state.currentSectionIndex = 0;
+
+                // 设置导航栏标题：书名 + 作者国籍（小字）
+                var bookTitle = data.book.title;
+                if (data.book.author_nationality) {
+                    bookTitle += ' <small style="font-size:12px;color:rgba(255,255,255,0.7);">[' + data.book.author_nationality + ']</small>';
+                }
+                document.getElementById('navbarTitle').innerHTML = bookTitle;
 
                 if (data.progress && data.progress.current_section_id) {
                     var index = state.currentSections.findIndex(function(s) { return s.id === data.progress.current_section_id; });
@@ -3095,19 +3102,31 @@
             document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById(pageId).classList.add('active');
 
-            // 管理页面显示"返回书架"按钮，隐藏"管理"按钮
-            if (pageId === 'adminPage') {
+            // 阅读页面：隐藏管理按钮，设置标题
+            if (pageId === 'readerPage') {
+                // 阅读页隐藏管理按钮
                 document.getElementById('adminBtn').style.display = 'none';
+                // 标题已在 openBook 中设置
+            } else {
+                // 非阅读页恢复默认标题
+                document.getElementById('navbarTitle').innerHTML = '伴读书童';
+                // 书架页显示管理按钮（系统用户）
+                if (pageId === 'homePage' && state.currentUser && state.currentUser.role === 'admin') {
+                    document.getElementById('adminBtn').style.display = '';
+                } else {
+                    document.getElementById('adminBtn').style.display = 'none';
+                }
+            }
+
+            // 管理页面显示"返回书架"按钮，隐藏管理按钮
+            if (pageId === 'adminPage') {
                 document.getElementById('homeBtn').style.display = '';
+                document.getElementById('adminBtn').style.display = 'none';
                 if (typeof admin !== 'undefined' && admin.loadBooks) admin.loadBooks();
                 loadAdminUsers();
                 loadSubRequests();
             } else {
                 document.getElementById('homeBtn').style.display = 'none';
-                // 系统用户显示"管理"按钮
-                if (state.currentUser && state.currentUser.role === 'admin') {
-                    document.getElementById('adminBtn').style.display = '';
-                }
             }
 
             if (pageId === 'browsePage') {
