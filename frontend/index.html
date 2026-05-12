@@ -822,7 +822,6 @@
         <div class="page" id="catalogPage">
             <div class="catalog-page">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
-                    <button class="btn btn-sm" onclick="showPage('homePage')">← 返回书架</button>
                     <div>
                         <div class="catalog-book-title" id="catalogBookTitle"></div>
                         <div class="catalog-book-meta" id="catalogBookMeta"></div>
@@ -1101,11 +1100,18 @@
             });
             document.getElementById('fileInput').addEventListener('change', handleFileUpload);
             document.getElementById('backBtn').addEventListener('click', function() {
-                // 保存阅读进度（含当前滚动位置）
-                reader.saveProgress(reader._currentPosition);
-                showPage('catalogPage');
-                player.stop();
-                annotationEditor.exitEditMode();
+                // 根据当前页面决定返回位置
+                var readerPage = document.getElementById('readerPage');
+                if (readerPage.classList.contains('active')) {
+                    // 阅读页 → 返回目录页
+                    reader.saveProgress(reader._currentPosition);
+                    showPage('catalogPage');
+                    player.stop();
+                    annotationEditor.exitEditMode();
+                } else {
+                    // 目录页 → 返回书架
+                    showPage('homePage');
+                }
             });
             var audio = document.getElementById('audioPlayer');
             audio.addEventListener('timeupdate', player.onTimeUpdate);
@@ -1359,10 +1365,14 @@
                 state.currentProgress = data.progress || null;
                 state.currentSectionIndex = 0;
 
-                // 设置导航栏标题：书名 + 作者国籍（小字）
+                // 设置导航栏标题：书名 + 作者（国籍）
                 var bookTitle = data.book.title;
-                if (data.book.author_nationality) {
-                    bookTitle += ' <small style="font-size:12px;color:rgba(255,255,255,0.7);">[' + data.book.author_nationality + ']</small>';
+                if (data.book.author) {
+                    bookTitle += ' <small style="font-size:12px;color:rgba(255,255,255,0.7);">' + data.book.author;
+                    if (data.book.author_nationality) {
+                        bookTitle += ' [' + data.book.author_nationality + ']';
+                    }
+                    bookTitle += '</small>';
                 }
                 document.getElementById('navbarTitle').innerHTML = bookTitle;
 
@@ -1372,7 +1382,6 @@
                 }
 
                 showPage('readerPage');
-                document.getElementById('backBtn').style.display = 'block';
                 reader.renderCurrentSection();
             } catch (e) {
                 alert('加载出错: ' + e.message);
@@ -3106,8 +3115,17 @@
             if (pageId === 'readerPage') {
                 // 阅读页隐藏管理按钮
                 document.getElementById('adminBtn').style.display = 'none';
+                // 显示返回按钮
+                document.getElementById('backBtn').style.display = 'block';
                 // 标题已在 openBook 中设置
+            } else if (pageId === 'catalogPage') {
+                // 目录页显示返回按钮
+                document.getElementById('backBtn').style.display = 'block';
+                // 非阅读页恢复默认标题
+                document.getElementById('navbarTitle').innerHTML = '伴读书童';
             } else {
+                // 其他页面隐藏返回按钮
+                document.getElementById('backBtn').style.display = 'none';
                 // 非阅读页恢复默认标题
                 document.getElementById('navbarTitle').innerHTML = '伴读书童';
                 // 书架页显示管理按钮（系统用户）
