@@ -214,8 +214,10 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=0):
         char_ranges.append((char_pos, char_pos + seg_chars))
         char_pos += seg_chars
     
-    # 合成所有段
+    # 合成所有段，同时记录每段时长
     audio_files = []
+    segment_durations = []  # 每段音频的实际时长
+    
     for i, seg in enumerate(segments):
         params = {
             'tok': token,
@@ -240,6 +242,20 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=0):
                 with open(filepath, 'wb') as f:
                     f.write(response.content)
                 audio_files.append(filepath)
+                
+                # 获取该段音频的实际时长
+                seg_duration = 0
+                try:
+                    dur_result = subprocess.run(
+                        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                         '-of', 'default=noprint_wrappers=1:nokey=1', filepath],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
+                    seg_duration = float(dur_result.stdout.strip())
+                except:
+                    # 估算：按每分钟200字
+                    seg_duration = len(seg) / 200 * 60
+                segment_durations.append(seg_duration)
             else:
                 print(f"段 {i} 合成失败: {response.text}")
                 return None
@@ -247,67 +263,51 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=0):
             print(f"段 {i} 合成异常: {e}")
             return None
     
-    # 合并音频文件
+    # 合并音频文件（使用 Python 直接拼接，避免 ffmpeg 兼容问题）
     final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
     
     if len(audio_files) == 1:
         os.rename(audio_files[0], final_path)
-        print(f"[TTS] 单段音频，直接重命名为 {final_path}")
+        print(f"[TTS] 单段音频，直接重命名")
     else:
-        # 使用 ffmpeg 合并
-        list_file = os.path.join(AUDIO_DIR, f'section_{section_id}_list.txt')
-        with open(list_file, 'w') as f:
-            for af in audio_files:
-                # 使用相对路径避免单引号问题
-                f.write(f"file '{os.path.basename(af)}'\n")
-        
+        print(f"[TTS] 开始合并 {len(audio_files)} 个音频段...")
         try:
-            print(f"[TTS] 开始合并 {len(audio_files)} 个音频段...")
-            result = subprocess.run([
-                'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
-                '-i', list_file, '-c', 'copy', final_path
-            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=AUDIO_DIR)
+            with open(final_path, 'wb') as outfile:
+                for af in audio_files:
+                    with open(af, 'rb') as infile:
+                        outfile.write(infile.read())
             print(f"[TTS] 合并成功: {final_path}")
             # 删除临时文件
             for af in audio_files:
                 os.remove(af)
-            os.remove(list_file)
-        except subprocess.CalledProcessError as e:
-            print(f"[TTS] 合并音频失败: {e}")
-            print(f"[TTS] ffmpeg stderr: {e.stderr}")
-            # 如果合并失败，尝试使用第一段作为 fallback
-            if audio_files:
-                print(f"[TTS] 使用第一段作为 fallback: {audio_files[0]}")
-                os.rename(audio_files[0], final_path)
-                # 删除其他段
-                for af in audio_files[1:]:
-                    try:
-                        os.remove(af)
-                    except:
-                        pass
-            else:
-                return None
+            list_file = os.path.join(AUDIO_DIR, f'section_{section_id}_list.txt')
+            if os.path.exists(list_file):
+                os.remove(list_file)
         except Exception as e:
             print(f"[TTS] 合并异常: {e}")
             return None
     
-    # 获取音频时长
-    try:
-        result = subprocess.run(
-            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
-            capture_output=True, text=True
-        )
-        audio_duration = float(result.stdout.strip())
-    except:
-        # 估算时长：按每分钟 200 字
-        audio_duration = len(text) / 200 * 60
+    # 计算总时长
+    audio_duration = sum(segment_durations)
     
-    # 生成字符时间轴
-    # 假设字符均匀分布在音频时长内
+    # 基于每段实际时长构建精确字符时间轴
     char_timeline = []
-    for i in range(len(text)):
-        char_timeline.append(round(i / len(text) * audio_duration, 3))
+    for seg_idx, seg in enumerate(segments):
+        start_char = char_ranges[seg_idx][0]
+        end_char = char_ranges[seg_idx][1]
+        seg_len = end_char - start_char
+        seg_dur = segment_durations[seg_idx] if seg_idx < len(segment_durations) else 1
+        
+        # 该段之前的累计时长
+        time_offset = sum(segment_durations[:seg_idx])
+        
+        # 该段内每个字符的时间点
+        if seg_len > 0 and seg_dur > 0:
+            for j in range(seg_len):
+                t = time_offset + (j / seg_len) * seg_dur
+                char_timeline.append(round(t, 3))
+    
+    print(f"[TTS] 时间轴构建完成: {len(char_timeline)} 个字符, 总时长 {audio_duration:.1f}s")
     
     return {
         'audio_path': f'/api/audio/section_{section_id}.mp3',
