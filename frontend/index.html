@@ -160,24 +160,76 @@
         /* ===== 阅读页 - 黑板风格 ===== */
         .reader-header {
             background: #3a3226;
-            padding: 12px 20px;
+            padding: 10px 15px;
             border-radius: 8px 8px 0 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border: 2px solid #8B7355;
             border-bottom: none;
+            gap: 10px;
         }
 
-        .reader-header .book-title {
+        .reader-header .section-title {
             font-size: 16px;
             color: #e8e0c8;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
         }
 
-        .reader-header .progress {
+        .reader-header .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .reader-header .mini-progress {
+            width: 60px;
+        }
+
+        .reader-header .mini-progress-bar {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .reader-header .mini-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6ab04c, #f0e8d0);
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 2px;
+        }
+
+        .reader-header .play-btn-mini {
+            background: linear-gradient(135deg, #4a8c2a 0%, #2d5016 100%);
+            border: 2px solid #6ab04c;
+            color: #f0e8d0;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .reader-header .add-thought-btn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #FFD700;
             font-size: 12px;
-            color: #c8b896;
+            padding: 6px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-family: inherit;
+            white-space: nowrap;
         }
 
         /* 导航栏：包含上一节、下一节、进度条、播放按钮、编辑点评按钮 */
@@ -411,7 +463,6 @@
             margin-top: 15px;
             flex: 1;
             min-height: 80px;
-            overflow-y: auto;
         }
 
         .chalkboard .analysis-area .label {
@@ -829,23 +880,16 @@
         <!-- 阅读页 -->
         <div class="page" id="readerPage">
             <div class="reader-header">
-                <span class="book-title" id="readerBookTitle">书名</span>
-                <span class="progress" id="readerProgress">第 1 / 10 节</span>
-            </div>
-            <div class="section-nav">
-                <button id="prevSection" onclick="reader.prevSection()">&larr; 上一节</button>
-                <button id="nextSection" onclick="reader.nextSection()">下一节 &rarr;</button>
-                <div class="progress-area">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
+                <span class="section-title" id="readerSectionTitle">第1节 年幼丧父</span>
+                <div class="header-controls">
+                    <div class="mini-progress">
+                        <div class="mini-progress-bar">
+                            <div class="mini-progress-fill" id="progressFill"></div>
+                        </div>
                     </div>
-                    <div class="time-display">
-                        <span id="currentTime">0 字</span>
-                        <span id="totalTime">0 字</span>
-                    </div>
+                    <button class="play-btn-mini" id="playBtn" onclick="player.toggle()">&#9654;</button>
+                    <button class="add-thought-btn" id="editAnnotationBtn" onclick="thoughtEditor.toggleEditMode()">+思考</button>
                 </div>
-                <button class="play-btn" id="playBtn" onclick="player.toggle()">&#9654;</button>
-                <button class="edit-annotation-btn" id="editAnnotationBtn" onclick="thoughtEditor.toggleEditMode()">💡 添加思考</button>
             </div>
             <div class="chalkboard" id="chalkboard">
                 <div class="chalk-text" id="chalkText">
@@ -1400,13 +1444,9 @@
                 var section = state.currentSections[state.currentSectionIndex];
                 if (!section) return;
 
-                document.getElementById('readerBookTitle').textContent = state.currentBook.title;
-                document.getElementById('readerProgress').textContent =
-                    '第 ' + (state.currentSectionIndex + 1) + ' / ' + state.currentSections.length + ' 节';
-
-                document.getElementById('prevSection').disabled = state.currentSectionIndex === 0;
-                document.getElementById('nextSection').disabled =
-                    state.currentSectionIndex >= state.currentSections.length - 1;
+                // 显示节标题：第X节 节名
+                document.getElementById('readerSectionTitle').textContent =
+                    '第' + (state.currentSectionIndex + 1) + '节 ' + (section.title || '');
 
                 // 加载当前节的点评数据
                 state.currentAnnotations = (section.annotations || []).slice();
@@ -3120,8 +3160,9 @@
                 document.getElementById('backBtn').style.display = 'block';
                 // 标题已在 openBook 中设置
             } else if (pageId === 'catalogPage') {
-                // 目录页显示返回按钮
+                // 目录页显示返回按钮，隐藏管理按钮
                 document.getElementById('backBtn').style.display = 'block';
+                document.getElementById('adminBtn').style.display = 'none';
                 // 标题由 showBookCatalog 设置，这里不覆盖
             } else {
                 // 其他页面隐藏返回按钮
