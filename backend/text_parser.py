@@ -62,35 +62,51 @@ def parse_docx_file(file_path):
 
     # 收集批注（comments）
     # Word批注结构：对某一节标题的批注 = 小结；对节正文的批注 = 点评
-    # python-docx 中批注通过 doc.part.comments 访问
     comments = []
     try:
-        from docx.opc.constants import RELATIONSHIP_TYPE as RT
-        # 尝试获取批注
-        if hasattr(doc, 'part') and hasattr(doc.part, 'package_part'):
-            comments_part = None
-            for rel in doc.part.rels.values():
-                if 'comments' in str(rel.reltype).lower():
-                    comments_part = rel.target_part
-                    break
-            if comments_part:
-                from lxml import etree
-                nsmap = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
-                root = etree.fromstring(comments_part.blob)
-                for comment in root.findall('.//w:comment', nsmap):
-                    comment_id = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
-                    author = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}author', '')
-                    comment_texts = []
-                    for p in comment.findall('.//w:p', nsmap):
-                        texts = [t.text for t in p.findall('.//w:t', nsmap) if t.text]
-                        comment_texts.append(''.join(texts))
-                    comments.append({
-                        'id': comment_id,
-                        'author': author,
-                        'text': '\n'.join(comment_texts).strip()
-                    })
+        # 尝试多种方式获取批注
+        comments_part = None
+        
+        # 方式1: 通过 rels 查找 comments 或 commentsExtended
+        for rel in doc.part.rels.values():
+            reltype = str(rel.reltype).lower()
+            if 'comments' in reltype:
+                comments_part = rel.target_part
+                print(f"[Parser] 找到批注部分: {rel.reltype}")
+                break
+        
+        if comments_part:
+            from lxml import etree
+            nsmap = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+            root = etree.fromstring(comments_part.blob)
+            
+            # 尝试多种批注标签
+            comment_elems = root.findall('.//w:comment', nsmap)
+            if not comment_elems:
+                # 尝试 commentsExtended 格式
+                comment_elems = root.findall('.//w15:comment', {'w15': 'http://schemas.microsoft.com/office/word/2012/wordml'})
+            
+            for comment in comment_elems:
+                comment_id = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
+                if not comment_id:
+                    comment_id = comment.get('{http://schemas.microsoft.com/office/word/2012/wordml}id')
+                author = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}author', '')
+                if not author:
+                    author = comment.get('{http://schemas.microsoft.com/office/word/2012/wordml}author', '')
+                comment_texts = []
+                for p in comment.findall('.//w:p', nsmap):
+                    texts = [t.text for t in p.findall('.//w:t', nsmap) if t.text]
+                    comment_texts.append(''.join(texts))
+                comments.append({
+                    'id': comment_id,
+                    'author': author,
+                    'text': '\n'.join(comment_texts).strip()
+                })
+            print(f"[Parser] 解析到 {len(comments)} 条批注")
     except Exception as e:
-        print(f"批注解析警告: {e}")
+        print(f"[Parser] 批注解析警告: {e}")
+        import traceback
+        traceback.print_exc()
 
     # 构建段落索引 -> 批注映射
     # 通过遍历 document.xml 中的 commentRangeStart/commentRangeEnd 来关联段落和批注
