@@ -98,7 +98,7 @@ def parse_docx_file(file_path):
     try:
         from lxml import etree
         nsmap = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
-        doc_xml = etree.fromstring(doc.part.element.blob)
+        doc_xml = etree.fromstring(doc.part.blob)
         body = doc_xml.find('.//w:body', nsmap)
         all_elements = body.iter()
         para_idx = 0
