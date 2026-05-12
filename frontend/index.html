@@ -1524,8 +1524,6 @@
                 this._container = container;
                 this._containerHeight = container.clientHeight;
 
-                document.getElementById('totalTime').textContent = this._totalChars + ' 字';
-                document.getElementById('currentTime').textContent = '0 字';
                 document.getElementById('progressFill').style.width = '0%';
             },
 
@@ -1593,7 +1591,6 @@
                 // 更新进度
                 var percent = this._totalChars ? (target / this._totalChars) * 100 : 0;
                 document.getElementById('progressFill').style.width = percent + '%';
-                document.getElementById('currentTime').textContent = target + ' 字';
 
                 // 检查是否到达某个点评点的 end_char 位置
                 this._checkAnnotationTrigger(target);
@@ -1645,8 +1642,6 @@
             revealAll: function() {
                 this._allChars.forEach(function(c) { c.classList.add('visible'); });
                 document.getElementById('progressFill').style.width = '100%';
-                document.getElementById('currentTime').textContent = this._totalChars + ' 字';
-
                 this._container.scrollTop = this._container.scrollHeight;
             },
 
@@ -1660,7 +1655,6 @@
                 existingMarkers.forEach(function(m) { m.remove(); });
                 if (this._container) this._container.scrollTop = 0;
                 document.getElementById('progressFill').style.width = '0%';
-                document.getElementById('currentTime').textContent = '0 字';
                 // 重置点评触发状态
                 state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
                 // 隐藏点评显示区域
@@ -1714,7 +1708,6 @@
                     // 计算当前已读字数
                     var scrollPercent = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
                     self._currentPosition = Math.floor(self._totalChars * scrollPercent);
-                    document.getElementById('currentTime').textContent = self._currentPosition + ' 字';
                     document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
                     // 已读字数等于总字数时，标记为已读
                     if (self._currentPosition >= self._totalChars) {
@@ -1762,7 +1755,6 @@
                     var scrollTarget = scrollPercent * (container.scrollHeight - container.clientHeight);
                     container.scrollTop = scrollTarget;
                     self._currentPosition = savedPosition;
-                    document.getElementById('currentTime').textContent = savedPosition + ' 字';
                     document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
                 }, 100);
             }
@@ -2360,8 +2352,6 @@
                 var duration = this.audio.duration || 0;
                 var percent = duration ? (current / duration) * 100 : 0;
                 document.getElementById('progressFill').style.width = percent + '%';
-                document.getElementById('currentTime').textContent = formatTime(current);
-
                 var total = reader._totalChars || 1;
                 var charIdx = Math.floor((current / duration) * total);
                 reader.revealCharsUpTo(charIdx);
@@ -2379,7 +2369,6 @@
 
             onLoadedMetadata: function() {
                 if (this.mode !== 'audio') return;
-                document.getElementById('totalTime').textContent = formatTime(this.audio.duration);
             }
         };
 
