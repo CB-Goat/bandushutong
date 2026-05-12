@@ -1467,8 +1467,8 @@
                 // 加载用户思考
                 if (typeof thoughtEditor !== 'undefined') thoughtEditor.loadThoughts();
 
-                // 使用浏览器 TTS
-                player.useBrowserTTS();
+                // 加载节的音频时间轴（优先使用预生成音频）
+                player.loadSection(section.id);
 
                 // 设置滚动监听
                 this.setupScrollListener();
@@ -1910,539 +1910,194 @@
             }
         };
 
-        // ===== 播放器 =====
+        // ===== 时间轴播放器 =====
         var player = {
             audio: document.getElementById('audioPlayer'),
-            mode: 'tts',
-            _ttsSentenceIndex: 0,
-            _ttsCharTimer: null,
+            mode: 'timeline', // 'timeline' | 'browser_tts'
+            
+            // 时间轴数据
+            audioUrl: null,
+            audioDuration: 0,
+            charTimeline: [], // 每个字符显示的时间点
+            
+            // 播放状态
+            isPlaying: false,
+            currentTime: 0,
+            
+            // 浏览器 TTS 备用
             _ttsSentences: [],
-            _annotationResumeCallback: null,
-            _serverTTSAvailable: false,
-            _serverAudioUrls: [],
-            _serverAudioIndex: 0,
-            _serverAudioTimer: null,
+            _ttsSentenceIndex: 0,
             _browserTTSSupported: false,
 
             init: function() {
+                this._browserTTSSupported = 'speechSynthesis' in window && window.speechSynthesis;
                 var self = this;
-                this._browserTTSSupported = 'speechSynthesis' in window;
-                fetch(API_BASE + '/tts/status').then(function(r) { return r.json(); }).then(function(data) {
-                    self._serverTTSAvailable = data.server_tts || false;
-                }).catch(function() {});
+                
+                // 音频时间更新
+                this.audio.ontimeupdate = function() {
+                    self.currentTime = self.audio.currentTime;
+                    self._updateDisplayByTime();
+                };
+                
+                this.audio.onended = function() {
+                    self.isPlaying = false;
+                    state.isPlaying = false;
+                    document.getElementById('playBtn').textContent = '\u25B6';
+                    self.onAudioEnd();
+                };
+                
+                this.audio.onerror = function() {
+                    console.error('音频播放错误');
+                    self.isPlaying = false;
+                    state.isPlaying = false;
+                    document.getElementById('playBtn').textContent = '\u25B6';
+                };
             },
 
-            useBrowserTTS: function() {
-                this.mode = 'tts';
+            // 加载节的音频时间轴
+            loadSection: function(sectionId) {
+                var self = this;
+                
+                // 先尝试加载预生成的时间轴音频
+                fetch(API_BASE + '/sections/' + sectionId + '/audio-timeline')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.audio_path && data.char_timeline) {
+                            // 使用时间轴模式
+                            self.mode = 'timeline';
+                            self.audioUrl = data.audio_path;
+                            self.audioDuration = data.audio_duration || 0;
+                            self.charTimeline = data.char_timeline || [];
+                            self.audio.src = self.audioUrl;
+                            console.log('加载时间轴音频:', self.audioUrl, '时长:', self.audioDuration);
+                        } else {
+                            // 降级到浏览器 TTS
+                            self._useBrowserTTS();
+                        }
+                    })
+                    .catch(function() {
+                        // 降级到浏览器 TTS
+                        self._useBrowserTTS();
+                    });
+            },
+
+            _useBrowserTTS: function() {
+                this.mode = 'browser_tts';
+                this.audioUrl = null;
+                var section = state.currentSections[state.currentSectionIndex];
+                if (section) {
+                    this._ttsSentences = section.content.split(/([。！？\n]+)/).filter(function(s) { return s.trim(); });
+                    this._ttsSentences = this._ttsSentences.reduce(function(acc, cur, i) {
+                        if (i % 2 === 0) acc.push(cur);
+                        else if (acc.length > 0) acc[acc.length - 1] += cur;
+                        return acc;
+                    }, []);
+                }
                 this._ttsSentenceIndex = 0;
-                document.getElementById('playBtn').textContent = '\u25B6';
-                state.isPlaying = false;
-            },
-
-            load: function(url) {
-                this.mode = 'audio';
-                this.stopTTS();
-                this.audio.src = url;
-                this.audio.load();
-                document.getElementById('playBtn').textContent = '\u25B6';
-                state.isPlaying = false;
             },
 
             toggle: function() {
-                if (state.isPlaying) { this.pause(); } else { this.play(); }
+                if (this.isPlaying) { this.pause(); } else { this.play(); }
             },
 
             play: function() {
-                if (this.mode === 'tts') {
-                    this.playTTS();
+                if (this.mode === 'timeline' && this.audioUrl) {
+                    this.audio.play();
+                    this.isPlaying = true;
+                    state.isPlaying = true;
+                    document.getElementById('playBtn').textContent = '\u23F8';
                 } else {
-                    this.audio.play().catch(function(e) {
-                        player.useBrowserTTS();
-                        player.playTTS();
-                    });
+                    this._playBrowserTTS();
                 }
-                state.isPlaying = true;
-                document.getElementById('playBtn').textContent = '\u23F8';
             },
 
             pause: function() {
-                if (this.mode === 'tts') { this.pauseTTS(); }
-                else { this.audio.pause(); }
+                if (this.mode === 'timeline') {
+                    this.audio.pause();
+                } else {
+                    window.speechSynthesis.cancel();
+                }
+                this.isPlaying = false;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
             },
 
             stop: function() {
-                this.stopTTS();
                 this.audio.pause();
                 this.audio.currentTime = 0;
+                window.speechSynthesis.cancel();
+                this.isPlaying = false;
                 state.isPlaying = false;
-                state.isPlayingAnnotation = false;
+                this.currentTime = 0;
                 document.getElementById('playBtn').textContent = '\u25B6';
             },
 
-            prev: function() {
-                if (this.mode === 'tts') {
-                    this._ttsSentenceIndex = Math.max(0, this._ttsSentenceIndex - 1);
-                    this._speakCurrentSentence();
-                } else {
-                    this.audio.currentTime = Math.max(0, this.audio.currentTime - 5);
-                }
-            },
-
-            next: function() {
-                if (this.mode === 'tts') {
-                    var total = this._ttsSentences.length;
-                    this._ttsSentenceIndex = Math.min(total - 1, this._ttsSentenceIndex + 1);
-                    this._speakCurrentSentence();
-                } else {
-                    this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + 5);
-                }
-            },
-
-            // ===== 触发点评播放 =====
-            _triggerAnnotationPlayback: function(annotation) {
-                var self = this;
-                state.isPlayingAnnotation = true;
-
-                // a. 暂停原文朗读
-                window.speechSynthesis.cancel();
-
-                // b. 标记原文：波浪下划线 + 金色加粗
-                reader._highlightAnnotation(annotation);
-
-                // c. 显示序号（在停顿1秒后显示）
-                reader._showAnnotationMarker(annotation);
-
-                // d. 赏析区域显示点评
-                this._showAnnotationInAnalysis(annotation);
-
-                // e. 语音播报点评（语速 0.8x）
-                this._speakAnnotation(annotation, function() {
-                    console.log('=== 点评播报完成回调开始 ===');
-                    
-                    // 判断是否是最后一个评论点
-                    var isLastAnnotation = true;
-                    var annotations = state.currentAnnotations;
-                    for (var i = 0; i < annotations.length; i++) {
-                        console.log('annotation[' + i + ']._triggered:', annotations[i]._triggered);
-                        if (!annotations[i]._triggered) {
-                            isLastAnnotation = false;
-                            break;
-                        }
-                    }
-
-                    console.log('isLastAnnotation:', isLastAnnotation);
-
-                    // 如果是最后一个评论点，直接结束，不说"回到原文"
-                    if (isLastAnnotation) {
-                        console.log('>>> 最后一个评论点，直接结束 <<<');
-                        state.isPlayingAnnotation = false;
-                        state.isPlaying = false;
-                        document.getElementById('playBtn').textContent = '\u25B6';
-                        reader.revealAll();
-                        // 调用 onTTSEnd 显示梗概小结
-                        self.onTTSEnd();
-                        return;
-                    }
-                    
-                    console.log('>>> 继续说回到原文 <<<');
-
-                    // f. 点评播完后，语音说"回到原文"，停顿1秒
-                    var returnUtterance = new SpeechSynthesisUtterance('回到原文');
-                    returnUtterance.lang = 'zh-CN';
-                    returnUtterance.rate = 0.9;
-                    returnUtterance.pitch = 1.1;
-
-                    returnUtterance.onend = function() {
-                        // 停顿1秒后继续原文朗读
-                        setTimeout(function() {
-                            // 点评高亮保持显示，不清除
-                            state.isPlayingAnnotation = false;
-
-                            // 隐藏点评显示区域
-                            document.getElementById('annotationDisplay').classList.remove('active');
-
-                            // 恢复标签轮巡
-                            analysisManager.resumeRotation();
-
-                            // 继续原文朗读 - 从点评点之后的位置继续
-                            if (state.isPlaying) {
-                                self._resumeFromAnnotation(annotation);
-                            }
-                        }, 1000);
-                    };
-
-                    returnUtterance.onerror = function() {
-                        setTimeout(function() {
-                            // 点评高亮保持显示，不清除
-                            state.isPlayingAnnotation = false;
-                            document.getElementById('annotationDisplay').classList.remove('active');
-
-                            // 恢复标签轮巡
-                            analysisManager.resumeRotation();
-
-                            if (state.isPlaying) {
-                                self._resumeFromAnnotation(annotation);
-                            }
-                        }, 1000);
-                    };
-
-                    window.speechSynthesis.speak(returnUtterance);
-                });
-            },
-
-            // 从点评点之后的位置继续朗读
-            _resumeFromAnnotation: function(annotation) {
-                var self = this;
-                var content = state.currentSections[state.currentSectionIndex].content;
-                var resumeCharIndex = annotation.end_char + 1;
-
-                // 找到点评点结束位置所在的句子索引
-                var charCount = 0;
-                var currentSentenceIndex = 0;
-                var sentenceStartChar = 0;
-
-                for (var i = 0; i < this._ttsSentences.length; i++) {
-                    if (charCount + this._ttsSentences[i].length > resumeCharIndex) {
-                        currentSentenceIndex = i;
-                        sentenceStartChar = charCount;
+            // 根据当前时间更新文字显示
+            _updateDisplayByTime: function() {
+                if (!this.charTimeline || this.charTimeline.length === 0) return;
+                
+                var time = this.currentTime;
+                var charIndex = 0;
+                
+                // 找到当前时间对应的字符索引
+                for (var i = 0; i < this.charTimeline.length; i++) {
+                    if (this.charTimeline[i] > time) {
+                        charIndex = i;
                         break;
                     }
-                    charCount += this._ttsSentences[i].length;
-                    currentSentenceIndex = i + 1;
-                    sentenceStartChar = charCount;
-                }
-
-                // 计算点评点在当前句子中的偏移
-                var currentSentence = this._ttsSentences[currentSentenceIndex] || '';
-                var offsetInSentence = resumeCharIndex - sentenceStartChar;
-
-                // 确保点评点之后的文字都已显示
-                reader.revealCharsUpTo(resumeCharIndex);
-
-                // 如果点评点在句子中间，先朗读该句子的剩余部分
-                if (offsetInSentence > 0 && offsetInSentence < currentSentence.length) {
-                    var remainingText = currentSentence.substring(offsetInSentence);
-
-                    var utterance = new SpeechSynthesisUtterance(remainingText);
-                    utterance.lang = 'zh-CN';
-                    utterance.rate = 0.9;
-                    utterance.pitch = 1.1;
-
-                    utterance.onend = function() {
-                        // 剩余部分读完后，继续下一句
-                        self._ttsSentenceIndex = currentSentenceIndex + 1;
-                        self._speakCurrentSentence();
-                    };
-
-                    utterance.onerror = function() {
-                        self._ttsSentenceIndex = currentSentenceIndex + 1;
-                        self._speakCurrentSentence();
-                    };
-
-                    window.speechSynthesis.speak(utterance);
-                } else {
-                    // 点评点在句子末尾或刚好在边界，直接从下一句开始
-                    this._ttsSentenceIndex = currentSentenceIndex + 1;
-                    this._speakCurrentSentence();
-                }
-            },
-
-            // 在赏析区域显示点评内容
-            _showAnnotationInAnalysis: function(annotation) {
-                // 使用赏析管理器添加点评标签
-                analysisManager.addAnnotationTab(annotation);
-            },
-
-            // 语音播报点评内容
-            _speakAnnotation: function(annotation, onDone) {
-                var utterance = new SpeechSynthesisUtterance(annotation.comment);
-                utterance.lang = 'zh-CN';
-                utterance.rate = 0.8; // 更慢的语速
-                utterance.pitch = 1.1;
-
-                utterance.onend = function() {
-                    if (onDone) onDone();
-                };
-
-                utterance.onerror = function() {
-                    if (onDone) onDone();
-                };
-
-                window.speechSynthesis.speak(utterance);
-            },
-
-            // ===== TTS 朗读（自动降级）=====
-            playTTS: function() {
-                var self = this;
-                // 实时检测浏览器 TTS 支持
-                this._browserTTSSupported = 'speechSynthesis' in window && window.speechSynthesis;
-                
-                if (this._browserTTSSupported) {
-                    // 尝试使用浏览器 TTS
-                    try {
-                        this._playBrowserTTS();
-                        return;
-                    } catch(e) {
-                        console.log('浏览器 TTS 失败，尝试服务端:', e);
-                    }
+                    charIndex = i + 1;
                 }
                 
-                // 降级到服务端 TTS
-                console.log('浏览器不支持或失败，检查服务端 TTS...');
-                fetch(API_BASE + '/tts/status').then(function(r) { return r.json(); }).then(function(data) {
-                    if (data.server_tts) {
-                        self._playServerTTS();
-                    } else {
-                        alert('您的浏览器不支持语音朗读功能，且服务端 TTS 未配置。\n\n请联系管理员配置百度语音合成服务（AppID、API Key、Secret Key）。');
-                    }
-                }).catch(function() {
-                    alert('无法连接到语音服务，请检查网络或联系管理员。');
-                });
+                // 更新文字显示
+                reader.revealCharsUpTo(charIndex);
+                
+                // 更新进度条
+                if (this.audioDuration > 0) {
+                    var percent = (time / this.audioDuration) * 100;
+                    document.getElementById('progressFill').style.width = percent + '%';
+                }
             },
 
-            // ===== 浏览器 Web Speech API TTS =====
             _playBrowserTTS: function() {
-
+                if (!this._browserTTSSupported) {
+                    alert('您的浏览器不支持语音朗读功能');
+                    return;
+                }
+                
                 window.speechSynthesis.cancel();
-                clearTimeout(this._ttsCharTimer);
-
-                var content = state.currentSections[state.currentSectionIndex].content;
-                this._ttsSentences = content.split(/([。！？\n]+)/).filter(function(s) { return s.trim(); });
-                this._ttsSentences = this._ttsSentences.reduce(function(acc, cur, i) {
-                    if (i % 2 === 0) acc.push(cur);
-                    else if (acc.length > 0) acc[acc.length - 1] += cur;
-                    return acc;
-                }, []);
-
-                // 从断点位置找到对应的句子索引
-                var savedPosition = reader._currentPosition || 0;
-                var charCount = 0;
-                this._ttsSentenceIndex = 0;
-                for (var i = 0; i < this._ttsSentences.length; i++) {
-                    charCount += this._ttsSentences[i].length;
-                    if (charCount > savedPosition) {
-                        this._ttsSentenceIndex = i;
-                        break;
-                    }
-                    if (i === this._ttsSentences.length - 1) {
-                        this._ttsSentenceIndex = i;
-                    }
-                }
-
-                // 如果已有文字显示（断点恢复），不要清除
-                if (savedPosition <= 0) {
-                    reader.hideAll();
-                }
                 this._speakCurrentSentence();
+                this.isPlaying = true;
+                state.isPlaying = true;
+                document.getElementById('playBtn').textContent = '\u23F8';
             },
 
             _speakCurrentSentence: function() {
                 if (this._ttsSentenceIndex >= this._ttsSentences.length) {
-                    this.onTTSEnd();
+                    this.onAudioEnd();
                     return;
                 }
-
+                
                 var sentence = this._ttsSentences[this._ttsSentenceIndex];
-
-                var startChar = 0;
-                for (var i = 0; i < this._ttsSentenceIndex; i++) {
-                    startChar += this._ttsSentences[i].length;
-                }
-
                 var utterance = new SpeechSynthesisUtterance(sentence);
                 utterance.lang = 'zh-CN';
                 utterance.rate = 0.9;
                 utterance.pitch = 1.1;
-
-                var chars = sentence.split('');
-                var totalChars = chars.length;
-                var charIdx = 0;
-                var startTime = null;
-                var animationId = null;
+                
                 var self = this;
-
-                utterance.onstart = function() {
-                    startTime = Date.now();
-                    var animate = function() {
-                        if (!state.isPlaying || charIdx >= totalChars) return;
-
-                        var elapsed = Date.now() - startTime;
-                        var expectedChars = Math.floor(elapsed / 220);
-
-                        if (expectedChars > charIdx) {
-                            charIdx = expectedChars;
-                            reader.revealCharsUpTo(startChar + Math.min(charIdx, totalChars));
-                        }
-
-                        animationId = requestAnimationFrame(animate);
-                    };
-                    animate();
-                };
-
                 utterance.onend = function() {
-                    if (animationId) cancelAnimationFrame(animationId);
-
-                    // 如果是因为触发点评而中断的，不继续下一句
-                    if (state.isPlayingAnnotation) return;
-
+                    if (!self.isPlaying) return;
                     self._ttsSentenceIndex++;
-                    if (self._ttsSentenceIndex < self._ttsSentences.length && state.isPlaying) {
-                        reader.revealCharsUpTo(startChar + totalChars);
-                        setTimeout(function() { self._speakCurrentSentence(); }, 300);
-                    } else {
-                        reader.revealAll();
-                        self.onTTSEnd();
-                    }
+                    self._speakCurrentSentence();
                 };
-
-                utterance.onerror = function(e) {
-                    if (animationId) cancelAnimationFrame(animationId);
-
-                    if (state.isPlayingAnnotation) return;
-
-                    reader.revealCharsUpTo(startChar + totalChars);
-                    self._ttsSentenceIndex++;
-                    if (state.isPlaying) {
-                        setTimeout(function() { self._speakCurrentSentence(); }, 300);
-                    }
-                };
-
+                
                 window.speechSynthesis.speak(utterance);
             },
 
-            pauseTTS: function() {
-                window.speechSynthesis.pause();
-                clearTimeout(this._ttsCharTimer);
-            },
-
-            stopTTS: function() {
-                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-                clearTimeout(this._ttsCharTimer);
-                clearInterval(this._serverAudioTimer);
-                this.audio.pause();
-            },
-
-            // ===== 服务端 TTS（百度语音合成降级方案）=====
-            _playServerTTS: function() {
-                var self = this;
-                var section = state.currentSections[state.currentSectionIndex];
-                if (!section) return;
-
-                // 显示加载提示
-                document.getElementById('playBtn').textContent = '⏳';
-
-                // 调用服务端合成
-                console.log('调用服务端 TTS...');
-                fetch(API_BASE + '/tts/synthesize', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        text: section.content,
-                        section_id: section.id
-                    })
-                }).then(function(r) {
-                    console.log('TTS 响应状态:', r.status);
-                    return r.json();
-                }).then(function(data) {
-                    console.log('TTS 响应数据:', data);
-                    if (data.success && data.audio_urls && data.audio_urls.length > 0) {
-                        self._serverAudioUrls = data.audio_urls;
-                        self._serverAudioIndex = 0;
-                        // 计算每段音频对应的字符范围
-                        self._buildServerAudioCharMap();
-                        // 设置播放状态
-                        state.isPlaying = true;
-                        document.getElementById('playBtn').textContent = '\u23F8';
-                        self._playServerAudioSequence();
-                    } else {
-                        alert('语音合成失败: ' + (data.error || '未知错误'));
-                        document.getElementById('playBtn').textContent = '\u25B6';
-                        state.isPlaying = false;
-                    }
-                }).catch(function(e) {
-                    console.error('TTS 请求异常:', e);
-                    alert('语音合成请求失败: ' + e.message);
-                    document.getElementById('playBtn').textContent = '\u25B6';
-                    state.isPlaying = false;
-                });
-            },
-
-            // 构建每段音频对应的字符范围
-            _buildServerAudioCharMap: function() {
-                var section = state.currentSections[state.currentSectionIndex];
-                var totalChars = (section && section.content) ? section.content.length : 0;
-                var segCount = this._serverAudioUrls.length;
-                this._serverCharMap = [];
-                for (var i = 0; i < segCount; i++) {
-                    this._serverCharMap.push({
-                        startChar: Math.floor(totalChars * i / segCount),
-                        endChar: Math.floor(totalChars * (i + 1) / segCount)
-                    });
-                }
-            },
-
-            _playServerAudioSequence: function() {
-                var self = this;
-                if (this._serverAudioIndex >= this._serverAudioUrls.length) {
-                    this.onServerTTSEnd();
-                    return;
-                }
-
-                var url = this._serverAudioUrls[this._serverAudioIndex];
-                var charMap = this._serverCharMap[this._serverAudioIndex];
-                var segTotalChars = charMap.endChar - charMap.startChar;
-
-                // 先显示当前段之前的所有文字
-                reader.revealCharsUpTo(charMap.startChar);
-
-                this.audio.src = url;
-                this.audio.play().catch(function(e) {
-                    console.error('音频播放失败:', e);
-                    self._serverAudioIndex++;
-                    self._playServerAudioSequence();
-                });
-
-                // 逐字显示动画 - 使用 timeupdate 事件
-                this.audio.ontimeupdate = function() {
-                    if (!state.isPlaying) return;
-                    var current = self.audio.currentTime || 0;
-                    var duration = self.audio.duration || 1;
-                    var segProgress = current / duration;
-                    var charProgress = charMap.startChar + Math.floor(segProgress * segTotalChars);
-                    reader.revealCharsUpTo(charProgress);
-
-                    // 总进度
-                    var section = state.currentSections[state.currentSectionIndex];
-                    var totalChars = (section && section.content) ? section.content.length : 0;
-                    var totalProgress = totalChars > 0 ? (charProgress / totalChars) * 100 : 0;
-                    document.getElementById('progressFill').style.width = totalProgress + '%';
-                };
-
-                this.audio.onended = function() {
-                    // 确保当前段文字全部显示
-                    reader.revealCharsUpTo(charMap.endChar);
-                    self._serverAudioIndex++;
-                    if (self._serverAudioIndex < self._serverAudioUrls.length && state.isPlaying) {
-                        setTimeout(function() { self._playServerAudioSequence(); }, 300);
-                    } else {
-                        self.onServerTTSEnd();
-                    }
-                };
-
-                this.audio.onerror = function() {
-                    reader.revealCharsUpTo(charMap.endChar);
-                    self._serverAudioIndex++;
-                    self._playServerAudioSequence();
-                };
-            },
-
-            onServerTTSEnd: function() {
+            onAudioEnd: function() {
+                this.isPlaying = false;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
-                clearInterval(this._serverAudioTimer);
-
+                
                 // 标记已读
                 var section = state.currentSections[state.currentSectionIndex];
                 if (section && state.currentBook) {
@@ -2452,7 +2107,7 @@
                         body: JSON.stringify({book_id: state.currentBook.id, status: 'read'})
                     }).catch(function() {});
                 }
-
+                
                 // 显示梗概小结
                 var self = this;
                 setTimeout(function() {
@@ -2460,94 +2115,17 @@
                 }, 2000);
             },
 
-            onTTSEnd: function() {
-                var self = this;
-                state.isPlaying = false;
-                document.getElementById('playBtn').textContent = '\u25B6';
-
-                // 将当前节标记为已读
-                var section = state.currentSections[state.currentSectionIndex];
-                if (section && state.currentBook) {
-                    fetch(API_BASE + '/sections/' + section.id + '/status', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({book_id: state.currentBook.id, status: 'read'})
-                    }).catch(function() {});
-                }
-
-                // 播放"回顾一下，这部分主要讲了什么内容？"
-                var thinkUtterance = new SpeechSynthesisUtterance('回顾一下，这部分主要讲了什么内容？');
-                thinkUtterance.lang = 'zh-CN';
-                thinkUtterance.rate = 0.9;
-                thinkUtterance.pitch = 1.1;
-
-                thinkUtterance.onend = function() {
-                    // 等待3秒后生成并显示梗概小结
-                    setTimeout(function() {
-                        self._generateAndShowSummary();
-                    }, 3000);
-                };
-
-                window.speechSynthesis.speak(thinkUtterance);
-            },
-
-            // 生成并显示梗概小结（取自文章附属的小结内容）
             _generateAndShowSummary: function() {
                 var section = state.currentSections[state.currentSectionIndex];
-                var summary = (section && section.summary) ? section.summary : '';
-
-                if (!summary) {
-                    // 没有附属小结，直接跳过
-                    if (state.currentSectionIndex < state.currentSections.length - 1) {
-                        setTimeout(function() { reader.nextSection(); }, 2000);
-                    }
-                    return;
-                }
-
-                // 添加梗概小结标签
-                analysisManager.addSummaryTab(summary);
-
-                // 语音播报小结
-                var summaryUtterance = new SpeechSynthesisUtterance(summary);
-                summaryUtterance.lang = 'zh-CN';
-                summaryUtterance.rate = 0.85;
-                summaryUtterance.pitch = 1.1;
-
-                summaryUtterance.onend = function() {
-                    // 小结播报完后，如果还有下一节，等待2秒后切换
-                    if (state.currentSectionIndex < state.currentSections.length - 1) {
-                        setTimeout(function() { reader.nextSection(); }, 2000);
-                    }
-                };
-
-                window.speechSynthesis.speak(summaryUtterance);
-            },
-
-            onTimeUpdate: function() {
-                if (this.mode !== 'audio') return;
-                var current = this.audio.currentTime;
-                var duration = this.audio.duration || 0;
-                var percent = duration ? (current / duration) * 100 : 0;
-                document.getElementById('progressFill').style.width = percent + '%';
-                var total = reader._totalChars || 1;
-                var charIdx = Math.floor((current / duration) * total);
-                reader.revealCharsUpTo(charIdx);
-            },
-
-            onEnded: function() {
-                if (this.mode !== 'audio') return;
-                state.isPlaying = false;
-                document.getElementById('playBtn').textContent = '\u25B6';
-                reader.revealAll();
+                if (!section || !section.summary) return;
+                
+                analysisManager.addSummaryTab(section.summary);
+                
+                // 如果还有下一节，自动切换
                 if (state.currentSectionIndex < state.currentSections.length - 1) {
-                    setTimeout(function() { reader.nextSection(); }, 1000);
+                    setTimeout(function() { reader.nextSection(); }, 3000);
                 }
-            },
-
-            onLoadedMetadata: function() {
-                if (this.mode !== 'audio') return;
             }
-        };
 
         // ===== 点评编辑器 =====
         var annotationEditor = {
