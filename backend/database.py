@@ -31,6 +31,8 @@ def init_db():
             file_path TEXT,
             total_sections INTEGER DEFAULT 0,
             total_chapters INTEGER DEFAULT 0,
+            tts_status TEXT DEFAULT 'none',  -- none/pending/generating/done/error
+            tts_progress TEXT DEFAULT '',     -- 如 "5/30"
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -203,6 +205,14 @@ def init_db():
         pass
     try:
         cursor.execute('ALTER TABLE sections ADD COLUMN char_timeline TEXT')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE books ADD COLUMN tts_status TEXT DEFAULT "none"')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE books ADD COLUMN tts_progress TEXT DEFAULT ""')
     except:
         pass
 
@@ -706,6 +716,17 @@ def get_section_audio_timeline(section_id):
             'char_timeline': json.loads(row['char_timeline']) if row['char_timeline'] else []
         }
     return None
+
+def update_book_tts_status(book_id, status, progress=''):
+    """更新书籍的TTS生成状态"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE books SET tts_status = ?, tts_progress = ? WHERE id = ?',
+        (status, progress, book_id)
+    )
+    conn.commit()
+    conn.close()
 
 def update_section_word_count(section_id, word_count):
     """更新小节字数"""

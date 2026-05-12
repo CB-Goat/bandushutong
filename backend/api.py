@@ -319,6 +319,23 @@ def generate_section_audio_api(section_id):
     else:
         return jsonify({'error': '音频生成失败'}), 500
 
+@api_bp.route('/books/<int:book_id>/tts-status', methods=['GET'])
+def get_book_tts_status(book_id):
+    """获取书籍的TTS生成状态"""
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT tts_status, tts_progress, total_sections FROM books WHERE id = ?', (book_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return jsonify({
+            'tts_status': row['tts_status'] or 'none',
+            'tts_progress': row['tts_progress'] or '',
+            'total_sections': row['total_sections'] or 0
+        })
+    return jsonify({'error': '书籍不存在'}), 404
+
 @api_bp.route('/audio/<path:filename>', methods=['GET'])
 def serve_audio(filename):
     """提供音频文件"""
