@@ -62,47 +62,54 @@ def parse_docx_file(file_path):
 
     # 收集批注（comments）
     # Word批注结构：对某一节标题的批注 = 小结；对节正文的批注 = 点评
+    # 注意：commentsExtended 只是扩展属性，真正的批注内容在标准 comments 中
     comments = []
     try:
-        # 尝试多种方式获取批注
         comments_part = None
         
-        # 方式1: 通过 rels 查找 comments 或 commentsExtended
+        # 遍历所有关系，找到真正的 comments（跳过 commentsExtended）
         for rel in doc.part.rels.values():
-            reltype = str(rel.reltype).lower()
-            if 'comments' in reltype:
+            reltype = str(rel.reltype)
+            # 匹配标准 comments，排除 commentsExtended
+            if reltype.endswith('/comments') and 'commentsExtended' not in reltype and 'commentsEx' not in reltype:
                 comments_part = rel.target_part
-                print(f"[Parser] 找到批注部分: {rel.reltype}")
+                print(f"[Parser] 找到批注部分: {reltype}")
                 break
+        
+        if not comments_part:
+            # 如果没找到标准 comments，尝试直接查找
+            for rel in doc.part.rels.values():
+                reltype = str(rel.reltype).lower()
+                if 'comments' in reltype and 'extended' not in reltype and 'ex' not in reltype:
+                    comments_part = rel.target_part
+                    print(f"[Parser] 找到批注部分(备选): {reltype}")
+                    break
         
         if comments_part:
             from lxml import etree
             nsmap = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
             root = etree.fromstring(comments_part.blob)
             
-            # 尝试多种批注标签
             comment_elems = root.findall('.//w:comment', nsmap)
-            if not comment_elems:
-                # 尝试 commentsExtended 格式
-                comment_elems = root.findall('.//w15:comment', {'w15': 'http://schemas.microsoft.com/office/word/2012/wordml'})
+            print(f"[Parser] 找到 {len(comment_elems)} 个批注元素")
             
             for comment in comment_elems:
                 comment_id = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
-                if not comment_id:
-                    comment_id = comment.get('{http://schemas.microsoft.com/office/word/2012/wordml}id')
                 author = comment.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}author', '')
-                if not author:
-                    author = comment.get('{http://schemas.microsoft.com/office/word/2012/wordml}author', '')
                 comment_texts = []
                 for p in comment.findall('.//w:p', nsmap):
                     texts = [t.text for t in p.findall('.//w:t', nsmap) if t.text]
                     comment_texts.append(''.join(texts))
+                text = '\n'.join(comment_texts).strip()
                 comments.append({
                     'id': comment_id,
                     'author': author,
-                    'text': '\n'.join(comment_texts).strip()
+                    'text': text
                 })
-            print(f"[Parser] 解析到 {len(comments)} 条批注")
+                print(f"[Parser]   批注 ID={comment_id}: {text[:50]}...")
+            print(f"[Parser] 共解析到 {len(comments)} 条批注")
+        else:
+            print("[Parser] 未找到标准 comments 部分，跳过批注解析")
     except Exception as e:
         print(f"[Parser] 批注解析警告: {e}")
         import traceback
