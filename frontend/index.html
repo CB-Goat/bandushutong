@@ -1127,6 +1127,7 @@
             initDatabase();
             checkLogin();
             setupEventListeners();
+            player.init();
         });
 
         async function initDatabase() {
@@ -1916,7 +1917,20 @@
             _ttsSentenceIndex: 0,
             _ttsCharTimer: null,
             _ttsSentences: [],
-            _annotationResumeCallback: null, // 点评播放完后恢复朗读的回调
+            _annotationResumeCallback: null,
+            _serverTTSAvailable: false,
+            _serverAudioUrls: [],
+            _serverAudioIndex: 0,
+            _serverAudioTimer: null,
+            _browserTTSSupported: false,
+
+            init: function() {
+                var self = this;
+                this._browserTTSSupported = 'speechSynthesis' in window;
+                fetch(API_BASE + '/tts/status').then(function(r) { return r.json(); }).then(function(data) {
+                    self._serverTTSAvailable = data.server_tts || false;
+                }).catch(function() {});
+            },
 
             useBrowserTTS: function() {
                 this.mode = 'tts';
@@ -2159,12 +2173,21 @@
                 window.speechSynthesis.speak(utterance);
             },
 
-            // ===== Web Speech API TTS + 逐字显示 =====
+            // ===== TTS 朗读（自动降级）=====
             playTTS: function() {
-                if (!('speechSynthesis' in window)) {
-                    alert('您的浏览器不支持语音朗读功能');
-                    return;
+                // 优先使用浏览器 TTS
+                if (this._browserTTSSupported) {
+                    this._playBrowserTTS();
+                } else if (this._serverTTSAvailable) {
+                    // 降级到服务端 TTS
+                    this._playServerTTS();
+                } else {
+                    alert('您的浏览器不支持语音朗读功能，且服务端 TTS 未配置。请联系管理员配置百度语音合成服务。');
                 }
+            },
+
+            // ===== 浏览器 Web Speech API TTS =====
+            _playBrowserTTS: function() {
 
                 window.speechSynthesis.cancel();
                 clearTimeout(this._ttsCharTimer);
@@ -2281,6 +2304,119 @@
             stopTTS: function() {
                 if ('speechSynthesis' in window) window.speechSynthesis.cancel();
                 clearTimeout(this._ttsCharTimer);
+                clearInterval(this._serverAudioTimer);
+                this.audio.pause();
+            },
+
+            // ===== 服务端 TTS（百度语音合成降级方案）=====
+            _playServerTTS: function() {
+                var self = this;
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return;
+
+                // 显示加载提示
+                document.getElementById('playBtn').textContent = '...';
+
+                // 调用服务端合成
+                fetch(API_BASE + '/tts/synthesize', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        text: section.content,
+                        section_id: section.id
+                    })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success && data.audio_urls && data.audio_urls.length > 0) {
+                        self._serverAudioUrls = data.audio_urls;
+                        self._serverAudioIndex = 0;
+                        self._playServerAudioSequence();
+                    } else {
+                        alert('语音合成失败: ' + (data.error || '未知错误'));
+                        document.getElementById('playBtn').textContent = '\u25B6';
+                        state.isPlaying = false;
+                    }
+                }).catch(function(e) {
+                    alert('语音合成请求失败: ' + e.message);
+                    document.getElementById('playBtn').textContent = '\u25B6';
+                    state.isPlaying = false;
+                });
+            },
+
+            _playServerAudioSequence: function() {
+                var self = this;
+                if (this._serverAudioIndex >= this._serverAudioUrls.length) {
+                    this.onServerTTSEnd();
+                    return;
+                }
+
+                var url = this._serverAudioUrls[this._serverAudioIndex];
+                this.audio.src = url;
+                this.audio.play().catch(function(e) {
+                    console.error('音频播放失败:', e);
+                    self._serverAudioIndex++;
+                    self._playServerAudioSequence();
+                });
+
+                // 逐字显示动画
+                var section = state.currentSections[state.currentSectionIndex];
+                var totalChars = (section && section.content) ? section.content.length : 0;
+                var audioDuration = 0;
+                var charProgress = 0;
+
+                this.audio.onloadedmetadata = function() {
+                    audioDuration = self.audio.duration || 10;
+                    var charsPerSecond = totalChars / audioDuration;
+
+                    clearInterval(self._serverAudioTimer);
+                    self._serverAudioTimer = setInterval(function() {
+                        if (!state.isPlaying) return;
+                        var elapsed = self.audio.currentTime || 0;
+                        charProgress = Math.min(totalChars, Math.floor(elapsed * charsPerSecond));
+                        reader.revealCharsUpTo(charProgress);
+                        var percent = audioDuration ? (elapsed / audioDuration) * 100 : 0;
+                        document.getElementById('progressFill').style.width = percent + '%';
+                    }, 200);
+                };
+
+                this.audio.onended = function() {
+                    clearInterval(self._serverAudioTimer);
+                    reader.revealAll();
+                    document.getElementById('progressFill').style.width = '100%';
+                    self._serverAudioIndex++;
+                    if (self._serverAudioIndex < self._serverAudioUrls.length && state.isPlaying) {
+                        setTimeout(function() { self._playServerAudioSequence(); }, 300);
+                    } else {
+                        self.onServerTTSEnd();
+                    }
+                };
+
+                this.audio.onerror = function() {
+                    clearInterval(self._serverAudioTimer);
+                    self._serverAudioIndex++;
+                    self._playServerAudioSequence();
+                };
+            },
+
+            onServerTTSEnd: function() {
+                state.isPlaying = false;
+                document.getElementById('playBtn').textContent = '\u25B6';
+                clearInterval(this._serverAudioTimer);
+
+                // 标记已读
+                var section = state.currentSections[state.currentSectionIndex];
+                if (section && state.currentBook) {
+                    fetch(API_BASE + '/sections/' + section.id + '/status', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({book_id: state.currentBook.id, status: 'read'})
+                    }).catch(function() {});
+                }
+
+                // 显示梗概小结
+                var self = this;
+                setTimeout(function() {
+                    self._generateAndShowSummary();
+                }, 2000);
             },
 
             onTTSEnd: function() {

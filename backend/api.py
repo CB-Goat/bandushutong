@@ -235,6 +235,41 @@ def generate_section_audio(section_id):
     else:
         return jsonify({'error': '音频生成失败'}), 500
 
+@api_bp.route('/tts/synthesize', methods=['POST'])
+def tts_synthesize():
+    """百度 TTS 合成接口（供前端降级使用）"""
+    data = request.get_json()
+    text = data.get('text', '')
+    section_id = data.get('section_id')
+    
+    if not text:
+        return jsonify({'error': '文本不能为空'}), 400
+    
+    # 尝试百度 TTS
+    from backend.baidu_tts import text_to_speech_long, is_configured
+    
+    if not is_configured():
+        return jsonify({'error': 'TTS 服务未配置'}), 503
+    
+    audio_paths = text_to_speech_long(text, section_id=section_id)
+    
+    if audio_paths:
+        return jsonify({
+            'success': True,
+            'audio_urls': ['/api/audio/' + os.path.basename(p) for p in audio_paths]
+        })
+    else:
+        return jsonify({'error': '语音合成失败'}), 500
+
+@api_bp.route('/tts/status', methods=['GET'])
+def tts_status():
+    """检查 TTS 服务状态"""
+    from backend.baidu_tts import is_configured
+    return jsonify({
+        'browser_tts': True,  # 前端会自己检测
+        'server_tts': is_configured()
+    })
+
 @api_bp.route('/audio/<path:filename>', methods=['GET'])
 def serve_audio(filename):
     """提供音频文件"""
