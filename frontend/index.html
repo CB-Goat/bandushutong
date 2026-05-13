@@ -2096,6 +2096,10 @@
                     for (var i = 0; i < reader._allChars.length; i++) {
                         reader._allChars[i].classList.remove('visible');
                     }
+                    // 清除点评高亮
+                    for (var i = 0; i < reader._allChars.length; i++) {
+                        reader._allChars[i].classList.remove('annotated');
+                    }
                 }
                 // 重置 reader 的位置
                 reader._currentPosition = 0;
@@ -2106,6 +2110,16 @@
                 // 重置音频
                 if (this.audio) {
                     this.audio.currentTime = 0;
+                }
+                // 重置点评触发状态
+                if (state.currentAnnotations) {
+                    state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
+                }
+                // 隐藏点评显示区域
+                document.getElementById('annotationDisplay').classList.remove('active');
+                // 重置赏析区域
+                if (typeof analysisManager !== 'undefined') {
+                    analysisManager.init();
                 }
                 console.log('已重置到开头，文字数:', reader._allChars ? reader._allChars.length : 0);
             },
