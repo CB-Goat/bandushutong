@@ -188,7 +188,7 @@ var player = {
             if (this.charTimeline[i] > time) { charIndex = i; break; }
         }
         // 文字提前 TEXT_AHEAD_OFFSET 个字符显示（模仿自然阅读）
-        charIndex = Math.max(0, charIndex - this.TEXT_AHEAD_OFFSET);
+        charIndex = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
         return charIndex;
     },
 
@@ -247,7 +247,7 @@ var player = {
         // 暂停音频
         this.audio.pause();
         
-        // 计算点评在音频中的时间点（基于原始字符位置，不考虑提前量）
+        // 计算点评在音频中的时间点（基于原始字符位置）
         var annotationStartTime = 0;
         var annotationEndTime = 0;
         if (this.charTimeline && annotation.start_char < this.charTimeline.length) {
@@ -260,27 +260,20 @@ var player = {
         this.currentTime = annotationStartTime;
         this.audio.load();
         
-        // 计算显示位置：点评原文开始位置减去提前量
-        // 这样文字会从点评原文开始位置提前 TEXT_AHEAD_OFFSET 个字符显示
-        var displayStartChar = Math.max(0, annotation.start_char - this.TEXT_AHEAD_OFFSET);
-        var displayEndChar = annotation.end_char;
-        
-        // 文字显示回退到提前量之后的位置（让点评原文恰好显示出来）
+        // 文字显示回退到：点评结束位置 + 提前量（因为正常阅读时文字会提前显示）
+        // 这样用户能看到完整的点评原文
+        var displayChar = Math.min(this.charTimeline.length, annotation.end_char + this.TEXT_AHEAD_OFFSET);
         if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
-            reader.revealCharsUpTo(displayEndChar);
+            reader.revealCharsUpTo(displayChar);
         }
         
-        // 高亮点评原文（显示位置应该对应提前后的显示）
-        // 高亮范围从 displayStartChar 到 displayEndChar
+        // 高亮使用原始 annotation 位置（不调整，因为 _highlightAnnotation 直接操作 DOM span）
         if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
-            reader._highlightAnnotation({
-                start_char: displayStartChar,
-                end_char: displayEndChar,
-                original_text: annotation.original_text,
-                comment: annotation.comment,
-                annotation_index: annotation.annotation_index
-            });
+            reader._highlightAnnotation(annotation);
         }
+        
+        // 记录当前 annotation，用于清除
+        this._currentAnnotation = annotation;
         
         // 显示点评内容
         if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
@@ -291,7 +284,7 @@ var player = {
         this._speakComment(annotation.comment, function() {
             self._speakComment('回到原文', function() {
                 setTimeout(function() {
-                    self._resumeAfterAnnotation(annotation, annotationEndTime);
+                    self._resumeAfterAnnotation(annotationEndTime);
                 }, 2000);
             });
         });
@@ -313,13 +306,24 @@ var player = {
     },
 
     // 点评结束后恢复播放
-    _resumeAfterAnnotation: function(annotation, endTime) {
+    _resumeAfterAnnotation: function(endTime) {
         console.log('点评播放结束，恢复正文');
         var self = this;
         
-        // 清除高亮
-        if (typeof reader !== 'undefined' && reader._clearAnnotationHighlight) {
-            reader._clearAnnotationHighlight(annotation);
+        // 清除高亮：遍历所有已高亮的 span，移除样式
+        if (typeof reader !== 'undefined') {
+            // 方式1：使用 _clearAnnotationHighlight
+            if (reader._clearAnnotationHighlight && this._currentAnnotation) {
+                reader._clearAnnotationHighlight(this._currentAnnotation);
+            }
+            // 方式2：直接移除所有高亮样式（确保清除干净）
+            var highlighted = document.querySelectorAll('.annotation-highlight, .annotation-underline');
+            for (var i = 0; i < highlighted.length; i++) {
+                highlighted[i].classList.remove('annotation-highlight', 'annotation-underline');
+                highlighted[i].style.backgroundColor = '';
+                highlighted[i].style.textDecoration = '';
+            }
+            this._currentAnnotation = null;
         }
         
         // 恢复播放状态
