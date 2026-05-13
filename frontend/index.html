@@ -1480,6 +1480,8 @@
             },
 
             _prepareChalkText: function(content) {
+                console.log('_prepareChalkText, content length:', content.length);
+                console.log('content[80:95]:', JSON.stringify(content.substring(80, 95)));
                 var container = document.getElementById('chalkText');
                 container.innerHTML = '';
                 container.scrollTop = 0;
