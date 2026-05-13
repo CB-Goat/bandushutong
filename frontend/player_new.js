@@ -233,5 +233,41 @@ var player = {
                 console.log('已是最后一节');
             }
         }
+    },
+
+    // 触发点评播放
+    _triggerAnnotationPlayback: function(annotation) {
+        console.log('触发点评播放:', annotation);
+        var self = this;
+        
+        // 暂停音频
+        this.audio.pause();
+        
+        // 高亮点评原文
+        if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
+            reader._highlightAnnotation(annotation);
+        }
+        
+        // 显示点评内容
+        if (typeof analysisManager !== 'undefined') {
+            analysisManager.showAnnotation(annotation);
+        }
+        
+        // 等待3秒后恢复播放
+        setTimeout(function() {
+            console.log('点评播放结束，恢复正文');
+            // 清除高亮
+            if (typeof reader !== 'undefined' && reader._clearAnnotationHighlight) {
+                reader._clearAnnotationHighlight(annotation);
+            }
+            // 恢复播放
+            state.isPlayingAnnotation = false;
+            if (self.mode === 'timeline' && self.audioUrl) {
+                self.audio.play();
+                self.isPlaying = true;
+                state.isPlaying = true;
+                document.getElementById('playBtn').textContent = '\u23F8';
+            }
+        }, 3000);
     }
 };
