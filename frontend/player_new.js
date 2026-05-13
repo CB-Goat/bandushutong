@@ -243,17 +243,24 @@ var player = {
         // 暂停音频
         this.audio.pause();
         
-        // 高亮点评原文
+        // 高亮点评原文（补偿文字提前2个汉字的偏移）
         if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
-            reader._highlightAnnotation(annotation);
+            var adjustedAnnotation = {
+                start_char: Math.max(0, annotation.start_char - 2),
+                end_char: Math.max(0, annotation.end_char - 2),
+                original_text: annotation.original_text,
+                comment: annotation.comment,
+                annotation_index: annotation.annotation_index
+            };
+            reader._highlightAnnotation(adjustedAnnotation);
         }
         
-        // 显示点评内容
-        if (typeof analysisManager !== 'undefined') {
-            analysisManager.showAnnotation(annotation);
+        // 显示点评内容（使用 addAnnotationTab）
+        if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
+            analysisManager.addAnnotationTab(annotation);
         }
         
-        // 等待3秒后恢复播放
+        // 等待5秒后恢复播放（给用户足够时间阅读点评）
         setTimeout(function() {
             console.log('点评播放结束，恢复正文');
             // 清除高亮
@@ -263,11 +270,12 @@ var player = {
             // 恢复播放
             state.isPlayingAnnotation = false;
             if (self.mode === 'timeline' && self.audioUrl) {
-                self.audio.play();
-                self.isPlaying = true;
-                state.isPlaying = true;
-                document.getElementById('playBtn').textContent = '\u23F8';
+                self.audio.play().then(function() {
+                    self.isPlaying = true;
+                    state.isPlaying = true;
+                    document.getElementById('playBtn').textContent = '\u23F8';
+                }).catch(function() {});
             }
-        }, 3000);
+        }, 5000);
     }
 };
