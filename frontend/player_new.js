@@ -192,8 +192,7 @@ var player = {
         for (var i = 0; i < this.charTimeline.length; i++) {
             if (this.charTimeline[i] > time) { charIndex = i; break; }
         }
-        // 文字提前2个汉字显示（阅读友好）
-        charIndex = Math.min(this.charTimeline.length, charIndex + 2);
+        // 文字和声音同步显示，不再提前
         reader.revealCharsUpTo(charIndex);
         if (this.audioDuration > 0) {
             document.getElementById('progressFill').style.width = (time / this.audioDuration * 100) + '%';
