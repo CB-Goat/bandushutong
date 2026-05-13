@@ -1,13 +1,13 @@
 """
 Word 结构优先解析器
 专门处理 Word 文档，精确提取：
-- 标题结构（Heading 1/2）
-- 正文内容
+- 书名（Heading 1）
+- 作者、国籍、版本（书名后的 Normal 段落）
+- 章（Heading 2）
+- 节（Heading 3）
 - 批注（对标题的批注=小结，对正文的批注=点评）
-- 批注引用的精确字符范围
 """
 from docx import Document
-from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from lxml import etree
 
 
@@ -24,61 +24,81 @@ class WordStructureParser:
         
     def parse(self):
         """解析整个文档"""
-        # 1. 提取文档元信息
+        # 1. 提取元信息
         meta = self._extract_metadata()
         
-        # 2. 构建段落结构
-        para_data = self._extract_paragraph_data()
-        
-        # 3. 提取批注信息
+        # 2. 提取批注信息
         comments = self._extract_comments()
-        
-        # 4. 提取批注范围（注释引用位置）
         comment_ranges = self._extract_comment_ranges()
         
-        # 5. 构建节结构
-        sections = self._build_sections(para_data, comments, comment_ranges)
+        # 3. 构建章节结构
+        sections = self._build_sections(meta, comments, comment_ranges)
         
         return {
             'title': meta['title'],
             'author': meta['author'],
+            'author_nationality': meta['nationality'],
+            'version': meta['version'],
             'sections': sections
         }
     
     def _extract_metadata(self):
-        """提取文档元信息"""
-        core_props = self.doc.core_properties
-        return {
-            'title': core_props.title or '未命名',
-            'author': core_props.author or '未知作者'
+        """
+        提取文档元信息：
+        - 书名：Heading 1
+        - 作者/国籍：书名后的第一个 Normal 段落
+        - 版本：书名后的第二个 Normal 段落
+        """
+        meta = {
+            'title': '未命名',
+            'author': '',
+            'nationality': '',
+            'version': ''
         }
-    
-    def _extract_paragraph_data(self):
-        """
-        提取每个段落的详细信息：
-        - 索引（在 doc.paragraphs 中的位置）
-        - 样式名
-        - 文本内容
-        - 字符位置（起始位置）
-        """
-        para_data = []
-        char_offset = 0
         
-        for idx, para in enumerate(self.paragraphs):
-            text = para.text
-            style_name = para.style.name if para.style else 'Normal'
-            
-            para_data.append({
-                'index': idx,
-                'style': style_name,
-                'text': text,
-                'char_start': char_offset,
-                'char_end': char_offset + len(text)
-            })
-            
-            char_offset += len(text) + 1  # +1 for paragraph break
+        # 查找第一个 Heading 1 作为书名
+        for para in self.paragraphs:
+            style = para.style.name if para.style else 'Normal'
+            if style == 'Heading 1':
+                meta['title'] = para.text.strip()
+                break
         
-        return para_data
+        # 查找书名后的 Normal 段落作为作者/版本
+        found_title = False
+        normal_count = 0
+        for para in self.paragraphs:
+            style = para.style.name if para.style else 'Normal'
+            text = para.text.strip()
+            
+            if style == 'Heading 1':
+                found_title = True
+                continue
+            
+            if found_title and style == 'Normal' and text:
+                normal_count += 1
+                if normal_count == 1:
+                    # 第一行：作者「国籍」
+                    # 格式：作者「国籍」或 作者[国籍] 或 作者（国籍）
+                    if '「' in text and '」' in text:
+                        parts = text.split('「')
+                        meta['author'] = parts[0].strip()
+                        meta['nationality'] = parts[1].split('」')[0].strip()
+                    elif '[' in text and ']' in text:
+                        parts = text.split('[')
+                        meta['author'] = parts[0].strip()
+                        meta['nationality'] = parts[1].split(']')[0].strip()
+                    elif '（' in text and '）' in text:
+                        parts = text.split('（')
+                        meta['author'] = parts[0].strip()
+                        meta['nationality'] = parts[1].split('）')[0].strip()
+                    else:
+                        meta['author'] = text
+                elif normal_count == 2:
+                    # 第二行：版本
+                    meta['version'] = text
+                    break
+        
+        return meta
     
     def _extract_comments(self):
         """提取所有批注内容"""
@@ -112,15 +132,13 @@ class WordStructureParser:
     
     def _extract_comment_ranges(self):
         """
-        提取批注引用范围（注释在文档中的位置）
-        返回: {comment_id: {'start': (para_idx, char_offset), 'end': (para_idx, char_offset)}}
+        提取批注引用范围
+        返回: {comment_id: {'start_para': idx, 'start_char': offset, 'end_para': idx, 'end_char': offset}}
         """
         comment_ranges = {}
         
         for para_idx, para in enumerate(self.paragraphs):
             para_element = para._element
-            
-            # 计算段内字符偏移
             char_offset = 0
             
             for child in para_element:
@@ -143,115 +161,163 @@ class WordStructureParser:
                         comment_ranges[cid]['end_char'] = char_offset
                 
                 elif tag == 'r':
-                    # 累加文本长度
                     for t in child.findall('.//w:t', self.nsmap):
                         if t.text:
                             char_offset += len(t.text)
         
         return comment_ranges
     
-    def _build_sections(self, para_data, comments, comment_ranges):
+    def _build_sections(self, meta, comments, comment_ranges):
         """
         构建节结构：
-        - Heading 2 = 节标题
-        - 节标题后的 Normal 段落 = 节正文
+        - Heading 3 = 节（阅读单元）
+        - 如果只有 Heading 2 没有 Heading 3，则 Heading 2 作为节
         - 对节标题的批注 = 小结
         - 对正文的批注 = 点评
         """
         sections = []
-        current_section = None
         section_number = 1
+        current_chapter = None
         
-        for pd in para_data:
-            style = pd['style']
-            text = pd['text']
-            para_idx = pd['index']
+        # 先检查是否有 Heading 3
+        has_h3 = self._has_heading3()
+        print(f"[Parser] 文档是否有 Heading 3: {has_h3}")
+        
+        for para_idx, para in enumerate(self.paragraphs):
+            style = para.style.name if para.style else 'Normal'
+            text = para.text.strip()
+            
+            if not text:
+                continue
             
             if style == 'Heading 1':
-                # 书籍标题，跳过
+                # 书名，跳过
                 continue
             
             elif style == 'Heading 2':
-                # 保存上一个节
-                if current_section:
-                    sections.append(current_section)
-                
-                # 开始新节，记录标题段落索引
-                current_section = {
-                    'section_number': section_number,
-                    'title': text.strip(),
-                    'content': '',
-                    'summary': None,
-                    'annotations': [],
-                    '_title_para': para_idx,  # 记录标题段落索引
-                    '_content_start': 0
-                }
-                section_number += 1
-                print(f"[Parser] 新节 {current_section['section_number']}: {current_section['title']} (标题段落={para_idx})")
-                
-                # 检查标题段落是否有批注（这是小结）
-                for cid, rng in comment_ranges.items():
-                    if rng['start_para'] == para_idx:
-                        if cid in comments:
-                            comment = comments[cid]
-                            current_section['summary'] = comment['text']
-                            print(f"[Parser] 节 '{current_section['title']}' 小结: {comment['text'][:40]}...")
-            
-            elif current_section is not None:
-                # 节内的正文段落
-                if current_section['content']:
-                    current_section['content'] += '\n' + text
+                if has_h3:
+                    # 有 Heading 3 时，Heading 2 是章
+                    current_chapter = text
+                    print(f"[Parser] 章: {current_chapter}")
                 else:
-                    current_section['content'] = text
-                    # 记录内容在文档中的起始位置
-                    current_section['_content_start'] = pd['char_start']
-                
-                # 检查该段落是否有批注
-                for cid, rng in comment_ranges.items():
-                    if rng['start_para'] == para_idx:
-                        if cid in comments:
-                            comment = comments[cid]
-                            comment_text = comment['text']
-                            original_text = self._get_original_text(rng, para_data)
-                            
-                            # 判断是小结还是点评
-                            # 如果该节还没有小结，且批注附加在标题段落，则是小结
-                            if not current_section['summary'] and para_idx == current_section['_title_para']:
-                                current_section['summary'] = comment_text
-                                print(f"[Parser] 节 '{current_section['title']}' 小结: {comment_text[:40]}...")
-                            else:
-                                # 作为点评
-                                # 计算在节内容中的字符位置
-                                content_start = current_section['_content_start']
-                                para_start_in_content = pd['char_start'] - content_start
-                                
-                                abs_start = para_start_in_content + rng['start_char']
-                                abs_end = para_start_in_content + rng['end_char']
-                                
-                                annotation = {
-                                    'original_text': original_text,
-                                    'comment': comment_text,
-                                    'start_char': abs_start,
-                                    'end_char': abs_end
-                                }
-                                current_section['annotations'].append(annotation)
-                                print(f"[Parser] 节 '{current_section['title']}' 点评: \"{original_text[:30]}...\"")
-        
-        # 保存最后一个节
-        if current_section:
-            sections.append(current_section)
+                    # 没有 Heading 3 时，Heading 2 是节
+                    section = self._create_section(
+                        section_number=section_number,
+                        title=text,
+                        chapter_title=None,
+                        para_idx=para_idx,
+                        comments=comments,
+                        comment_ranges=comment_ranges
+                    )
+                    sections.append(section)
+                    section_number += 1
+            
+            elif style == 'Heading 3':
+                # 节标题，创建新节
+                section = self._create_section(
+                    section_number=section_number,
+                    title=text,
+                    chapter_title=current_chapter,
+                    para_idx=para_idx,
+                    comments=comments,
+                    comment_ranges=comment_ranges
+                )
+                sections.append(section)
+                section_number += 1
         
         return sections
     
-    def _get_original_text(self, rng, para_data):
+    def _has_heading3(self):
+        """检查文档是否有 Heading 3 样式"""
+        for para in self.paragraphs:
+            style = para.style.name if para.style else 'Normal'
+            if style == 'Heading 3':
+                return True
+        return False
+    
+    def _create_section(self, section_number, title, chapter_title, para_idx, comments, comment_ranges):
+        """创建一个节"""
+        section = {
+            'section_number': section_number,
+            'title': title,
+            'chapter_title': chapter_title,
+            'content': '',
+            'summary': None,
+            'annotations': [],
+            '_title_para': para_idx
+        }
+        
+        print(f"[Parser] 节 {section_number}: {title}")
+        
+        # 检查节标题是否有批注（小结）
+        for cid, rng in comment_ranges.items():
+            if rng['start_para'] == para_idx and cid in comments:
+                section['summary'] = comments[cid]['text']
+                print(f"[Parser]   小结: {section['summary'][:40]}...")
+        
+        # 收集后续正文段落
+        content_start = None
+        for i in range(para_idx + 1, len(self.paragraphs)):
+            para = self.paragraphs[i]
+            style = para.style.name if para.style else 'Normal'
+            text = para.text
+            
+            # 遇到下一个标题就停止
+            if style in ['Heading 1', 'Heading 2', 'Heading 3']:
+                break
+            
+            if text:
+                if section['content']:
+                    section['content'] += '\n' + text
+                else:
+                    section['content'] = text
+                    content_start = i
+        
+        # 收集正文批注（点评）
+        if content_start is not None:
+            content_char_offset = 0
+            for i in range(content_start, len(self.paragraphs)):
+                para = self.paragraphs[i]
+                style = para.style.name if para.style else 'Normal'
+                
+                if style in ['Heading 1', 'Heading 2', 'Heading 3']:
+                    break
+                
+                para_text = para.text
+                para_len = len(para_text) if para_text else 0
+                
+                # 检查该段落是否有批注
+                for cid, rng in comment_ranges.items():
+                    if rng['start_para'] == i and cid in comments:
+                        # 提取原文
+                        original_text = self._get_original_text(rng)
+                        
+                        # 计算在节内容中的位置
+                        abs_start = content_char_offset + rng['start_char']
+                        abs_end = content_char_offset + rng['end_char']
+                        
+                        annotation = {
+                            'original_text': original_text,
+                            'comment': comments[cid]['text'],
+                            'start_char': abs_start,
+                            'end_char': abs_end
+                        }
+                        section['annotations'].append(annotation)
+                        print(f"[Parser]   点评: \"{original_text[:30]}...\"")
+                
+                content_char_offset += para_len + 1  # +1 for newline
+        
+        return section
+    
+    def _get_original_text(self, rng):
         """根据批注范围提取引用的原文"""
         if rng['start_para'] == rng['end_para']:
-            # 同一段落内
-            para_text = para_data[rng['start_para']]['text']
+            para_text = self.paragraphs[rng['start_para']].text
             return para_text[rng['start_char']:rng['end_char']]
         else:
-            # 跨段落（暂不处理）
-            return para_data[rng['start_para']]['text'][rng['start_char']:]
+            # 跨段落（简化处理）
+            para_text = self.paragraphs[rng['start_para']].text
+            return para_text[rng['start_char']:]
 
 
 def parse_file(file_path):
@@ -271,11 +337,14 @@ if __name__ == '__main__':
     print("=" * 60)
     print(f"书名: {result['title']}")
     print(f"作者: {result['author']}")
+    print(f"国籍: {result['author_nationality']}")
+    print(f"版本: {result['version']}")
     print(f"节数: {len(result['sections'])}")
     print("=" * 60)
     
     for sec in result['sections'][:3]:
-        print(f"\n节: {sec['title']}")
+        chapter = f" ({sec['chapter_title']})" if sec.get('chapter_title') else ""
+        print(f"\n节 {sec['section_number']}: {sec['title']}{chapter}")
         print(f"  小结: {sec['summary'][:50] if sec['summary'] else '(无)'}...")
         print(f"  点评: {len(sec['annotations'])} 条")
         for a in sec['annotations']:
