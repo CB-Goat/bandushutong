@@ -1796,6 +1796,9 @@
                 if (!section || !state.currentProgress) return;
                 // 只对保存断点的那一节恢复位置
                 if (state.currentProgress.current_section_id !== section.id) return;
+                // 已读节不恢复位置（保持全部显示或从头开始）
+                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                if (sectionStatus === 'read') return;
                 var savedPosition = state.currentProgress.current_position || 0;
                 if (savedPosition <= 0) return;
                 setTimeout(function() {
