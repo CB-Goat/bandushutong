@@ -62,7 +62,7 @@ def parse_docx_file(file_path):
 
     # 收集批注（comments）
     # Word批注结构：对某一节标题的批注 = 小结；对节正文的批注 = 点评
-    # 注意：commentsExtended 只是扩展属性，真正的批注内容在标准 comments 中
+    # commentRangeStart/End 是 w:p 的直接子元素，记录精确字符偏移
     comments = []
     try:
         comments_part = None
@@ -70,14 +70,12 @@ def parse_docx_file(file_path):
         # 遍历所有关系，找到真正的 comments（跳过 commentsExtended）
         for rel in doc.part.rels.values():
             reltype = str(rel.reltype)
-            # 匹配标准 comments，排除 commentsExtended
             if reltype.endswith('/comments') and 'commentsExtended' not in reltype and 'commentsEx' not in reltype:
                 comments_part = rel.target_part
                 print(f"[Parser] 找到批注部分: {reltype}")
                 break
         
         if not comments_part:
-            # 如果没找到标准 comments，尝试直接查找
             for rel in doc.part.rels.values():
                 reltype = str(rel.reltype).lower()
                 if 'comments' in reltype and 'extended' not in reltype and 'ex' not in reltype:
@@ -115,41 +113,66 @@ def parse_docx_file(file_path):
         import traceback
         traceback.print_exc()
 
-    # 构建段落索引 -> 批注映射
-    # 通过遍历 document.xml 中的 commentRangeStart/commentRangeEnd 来关联段落和批注
+    # 构建精确批注范围映射
+    # commentRangeStart/End 是 w:p 的直接子元素，有精确字符偏移
     para_comments = {}  # paragraph_index -> [comment]
     try:
         from lxml import etree
         nsmap = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
         doc_xml = etree.fromstring(doc.part.blob)
         body = doc_xml.find('.//w:body', nsmap)
-        all_elements = body.iter()
-        para_idx = 0
-        comment_ranges = {}  # comment_id -> {'start_para': idx, 'end_para': idx, 'text': ''}
-        for elem in all_elements:
-            tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
-            if tag == 'p':
-                para_idx += 1
-            elif tag == 'commentRangeStart':
-                cid = elem.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
-                if cid and cid not in comment_ranges:
-                    comment_ranges[cid] = {'start_para': para_idx, 'end_para': para_idx}
-            elif tag == 'commentRangeEnd':
-                cid = elem.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
-                if cid and cid in comment_ranges:
-                    comment_ranges[cid]['end_para'] = para_idx
-        # 关联批注文本
+        
         comments_by_id = {c['id']: c for c in comments}
+        comment_ranges = {}  # comment_id -> {start_para, start_char, end_para, end_char, text}
+        
+        # 遍历每个段落，查找其中的 commentRangeStart/End
+        para_idx = 0
+        for para in body.findall('.//w:p', nsmap):
+            # 计算段落内每个子元素的字符偏移
+            char_offset = 0
+            for child in para:
+                ctag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                
+                if ctag == 'commentRangeStart':
+                    cid = child.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
+                    if cid and cid not in comment_ranges:
+                        comment_ranges[cid] = {
+                            'start_para': para_idx,
+                            'start_char': char_offset,
+                            'end_para': para_idx,
+                            'end_char': char_offset
+                        }
+                
+                elif ctag == 'commentRangeEnd':
+                    cid = child.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
+                    if cid and cid in comment_ranges:
+                        comment_ranges[cid]['end_para'] = para_idx
+                        comment_ranges[cid]['end_char'] = char_offset
+                
+                elif ctag == 'r':
+                    # 累加 run 中文本的长度
+                    for t in child.findall('.//w:t', nsmap):
+                        if t.text:
+                            char_offset += len(t.text)
+            
+            para_idx += 1
+        
+        # 关联批注文本，并映射到段落
         for cid, rng in comment_ranges.items():
             if cid in comments_by_id:
                 rng['text'] = comments_by_id[cid]['text']
                 rng['author'] = comments_by_id[cid]['author']
+                # 将批注关联到 start_para 和 end_para 之间的所有段落
                 for pi in range(rng['start_para'], rng['end_para'] + 1):
                     if pi not in para_comments:
                         para_comments[pi] = []
                     para_comments[pi].append(rng)
+        
+        print(f"[Parser] 批注范围映射完成: {len(comment_ranges)} 条")
     except Exception as e:
-        print(f"批注段落关联警告: {e}")
+        print(f"[Parser] 批注范围映射警告: {e}")
+        import traceback
+        traceback.print_exc()
 
     if not all_paras:
         return _empty_result(file_path)
@@ -254,6 +277,7 @@ def parse_docx_file(file_path):
             if i in para_comments:
                 for cm in para_comments[i]:
                     current_section['summary'] = cm.get('text', '')
+                    print(f"[Parser] 节{section_number} 标题批注作为小结: {cm.get('text', '')[:50]}...")
 
             # 记录当前节在 all_paras 中的起始索引，用于后续关联正文批注
             current_section['_para_start'] = i
@@ -269,46 +293,53 @@ def parse_docx_file(file_path):
             # 检查该正文段落是否有批注
             if i in para_comments:
                 for cm in para_comments[i]:
-                    original_text = text
+                    # 使用精确字符偏移提取原文
+                    start_char_in_para = cm.get('start_char', 0)
+                    end_char_in_para = cm.get('end_char', len(text))
                     
-                    # 判断是小结还是点评：
-                    # commentRangeStart 在段落结束后触发，所以 start_para 比实际段落大1
-                    # 如果批注的 start_para-1 等于标题段落索引，则是对标题的批注 -> 小结
-                    is_first_body_para = (current_section['content'] == text)
-                    cm_start_para = cm.get('start_para', 0)
-                    heading_para_idx = i - 1  # 标题在正文前一个段落
-                    
-                    # start_para-1 是实际引用的段落（因为RangeStart在段落结束后触发）
-                    actual_para_idx = cm_start_para - 1
-                    
-                    if is_first_body_para and not current_section.get('summary') and actual_para_idx == heading_para_idx:
-                        # 这是对节标题的批注 -> 作为小结
-                        current_section['summary'] = cm.get('text', '')
-                        print(f"[Parser] 节{section_number} 标题批注作为小结: {cm.get('text', '')[:50]}...")
+                    # 如果批注跨段落，且当前是起始段落，提取从 start_char 到段落末尾
+                    if cm.get('start_para') != cm.get('end_para'):
+                        if i == cm.get('start_para'):
+                            annotated_text = text[start_char_in_para:]
+                        elif i == cm.get('end_para'):
+                            annotated_text = text[:end_char_in_para]
+                        else:
+                            annotated_text = text
                     else:
-                        # 这是对正文的批注 -> 作为点评
-                        # 找到批注原文在节内容中的位置
-                        cm_end_para = cm.get('end_para', cm_start_para)
-                        # 如果批注跨多个段落，需要找到准确的原文
-                        if cm_start_para == cm_end_para:
-                            # 单段落批注，原文就是当前段落
-                            annotated_text = text
+                        # 同一段落内的批注，精确提取
+                        annotated_text = text[start_char_in_para:end_char_in_para]
+                    
+                    if not annotated_text:
+                        annotated_text = text
+                    
+                    # 计算在节内容中的字符位置
+                    # 找到当前段落的文本在 content 中的起始位置
+                    para_start_in_content = current_section['content'].rfind(text)
+                    if para_start_in_content >= 0:
+                        # 如果是同一段落内的批注
+                        if cm.get('start_para') == cm.get('end_para'):
+                            abs_start = para_start_in_content + start_char_in_para
+                            abs_end = para_start_in_content + end_char_in_para
+                        elif i == cm.get('start_para'):
+                            abs_start = para_start_in_content + start_char_in_para
+                            abs_end = para_start_in_content + len(text)
+                        elif i == cm.get('end_para'):
+                            abs_start = para_start_in_content
+                            abs_end = para_start_in_content + end_char_in_para
                         else:
-                            # 跨段落批注，取范围文本
-                            annotated_text = text
-                        
-                        start_char = current_section['content'].rfind(annotated_text)
-                        if start_char >= 0:
-                            end_char = start_char + len(annotated_text) - 1
-                        else:
-                            start_char = 0
-                            end_char = len(text) - 1
-                        current_section['annotations'].append({
-                            'original_text': annotated_text,
-                            'comment': cm.get('text', ''),
-                            'start_char': start_char,
-                            'end_char': end_char
-                        })
+                            abs_start = para_start_in_content
+                            abs_end = para_start_in_content + len(text)
+                    else:
+                        abs_start = 0
+                        abs_end = len(annotated_text)
+                    
+                    current_section['annotations'].append({
+                        'original_text': annotated_text,
+                        'comment': cm.get('text', ''),
+                        'start_char': abs_start,
+                        'end_char': abs_end
+                    })
+                    print(f"[Parser] 节{section_number} 点评: 原文=\"{annotated_text[:30]}...\"")
 
     # 保存最后一个节
     if current_section and current_section.get('content'):
