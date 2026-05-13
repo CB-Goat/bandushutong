@@ -1484,6 +1484,7 @@
                 container.innerHTML = '';
                 container.scrollTop = 0;
                 this._allChars = [];
+                this._content = content;  // 保存原始 content（含\n）
 
                 // 标点符号集合
                 var puncts = '\uFF0C\u3002\uFF01\uFF1F\u3001\uFF1B\uFF1A\u201C\u201D\u2018\u2019\uFF08\uFF09\u3010\u3011\u300A\u300B\u2014\u2026\u00B7,.!?\;:\'\"()-[]{}';
@@ -1622,8 +1623,8 @@
 
             // 高亮点评原文
             _highlightAnnotation: function(annotation) {
-                var startIdx = annotation.start_char;
-                var endIdx = annotation.end_char;
+                var startIdx = this._contentCharToDisplayChar(annotation.start_char);
+                var endIdx = this._contentCharToDisplayChar(annotation.end_char);
                 for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
                     this._allChars[i].classList.add('annotated');
                 }
@@ -1632,11 +1633,21 @@
             // 清除点评高亮
             _clearAnnotationHighlight: function(annotation) {
                 if (!annotation) return;
-                var startIdx = annotation.start_char;
-                var endIdx = annotation.end_char;
+                var startIdx = this._contentCharToDisplayChar(annotation.start_char);
+                var endIdx = this._contentCharToDisplayChar(annotation.end_char);
                 for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
                     this._allChars[i].classList.remove('annotated');
                 }
+            },
+
+            // 将 content 字符位置（含\n）转换为 _allChars 索引（不含\n）
+            _contentCharToDisplayChar: function(contentCharIdx) {
+                if (!this._content) return contentCharIdx;
+                var newlineCount = 0;
+                for (var i = 0; i < contentCharIdx && i < this._content.length; i++) {
+                    if (this._content[i] === '\n') newlineCount++;
+                }
+                return contentCharIdx - newlineCount;
             },
 
             // 显示全部文字
