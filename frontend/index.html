@@ -1464,6 +1464,13 @@
                 // 准备粉笔字
                 this._prepareChalkText(section.content);
 
+                // 如果该节已读，直接显示全部文字
+                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                if (sectionStatus === 'read') {
+                    this.revealAll();
+                    document.getElementById('progressFill').style.width = '100%';
+                }
+
                 // 重置赏析区域
                 analysisManager.init();
                 document.getElementById('annotationDisplay').classList.remove('active');
