@@ -160,6 +160,7 @@ class WordStructureParser:
         """
         sections = []
         current_section = None
+        section_number = 1
         
         for pd in para_data:
             style = pd['style']
@@ -177,6 +178,7 @@ class WordStructureParser:
                 
                 # 开始新节，记录标题段落索引
                 current_section = {
+                    'section_number': section_number,
                     'title': text.strip(),
                     'content': '',
                     'summary': None,
@@ -184,7 +186,8 @@ class WordStructureParser:
                     '_title_para': para_idx,  # 记录标题段落索引
                     '_content_start': 0
                 }
-                print(f"[Parser] 新节: {current_section['title']} (标题段落={para_idx})")
+                section_number += 1
+                print(f"[Parser] 新节 {current_section['section_number']}: {current_section['title']} (标题段落={para_idx})")
                 
                 # 检查标题段落是否有批注（这是小结）
                 for cid, rng in comment_ranges.items():
