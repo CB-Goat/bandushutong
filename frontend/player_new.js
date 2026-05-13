@@ -34,6 +34,12 @@ var player = {
 
     loadSection: function(sectionId) {
         var self = this;
+        // 防止重复加载同一个节
+        if (this._currentSectionId === sectionId && this.audioUrl) {
+            console.log('跳过重复加载节:', sectionId);
+            return;
+        }
+        this._currentSectionId = sectionId;
         console.log('加载节:', sectionId);
         fetch(API_BASE + '/sections/' + sectionId + '/audio-timeline')
             .then(function(r) { 
