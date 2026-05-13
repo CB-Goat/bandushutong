@@ -125,12 +125,14 @@ def parse_docx_file(file_path):
         comments_by_id = {c['id']: c for c in comments}
         comment_ranges = {}  # comment_id -> {start_para, start_char, end_para, end_char, text}
         
-        # 遍历每个段落，查找其中的 commentRangeStart/End
-        para_idx = 0
-        for para in body.findall('.//w:p', nsmap):
+        # 遍历每个段落（使用 doc.paragraphs 保持和 all_paras 一致）
+        # 通过 para._element 访问 XML 元素来查找 commentRangeStart/End
+        for para_idx, para in enumerate(doc.paragraphs):
+            para_element = para._element
+            
             # 计算段落内每个子元素的字符偏移
             char_offset = 0
-            for child in para:
+            for child in para_element:
                 ctag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
                 
                 if ctag == 'commentRangeStart':
@@ -154,8 +156,6 @@ def parse_docx_file(file_path):
                     for t in child.findall('.//w:t', nsmap):
                         if t.text:
                             char_offset += len(t.text)
-            
-            para_idx += 1
         
         # 关联批注文本，并映射到段落
         for cid, rng in comment_ranges.items():
