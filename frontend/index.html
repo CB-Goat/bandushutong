@@ -2067,8 +2067,8 @@
                 // 检查是否需要从头开始（已读节再次播放时）
                 var section = state.currentSections[state.currentSectionIndex];
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                if (sectionStatus === 'read' && this._currentPosition >= this._totalChars - 1) {
-                    // 已读完，从头开始
+                if (sectionStatus === 'read') {
+                    // 已读节，从头开始
                     console.log('已读节再次播放，从头开始');
                     this.resetToStart();
                 }
