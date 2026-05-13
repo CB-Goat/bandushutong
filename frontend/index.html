@@ -948,36 +948,6 @@
                 </div>
             </div>
 
-            <!-- 添加新书 -->
-            <div class="admin-card">
-                <h3>添加新书 <button class="btn btn-sm" onclick="toggleAddBookForm()">＋ 新增</button></h3>
-                <div id="addBookForm" style="display:none;">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>书名 *</label>
-                            <input type="text" id="newBookTitle" placeholder="请输入书名">
-                        </div>
-                        <div class="form-group">
-                            <label>作者</label>
-                            <input type="text" id="newBookAuthor" placeholder="请输入作者">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>作者国籍</label>
-                            <input type="text" id="newBookNationality" placeholder="如：中国、英国">
-                        </div>
-                        <div class="form-group">
-                            <label>版本</label>
-                            <input type="text" id="newBookVersion" placeholder="如：第1版">
-                        </div>
-                    </div>
-                    <div style="text-align:right;margin-top:10px;">
-                        <button class="btn btn-primary" onclick="adminAddBook()">保存</button>
-                    </div>
-                </div>
-            </div>
-            
             <!-- 用户管理 -->
             <div class="admin-card" id="userManageCard">
                 <h3>👤 用户管理</h3>
@@ -2808,25 +2778,6 @@
                 }
             }
         };
-
-        function toggleAddBookForm() {
-            var form = document.getElementById('addBookForm');
-            form.style.display = form.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function adminAddBook() {
-            var title = document.getElementById('newBookTitle').value.trim();
-            if (!title) { alert('请输入书名'); return; }
-            fetch(API_BASE + '/books', {method: 'POST'}).then(function(r) { return r.json(); }).catch(function() {});
-            // 直接用数据库API添加
-            fetch(API_BASE + '/upload', {
-                method: 'POST',
-                headers: {},
-                body: JSON.stringify({title: title})
-            }).catch(function() {});
-            // 简单方案：直接调用init然后手动添加
-            alert('请通过上传TXT文件添加书籍，或联系管理员手动添加。');
-        }
 
         function adminSaveBook() {
             var bookId = state.adminCurrentBookId;
