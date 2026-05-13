@@ -101,7 +101,12 @@ def upload_book():
     
     # 解析文件（提取元信息 + 章节 + 节）
     try:
-        result = parse_file(filepath)
+        # 优先使用 Word 结构解析器
+        if filepath.endswith('.docx'):
+            from backend.word_parser import parse_file as parse_word
+            result = parse_word(filepath)
+        else:
+            result = parse_file(filepath)
         
         title = result.get('title', get_book_title(filepath))
         author = result.get('author', '')
