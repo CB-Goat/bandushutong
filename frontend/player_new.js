@@ -1,5 +1,8 @@
 // ===== 时间轴播放器（统一使用预生成音频）=====
 var player = {
+    // 文字提前量（模仿自然阅读，让眼睛比耳朵快一点）
+    TEXT_AHEAD_OFFSET: 2,
+    
     audio: document.getElementById('audioPlayer'),
     mode: 'timeline',
     audioUrl: null,
@@ -26,10 +29,6 @@ var player = {
             state.isPlaying = false;
             document.getElementById('playBtn').textContent = '\u25B6';
         };
-        // 添加 canplay 事件，音频准备好后自动播放
-        this.audio.oncanplay = function() {
-            console.log('音频可以播放了');
-        };
     },
 
     loadSection: function(sectionId) {
@@ -53,7 +52,6 @@ var player = {
                     self.audioUrl = data.audio_path;
                     self.audioDuration = data.audio_duration || 0;
                     self.charTimeline = data.char_timeline || [];
-                    // 确保路径是完整的
                     if (self.audioUrl.indexOf('http') !== 0 && self.audioUrl.indexOf('/') !== 0) {
                         self.audioUrl = '/api/audio/' + self.audioUrl.replace('audio_files/', '');
                     }
@@ -126,18 +124,15 @@ var player = {
         console.log('播放，当前模式:', this.mode, '音频URL:', this.audioUrl, 'readyState:', this.audio.readyState);
         if (this.mode === 'timeline' && this.audioUrl) {
             var self = this;
-            // readyState: 0=未初始化, 1=已设置src, 2=正在加载, 3=部分加载, 4=完全加载
             if (this.audio.readyState < 3) {
                 console.log('音频尚未准备好，等待 canplay 事件...');
                 document.getElementById('playBtn').textContent = '\u23F3';
-                // 等待音频可以播放
                 var onCanPlay = function() {
                     console.log('音频可以播放了，开始播放');
                     self.audio.removeEventListener('canplay', onCanPlay);
                     self._doPlay();
                 };
                 this.audio.addEventListener('canplay', onCanPlay);
-                // 超时处理
                 setTimeout(function() {
                     self.audio.removeEventListener('canplay', onCanPlay);
                     if (!self.isPlaying) {
@@ -165,7 +160,6 @@ var player = {
         }).catch(function(e) {
             console.error('播放失败:', e);
             document.getElementById('playBtn').textContent = '\u25B6';
-            // 不弹出alert，避免打断用户体验
         });
     },
 
@@ -185,17 +179,24 @@ var player = {
         document.getElementById('playBtn').textContent = '\u25B6';
     },
 
-    _updateDisplayByTime: function() {
-        if (!this.charTimeline || this.charTimeline.length === 0) return;
+    // 根据当前时间计算显示到哪个字符
+    _getDisplayCharIndex: function() {
+        if (!this.charTimeline || this.charTimeline.length === 0) return 0;
         var time = this.currentTime;
         var charIndex = this.charTimeline.length;
         for (var i = 0; i < this.charTimeline.length; i++) {
             if (this.charTimeline[i] > time) { charIndex = i; break; }
         }
-        // 文字和声音同步显示，不再提前
+        // 文字提前 TEXT_AHEAD_OFFSET 个字符显示（模仿自然阅读）
+        charIndex = Math.max(0, charIndex - this.TEXT_AHEAD_OFFSET);
+        return charIndex;
+    },
+
+    _updateDisplayByTime: function() {
+        var charIndex = this._getDisplayCharIndex();
         reader.revealCharsUpTo(charIndex);
         if (this.audioDuration > 0) {
-            document.getElementById('progressFill').style.width = (time / this.audioDuration * 100) + '%';
+            document.getElementById('progressFill').style.width = (this.currentTime / this.audioDuration * 100) + '%';
         }
     },
 
@@ -218,7 +219,6 @@ var player = {
         var summary = (section && section.summary) ? section.summary : '';
         if (summary) {
             analysisManager.addSummaryTab(summary);
-            // 有小结时，等待5秒（显示小结+自动切换）
             if (currentIndex < totalSections - 1) {
                 console.log('显示小结，5秒后切换下一节');
                 setTimeout(function() { 
@@ -227,7 +227,6 @@ var player = {
                 }, 5000);
             }
         } else {
-            // 无小结时，等待2秒后切换
             if (currentIndex < totalSections - 1) {
                 console.log('无小结，2秒后切换下一节');
                 setTimeout(function() { 
@@ -248,7 +247,7 @@ var player = {
         // 暂停音频
         this.audio.pause();
         
-        // 计算点评在音频中的时间点
+        // 计算点评在音频中的时间点（基于原始字符位置，不考虑提前量）
         var annotationStartTime = 0;
         var annotationEndTime = 0;
         if (this.charTimeline && annotation.start_char < this.charTimeline.length) {
@@ -259,18 +258,28 @@ var player = {
         // 将音频回退到点评开始位置
         this.audio.currentTime = annotationStartTime;
         this.currentTime = annotationStartTime;
-        
-        // 强制刷新音频缓冲，防止播放缓存的旧数据
         this.audio.load();
         
-        // 将文字显示回退到点评开始位置（不再提前，精确显示）
+        // 计算显示位置：点评原文开始位置减去提前量
+        // 这样文字会从点评原文开始位置提前 TEXT_AHEAD_OFFSET 个字符显示
+        var displayStartChar = Math.max(0, annotation.start_char - this.TEXT_AHEAD_OFFSET);
+        var displayEndChar = annotation.end_char;
+        
+        // 文字显示回退到提前量之后的位置（让点评原文恰好显示出来）
         if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
-            reader.revealCharsUpTo(annotation.start_char);
+            reader.revealCharsUpTo(displayEndChar);
         }
         
-        // 高亮点评原文（使用原始位置，不补偿偏移）
+        // 高亮点评原文（显示位置应该对应提前后的显示）
+        // 高亮范围从 displayStartChar 到 displayEndChar
         if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
-            reader._highlightAnnotation(annotation);
+            reader._highlightAnnotation({
+                start_char: displayStartChar,
+                end_char: displayEndChar,
+                original_text: annotation.original_text,
+                comment: annotation.comment,
+                annotation_index: annotation.annotation_index
+            });
         }
         
         // 显示点评内容
@@ -280,9 +289,7 @@ var player = {
         
         // 使用浏览器 TTS 朗读点评内容
         this._speakComment(annotation.comment, function() {
-            // 点评朗读完成后，说"回到原文"，然后继续
             self._speakComment('回到原文', function() {
-                // 停留2秒后继续
                 setTimeout(function() {
                     self._resumeAfterAnnotation(annotation, annotationEndTime);
                 }, 2000);
@@ -296,20 +303,12 @@ var player = {
             if (callback) callback();
             return;
         }
-        
         var utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'zh-CN';
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
-        
-        utterance.onend = function() {
-            if (callback) callback();
-        };
-        
-        utterance.onerror = function() {
-            if (callback) callback();
-        };
-        
+        utterance.onend = function() { if (callback) callback(); };
+        utterance.onerror = function() { if (callback) callback(); };
         window.speechSynthesis.speak(utterance);
     },
 
@@ -318,7 +317,7 @@ var player = {
         console.log('点评播放结束，恢复正文');
         var self = this;
         
-        // 清除所有高亮
+        // 清除高亮
         if (typeof reader !== 'undefined' && reader._clearAnnotationHighlight) {
             reader._clearAnnotationHighlight(annotation);
         }
