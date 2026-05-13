@@ -250,9 +250,17 @@ var player = {
         // 计算点评在音频中的时间点（基于原始字符位置）
         var annotationStartTime = 0;
         var annotationEndTime = 0;
-        if (this.charTimeline && annotation.start_char < this.charTimeline.length) {
-            annotationStartTime = this.charTimeline[annotation.start_char];
-            annotationEndTime = this.charTimeline[Math.min(annotation.end_char, this.charTimeline.length - 1)];
+        var timelineLen = this.charTimeline ? this.charTimeline.length : 0;
+        
+        if (timelineLen > 0) {
+            // 确保索引在有效范围内
+            var startIdx = Math.max(0, Math.min(annotation.start_char, timelineLen - 1));
+            var endIdx = Math.max(0, Math.min(annotation.end_char, timelineLen - 1));
+            
+            annotationStartTime = this.charTimeline[startIdx];
+            annotationEndTime = this.charTimeline[endIdx];
+            
+            console.log('点评时间:', startIdx, '->', endIdx, '=', annotationStartTime, '->', annotationEndTime);
         }
         
         // 将音频回退到点评开始位置
