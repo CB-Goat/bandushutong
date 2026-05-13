@@ -246,64 +246,92 @@ var player = {
         console.log('触发点评播放:', annotation);
         var self = this;
         
-        // 计算点评在音频中的时间点（根据 charTimeline 反推）
-        var annotationStartTime = 0;
-        if (this.charTimeline && annotation.start_char < this.charTimeline.length) {
-            // 找到点评开始字符对应的时间点
-            annotationStartTime = this.charTimeline[Math.max(0, annotation.start_char - 2)];
-        }
-        
-        // 将音频回退到点评开始位置（提前一点，让用户听到点评原文的开头）
-        var seekTime = Math.max(0, annotationStartTime - 0.5);
-        this.audio.currentTime = seekTime;
-        this.currentTime = seekTime;
-        
         // 暂停音频
         this.audio.pause();
         
-        // 将文字显示回退到点评开始位置（补偿提前2个汉字的偏移）
+        // 计算点评在音频中的时间点
+        var annotationStartTime = 0;
+        var annotationEndTime = 0;
+        if (this.charTimeline && annotation.start_char < this.charTimeline.length) {
+            annotationStartTime = this.charTimeline[annotation.start_char];
+            annotationEndTime = this.charTimeline[Math.min(annotation.end_char, this.charTimeline.length - 1)];
+        }
+        
+        // 将音频回退到点评开始位置
+        this.audio.currentTime = annotationStartTime;
+        this.currentTime = annotationStartTime;
+        
+        // 将文字显示回退到点评开始位置（不再提前，精确显示）
         if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
-            // 显示到点评开始位置（提前2个字符，让用户看到完整原文）
-            reader.revealCharsUpTo(Math.max(0, annotation.start_char - 2));
+            reader.revealCharsUpTo(annotation.start_char);
         }
         
-        // 高亮点评原文（补偿文字提前2个汉字的偏移）
+        // 高亮点评原文（使用原始位置，不补偿偏移）
         if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
-            var adjustedAnnotation = {
-                start_char: Math.max(0, annotation.start_char - 2),
-                end_char: Math.max(0, annotation.end_char - 2),
-                original_text: annotation.original_text,
-                comment: annotation.comment,
-                annotation_index: annotation.annotation_index
-            };
-            reader._highlightAnnotation(adjustedAnnotation);
+            reader._highlightAnnotation(annotation);
         }
         
-        // 显示点评内容（使用 addAnnotationTab）
+        // 显示点评内容
         if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
             analysisManager.addAnnotationTab(annotation);
         }
         
-        // 等待5秒后恢复播放（给用户足够时间阅读点评）
-        setTimeout(function() {
-            console.log('点评播放结束，恢复正文');
-            // 清除高亮
-            if (typeof reader !== 'undefined' && reader._clearAnnotationHighlight) {
-                reader._clearAnnotationHighlight(annotation);
-            }
-            // 恢复播放（从点评结束位置继续）
-            state.isPlayingAnnotation = false;
-            if (self.mode === 'timeline' && self.audioUrl) {
-                // 从点评结束位置继续播放
-                if (self.charTimeline && annotation.end_char < self.charTimeline.length) {
-                    self.audio.currentTime = self.charTimeline[annotation.end_char];
-                }
-                self.audio.play().then(function() {
-                    self.isPlaying = true;
-                    state.isPlaying = true;
-                    document.getElementById('playBtn').textContent = '\u23F8';
-                }).catch(function() {});
-            }
-        }, 5000);
+        // 使用浏览器 TTS 朗读点评内容
+        this._speakComment(annotation.comment, function() {
+            // 点评朗读完成后，说"回到原文"，然后继续
+            self._speakComment('回到原文', function() {
+                // 停留2秒后继续
+                setTimeout(function() {
+                    self._resumeAfterAnnotation(annotation, annotationEndTime);
+                }, 2000);
+            });
+        });
+    },
+
+    // 使用浏览器 TTS 朗读文本
+    _speakComment: function(text, callback) {
+        if (!window.speechSynthesis) {
+            if (callback) callback();
+            return;
+        }
+        
+        var utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        
+        utterance.onend = function() {
+            if (callback) callback();
+        };
+        
+        utterance.onerror = function() {
+            if (callback) callback();
+        };
+        
+        window.speechSynthesis.speak(utterance);
+    },
+
+    // 点评结束后恢复播放
+    _resumeAfterAnnotation: function(annotation, endTime) {
+        console.log('点评播放结束，恢复正文');
+        var self = this;
+        
+        // 清除所有高亮
+        if (typeof reader !== 'undefined' && reader._clearAnnotationHighlight) {
+            reader._clearAnnotationHighlight(annotation);
+        }
+        
+        // 恢复播放状态
+        state.isPlayingAnnotation = false;
+        
+        if (this.mode === 'timeline' && this.audioUrl) {
+            // 从点评结束位置继续播放
+            this.audio.currentTime = endTime;
+            this.audio.play().then(function() {
+                self.isPlaying = true;
+                state.isPlaying = true;
+                document.getElementById('playBtn').textContent = '\u23F8';
+            }).catch(function() {});
+        }
     }
 };
