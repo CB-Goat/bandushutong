@@ -1791,12 +1791,16 @@
                 setTimeout(function() {
                     var container = document.getElementById('chalkboard');
                     if (!container || self._totalChars <= 0) return;
+                    // 恢复已显示的文字到上次阅读位置
+                    self.revealCharsUpTo(savedPosition);
+                    // 恢复滚动位置
                     var scrollPercent = savedPosition / self._totalChars;
                     scrollPercent = Math.min(scrollPercent, 1);
                     var scrollTarget = scrollPercent * (container.scrollHeight - container.clientHeight);
                     container.scrollTop = scrollTarget;
                     self._currentPosition = savedPosition;
                     document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
+                    console.log('恢复阅读位置:', savedPosition, '/', self._totalChars);
                 }, 100);
             }
         };
