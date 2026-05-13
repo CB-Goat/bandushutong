@@ -1623,8 +1623,10 @@
 
             // 高亮点评原文
             _highlightAnnotation: function(annotation) {
+                console.log('_highlightAnnotation:', annotation);
                 var startIdx = this._contentCharToDisplayChar(annotation.start_char);
                 var endIdx = this._contentCharToDisplayChar(annotation.end_char);
+                console.log('Highlight range:', startIdx, '->', endIdx, 'allChars length:', this._allChars.length);
                 for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
                     this._allChars[i].classList.add('annotated');
                 }
@@ -1647,7 +1649,9 @@
                 for (var i = 0; i < contentCharIdx && i < this._content.length; i++) {
                     if (this._content[i] === '\n') newlineCount++;
                 }
-                return contentCharIdx - newlineCount;
+                var result = contentCharIdx - newlineCount;
+                console.log('_contentCharToDisplayChar:', contentCharIdx, '->', result, '(newlines:', newlineCount, ')');
+                return result;
             },
 
             // 显示全部文字
