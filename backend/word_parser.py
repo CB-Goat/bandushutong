@@ -32,13 +32,14 @@ class WordStructureParser:
         comment_ranges = self._extract_comment_ranges()
         
         # 3. 构建章节结构
-        sections = self._build_sections(meta, comments, comment_ranges)
+        chapters, sections = self._build_structure(comments, comment_ranges)
         
         return {
             'title': meta['title'],
             'author': meta['author'],
             'author_nationality': meta['nationality'],
             'version': meta['version'],
+            'chapters': chapters,
             'sections': sections
         }
     
@@ -78,7 +79,6 @@ class WordStructureParser:
                 normal_count += 1
                 if normal_count == 1:
                     # 第一行：作者「国籍」
-                    # 格式：作者「国籍」或 作者[国籍] 或 作者（国籍）
                     if '「' in text and '」' in text:
                         parts = text.split('「')
                         meta['author'] = parts[0].strip()
@@ -114,7 +114,6 @@ class WordStructureParser:
                     cid = comment.get(f'{{{self.W_NS}}}id')
                     author = comment.get(f'{{{self.W_NS}}}author', '')
                     
-                    # 提取批注文本
                     texts = []
                     for p in comment.findall('.//w:p', self.nsmap):
                         for t in p.findall('.//w:t', self.nsmap):
@@ -131,10 +130,7 @@ class WordStructureParser:
         return comments
     
     def _extract_comment_ranges(self):
-        """
-        提取批注引用范围
-        返回: {comment_id: {'start_para': idx, 'start_char': offset, 'end_para': idx, 'end_char': offset}}
-        """
+        """提取批注引用范围"""
         comment_ranges = {}
         
         for para_idx, para in enumerate(self.paragraphs):
@@ -167,17 +163,18 @@ class WordStructureParser:
         
         return comment_ranges
     
-    def _build_sections(self, meta, comments, comment_ranges):
+    def _build_structure(self, comments, comment_ranges):
         """
-        构建节结构：
+        构建章节结构：
+        - Heading 2 = 章
         - Heading 3 = 节（阅读单元）
         - 如果只有 Heading 2 没有 Heading 3，则 Heading 2 作为节
-        - 对节标题的批注 = 小结
-        - 对正文的批注 = 点评
         """
+        chapters = []
         sections = []
-        section_number = 1
-        current_chapter = None
+        chapter_number = 0
+        section_number = 0
+        current_chapter_title = None
         
         # 先检查是否有 Heading 3
         has_h3 = self._has_heading3()
@@ -197,35 +194,40 @@ class WordStructureParser:
             elif style == 'Heading 2':
                 if has_h3:
                     # 有 Heading 3 时，Heading 2 是章
-                    current_chapter = text
-                    print(f"[Parser] 章: {current_chapter}")
+                    chapter_number += 1
+                    current_chapter_title = text
+                    chapters.append({
+                        'chapter_number': chapter_number,
+                        'title': text
+                    })
+                    print(f"[Parser] 章 {chapter_number}: {text}")
                 else:
                     # 没有 Heading 3 时，Heading 2 是节
+                    section_number += 1
                     section = self._create_section(
                         section_number=section_number,
+                        chapter_number=None,
                         title=text,
-                        chapter_title=None,
                         para_idx=para_idx,
                         comments=comments,
                         comment_ranges=comment_ranges
                     )
                     sections.append(section)
-                    section_number += 1
             
             elif style == 'Heading 3':
-                # 节标题，创建新节
+                # 节标题
+                section_number += 1
                 section = self._create_section(
                     section_number=section_number,
+                    chapter_number=chapter_number if has_h3 else None,
                     title=text,
-                    chapter_title=current_chapter,
                     para_idx=para_idx,
                     comments=comments,
                     comment_ranges=comment_ranges
                 )
                 sections.append(section)
-                section_number += 1
         
-        return sections
+        return chapters, sections
     
     def _has_heading3(self):
         """检查文档是否有 Heading 3 样式"""
@@ -235,16 +237,15 @@ class WordStructureParser:
                 return True
         return False
     
-    def _create_section(self, section_number, title, chapter_title, para_idx, comments, comment_ranges):
+    def _create_section(self, section_number, chapter_number, title, para_idx, comments, comment_ranges):
         """创建一个节"""
         section = {
             'section_number': section_number,
+            'chapter_number': chapter_number,
             'title': title,
-            'chapter_title': chapter_title,
             'content': '',
             'summary': None,
-            'annotations': [],
-            '_title_para': para_idx
+            'annotations': []
         }
         
         print(f"[Parser] 节 {section_number}: {title}")
@@ -262,7 +263,6 @@ class WordStructureParser:
             style = para.style.name if para.style else 'Normal'
             text = para.text
             
-            # 遇到下一个标题就停止
             if style in ['Heading 1', 'Heading 2', 'Heading 3']:
                 break
             
@@ -286,13 +286,9 @@ class WordStructureParser:
                 para_text = para.text
                 para_len = len(para_text) if para_text else 0
                 
-                # 检查该段落是否有批注
                 for cid, rng in comment_ranges.items():
                     if rng['start_para'] == i and cid in comments:
-                        # 提取原文
                         original_text = self._get_original_text(rng)
-                        
-                        # 计算在节内容中的位置
                         abs_start = content_char_offset + rng['start_char']
                         abs_end = content_char_offset + rng['end_char']
                         
@@ -305,7 +301,7 @@ class WordStructureParser:
                         section['annotations'].append(annotation)
                         print(f"[Parser]   点评: \"{original_text[:30]}...\"")
                 
-                content_char_offset += para_len + 1  # +1 for newline
+                content_char_offset += para_len + 1
         
         return section
     
@@ -315,7 +311,6 @@ class WordStructureParser:
             para_text = self.paragraphs[rng['start_para']].text
             return para_text[rng['start_char']:rng['end_char']]
         else:
-            # 跨段落（简化处理）
             para_text = self.paragraphs[rng['start_para']].text
             return para_text[rng['start_char']:]
 
@@ -339,13 +334,22 @@ if __name__ == '__main__':
     print(f"作者: {result['author']}")
     print(f"国籍: {result['author_nationality']}")
     print(f"版本: {result['version']}")
+    print(f"章数: {len(result['chapters'])}")
     print(f"节数: {len(result['sections'])}")
     print("=" * 60)
     
-    for sec in result['sections'][:3]:
-        chapter = f" ({sec['chapter_title']})" if sec.get('chapter_title') else ""
-        print(f"\n节 {sec['section_number']}: {sec['title']}{chapter}")
-        print(f"  小结: {sec['summary'][:50] if sec['summary'] else '(无)'}...")
-        print(f"  点评: {len(sec['annotations'])} 条")
-        for a in sec['annotations']:
-            print(f"    - \"{a['original_text'][:30]}...\"")
+    for ch in result['chapters'][:3]:
+        print(f"\n章 {ch['chapter_number']}: {ch['title']}")
+        ch_sections = [s for s in result['sections'] if s.get('chapter_number') == ch['chapter_number']]
+        for sec in ch_sections:
+            print(f"  节 {sec['section_number']}: {sec['title']}")
+            if sec['summary']:
+                print(f"    小结: {sec['summary'][:30]}...")
+    
+    if not result['chapters']:
+        print("\n无章结构，直接显示节:")
+        for sec in result['sections'][:3]:
+            print(f"\n节 {sec['section_number']}: {sec['title']}")
+            if sec['summary']:
+                print(f"  小结: {sec['summary'][:30]}...")
+            print(f"  点评: {len(sec['annotations'])} 条")
