@@ -246,8 +246,26 @@ var player = {
         console.log('触发点评播放:', annotation);
         var self = this;
         
+        // 计算点评在音频中的时间点（根据 charTimeline 反推）
+        var annotationStartTime = 0;
+        if (this.charTimeline && annotation.start_char < this.charTimeline.length) {
+            // 找到点评开始字符对应的时间点
+            annotationStartTime = this.charTimeline[Math.max(0, annotation.start_char - 2)];
+        }
+        
+        // 将音频回退到点评开始位置（提前一点，让用户听到点评原文的开头）
+        var seekTime = Math.max(0, annotationStartTime - 0.5);
+        this.audio.currentTime = seekTime;
+        this.currentTime = seekTime;
+        
         // 暂停音频
         this.audio.pause();
+        
+        // 将文字显示回退到点评开始位置（补偿提前2个汉字的偏移）
+        if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
+            // 显示到点评开始位置（提前2个字符，让用户看到完整原文）
+            reader.revealCharsUpTo(Math.max(0, annotation.start_char - 2));
+        }
         
         // 高亮点评原文（补偿文字提前2个汉字的偏移）
         if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
@@ -273,9 +291,13 @@ var player = {
             if (typeof reader !== 'undefined' && reader._clearAnnotationHighlight) {
                 reader._clearAnnotationHighlight(annotation);
             }
-            // 恢复播放
+            // 恢复播放（从点评结束位置继续）
             state.isPlayingAnnotation = false;
             if (self.mode === 'timeline' && self.audioUrl) {
+                // 从点评结束位置继续播放
+                if (self.charTimeline && annotation.end_char < self.charTimeline.length) {
+                    self.audio.currentTime = self.charTimeline[annotation.end_char];
+                }
                 self.audio.play().then(function() {
                     self.isPlaying = true;
                     state.isPlaying = true;
