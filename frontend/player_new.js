@@ -261,6 +261,9 @@ var player = {
         this.audio.currentTime = annotationStartTime;
         this.currentTime = annotationStartTime;
         
+        // 强制刷新音频缓冲，防止播放缓存的旧数据
+        this.audio.load();
+        
         // 将文字显示回退到点评开始位置（不再提前，精确显示）
         if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
             reader.revealCharsUpTo(annotation.start_char);
