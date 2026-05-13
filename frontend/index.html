@@ -1409,6 +1409,13 @@
                 state.currentBook = data.book;
                 state.currentSections = data.sections;
                 state.currentProgress = data.progress || null;
+                
+                // 调试：检查第一个节的 content
+                if (data.sections && data.sections.length > 0) {
+                    var firstSection = data.sections[0];
+                    console.log('API returned section content length:', firstSection.content.length);
+                    console.log('API content[75:95]:', JSON.stringify(firstSection.content.substring(75, 95)));
+                }
                 state.currentSectionIndex = 0;
 
                 // 设置导航栏标题：书名 + 作者（国籍）
