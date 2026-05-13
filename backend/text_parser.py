@@ -285,6 +285,12 @@ def parse_docx_file(file_path):
 
         # Normal = 正文内容
         if current_section is not None:
+            # 记录段落在 content 中的起始位置（在拼接之前）
+            para_start_in_content = len(current_section['content']) if current_section['content'] else 0
+            # 加上换行符的长度（如果不是第一个段落）
+            if current_section['content']:
+                para_start_in_content += 1  # '\n' 占1个字符
+            
             if current_section['content']:
                 current_section['content'] += '\n' + text
             else:
@@ -312,26 +318,10 @@ def parse_docx_file(file_path):
                     if not annotated_text:
                         annotated_text = text
                     
-                    # 计算在节内容中的字符位置
-                    # 找到当前段落的文本在 content 中的起始位置
-                    para_start_in_content = current_section['content'].rfind(text)
-                    if para_start_in_content >= 0:
-                        # 如果是同一段落内的批注
-                        if cm.get('start_para') == cm.get('end_para'):
-                            abs_start = para_start_in_content + start_char_in_para
-                            abs_end = para_start_in_content + end_char_in_para
-                        elif i == cm.get('start_para'):
-                            abs_start = para_start_in_content + start_char_in_para
-                            abs_end = para_start_in_content + len(text)
-                        elif i == cm.get('end_para'):
-                            abs_start = para_start_in_content
-                            abs_end = para_start_in_content + end_char_in_para
-                        else:
-                            abs_start = para_start_in_content
-                            abs_end = para_start_in_content + len(text)
-                    else:
-                        abs_start = 0
-                        abs_end = len(annotated_text)
+                    # 计算在节内容中的绝对字符位置
+                    # para_start_in_content 是当前段落在 content 中的起始位置
+                    abs_start = para_start_in_content + start_char_in_para
+                    abs_end = para_start_in_content + end_char_in_para
                     
                     current_section['annotations'].append({
                         'original_text': annotated_text,
