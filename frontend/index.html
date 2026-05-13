@@ -1767,8 +1767,14 @@
             markSectionRead: function() {
                 var section = state.currentSections[state.currentSectionIndex];
                 if (!section) return;
-                // 检查是否已标记为已读
+                // 检查是否已标记为已读（本次会话）
                 if (section._markedRead) return;
+                // 检查该节是否已经是"已读"状态（之前已读过）
+                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                if (sectionStatus === 'read') {
+                    section._markedRead = true;  // 标记为已处理，避免重复检查
+                    return;
+                }
                 section._markedRead = true;
                 // 调用API设置状态为已读
                 fetch(API_BASE + '/sections/' + section.id + '/status', {
@@ -1777,6 +1783,10 @@
                     body: JSON.stringify({ book_id: state.currentBook.id, status: 'read' })
                 }).then(function() {
                     console.log('已标记为已读: 第' + section.section_number + '节');
+                    // 更新本地状态
+                    if (state.catalogStatusMap) {
+                        state.catalogStatusMap[section.id] = 'read';
+                    }
                 }).catch(function(e) { console.error('标记已读失败:', e); });
             },
 
