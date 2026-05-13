@@ -1642,8 +1642,9 @@
                 var endIdx = this._contentCharToDisplayChar(annotation.end_char);
                 console.log('Highlight range:', startIdx, '->', endIdx, 'allChars length:', this._allChars.length);
                 console.log('_allChars[' + startIdx + ']:', this._allChars[startIdx] ? this._allChars[startIdx].textContent : 'N/A');
-                console.log('_allChars[' + endIdx + ']:', this._allChars[endIdx] ? this._allChars[endIdx].textContent : 'N/A');
-                for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
+                console.log('_allChars[' + (endIdx-1) + ']:', this._allChars[endIdx-1] ? this._allChars[endIdx-1].textContent : 'N/A');
+                // end_char 是 Python 切片风格（不包含），所以用 < 而不是 <=
+                for (var i = startIdx; i < endIdx && i < this._allChars.length; i++) {
                     this._allChars[i].classList.add('annotated');
                 }
             },
@@ -1653,7 +1654,8 @@
                 if (!annotation) return;
                 var startIdx = this._contentCharToDisplayChar(annotation.start_char);
                 var endIdx = this._contentCharToDisplayChar(annotation.end_char);
-                for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
+                // end_char 是 Python 切片风格（不包含），所以用 < 而不是 <=
+                for (var i = startIdx; i < endIdx && i < this._allChars.length; i++) {
                     this._allChars[i].classList.remove('annotated');
                 }
             },
