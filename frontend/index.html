@@ -2088,12 +2088,14 @@
             
             // 重置到开头（用于已读节再次播放）
             resetToStart: function() {
-                // 隐藏所有文字
-                for (var i = 0; i < this._allChars.length; i++) {
-                    this._allChars[i].classList.remove('visible');
+                // 隐藏所有文字（使用 reader._allChars）
+                if (reader._allChars && reader._allChars.length > 0) {
+                    for (var i = 0; i < reader._allChars.length; i++) {
+                        reader._allChars[i].classList.remove('visible');
+                    }
                 }
-                // 重置位置
-                this._currentPosition = 0;
+                // 重置 reader 的位置
+                reader._currentPosition = 0;
                 document.getElementById('progressFill').style.width = '0%';
                 // 滚动到顶部
                 var container = document.getElementById('chalkboard');
@@ -2102,7 +2104,7 @@
                 if (this.audio) {
                     this.audio.currentTime = 0;
                 }
-                console.log('已重置到开头');
+                console.log('已重置到开头，文字数:', reader._allChars ? reader._allChars.length : 0);
             },
 
             pause: function() {
