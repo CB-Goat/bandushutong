@@ -203,10 +203,7 @@ var player = {
     onAudioEnd: function() {
         console.log('音频播放结束');
         var section = state.currentSections[state.currentSectionIndex];
-        var totalSections = state.currentSections.length;
         var currentIndex = state.currentSectionIndex;
-        
-        console.log('当前节:', currentIndex, '总节数:', totalSections);
         
         if (section && state.currentBook) {
             fetch(API_BASE + '/sections/' + section.id + '/status', {
@@ -219,24 +216,8 @@ var player = {
         var summary = (section && section.summary) ? section.summary : '';
         if (summary) {
             analysisManager.addSummaryTab(summary);
-            if (currentIndex < totalSections - 1) {
-                console.log('显示小结，5秒后切换下一节');
-                setTimeout(function() { 
-                    console.log('准备切换到下一节');
-                    reader.nextSection(); 
-                }, 5000);
-            }
-        } else {
-            if (currentIndex < totalSections - 1) {
-                console.log('无小结，2秒后切换下一节');
-                setTimeout(function() { 
-                    console.log('准备切换到下一节');
-                    reader.nextSection(); 
-                }, 2000);
-            } else {
-                console.log('已是最后一节');
-            }
         }
+        // 不自动切换下一节，让用户自行选择
     },
 
     // 触发点评播放
