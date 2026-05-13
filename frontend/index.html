@@ -2071,9 +2071,10 @@
                 var section = state.currentSections[state.currentSectionIndex];
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
                 if (sectionStatus === 'read') {
-                    // 已读节，从头开始
+                    // 已读节，隐藏所有文字，从头开始
                     console.log('已读节再次播放，从头开始');
-                    this.resetToStart();
+                    reader.hideAll();
+                    if (this.audio) this.audio.currentTime = 0;
                 }
                 
                 if (this.mode === 'timeline' && this.audioUrl) {
