@@ -1807,45 +1807,74 @@
                     console.log('restorePosition: 跳过 - 不是断点所在节');
                     return;
                 }
-                // 已读节不恢复位置（保持全部显示或从头开始）
+                
+                // 检查节状态
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                console.log('restorePosition: sectionStatus=', sectionStatus, 'catalogStatusMap=', JSON.stringify(state.catalogStatusMap));
+                
+                // 已读节不恢复位置（已读节应该显示全部文字）
                 if (sectionStatus === 'read') {
                     console.log('restorePosition: 跳过 - 已读节');
                     return;
                 }
-                var savedPosition = state.currentProgress.current_position || 0;
-                console.log('restorePosition: savedPosition=', savedPosition);
-                if (savedPosition <= 0) {
-                    console.log('restorePosition: 跳过 - 无有效位置');
+                
+                // 如果状态未加载，等待最多2秒
+                if (!sectionStatus && state.catalogStatusMap) {
+                    console.log('restorePosition: 等待状态加载...');
+                    var waited = 0;
+                    var checkInterval = setInterval(function() {
+                        waited += 100;
+                        sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                        if (sectionStatus === 'read' || waited >= 2000) {
+                            clearInterval(checkInterval);
+                            if (sectionStatus === 'read') {
+                                console.log('restorePosition: 等待后确认是已读节，跳过');
+                            } else {
+                                console.log('restorePosition: 等待超时，继续恢复位置');
+                                doRestore();
+                            }
+                        }
+                    }, 100);
                     return;
                 }
                 
-                // 恢复文字显示位置
-                setTimeout(function() {
-                    var container = document.getElementById('chalkboard');
-                    if (!container || self._totalChars <= 0) return;
-                    // 恢复已显示的文字到上次阅读位置
-                    self.revealCharsUpTo(savedPosition);
-                    // 恢复滚动位置
-                    var scrollPercent = savedPosition / self._totalChars;
-                    scrollPercent = Math.min(scrollPercent, 1);
-                    var scrollTarget = scrollPercent * (container.scrollHeight - container.clientHeight);
-                    container.scrollTop = scrollTarget;
-                    self._currentPosition = savedPosition;
-                    document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
-                    console.log('恢复阅读位置:', savedPosition, '/', self._totalChars);
-                    
-                    // 恢复音频播放位置（根据字符位置计算时间）
-                    if (player.charTimeline && player.charTimeline.length > 0) {
-                        var charIdx = Math.min(savedPosition, player.charTimeline.length - 1);
-                        var audioTime = player.charTimeline[charIdx];
-                        if (audioTime > 0) {
-                            player.audio.currentTime = audioTime;
-                            player.currentTime = audioTime;
-                            console.log('恢复音频位置:', audioTime, '秒');
-                        }
+                doRestore();
+                
+                function doRestore() {
+                    var savedPosition = state.currentProgress.current_position || 0;
+                    console.log('restorePosition: savedPosition=', savedPosition);
+                    if (savedPosition <= 0) {
+                        console.log('restorePosition: 跳过 - 无有效位置');
+                        return;
                     }
-                }, 100);
+                    
+                    // 恢复文字显示位置
+                    setTimeout(function() {
+                        var container = document.getElementById('chalkboard');
+                        if (!container || self._totalChars <= 0) return;
+                        // 恢复已显示的文字到上次阅读位置
+                        self.revealCharsUpTo(savedPosition);
+                        // 恢复滚动位置
+                        var scrollPercent = savedPosition / self._totalChars;
+                        scrollPercent = Math.min(scrollPercent, 1);
+                        var scrollTarget = scrollPercent * (container.scrollHeight - container.clientHeight);
+                        container.scrollTop = scrollTarget;
+                        self._currentPosition = savedPosition;
+                        document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
+                        console.log('恢复阅读位置:', savedPosition, '/', self._totalChars);
+                        
+                        // 恢复音频播放位置（根据字符位置计算时间）
+                        if (player.charTimeline && player.charTimeline.length > 0) {
+                            var charIdx = Math.min(savedPosition, player.charTimeline.length - 1);
+                            var audioTime = player.charTimeline[charIdx];
+                            if (audioTime > 0) {
+                                player.audio.currentTime = audioTime;
+                                player.currentTime = audioTime;
+                                console.log('恢复音频位置:', audioTime, '秒');
+                            }
+                        }
+                    }, 100);
+                }
             }
         };
 

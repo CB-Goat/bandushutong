@@ -235,9 +235,10 @@ var player = {
         reader.revealCharsUpTo(charIndex);
         // 同步更新阅读位置（用于断点续读）
         reader._currentPosition = charIndex;
-        // 每5秒保存一次进度
-        if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 5000) {
+        // 每3秒保存一次进度
+        if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 3000) {
             this._lastSaveTime = Date.now();
+            console.log('自动保存进度: charIndex=' + charIndex);
             reader.saveProgress(charIndex);
         }
         if (this.audioDuration > 0) {
