@@ -402,6 +402,11 @@ var player = {
         // 恢复播放状态
         state.isPlayingAnnotation = false;
         
+        // 恢复点评标签轮播
+        if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
+            analysisManager.resumeRotation();
+        }
+        
         if (this.mode === 'timeline' && this.audioUrl) {
             // 从点评结束位置继续播放
             this.audio.currentTime = endTime;
