@@ -115,6 +115,8 @@ def upload_book():
         chapters = result.get('chapters', [])
         sections = result.get('sections', [])
         
+        print(f"[UPLOAD] 解析结果: 标题={title}, 作者={author}, 国籍={author_nationality}, 版本={version}")
+        
         # 检查是否已存在相同书名+作者+版本的书籍
         existing_book = get_book_by_title_author_version(title, author, version)
         is_update = False
