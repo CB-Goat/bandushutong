@@ -226,8 +226,12 @@ var player = {
         if (this.currentTime > 0.5) {
             this._hasPlayed = true;
         }
-        // 只有在真正播放过后才更新和保存（currentTime > 0.5 或 _hasPlayed）
-        if (!this._hasPlayed && this.currentTime < 0.5) {
+        // 如果是恢复后的 currentTime=0（暂停/离开），不保存
+        if (this._hasPlayed && this.currentTime === 0) {
+            return;
+        }
+        // 只有在真正播放时才更新和保存
+        if (!this._hasPlayed) {
             return;
         }
         var charIndex = this._getDisplayCharIndex();
