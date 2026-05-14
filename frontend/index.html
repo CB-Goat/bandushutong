@@ -1293,12 +1293,15 @@
                     return;
                 }
             }
-            // 设置阅读状态为"在读"
-            fetch(API_BASE + '/sections/' + sectionId + '/status', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({book_id: bookId, status: 'reading'})
-            });
+            // 设置阅读状态为"在读"（已读节不重置）
+            var currentStatus = (state.catalogStatusMap && state.catalogStatusMap[sectionId]) || '';
+            if (currentStatus !== 'read') {
+                fetch(API_BASE + '/sections/' + sectionId + '/status', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({book_id: bookId, status: 'reading'})
+                });
+            }
             // 打开阅读器并跳转到指定节
             openBook(bookId);
             setTimeout(function() {
