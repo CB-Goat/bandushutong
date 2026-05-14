@@ -216,6 +216,8 @@ var player = {
         }
         var charIndex = this._getDisplayCharIndex();
         reader.revealCharsUpTo(charIndex);
+        // 同步更新阅读位置（用于断点续读）
+        reader._currentPosition = charIndex;
         if (this.audioDuration > 0) {
             document.getElementById('progressFill').style.width = (this.currentTime / this.audioDuration * 100) + '%';
         }

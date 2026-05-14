@@ -1819,6 +1819,8 @@
                     console.log('restorePosition: 跳过 - 无有效位置');
                     return;
                 }
+                
+                // 恢复文字显示位置
                 setTimeout(function() {
                     var container = document.getElementById('chalkboard');
                     if (!container || self._totalChars <= 0) return;
@@ -1832,6 +1834,17 @@
                     self._currentPosition = savedPosition;
                     document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
                     console.log('恢复阅读位置:', savedPosition, '/', self._totalChars);
+                    
+                    // 恢复音频播放位置（根据字符位置计算时间）
+                    if (player.charTimeline && player.charTimeline.length > 0) {
+                        var charIdx = Math.min(savedPosition, player.charTimeline.length - 1);
+                        var audioTime = player.charTimeline[charIdx];
+                        if (audioTime > 0) {
+                            player.audio.currentTime = audioTime;
+                            player.currentTime = audioTime;
+                            console.log('恢复音频位置:', audioTime, '秒');
+                        }
+                    }
                 }, 100);
             }
         };
