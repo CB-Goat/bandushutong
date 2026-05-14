@@ -38,12 +38,12 @@ var player = {
 
     loadSection: function(sectionId) {
         var self = this;
-        // 重置状态，允许更新和保存
+        // 重置状态，允许更新和保存（即使跳过也要重置）
         this._hasPlayed = false;
         this._isLeaving = false;
         // 防止重复加载同一个节
         if (this._currentSectionId === sectionId && this.audioUrl) {
-            console.log('跳过重复加载节:', sectionId);
+            console.log('跳过重复加载节:', sectionId, '但已重置 _hasPlayed');
             return;
         }
         this._currentSectionId = sectionId;
@@ -222,14 +222,13 @@ var player = {
         if (state.isPlayingAnnotation) {
             return;
         }
-        // currentTime 为 0 说明是刚加载或离开，不更新位置避免覆盖已保存的进度
-        if (this.currentTime === 0 && this._hasPlayed) {
-            console.log('跳过 currentTime=0 的更新，避免覆盖保存的位置');
-            return;
-        }
         // 播放过之后标记
-        if (this.currentTime > 0) {
+        if (this.currentTime > 0.5) {
             this._hasPlayed = true;
+        }
+        // 只有在真正播放过后才更新和保存（currentTime > 0.5 或 _hasPlayed）
+        if (!this._hasPlayed && this.currentTime < 0.5) {
+            return;
         }
         var charIndex = this._getDisplayCharIndex();
         reader.revealCharsUpTo(charIndex);
