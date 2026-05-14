@@ -1462,11 +1462,21 @@
                     this.revealAll();
                     document.getElementById('progressFill').style.width = '100%';
                     console.log('节已读，显示全部文字');
+                    // 已读节：显示所有点评和小结
+                    analysisManager.init();
+                    if (section.annotations) {
+                        section.annotations.forEach(function(ann) {
+                            analysisManager.addAnnotationTab(ann);
+                        });
+                    }
+                    if (section.summary) {
+                        analysisManager.addSummaryTab(section.summary);
+                    }
+                } else {
+                    // 未读/在读节：重置赏析区域
+                    analysisManager.init();
+                    document.getElementById('annotationDisplay').classList.remove('active');
                 }
-
-                // 重置赏析区域
-                analysisManager.init();
-                document.getElementById('annotationDisplay').classList.remove('active');
 
                 // 如果有点评，在文字中标记点评序号
                 this._renderAnnotationMarkers();

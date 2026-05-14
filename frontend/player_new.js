@@ -126,10 +126,15 @@ var player = {
         var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
         console.log('play: section.id=', section ? section.id : 'N/A', 'sectionStatus=', sectionStatus);
         if (sectionStatus === 'read') {
-            // 已读节，隐藏所有文字，从头开始
+            // 已读节，隐藏所有文字，重置赏析区域，从头开始
             console.log('已读节再次播放，hideAll前 visible数:', document.querySelectorAll('.chalk-char.visible').length);
             reader.hideAll();
             console.log('已读节再次播放，hideAll后 visible数:', document.querySelectorAll('.chalk-char.visible').length);
+            // 重置赏析区域（点评和小结会在播放过程中重新添加）
+            if (typeof analysisManager !== 'undefined') {
+                analysisManager.init();
+            }
+            document.getElementById('annotationDisplay').classList.remove('active');
             if (this.audio) this.audio.currentTime = 0;
         }
         
