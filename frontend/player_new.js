@@ -121,6 +121,18 @@ var player = {
     },
 
     play: function() {
+        // 检查是否需要从头开始（已读节再次播放时）
+        var section = state.currentSections[state.currentSectionIndex];
+        var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+        console.log('play: section.id=', section ? section.id : 'N/A', 'sectionStatus=', sectionStatus);
+        if (sectionStatus === 'read') {
+            // 已读节，隐藏所有文字，从头开始
+            console.log('已读节再次播放，hideAll前 visible数:', document.querySelectorAll('.chalk-char.visible').length);
+            reader.hideAll();
+            console.log('已读节再次播放，hideAll后 visible数:', document.querySelectorAll('.chalk-char.visible').length);
+            if (this.audio) this.audio.currentTime = 0;
+        }
+        
         console.log('播放，当前模式:', this.mode, '音频URL:', this.audioUrl, 'readyState:', this.audio.readyState);
         if (this.mode === 'timeline' && this.audioUrl) {
             var self = this;
