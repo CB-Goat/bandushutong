@@ -1729,8 +1729,13 @@
 
             saveProgress: function(position) {
                 var section = state.currentSections[state.currentSectionIndex];
-                if (!section) return;
+                if (!section) {
+                    console.log('saveProgress: 无section，跳过');
+                    return;
+                }
                 var pos = position !== undefined ? position : this._currentPosition || 0;
+                console.log('saveProgress 被调用: pos=' + pos + ', section.id=' + section.id);
+                console.log('saveProgress: reader._currentPosition=' + reader._currentPosition);
                 fetch(API_BASE + '/progress', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
