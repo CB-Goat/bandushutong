@@ -215,6 +215,10 @@ var player = {
     },
 
     _updateDisplayByTime: function() {
+        // 页面切换中不更新（防止 currentTime=0 覆盖保存的位置）
+        if (this._isLeaving) {
+            return;
+        }
         // 点评播放期间不更新文字显示
         if (state.isPlayingAnnotation) {
             return;
