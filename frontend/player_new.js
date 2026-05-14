@@ -252,34 +252,42 @@ var player = {
         // 不自动切换下一节，让用户自行选择
     },
 
-    // 播放预生成的小结音频
+    // 播放预生成的小结音频（复用主 audio 元素，避免手机浏览器拦截）
     _playSummaryAudio: function(section) {
         var self = this;
-        var sumAudio = new Audio();
-        sumAudio.src = section.summary_audio_path;
         
-        sumAudio.onended = function() {
+        // 保存原始音频信息
+        this._originalAudioSrc = this.audioUrl;
+        this._originalAudioMode = this.mode;
+        
+        // 切换到小结音频
+        this.audio.src = section.summary_audio_path;
+        this.audio.load();
+        
+        this.audio.onended = function() {
             console.log('小结音频播放结束');
             // 恢复标签轮播
             if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
                 analysisManager.resumeRotation();
             }
+            // 恢复原始音频（不自动播放）
+            self._restoreMainAudio(0);
         };
         
-        sumAudio.onerror = function() {
+        this.audio.onerror = function() {
             console.log('小结音频播放失败');
-            // 即使失败也恢复轮播
             if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
                 analysisManager.resumeRotation();
             }
+            self._restoreMainAudio(0);
         };
         
-        sumAudio.play().catch(function() {
+        this.audio.play().catch(function() {
             console.log('小结音频播放失败');
-            // 即使失败也恢复轮播
             if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
                 analysisManager.resumeRotation();
             }
+            self._restoreMainAudio(0);
         });
     },
 
@@ -348,23 +356,27 @@ var player = {
         }
     },
 
-    // 播放预生成的点评音频
+    // 播放预生成的点评音频（复用主 audio 元素，避免手机浏览器拦截）
     _playAnnotationAudio: function(annotation, annotationEndTime) {
         var self = this;
         
-        // 创建临时音频元素
-        var annAudio = new Audio();
-        annAudio.src = annotation.audio_path;
+        // 保存原始音频信息，用于恢复
+        this._originalAudioSrc = this.audioUrl;
+        this._originalAudioMode = this.mode;
         
-        annAudio.onended = function() {
+        // 切换到点评音频
+        this.audio.src = annotation.audio_path;
+        this.audio.load();
+        
+        this.audio.onended = function() {
             console.log('点评音频播放结束');
-            setTimeout(function() {
-                self._resumeAfterAnnotation(annotationEndTime);
-            }, 1000);
+            // 恢复原始音频
+            self._restoreMainAudio(annotationEndTime);
         };
         
-        annAudio.onerror = function() {
+        this.audio.onerror = function() {
             console.log('点评音频播放失败，降级到TTS');
+            self._restoreMainAudio(0);
             self._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
                 setTimeout(function() {
                     self._resumeAfterAnnotation(annotationEndTime);
@@ -372,14 +384,40 @@ var player = {
             });
         };
         
-        annAudio.play().catch(function() {
+        this.audio.play().catch(function() {
             console.log('点评音频播放失败，降级到TTS');
+            self._restoreMainAudio(0);
             self._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
                 setTimeout(function() {
                     self._resumeAfterAnnotation(annotationEndTime);
                 }, 1000);
             });
         });
+    },
+
+    // 恢复主音频并从指定位置继续播放
+    _restoreMainAudio: function(resumeTime) {
+        if (this._originalAudioSrc) {
+            this.audio.src = this._originalAudioSrc;
+            this.audioUrl = this._originalAudioSrc;
+            this.mode = this._originalAudioMode;
+            this._originalAudioSrc = null;
+            this._originalAudioMode = null;
+            
+            if (resumeTime > 0) {
+                var self = this;
+                this.audio.onloadedmetadata = function() {
+                    self.audio.currentTime = resumeTime;
+                    self.audio.play().then(function() {
+                        self.isPlaying = true;
+                        state.isPlaying = true;
+                        document.getElementById('playBtn').textContent = '\u23F8';
+                    }).catch(function() {});
+                    self.audio.onloadedmetadata = null;
+                };
+                this.audio.load();
+            }
+        }
     },
 
     // 使用浏览器 TTS 朗读文本
