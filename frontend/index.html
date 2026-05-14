@@ -340,13 +340,13 @@
             font-family: -apple-system, sans-serif;
         }
 
-        /* 黑板主体 */
+        /* 黑板主体 - 手机端完全贴合屏幕 */
         .chalkboard {
             background: #2a4a1a;
             border: 3px solid #8B7355;
             border-top: none;
             border-radius: 0;
-            padding: 20px 20px;
+            padding: 15px 15px;
             position: relative;
             overflow: hidden;
             flex: 1;
@@ -373,7 +373,7 @@
             border-radius: 0;
         }
 
-        /* 粉笔文字容器 - 固定高度，内部滚动 */
+        /* 粉笔文字容器 - 自适应高度，占满剩余空间 */
         .chalkboard .chalk-text {
             position: relative;
             z-index: 1;
@@ -384,11 +384,9 @@
                 0 0 5px rgba(240,232,208,0.3),
                 1px 1px 0 rgba(0,0,0,0.2);
             letter-spacing: 1px;
-            height: 500px;
-            max-height: 500px;
-            flex-shrink: 0;
-            overflow: hidden;
-            padding-bottom: 10px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
         }
 
         /* 粉笔字效果 - 每个字符 */
@@ -460,9 +458,12 @@
             z-index: 1;
             border-top: 2px dashed rgba(240,232,208,0.2);
             padding-top: 12px;
-            margin-top: 15px;
-            flex: 1;
-            min-height: 80px;
+            margin-top: 10px;
+            height: 120px;
+            min-height: 120px;
+            max-height: 120px;
+            flex-shrink: 0;
+            overflow-y: auto;
         }
 
         .chalkboard .analysis-area .label {
@@ -733,11 +734,33 @@
             opacity: 0.9;
         }
 
-        /* 响应式 */
+        /* 响应式 - 手机端优化 */
         @media (max-width: 480px) {
-            .container { padding: 70px 10px 20px; }
-            .chalkboard { padding: 15px 18px; }
-            .chalkboard .chalk-text { font-size: 20px; line-height: 2; }
+            .container { padding: 70px 0 0; }
+            /* 黑板完全贴合屏幕两侧 */
+            .chalkboard {
+                padding: 10px 8px;
+                border-left: none;
+                border-right: none;
+                border-radius: 0;
+            }
+            .chalkboard::before {
+                border-left: none;
+                border-right: none;
+            }
+            .chalkboard .chalk-text {
+                font-size: 20px;
+                line-height: 2;
+                padding: 0 4px;
+            }
+            /* 点评区域固定高度 */
+            .chalkboard .analysis-area {
+                height: 100px;
+                min-height: 100px;
+                max-height: 100px;
+                padding-top: 8px;
+                margin-top: 8px;
+            }
             .section-nav { gap: 8px; }
             .section-nav button { padding: 6px 10px; font-size: 13px; }
             .section-nav .progress-area { max-width: 140px; }
