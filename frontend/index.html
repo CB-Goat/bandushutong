@@ -1881,11 +1881,8 @@
 
                 this.renderTabs();
                 this.showTab(tabId);
-                // 小结标签也参与轮巡，从当前标签开始轮巡
-                if (this.tabs.length > 1) {
-                    this.stopRotation();
-                    this.startRotationFrom(tabId);
-                }
+                // 小结朗读期间暂停轮巡，朗读完后再恢复
+                this.stopRotation();
             },
 
             // 渲染标签

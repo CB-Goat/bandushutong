@@ -240,7 +240,13 @@ var player = {
             } else {
                 // 降级：使用浏览器 TTS
                 console.log('使用浏览器TTS朗读小结');
-                this._speakComment('让我们回顾一下本篇内容。' + summary, null);
+                var self = this;
+                this._speakComment('让我们回顾一下本篇内容。' + summary, function() {
+                    // TTS 朗读结束后恢复标签轮播
+                    if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
+                        analysisManager.resumeRotation();
+                    }
+                });
             }
         }
         // 不自动切换下一节，让用户自行选择
@@ -248,19 +254,32 @@ var player = {
 
     // 播放预生成的小结音频
     _playSummaryAudio: function(section) {
+        var self = this;
         var sumAudio = new Audio();
         sumAudio.src = section.summary_audio_path;
         
         sumAudio.onended = function() {
             console.log('小结音频播放结束');
+            // 恢复标签轮播
+            if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
+                analysisManager.resumeRotation();
+            }
         };
         
         sumAudio.onerror = function() {
             console.log('小结音频播放失败');
+            // 即使失败也恢复轮播
+            if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
+                analysisManager.resumeRotation();
+            }
         };
         
         sumAudio.play().catch(function() {
             console.log('小结音频播放失败');
+            // 即使失败也恢复轮播
+            if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
+                analysisManager.resumeRotation();
+            }
         });
     },
 
