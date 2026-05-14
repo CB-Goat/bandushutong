@@ -2953,9 +2953,19 @@
         };
 
         function browseBackToBooks() {
-            document.getElementById('browseBookList').style.display = 'block';
-            document.getElementById('browseChapterArea').style.display = 'none';
-            browse.loadBooks();
+            var chapterArea = document.getElementById('browseChapterArea');
+            var bookList = document.getElementById('browseBookList');
+            
+            // 如果当前在章节目录页面，刷新当前书籍的章节目录
+            if (chapterArea.style.display !== 'none' && state.browseCurrentBookId) {
+                var title = document.getElementById('browseBookTitle').textContent;
+                browse.openBook(state.browseCurrentBookId, title);
+            } else {
+                // 返回书目列表并刷新
+                bookList.style.display = 'block';
+                chapterArea.style.display = 'none';
+                browse.loadBooks();
+            }
         }
 
         function adminLoadBooks() { admin.loadBooks(); }
