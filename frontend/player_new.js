@@ -210,6 +210,10 @@ var player = {
     },
 
     _updateDisplayByTime: function() {
+        // 点评播放期间不更新文字显示
+        if (state.isPlayingAnnotation) {
+            return;
+        }
         var charIndex = this._getDisplayCharIndex();
         reader.revealCharsUpTo(charIndex);
         if (this.audioDuration > 0) {
@@ -295,6 +299,9 @@ var player = {
     _triggerAnnotationPlayback: function(annotation) {
         console.log('触发点评播放:', annotation);
         var self = this;
+        
+        // 标记正在播放点评，阻止文字更新
+        state.isPlayingAnnotation = true;
         
         // 暂停音频
         this.audio.pause();
@@ -403,6 +410,9 @@ var player = {
             this.mode = this._originalAudioMode;
             this._originalAudioSrc = null;
             this._originalAudioMode = null;
+            
+            // 点评播放结束，允许文字更新
+            state.isPlayingAnnotation = false;
             
             if (resumeTime > 0) {
                 var self = this;
