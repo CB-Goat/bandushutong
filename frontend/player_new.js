@@ -430,6 +430,8 @@ var player = {
     // 恢复主音频并从指定位置继续播放
     _restoreMainAudio: function(resumeTime) {
         if (this._originalAudioSrc) {
+            // 恢复音频前标记已播放，防止 currentTime=0 时覆盖位置
+            this._hasPlayed = true;
             this.audio.src = this._originalAudioSrc;
             this.audioUrl = this._originalAudioSrc;
             this.mode = this._originalAudioMode;
