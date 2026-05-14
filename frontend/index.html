@@ -2042,20 +2042,25 @@
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
                 if (sectionStatus === 'read') {
                     // 已读节，隐藏所有文字，从头开始
-                    console.log('已读节再次播放，从头开始');
+                    console.log('已读节再次播放，hideAll前 visible数:', document.querySelectorAll('.chalk-char.visible').length);
                     reader.hideAll();
+                    console.log('已读节再次播放，hideAll后 visible数:', document.querySelectorAll('.chalk-char.visible').length);
+                    console.log('已读节再次播放，_allChars数:', reader._allChars ? reader._allChars.length : 0);
                     if (this.audio) this.audio.currentTime = 0;
                 }
                 
                 if (this.mode === 'timeline' && this.audioUrl) {
+                    console.log('播放模式: timeline, audioUrl:', this.audioUrl);
                     this.audio.play();
                     this.isPlaying = true;
                     state.isPlaying = true;
                     document.getElementById('playBtn').textContent = '\u23F8';
                 } else if (this.mode === 'server_tts') {
+                    console.log('播放模式: server_tts');
                     // 按需生成音频
                     this._playServerTTS();
                 } else {
+                    console.log('播放模式: browser_tts');
                     this._playBrowserTTS();
                 }
             },
