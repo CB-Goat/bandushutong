@@ -1379,6 +1379,26 @@
                 state.currentBook = data.book;
                 state.currentSections = data.sections;
                 state.currentProgress = data.progress || null;
+                state.currentSectionIndex = 0;
+
+                // 加载节阅读状态（用于判断已读/未读），完成后再渲染
+                fetch(API_BASE + '/books/' + bookId + '/reading-status')
+                    .then(function(r) { return r.json(); })
+                    .then(function(statusData) {
+                        if (statusData.statuses) {
+                            var statusMap = {};
+                            statusData.statuses.forEach(function(s) {
+                                statusMap[s.section_id] = s.status;
+                            });
+                            state.catalogStatusMap = statusMap;
+                            console.log('阅读状态已加载:', Object.keys(statusMap).length, '节');
+                        }
+                    })
+                    .catch(function() {})
+                    .finally(function() {
+                        showPage('readerPage');
+                        reader.renderCurrentSection();
+                    });
                 
                 // 调试：检查第一个节的 content
                 if (data.sections && data.sections.length > 0) {
@@ -1404,8 +1424,7 @@
                     if (index !== -1) state.currentSectionIndex = index;
                 }
 
-                showPage('readerPage');
-                reader.renderCurrentSection();
+                // showPage 和 renderCurrentSection 已在 reading-status 加载完成后调用
             } catch (e) {
                 alert('加载出错: ' + e.message);
             } finally { hideLoading(); }
@@ -1439,6 +1458,7 @@
                 if (sectionStatus === 'read') {
                     this.revealAll();
                     document.getElementById('progressFill').style.width = '100%';
+                    console.log('节已读，显示全部文字');
                 }
 
                 // 重置赏析区域
