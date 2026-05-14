@@ -15,6 +15,11 @@ var player = {
         var self = this;
         this.audio.ontimeupdate = function() {
             self.currentTime = self.audio.currentTime;
+            // 调试日志（仅每5秒输出一次）
+            if (!self._lastLogTime || Date.now() - self._lastLogTime > 5000) {
+                self._lastLogTime = Date.now();
+                console.log('ontimeupdate: currentTime=' + self.currentTime.toFixed(2) + 's, charIndex=' + self._getDisplayCharIndex());
+            }
             self._updateDisplayByTime();
         };
         this.audio.onended = function() {
