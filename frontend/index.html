@@ -1796,14 +1796,29 @@
             restorePosition: function() {
                 var self = this;
                 var section = state.currentSections[state.currentSectionIndex];
-                if (!section || !state.currentProgress) return;
+                console.log('restorePosition: section.id=', section ? section.id : null);
+                console.log('restorePosition: state.currentProgress=', JSON.stringify(state.currentProgress));
+                if (!section || !state.currentProgress) {
+                    console.log('restorePosition: 跳过 - 无section或无progress');
+                    return;
+                }
                 // 只对保存断点的那一节恢复位置
-                if (state.currentProgress.current_section_id !== section.id) return;
+                if (state.currentProgress.current_section_id !== section.id) {
+                    console.log('restorePosition: 跳过 - 不是断点所在节');
+                    return;
+                }
                 // 已读节不恢复位置（保持全部显示或从头开始）
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                if (sectionStatus === 'read') return;
+                if (sectionStatus === 'read') {
+                    console.log('restorePosition: 跳过 - 已读节');
+                    return;
+                }
                 var savedPosition = state.currentProgress.current_position || 0;
-                if (savedPosition <= 0) return;
+                console.log('restorePosition: savedPosition=', savedPosition);
+                if (savedPosition <= 0) {
+                    console.log('restorePosition: 跳过 - 无有效位置');
+                    return;
+                }
                 setTimeout(function() {
                     var container = document.getElementById('chalkboard');
                     if (!container || self._totalChars <= 0) return;
