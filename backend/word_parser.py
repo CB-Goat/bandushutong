@@ -64,7 +64,7 @@ class WordStructureParser:
                 meta['title'] = para.text.strip()
                 break
         
-        # 查找书名后的 Normal 段落作为作者/版本
+        # 查找书名后的段落作为作者/版本
         found_title = False
         normal_count = 0
         for para in self.paragraphs:
@@ -75,9 +75,56 @@ class WordStructureParser:
                 found_title = True
                 continue
             
-            if found_title and style == 'Normal' and text:
+            if not found_title:
+                continue
+            
+            # 支持自定义样式 [作者] 和 [版本]
+            if style == '[作者]' or style == '作者':
+                # 只取第一个 [作者] 段落
+                if meta.get('author'):
+                    continue
+                if '「' in text and '」' in text:
+                    parts = text.split('「')
+                    meta['author'] = parts[0].strip()
+                    meta['nationality'] = parts[1].split('」')[0].strip()
+                elif '[' in text and ']' in text:
+                    parts = text.split('[')
+                    meta['author'] = parts[0].strip()
+                    meta['nationality'] = parts[1].split(']')[0].strip()
+                elif '（' in text and '）' in text:
+                    parts = text.split('（')
+                    meta['author'] = parts[0].strip()
+                    meta['nationality'] = parts[1].split('）')[0].strip()
+                else:
+                    # 如果作者行没有格式，尝试从文本中解析
+                    meta['author'] = text
+                    # 尝试匹配 高尔基「苏联」 格式
+                    import re
+                    match = re.search(r'(.+?)「(.+?)」', text)
+                    if match:
+                        meta['author'] = match.group(1).strip()
+                        meta['nationality'] = match.group(2).strip()
+                    match = re.search(r'(.+?)\[(.+?)\]', text)
+                    if match:
+                        meta['author'] = match.group(1).strip()
+                        meta['nationality'] = match.group(2).strip()
+                    match = re.search(r'(.+?)（(.+?)）', text)
+                    if match:
+                        meta['author'] = match.group(1).strip()
+                        meta['nationality'] = match.group(2).strip()
+                continue
+            
+            if style == '[版本]' or style == '版本':
+                # 只取第一个 [版本] 段落
+                if meta.get('version'):
+                    continue
+                meta['version'] = text
+                continue
+            
+            # 处理 Normal 样式作为备用（仅当未通过 [作者]/[版本] 样式获取时）
+            if style == 'Normal' and text:
                 normal_count += 1
-                if normal_count == 1:
+                if normal_count == 1 and not meta.get('author'):
                     # 第一行：作者「国籍」
                     if '「' in text and '」' in text:
                         parts = text.split('「')
@@ -93,7 +140,7 @@ class WordStructureParser:
                         meta['nationality'] = parts[1].split('）')[0].strip()
                     else:
                         meta['author'] = text
-                elif normal_count == 2:
+                elif normal_count == 2 and not meta.get('version'):
                     # 第二行：版本
                     meta['version'] = text
                     break
