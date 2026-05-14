@@ -38,6 +38,9 @@ var player = {
 
     loadSection: function(sectionId) {
         var self = this;
+        // 重置状态，允许更新和保存
+        this._hasPlayed = false;
+        this._isLeaving = false;
         // 防止重复加载同一个节
         if (this._currentSectionId === sectionId && this.audioUrl) {
             console.log('跳过重复加载节:', sectionId);
@@ -215,13 +218,18 @@ var player = {
     },
 
     _updateDisplayByTime: function() {
-        // 页面切换中不更新（防止 currentTime=0 覆盖保存的位置）
-        if (this._isLeaving) {
-            return;
-        }
         // 点评播放期间不更新文字显示
         if (state.isPlayingAnnotation) {
             return;
+        }
+        // currentTime 为 0 说明是刚加载或离开，不更新位置避免覆盖已保存的进度
+        if (this.currentTime === 0 && this._hasPlayed) {
+            console.log('跳过 currentTime=0 的更新，避免覆盖保存的位置');
+            return;
+        }
+        // 播放过之后标记
+        if (this.currentTime > 0) {
+            this._hasPlayed = true;
         }
         var charIndex = this._getDisplayCharIndex();
         reader.revealCharsUpTo(charIndex);
