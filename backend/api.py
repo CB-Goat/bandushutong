@@ -47,11 +47,12 @@ def init_database():
 def list_books():
     """获取书籍列表（含统计信息）"""
     from backend.database import get_db
+    user_id = request.args.get('user_id', type=int)
     books = get_all_books()
     # 为每本书附加统计信息
     for book in books:
         bid = book['id']
-        stats = get_book_reading_stats(bid)
+        stats = get_book_reading_stats(user_id, bid)
         book['reading_stats'] = stats
         # 获取总字数和点评总数
         conn = get_db()
