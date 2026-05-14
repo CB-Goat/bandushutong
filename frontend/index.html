@@ -737,27 +737,26 @@
         /* 响应式 - 手机端优化 */
         @media (max-width: 480px) {
             .container { padding: 70px 0 0; }
-            /* 黑板完全贴合屏幕两侧 */
+            /* 黑板贴合屏幕两侧，保留边框 */
             .chalkboard {
-                padding: 10px 8px;
-                border-left: none;
-                border-right: none;
+                padding: 10px 6px;
+                border-left: 3px solid #8B7355;
+                border-right: 3px solid #8B7355;
                 border-radius: 0;
             }
             .chalkboard::before {
-                border-left: none;
-                border-right: none;
+                border-width: 6px;
             }
             .chalkboard .chalk-text {
                 font-size: 20px;
                 line-height: 2;
-                padding: 0 4px;
+                padding: 0 2px;
             }
-            /* 点评区域固定高度 */
+            /* 点评区域占屏幕高度30% */
             .chalkboard .analysis-area {
-                height: 100px;
-                min-height: 100px;
-                max-height: 100px;
+                height: 30%;
+                min-height: 80px;
+                max-height: 150px;
                 padding-top: 8px;
                 margin-top: 8px;
             }
