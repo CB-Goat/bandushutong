@@ -62,7 +62,7 @@ def get_access_token():
         return None
 
 
-def text_to_speech(text, section_id=None, speed=5, pitch=5, volume=5, person=0):
+def text_to_speech(text, section_id=None, speed=5, pitch=5, volume=5, person=3):
     """
     调用百度 TTS 合成语音
     
@@ -135,7 +135,7 @@ def text_to_speech(text, section_id=None, speed=5, pitch=5, volume=5, person=0):
         return None
 
 
-def text_to_speech_long(text, section_id=None, speed=5, pitch=5, volume=5, person=0):
+def text_to_speech_long(text, section_id=None, speed=5, pitch=5, volume=5, person=3):
     """
     合成长文本（自动分段合成）
     百度 TTS 单次最多 1024 字节（约 500 个中文字符）
@@ -174,7 +174,7 @@ def is_configured():
     return bool(BAIDU_TTS_APP_ID and BAIDU_TTS_API_KEY and BAIDU_TTS_SECRET_KEY)
 
 
-def generate_section_audio_with_timeline(text, section_id, speed=5, person=0):
+def generate_section_audio_with_timeline(text, section_id, speed=5, person=3):
     """
     生成节的完整音频并计算字符时间轴
     
@@ -316,7 +316,7 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=0):
     }
 
 
-def generate_book_audio(book_id, person=0, speed=5):
+def generate_book_audio(book_id, person=3, speed=5):
     """
     为书籍的所有节预生成音频（后台线程调用）
     包括：原文音频、点评音频、小结音频
@@ -408,7 +408,7 @@ def generate_book_audio(book_id, person=0, speed=5):
     return True
 
 
-def generate_annotation_audio(annotation_id, original_text, comment, person=0, speed=5):
+def generate_annotation_audio(annotation_id, original_text, comment, person=3, speed=5):
     """
     生成点评音频
     格式："我们看下这里" + 原文引用 + 点评内容 + "回到原文"
@@ -513,7 +513,7 @@ def generate_annotation_audio(annotation_id, original_text, comment, person=0, s
     }
 
 
-def generate_summary_audio(section_id, summary, person=0, speed=5):
+def generate_summary_audio(section_id, summary, person=3, speed=5):
     """
     生成小结音频
     格式："让我们回顾一下本篇内容" + 小结内容
