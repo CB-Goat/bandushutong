@@ -1114,7 +1114,12 @@
                 var readerPage = document.getElementById('readerPage');
                 if (readerPage.classList.contains('active')) {
                     // 阅读页 → 返回目录页
-                    reader.saveProgress(reader._currentPosition);
+                    // 先保存位置，再停止播放器
+                    var currentPos = reader._currentPosition || 0;
+                    console.log('返回按钮：保存位置', currentPos);
+                    if (currentPos > 0) {
+                        reader.saveProgress(currentPos);
+                    }
                     showPage('catalogPage');
                     player.stop();
                     annotationEditor.exitEditMode();
@@ -1493,7 +1498,8 @@
                 // 恢复阅读断点位置
                 this.restorePosition();
 
-                this.saveProgress();
+                // 不在这里保存进度，避免保存初始位置 0
+                // this.saveProgress();
             },
 
             _prepareChalkText: function(content) {
@@ -1759,12 +1765,12 @@
                     }
                 };
                 container.addEventListener('scroll', this._scrollListener);
-                // 每3秒自动保存一次阅读断点
-                this._saveTimer = setInterval(function() {
-                    if (self._currentPosition > 0) {
-                        self.saveProgress(self._currentPosition);
-                    }
-                }, 3000);
+                // 不再定时自动保存，只在退出时保存
+                // this._saveTimer = setInterval(function() {
+                //     if (self._currentPosition > 0) {
+                //         self.saveProgress(self._currentPosition);
+                //     }
+                // }, 3000);
             },
 
             markSectionRead: function() {
