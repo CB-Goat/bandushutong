@@ -113,6 +113,26 @@ def init_db():
         )
     ''')
 
+    # 添加点评音频字段（如果不存在）
+    try:
+        cursor.execute('ALTER TABLE annotations ADD COLUMN audio_path TEXT')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE annotations ADD COLUMN audio_duration REAL DEFAULT 0')
+    except:
+        pass
+
+    # 添加小结音频字段（如果不存在）
+    try:
+        cursor.execute('ALTER TABLE sections ADD COLUMN summary_audio_path TEXT')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE sections ADD COLUMN summary_audio_duration REAL DEFAULT 0')
+    except:
+        pass
+
     # 用户表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -730,6 +750,28 @@ def update_book_tts_status(book_id, status, progress=''):
     cursor.execute(
         'UPDATE books SET tts_status = ?, tts_progress = ? WHERE id = ?',
         (status, progress, book_id)
+    )
+    conn.commit()
+    conn.close()
+
+def update_annotation_audio(annotation_id, audio_path, audio_duration):
+    """更新点评的音频信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE annotations SET audio_path = ?, audio_duration = ? WHERE id = ?',
+        (audio_path, audio_duration, annotation_id)
+    )
+    conn.commit()
+    conn.close()
+
+def update_section_summary_audio(section_id, audio_path, audio_duration):
+    """更新小节小结的音频信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE sections SET summary_audio_path = ?, summary_audio_duration = ? WHERE id = ?',
+        (audio_path, audio_duration, section_id)
     )
     conn.commit()
     conn.close()

@@ -233,8 +233,35 @@ var player = {
         var summary = (section && section.summary) ? section.summary : '';
         if (summary) {
             analysisManager.addSummaryTab(summary);
+            // 使用预生成的小结音频（如果有）
+            if (section.summary_audio_path && section.summary_audio_duration) {
+                console.log('使用预生成小结音频:', section.summary_audio_path);
+                this._playSummaryAudio(section);
+            } else {
+                // 降级：使用浏览器 TTS
+                console.log('使用浏览器TTS朗读小结');
+                this._speakComment('让我们回顾一下本篇内容。' + summary, null);
+            }
         }
         // 不自动切换下一节，让用户自行选择
+    },
+
+    // 播放预生成的小结音频
+    _playSummaryAudio: function(section) {
+        var sumAudio = new Audio();
+        sumAudio.src = section.summary_audio_path;
+        
+        sumAudio.onended = function() {
+            console.log('小结音频播放结束');
+        };
+        
+        sumAudio.onerror = function() {
+            console.log('小结音频播放失败');
+        };
+        
+        sumAudio.play().catch(function() {
+            console.log('小结音频播放失败');
+        });
     },
 
     // 触发点评播放
@@ -286,12 +313,52 @@ var player = {
             analysisManager.addAnnotationTab(annotation);
         }
         
-        // 使用浏览器 TTS 朗读点评内容
-        this._speakComment(annotation.comment, function() {
-            self._speakComment('回到原文', function() {
+        // 使用预生成的点评音频（如果有）或浏览器 TTS
+        if (annotation.audio_path && annotation.audio_duration) {
+            console.log('使用预生成点评音频:', annotation.audio_path);
+            this._playAnnotationAudio(annotation, annotationEndTime);
+        } else {
+            // 降级：使用浏览器 TTS
+            console.log('使用浏览器TTS朗读点评');
+            var self = this;
+            this._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
                 setTimeout(function() {
                     self._resumeAfterAnnotation(annotationEndTime);
-                }, 2000);
+                }, 1000);
+            });
+        }
+    },
+
+    // 播放预生成的点评音频
+    _playAnnotationAudio: function(annotation, annotationEndTime) {
+        var self = this;
+        
+        // 创建临时音频元素
+        var annAudio = new Audio();
+        annAudio.src = annotation.audio_path;
+        
+        annAudio.onended = function() {
+            console.log('点评音频播放结束');
+            setTimeout(function() {
+                self._resumeAfterAnnotation(annotationEndTime);
+            }, 1000);
+        };
+        
+        annAudio.onerror = function() {
+            console.log('点评音频播放失败，降级到TTS');
+            self._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
+                setTimeout(function() {
+                    self._resumeAfterAnnotation(annotationEndTime);
+                }, 1000);
+            });
+        };
+        
+        annAudio.play().catch(function() {
+            console.log('点评音频播放失败，降级到TTS');
+            self._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
+                setTimeout(function() {
+                    self._resumeAfterAnnotation(annotationEndTime);
+                }, 1000);
             });
         });
     },
