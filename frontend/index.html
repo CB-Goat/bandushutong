@@ -3013,13 +3013,16 @@
             var chapterArea = document.getElementById('browseChapterArea');
             var bookList = document.getElementById('browseBookList');
             
+            // 停止音频前先获取当前位置
+            var finalPosition = reader._currentPosition || 0;
+            console.log('退出前当前位置:', finalPosition);
+            
             // 标记正在离开，阻止 ontimeupdate 覆盖保存的位置
             if (typeof player !== 'undefined') {
                 player._isLeaving = true;
             }
             
             // 保存当前阅读位置
-            var finalPosition = reader._currentPosition || 0;
             if (finalPosition > 0) {
                 reader.saveProgress(finalPosition);
                 console.log('退出时保存进度:', finalPosition);

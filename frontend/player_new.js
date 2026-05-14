@@ -218,6 +218,10 @@ var player = {
     },
 
     _updateDisplayByTime: function() {
+        // 离开页面时不更新
+        if (this._isLeaving) {
+            return;
+        }
         // 点评播放期间不更新文字显示
         if (state.isPlayingAnnotation) {
             return;
@@ -226,24 +230,15 @@ var player = {
         if (this.currentTime > 0.5) {
             this._hasPlayed = true;
         }
-        // 如果是恢复后的 currentTime=0（暂停/离开），不保存
-        if (this._hasPlayed && this.currentTime === 0) {
-            return;
-        }
-        // 只有在真正播放时才更新和保存
-        if (!this._hasPlayed) {
+        // 只有在真正播放时才更新（currentTime > 0.5 或 _hasPlayed）
+        if (!this._hasPlayed && this.currentTime < 0.5) {
             return;
         }
         var charIndex = this._getDisplayCharIndex();
         reader.revealCharsUpTo(charIndex);
         // 同步更新阅读位置（用于断点续读）
         reader._currentPosition = charIndex;
-        // 每3秒保存一次进度
-        if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 3000) {
-            this._lastSaveTime = Date.now();
-            console.log('自动保存进度: charIndex=' + charIndex);
-            reader.saveProgress(charIndex);
-        }
+        // 更新进度条
         if (this.audioDuration > 0) {
             document.getElementById('progressFill').style.width = (this.currentTime / this.audioDuration * 100) + '%';
         }
