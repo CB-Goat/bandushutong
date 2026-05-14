@@ -246,7 +246,7 @@ var player = {
             fetch(API_BASE + '/sections/' + section.id + '/status', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({book_id: state.currentBook.id, status: 'read'})
+                body: JSON.stringify({book_id: state.currentBook.id, status: 'read', user_id: state.currentUser.id})
             }).catch(function() {});
         }
         

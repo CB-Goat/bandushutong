@@ -71,10 +71,11 @@ def init_db():
         )
     ''')
 
-    # 阅读进度表
+    # 阅读进度表（按用户隔离）
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS reading_progress (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             book_id INTEGER NOT NULL,
             current_section_id INTEGER,
             current_position INTEGER DEFAULT 0,
@@ -99,17 +100,18 @@ def init_db():
         )
     ''')
 
-    # 节阅读状态表
+    # 节阅读状态表（按用户隔离）
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS section_reading_status (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             book_id INTEGER NOT NULL,
             section_id INTEGER NOT NULL,
             status TEXT DEFAULT 'unread',
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (book_id) REFERENCES books(id),
             FOREIGN KEY (section_id) REFERENCES sections(id),
-            UNIQUE(book_id, section_id)
+            UNIQUE(user_id, book_id, section_id)
         )
     ''')
 
@@ -120,6 +122,18 @@ def init_db():
         pass
     try:
         cursor.execute('ALTER TABLE annotations ADD COLUMN audio_duration REAL DEFAULT 0')
+    except:
+        pass
+
+    # 添加 user_id 字段到 reading_progress（如果不存在）
+    try:
+        cursor.execute('ALTER TABLE reading_progress ADD COLUMN user_id INTEGER')
+    except:
+        pass
+
+    # 添加 user_id 字段到 section_reading_status（如果不存在）
+    try:
+        cursor.execute('ALTER TABLE section_reading_status ADD COLUMN user_id INTEGER')
     except:
         pass
 
@@ -789,26 +803,26 @@ def update_section_word_count(section_id, word_count):
 
 # ==================== 阅读进度相关操作 ====================
 
-def update_progress(book_id, section_id, position=0):
-    """更新阅读进度"""
+def update_progress(user_id, book_id, section_id, position=0):
+    """更新阅读进度（按用户隔离）"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
         '''INSERT OR REPLACE INTO reading_progress
-           (book_id, current_section_id, current_position, updated_at)
-           VALUES (?, ?, ?, ?)''',
-        (book_id, section_id, position, datetime.now())
+           (user_id, book_id, current_section_id, current_position, updated_at)
+           VALUES (?, ?, ?, ?, ?)''',
+        (user_id, book_id, section_id, position, datetime.now())
     )
     conn.commit()
     conn.close()
 
-def get_progress(book_id):
-    """获取阅读进度"""
+def get_progress(user_id, book_id):
+    """获取阅读进度（按用户隔离）"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM reading_progress WHERE book_id = ? ORDER BY updated_at DESC LIMIT 1',
-        (book_id,)
+        'SELECT * FROM reading_progress WHERE user_id = ? AND book_id = ? ORDER BY updated_at DESC LIMIT 1',
+        (user_id, book_id)
     )
     progress = cursor.fetchone()
     conn.close()
@@ -852,45 +866,45 @@ def delete_annotation(annotation_id):
 
 # ==================== 节阅读状态相关操作 ====================
 
-def set_section_status(book_id, section_id, status):
-    """设置节阅读状态"""
+def set_section_status(user_id, book_id, section_id, status):
+    """设置节阅读状态（按用户隔离）"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
         '''INSERT OR REPLACE INTO section_reading_status
-           (book_id, section_id, status, updated_at)
-           VALUES (?, ?, ?, ?)''',
-        (book_id, section_id, status, datetime.now())
+           (user_id, book_id, section_id, status, updated_at)
+           VALUES (?, ?, ?, ?, ?)''',
+        (user_id, book_id, section_id, status, datetime.now())
     )
     conn.commit()
     conn.close()
 
-def get_section_status(book_id, section_id):
-    """获取节阅读状态"""
+def get_section_status(user_id, book_id, section_id):
+    """获取节阅读状态（按用户隔离）"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM section_reading_status WHERE book_id = ? AND section_id = ?',
-        (book_id, section_id)
+        'SELECT * FROM section_reading_status WHERE user_id = ? AND book_id = ? AND section_id = ?',
+        (user_id, book_id, section_id)
     )
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
 
-def get_all_section_status(book_id):
-    """获取一本书所有节的阅读状态"""
+def get_all_section_status(user_id, book_id):
+    """获取一本书所有节的阅读状态（按用户隔离）"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM section_reading_status WHERE book_id = ?',
-        (book_id,)
+        'SELECT * FROM section_reading_status WHERE user_id = ? AND book_id = ?',
+        (user_id, book_id)
     )
     statuses = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return statuses
 
-def get_book_reading_stats(book_id):
-    """获取一本书的阅读统计（总节数、待读、在读、已读数量）"""
+def get_book_reading_stats(user_id, book_id):
+    """获取一本书的阅读统计（按用户隔离）"""
     conn = get_db()
     cursor = conn.cursor()
     # 获取总节数
@@ -902,8 +916,8 @@ def get_book_reading_stats(book_id):
             COALESCE(SUM(CASE WHEN status = 'unread' THEN 1 ELSE 0 END), 0) as unread,
             COALESCE(SUM(CASE WHEN status = 'reading' THEN 1 ELSE 0 END), 0) as reading,
             COALESCE(SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END), 0) as read_count
-        FROM section_reading_status WHERE book_id = ?
-    ''', (book_id,))
+        FROM section_reading_status WHERE user_id = ? AND book_id = ?
+    ''', (user_id, book_id))
     row = cursor.fetchone()
     conn.close()
     return {

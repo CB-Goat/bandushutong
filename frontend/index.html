@@ -1165,7 +1165,7 @@
                     (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
 
                 // 获取阅读状态和统计
-                var stResp = await fetch(API_BASE + '/books/' + bookId + '/reading-status');
+                var stResp = await fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + state.currentUser.id);
                 var stData = await stResp.json();
                 var statusMap = {};
                 (stData.statuses || []).forEach(function(s) { statusMap[s.section_id] = s.status; });
@@ -1299,7 +1299,7 @@
                 fetch(API_BASE + '/sections/' + sectionId + '/status', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({book_id: bookId, status: 'reading'})
+                    body: JSON.stringify({book_id: bookId, status: 'reading', user_id: state.currentUser.id})
                 });
             }
             // 打开阅读器并跳转到指定节
@@ -1375,7 +1375,7 @@
         async function openBook(bookId) {
             try {
                 showLoading('正在加载...');
-                var response = await fetch(API_BASE + '/books/' + bookId);
+                var response = await fetch(API_BASE + '/books/' + bookId + '?user_id=' + state.currentUser.id);
                 var data = await response.json();
                 if (!response.ok) { alert('加载失败: ' + data.error); return; }
 
@@ -1385,7 +1385,7 @@
                 state.currentSectionIndex = 0;
 
                 // 加载节阅读状态（用于判断已读/未读），完成后再渲染
-                fetch(API_BASE + '/books/' + bookId + '/reading-status')
+                fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + state.currentUser.id)
                     .then(function(r) { return r.json(); })
                     .then(function(statusData) {
                         if (statusData.statuses) {
@@ -1728,7 +1728,7 @@
                 fetch(API_BASE + '/progress', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ book_id: state.currentBook.id, section_id: section.id, position: pos })
+                    body: JSON.stringify({ book_id: state.currentBook.id, section_id: section.id, position: pos, user_id: state.currentUser.id })
                 }).catch(function(e) { console.error('保存进度失败:', e); });
             },
 
@@ -1783,7 +1783,7 @@
                 fetch(API_BASE + '/sections/' + section.id + '/status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ book_id: state.currentBook.id, status: 'read' })
+                    body: JSON.stringify({ book_id: state.currentBook.id, status: 'read', user_id: state.currentUser.id })
                 }).then(function() {
                     console.log('已标记为已读: 第' + section.section_number + '节');
                     // 更新本地状态
@@ -2290,7 +2290,7 @@
                     fetch(API_BASE + '/sections/' + section.id + '/status', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({book_id: state.currentBook.id, status: 'read'})
+                        body: JSON.stringify({book_id: state.currentBook.id, status: 'read', user_id: state.currentUser.id})
                     }).catch(function() {});
                 }
                 
@@ -2873,7 +2873,7 @@
                     document.getElementById('browseChapterArea').style.display = 'none';
                     data.books.forEach(function(book) {
                         // 获取阅读统计
-                        fetch(API_BASE + '/books/' + book.id + '/reading-status').then(function(r) { return r.json(); }).then(function(stats) {
+                        fetch(API_BASE + '/books/' + book.id + '/reading-status?user_id=' + state.currentUser.id).then(function(r) { return r.json(); }).then(function(stats) {
                             var total = stats.stats.total_sections || 0;
                             var readCount = stats.stats.read || 0;
                             var percent = total > 0 ? Math.round(readCount / total * 100) : 0;
@@ -2908,7 +2908,7 @@
                         // 没有章节，直接显示所有节
                         fetch(API_BASE + '/books/' + bookId).then(function(r) { return r.json(); }).then(function(bookData) {
                             var statusMap = {};
-                            fetch(API_BASE + '/books/' + bookId + '/reading-status').then(function(r) { return r.json(); }).then(function(s) {
+                            fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + state.currentUser.id).then(function(r) { return r.json(); }).then(function(s) {
                                 (s.statuses || []).forEach(function(st) { statusMap[st.section_id] = st.status; });
                                 (bookData.sections || []).forEach(function(sec) {
                                     var status = statusMap[sec.id] || 'unread';
@@ -2935,7 +2935,7 @@
                             
                             // 加载该章的节
                             fetch(API_BASE + '/chapters/' + ch.id + '/sections').then(function(r) { return r.json(); }).then(function(secData) {
-                                fetch(API_BASE + '/books/' + bookId + '/reading-status').then(function(r) { return r.json(); }).then(function(s) {
+                                fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + state.currentUser.id).then(function(r) { return r.json(); }).then(function(s) {
                                     var statusMap = {};
                                     (s.statuses || []).forEach(function(st) { statusMap[st.section_id] = st.status; });
                                     (secData.sections || []).forEach(function(sec) {
@@ -2962,7 +2962,7 @@
                 fetch(API_BASE + '/sections/' + sectionId + '/status', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({book_id: bookId, status: 'reading'})
+                    body: JSON.stringify({book_id: bookId, status: 'reading', user_id: state.currentUser.id})
                 });
                 
                 // 打开阅读器
@@ -3220,7 +3220,7 @@
                     var section = state.currentSections[state.currentSectionIndex];
                     if (section) {
                         // 使用 sendBeacon 确保请求被发送（即使页面关闭）
-                        var payload = JSON.stringify({book_id: state.currentBook.id, section_id: section.id, position: pos});
+                        var payload = JSON.stringify({book_id: state.currentBook.id, section_id: section.id, position: pos, user_id: state.currentUser.id});
                         navigator.sendBeacon(API_BASE + '/progress', new Blob([payload], {type: 'application/json'}));
                     }
                 }

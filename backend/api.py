@@ -72,7 +72,8 @@ def book_detail(book_id):
         return jsonify({'error': '书籍不存在'}), 404
     
     sections = get_sections_by_book(book_id)
-    progress = get_progress(book_id)
+    user_id = request.args.get('user_id', type=int)
+    progress = get_progress(user_id, book_id)
     
     # 获取每个小节的点评点
     for sec in sections:
@@ -359,6 +360,7 @@ def serve_audio(filename):
 def save_progress():
     """保存阅读进度"""
     data = request.json
+    user_id = data.get('user_id')
     book_id = data.get('book_id')
     section_id = data.get('section_id')
     position = data.get('position', 0)
@@ -366,13 +368,14 @@ def save_progress():
     if not book_id or not section_id:
         return jsonify({'error': '缺少必要参数'}), 400
     
-    update_progress(book_id, section_id, position)
+    update_progress(user_id, book_id, section_id, position)
     return jsonify({'message': '进度保存成功'})
 
 @api_bp.route('/progress/<int:book_id>', methods=['GET'])
 def get_book_progress(book_id):
     """获取阅读进度"""
-    progress = get_progress(book_id)
+    user_id = request.args.get('user_id', type=int)
+    progress = get_progress(user_id, book_id)
     if progress:
         return jsonify(progress)
     else:
@@ -540,20 +543,22 @@ def get_status(section_id):
 def set_status(section_id):
     """设置小节阅读状态"""
     data = request.json
+    user_id = data.get('user_id')
     book_id = data.get('book_id')
     status = data.get('status', 'unread')
     if not book_id:
         return jsonify({'error': '缺少book_id'}), 400
     if status not in ('unread', 'reading', 'read'):
         return jsonify({'error': '无效的状态值'}), 400
-    set_section_status(book_id, section_id, status)
+    set_section_status(user_id, book_id, section_id, status)
     return jsonify({'message': '状态更新成功'})
 
 @api_bp.route('/books/<int:book_id>/reading-status', methods=['GET'])
 def get_reading_status(book_id):
     """获取书籍所有节的阅读状态"""
-    statuses = get_all_section_status(book_id)
-    stats = get_book_reading_stats(book_id)
+    user_id = request.args.get('user_id', type=int)
+    statuses = get_all_section_status(user_id, book_id)
+    stats = get_book_reading_stats(user_id, book_id)
     return jsonify({'statuses': statuses, 'stats': stats})
 
 # ===== 用户 API =====
