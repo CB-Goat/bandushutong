@@ -2449,9 +2449,17 @@
                 };
                 
                 // 每段开始时：使用保存的 end_char 精确定位（避免时间→字符转换的误差）
-                var endChar = this._annotationEndChar || this._getCharIndexFromTime(resumeTime);
+                var endChar;
+                var endCharSource;
+                if (this._annotationEndChar !== null && this._annotationEndChar !== undefined) {
+                    endChar = this._annotationEndChar;
+                    endCharSource = 'from _annotationEndChar';
+                } else {
+                    endChar = this._getCharIndexFromTime(resumeTime);
+                    endCharSource = 'from _getCharIndexFromTime';
+                }
                 var displayChar = Math.min(this.charTimeline.length, endChar + this.TEXT_AHEAD_OFFSET);
-                console.log('_restoreMainAudio: 显示到 charIndex=' + displayChar + ' (endChar=' + endChar + ' + TEXT_AHEAD_OFFSET=' + this.TEXT_AHEAD_OFFSET + ')');
+                console.log('_restoreMainAudio: endChar=' + endChar + ' (' + endCharSource + '), displayChar=' + displayChar + ' (+' + this.TEXT_AHEAD_OFFSET + ')');
                 reader.revealCharsUpTo(displayChar);
                 reader._currentPosition = endChar;
                 this._annotationEndChar = null;  // 清除，避免下次误用
