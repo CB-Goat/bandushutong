@@ -1595,9 +1595,15 @@
             },
 
             // 显示到第 N 个字符（支持回退：如果 index 小于之前显示的位置，隐藏多余文字）
-            revealCharsUpTo: function(index) {
+            revealCharsUpTo: function(index, allowRollback) {
+                allowRollback = allowRollback !== false; // 默认允许回退
                 var target = Math.min(index, this._totalChars);
                 var prevTarget = this._revealedUpTo || 0;
+                
+                // 如果不允许回退且 target 小于之前的位置，保持之前的位置
+                if (!allowRollback && target < prevTarget) {
+                    return; // 不回退，保持当前显示
+                }
                 
                 // 调试日志
                 if (target < prevTarget) {
@@ -2273,7 +2279,8 @@
                 
                 // 精确字符位置（用于文字显示和点评触发判断）
                 var charIndex = this._getCharIndexFromTime(this.currentTime);
-                reader.revealCharsUpTo(charIndex);
+                // 禁止回退：点评触发时已经预显示了后续文字，恢复后不应该回退
+                reader.revealCharsUpTo(charIndex, false);
                 reader._currentPosition = charIndex;
                 
                 // 检查是否触发点评（使用精确位置判断）
