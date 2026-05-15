@@ -2168,6 +2168,8 @@
             },
 
             toggle: function() {
+                // 播放按钮只控制主时间轴，点评/小结播放期间忽略点击
+                if (this._originalAudioSrc) return;
                 if (this.isPlaying) { this.pause(); } else { this.play(); }
             },
 
@@ -2321,18 +2323,23 @@
 
             _playSummaryAudio: function(section) {
                 var self = this;
+                // 暂停主时间轴
+                this.audio.pause();
+                this.isPlaying = false;
+                state.isPlaying = false;
+                document.getElementById('playBtn').textContent = '\u25B6';
+                // 保存主音频信息
                 this._originalAudioSrc = this.audioUrl;
                 this._originalAudioMode = this.mode;
+                // 切换到小结音频
                 this.audio.src = section.summary_audio_path;
                 this.audio.load();
-                // 播放小结音频时，阻止 ontimeupdate 更新文字
-                state.isPlayingAnnotation = true;
                 this.audio.onended = function() {
                     console.log('小结音频播放结束');
                     if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
                         analysisManager.resumeRotation();
                     }
-                    // 小结结束后不需要恢复主音频，只需清理状态
+                    // 小结结束后清理状态（不恢复主音频）
                     self._originalAudioSrc = null;
                     self._originalAudioMode = null;
                     state.isPlayingAnnotation = false;
@@ -2358,11 +2365,13 @@
             // ===== 点评播放 =====
             _triggerAnnotationPlayback: function(annotation) {
                 console.log('触发点评播放: id=' + annotation.id + ', start_char=' + annotation.start_char + ', end_char=' + annotation.end_char);
-                console.log('点评原文长度:', annotation.original_text ? annotation.original_text.length : 0, '内容:', annotation.original_text ? annotation.original_text.substring(0, 50) : 'N/A');
                 var self = this;
                 
-                state.isPlayingAnnotation = true;
+                // 暂停主时间轴
                 this.audio.pause();
+                this.isPlaying = false;
+                state.isPlaying = false;
+                document.getElementById('playBtn').textContent = '\u25B6';
                 
                 // 计算点评在音频中的时间点
                 var annotationStartTime = 0;
@@ -2377,18 +2386,8 @@
                     console.log('点评时间:', startIdx, '->', endIdx, '=', annotationStartTime.toFixed(3), '->', annotationEndTime.toFixed(3));
                 }
                 
-                // 保存点评的 end_char，用于恢复时精确定位
-                this._annotationEndChar = annotation.end_char;
-                
-                // 将原始音频位置设置为点评结束位置（点评音频播放完后从这里恢复）
-                this.audio.currentTime = annotationEndTime;
-                this.currentTime = annotationEndTime;
-                console.log('点评触发：设置原始音频位置到 endTime=' + annotationEndTime.toFixed(3));
-                
-                // 点评触发时不干预文字显示，保持时间轴上的自然状态
-                // 文字和声音保持 TEXT_AHEAD_OFFSET 的差距，由 _updateDisplayByTime 统一管理
-                // 设置 currentPosition 为 end_char，恢复后继续从此位置播放
-                reader._currentPosition = annotation.end_char;
+                // 保存点评的结束时间，用于恢复时精确定位
+                this._annotationEndTime = annotationEndTime;
                 
                 // 高亮点评原文
                 if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
@@ -2405,52 +2404,53 @@
                 // 播放点评音频
                 if (annotation.audio_path && annotation.audio_duration) {
                     console.log('使用预生成点评音频:', annotation.audio_path);
-                    this._playAnnotationAudio(annotation, annotationEndTime);
+                    this._playAnnotationAudio(annotation);
                 } else {
                     var self = this;
-                    this._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
+                    this._speakComment(annotation.comment, function() {
                         setTimeout(function() {
-                            self._resumeAfterAnnotation(annotationEndTime);
+                            self._resumeMainTimeline();
                         }, 1000);
                     });
                 }
             },
 
-            _playAnnotationAudio: function(annotation, annotationEndTime) {
+            _playAnnotationAudio: function(annotation) {
                 var self = this;
+                // 保存主音频信息
                 this._originalAudioSrc = this.audioUrl;
                 this._originalAudioMode = this.mode;
+                // 切换到点评音频
                 this.audio.src = annotation.audio_path;
                 this.audio.load();
                 this.audio.onended = function() {
                     console.log('点评音频播放结束');
-                    self._restoreMainAudio(annotationEndTime);
+                    self._resumeMainTimeline();
                 };
                 this.audio.onerror = function() {
                     console.log('点评音频播放失败');
-                    self._restoreMainAudio(annotationEndTime);
+                    self._resumeMainTimeline();
                 };
                 this.audio.play().catch(function() {
                     console.log('点评音频播放失败');
-                    self._restoreMainAudio(annotationEndTime);
+                    self._resumeMainTimeline();
                 });
             },
 
-            // 恢复主音频并从指定位置继续播放
-            _restoreMainAudio: function(resumeTime) {
+            // 恢复主时间轴：从暂停点继续播放
+            _resumeMainTimeline: function() {
                 if (!this._originalAudioSrc) return;
                 
-                console.log('_restoreMainAudio: resumeTime=' + resumeTime.toFixed(3));
+                var resumeTime = this._annotationEndTime || 0;
+                console.log('恢复主时间轴: resumeTime=' + resumeTime.toFixed(3));
                 
-                this._hasPlayed = true;
+                // 恢复主音频
                 this.audio.src = this._originalAudioSrc;
                 this.audioUrl = this._originalAudioSrc;
                 this.mode = this._originalAudioMode;
                 this._originalAudioSrc = null;
                 this._originalAudioMode = null;
-                
-                // 点评恢复时不干预文字显示，保持时间轴上的自然状态
-                // 文字和声音保持 TEXT_AHEAD_OFFSET 的差距，由 _updateDisplayByTime 统一管理
+                this._annotationEndTime = null;
                 
                 // 恢复 onended
                 var self = this;
@@ -2463,11 +2463,8 @@
                 
                 if (resumeTime > 0) {
                     var canPlayHandler = function() {
-                        console.log('恢复播放: currentTime=' + resumeTime.toFixed(3));
                         self.audio.currentTime = resumeTime;
                         self.currentTime = resumeTime;
-                        // 在设置 currentTime 之后再允许 ontimeupdate 更新文字
-                        state.isPlayingAnnotation = false;
                         self.audio.play().then(function() {
                             self.isPlaying = true;
                             state.isPlaying = true;
@@ -2482,14 +2479,12 @@
                         if (self.audio.currentTime < resumeTime - 1) {
                             self.audio.currentTime = resumeTime;
                             self.currentTime = resumeTime;
-                            state.isPlayingAnnotation = false;
                             self.audio.play().catch(function() {});
                         }
                     }, 3000);
                     this.audio.load();
-                } else {
-                    state.isPlayingAnnotation = false;
                 }
+            },
             },
 
             _speakComment: function(text, callback) {
