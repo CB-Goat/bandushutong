@@ -1650,6 +1650,8 @@
                     if (!ann._triggered && currentCharIndex >= ann.end_char) {
                         console.log('触发点评', ann.id, 'currentCharIndex=' + currentCharIndex, 'end_char=' + ann.end_char);
                         ann._triggered = true;
+                        // 立即暂停音频，防止继续朗读后续文字
+                        if (player.audio) player.audio.pause();
                         // 立即设置标志，防止句子结束后继续朗读
                         state.isPlayingAnnotation = true;
                         // 使用闭包保存当前的 annotation 引用
@@ -2388,7 +2390,8 @@
                 var displayChar = Math.min(this.charTimeline.length, annotation.end_char + this.TEXT_AHEAD_OFFSET);
                 console.log('点评触发：显示到 charIndex=' + displayChar + ' (end_char=' + annotation.end_char + ' + ' + this.TEXT_AHEAD_OFFSET + ')');
                 reader.revealCharsUpTo(displayChar);
-                reader._currentPosition = annotation.end_char;
+                // 设置 currentPosition 为 displayChar，这样恢复后不会回退
+                reader._currentPosition = displayChar;
                 
                 // 高亮点评原文
                 if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
