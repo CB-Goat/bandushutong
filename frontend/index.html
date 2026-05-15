@@ -1598,6 +1598,11 @@
             revealCharsUpTo: function(index) {
                 var target = Math.min(index, this._totalChars);
                 var prevTarget = this._revealedUpTo || 0;
+                
+                // 调试日志
+                if (target < prevTarget) {
+                    console.log('revealCharsUpTo: 回退 ' + prevTarget + ' -> ' + target);
+                }
 
                 // 如果需要回退，先隐藏多余的文字
                 if (target < prevTarget) {
@@ -1643,6 +1648,7 @@
                 for (var i = 0; i < annotations.length; i++) {
                     var ann = annotations[i];
                     if (!ann._triggered && currentCharIndex >= ann.end_char) {
+                        console.log('_checkAnnotationTrigger: 触发点评', ann.id, 'currentCharIndex=' + currentCharIndex, 'end_char=' + ann.end_char);
                         ann._triggered = true;
                         // 立即设置标志，防止句子结束后继续朗读
                         state.isPlayingAnnotation = true;
