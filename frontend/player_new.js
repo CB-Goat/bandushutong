@@ -235,6 +235,7 @@ var player = {
             return;
         }
         var charIndex = this._getDisplayCharIndex();
+        console.log('ontimeupdate: currentTime=' + this.currentTime.toFixed(2) + ', charIndex=' + charIndex + ', _revealedUpTo=' + (reader ? reader._revealedUpTo : 'N/A'));
         reader.revealCharsUpTo(charIndex);
         // 同步更新阅读位置（用于断点续读）
         reader._currentPosition = charIndex;
@@ -326,7 +327,12 @@ var player = {
 
     // 触发点评播放
     _triggerAnnotationPlayback: function(annotation) {
-        console.log('触发点评播放:', annotation);
+        console.log('触发点评播放:', JSON.stringify({
+            id: annotation.id,
+            start_char: annotation.start_char,
+            end_char: annotation.end_char,
+            original_text: annotation.original_text ? annotation.original_text.substring(0, 20) : 'N/A'
+        }));
         var self = this;
         
         // 标记正在播放点评，阻止文字更新
@@ -348,15 +354,25 @@ var player = {
             annotationStartTime = this.charTimeline[startIdx];
             annotationEndTime = this.charTimeline[endIdx];
             
-            console.log('点评时间:', startIdx, '->', endIdx, '=', annotationStartTime, '->', annotationEndTime);
+            console.log('点评时间计算:', {
+                start_char: annotation.start_char,
+                end_char: annotation.end_char,
+                startIdx: startIdx,
+                endIdx: endIdx,
+                startTime: annotationStartTime,
+                endTime: annotationEndTime,
+                timelineLen: timelineLen
+            });
         }
         
         // 显示到点评结束位置（让用户看到完整的点评原文）
         if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
             // 计算显示字符位置（考虑换行符）
             var displayChar = reader._contentCharToDisplayChar(annotation.end_char);
+            console.log('点评触发：revealCharsUpTo(' + displayChar + '), 之前 _revealedUpTo=' + (reader._revealedUpTo || 0));
             reader.revealCharsUpTo(displayChar);
             reader._currentPosition = displayChar;
+            console.log('点评触发后：_revealedUpTo=' + reader._revealedUpTo);
         }
         
         // 将音频回退到点评开始位置
@@ -435,6 +451,8 @@ var player = {
     // 恢复主音频并从指定位置继续播放
     _restoreMainAudio: function(resumeTime) {
         if (this._originalAudioSrc) {
+            console.log('_restoreMainAudio 被调用: resumeTime=' + resumeTime + ', reader._revealedUpTo=' + (reader ? reader._revealedUpTo : 'N/A'));
+            
             // 恢复音频前标记已播放，防止 currentTime=0 时覆盖位置
             this._hasPlayed = true;
             this.audio.src = this._originalAudioSrc;
@@ -455,14 +473,16 @@ var player = {
                 self.onAudioEnd();
             };
             
-            // 根据 resumeTime 计算正确的字符位置（不加偏移）
+            // 根据 resumeTime 计算字符位置
             var charIndex = this._getCharIndexFromTime(resumeTime);
-            console.log('_restoreMainAudio: resumeTime=' + resumeTime + ', charIndex=' + charIndex);
+            console.log('_restoreMainAudio: charIndex=' + charIndex + ' (不含TEXT_AHEAD_OFFSET)');
             
             // 直接更新 reader 的位置
-            if (typeof reader !== 'undefined') {
+            if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
+                console.log('_restoreMainAudio: 调用 revealCharsUpTo(' + charIndex + ')');
                 reader.revealCharsUpTo(charIndex);
                 reader._currentPosition = charIndex;
+                console.log('_restoreMainAudio 后: reader._revealedUpTo=' + reader._revealedUpTo);
             }
             
             if (resumeTime > 0) {
