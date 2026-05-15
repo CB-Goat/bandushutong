@@ -1643,12 +1643,12 @@
                 document.getElementById('progressFill').style.width = percent + '%';
             },
 
-            // 检查是否触发点评播放
+            // 检查是否触发点评播放，返回 true 表示已触发
             _checkAnnotationTrigger: function(currentCharIndex) {
-                if (state.isPlayingAnnotation) return; // 正在播放点评中，不重复触发
+                if (state.isPlayingAnnotation) return false; // 正在播放点评中，不重复触发
                 
                 var annotations = state.currentAnnotations;
-                if (!annotations) return;
+                if (!annotations) return false;
                 
                 for (var i = 0; i < annotations.length; i++) {
                     var ann = annotations[i];
@@ -1667,9 +1667,10 @@
                                 player._triggerAnnotationPlayback(triggeredAnn);
                             }, 1000);
                         })(ann);
-                        break; // 一次只处理一个点评
+                        return true; // 已触发
                     }
                 }
+                return false; // 未触发
             },
 
             // 高亮点评原文
@@ -2279,14 +2280,17 @@
                 
                 // 精确字符位置（用于文字显示和点评触发判断）
                 var charIndex = this._getCharIndexFromTime(this.currentTime);
+                
+                // 先检查是否触发点评（如果触发，由点评逻辑控制文字显示，这里不更新）
+                if (typeof reader !== 'undefined' && reader._checkAnnotationTrigger) {
+                    if (reader._checkAnnotationTrigger(charIndex)) {
+                        return; // 点评已触发，不更新文字
+                    }
+                }
+                
                 // 禁止回退：点评触发时已经预显示了后续文字，恢复后不应该回退
                 reader.revealCharsUpTo(charIndex, false);
                 reader._currentPosition = charIndex;
-                
-                // 检查是否触发点评（使用精确位置判断）
-                if (typeof reader !== 'undefined' && reader._checkAnnotationTrigger) {
-                    reader._checkAnnotationTrigger(charIndex);
-                }
                 
                 if (this.audioDuration > 0) {
                     document.getElementById('progressFill').style.width = (this.currentTime / this.audioDuration * 100) + '%';
