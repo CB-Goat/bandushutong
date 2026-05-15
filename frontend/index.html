@@ -1647,8 +1647,10 @@
                 var annotations = state.currentAnnotations;
                 for (var i = 0; i < annotations.length; i++) {
                     var ann = annotations[i];
-                    if (!ann._triggered && currentCharIndex >= ann.end_char) {
-                        console.log('_checkAnnotationTrigger: 触发点评', ann.id, 'currentCharIndex=' + currentCharIndex, 'end_char=' + ann.end_char);
+                    // 在语音播放到点评 start_char 位置时触发（而不是 end_char）
+                    // 因为点评音频会先读点评原文，再读点评内容
+                    if (!ann._triggered && currentCharIndex >= ann.start_char) {
+                        console.log('_checkAnnotationTrigger: 触发点评', ann.id, 'currentCharIndex=' + currentCharIndex, 'start_char=' + ann.start_char);
                         ann._triggered = true;
                         // 立即设置标志，防止句子结束后继续朗读
                         state.isPlayingAnnotation = true;
@@ -2359,12 +2361,14 @@
                     console.log('点评时间:', startIdx, '->', endIdx, '=', annotationStartTime.toFixed(3), '->', annotationEndTime.toFixed(3));
                 }
                 
+                // 保存点评的 end_char，用于恢复时精确定位
+                this._annotationEndChar = annotation.end_char;
+                
                 // 每段开始时：显示到点评结束位置 + TEXT_AHEAD_OFFSET（预显示后续原文）
-                var endCharIdx = this._getCharIndexFromTime(annotationEndTime);
-                var displayChar = Math.min(this.charTimeline.length, endCharIdx + this.TEXT_AHEAD_OFFSET);
-                console.log('点评触发：显示到 charIndex=' + displayChar + ' (endCharIdx=' + endCharIdx + ' + TEXT_AHEAD_OFFSET=' + this.TEXT_AHEAD_OFFSET + ')');
+                var displayChar = Math.min(this.charTimeline.length, annotation.end_char + this.TEXT_AHEAD_OFFSET);
+                console.log('点评触发：显示到 charIndex=' + displayChar + ' (end_char=' + annotation.end_char + ' + TEXT_AHEAD_OFFSET=' + this.TEXT_AHEAD_OFFSET + ')');
                 reader.revealCharsUpTo(displayChar);
-                reader._currentPosition = endCharIdx;
+                reader._currentPosition = annotation.end_char;
                 
                 // 高亮点评原文
                 if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
@@ -2439,12 +2443,13 @@
                     self.onAudioEnd();
                 };
                 
-                // 每段开始时：显示到恢复位置 + TEXT_AHEAD_OFFSET
-                var charIndex = this._getCharIndexFromTime(resumeTime);
-                var displayChar = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
-                console.log('_restoreMainAudio: 显示到 charIndex=' + displayChar + ' (charIndex=' + charIndex + ' + TEXT_AHEAD_OFFSET=' + this.TEXT_AHEAD_OFFSET + ')');
+                // 每段开始时：使用保存的 end_char 精确定位（避免时间→字符转换的误差）
+                var endChar = this._annotationEndChar || this._getCharIndexFromTime(resumeTime);
+                var displayChar = Math.min(this.charTimeline.length, endChar + this.TEXT_AHEAD_OFFSET);
+                console.log('_restoreMainAudio: 显示到 charIndex=' + displayChar + ' (endChar=' + endChar + ' + TEXT_AHEAD_OFFSET=' + this.TEXT_AHEAD_OFFSET + ')');
                 reader.revealCharsUpTo(displayChar);
-                reader._currentPosition = charIndex;
+                reader._currentPosition = endChar;
+                this._annotationEndChar = null;  // 清除，避免下次误用
                 
                 if (resumeTime > 0) {
                     var canPlayHandler = function() {
@@ -2513,12 +2518,12 @@
                 }
                 
                 if (this.mode === 'timeline' && this.audioUrl) {
-                    // 每段开始时：显示到恢复位置 + TEXT_AHEAD_OFFSET
-                    var charIndex = this._getCharIndexFromTime(endTime);
-                    var displayChar = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
-                    console.log('_resumeAfterAnnotation: 显示到 charIndex=' + displayChar);
+                    // 每段开始时：使用保存的 end_char 精确定位
+                    var endChar = this._annotationEndChar || this._getCharIndexFromTime(endTime);
+                    var displayChar = Math.min(this.charTimeline.length, endChar + this.TEXT_AHEAD_OFFSET);
+                    console.log('_resumeAfterAnnotation: 显示到 charIndex=' + displayChar + ' (endChar=' + endChar + ')');
                     reader.revealCharsUpTo(displayChar);
-                    reader._currentPosition = charIndex;
+                    reader._currentPosition = endChar;
                     
                     var canPlayHandler = function() {
                         self.audio.currentTime = endTime;
