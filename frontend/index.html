@@ -2263,6 +2263,8 @@
             _updateDisplayByTime: function() {
                 if (this._isLeaving) return;
                 if (state.isPlayingAnnotation) return;
+                // 刚从点评恢复时，跳过更新（由 _restoreMainAudio 统一控制）
+                if (this._skipDisplayUpdate) return;
                 if (!this._hasPlayed && this.currentTime < 0.5) return;
                 if (this.currentTime > 0.5) this._hasPlayed = true;
                 
@@ -2416,6 +2418,9 @@
                 
                 console.log('_restoreMainAudio: resumeTime=' + resumeTime.toFixed(3));
                 
+                // 标记刚恢复，阻止 ontimeupdate 覆盖文字显示
+                this._skipDisplayUpdate = true;
+                
                 this._hasPlayed = true;
                 this.audio.src = this._originalAudioSrc;
                 this.audioUrl = this._originalAudioSrc;
@@ -2446,6 +2451,8 @@
                         console.log('恢复播放: currentTime=' + resumeTime.toFixed(3));
                         self.audio.currentTime = resumeTime;
                         self.currentTime = resumeTime;
+                        // 播放开始后，允许 ontimeupdate 更新文字
+                        self._skipDisplayUpdate = false;
                         self.audio.play().then(function() {
                             self.isPlaying = true;
                             state.isPlaying = true;
@@ -2460,6 +2467,7 @@
                         if (self.audio.currentTime < resumeTime - 1) {
                             self.audio.currentTime = resumeTime;
                             self.currentTime = resumeTime;
+                            self._skipDisplayUpdate = false;
                             self.audio.play().catch(function() {});
                         }
                     }, 3000);
@@ -2481,6 +2489,9 @@
             _resumeAfterAnnotation: function(endTime) {
                 console.log('点评播放结束，恢复正文');
                 var self = this;
+                
+                // 标记刚恢复，阻止 ontimeupdate 覆盖文字显示
+                this._skipDisplayUpdate = true;
                 
                 if (typeof reader !== 'undefined') {
                     if (reader._clearAnnotationHighlight && this._currentAnnotation) {
@@ -2512,6 +2523,8 @@
                     var canPlayHandler = function() {
                         self.audio.currentTime = endTime;
                         self.currentTime = endTime;
+                        // 播放开始后，允许 ontimeupdate 更新文字
+                        self._skipDisplayUpdate = false;
                         self.audio.play().then(function() {
                             self.isPlaying = true;
                             state.isPlaying = true;
