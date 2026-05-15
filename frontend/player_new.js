@@ -366,6 +366,7 @@ var player = {
         }
         
         // 显示到点评结束位置（让用户看到完整的点评原文）
+        console.log('点评触发：reader=' + typeof reader + ', revealCharsUpTo=' + (reader ? typeof reader.revealCharsUpTo : 'N/A') + ', _revealedUpTo=' + (reader ? reader._revealedUpTo : 'N/A'));
         if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
             // 计算显示字符位置（考虑换行符）
             var displayChar = reader._contentCharToDisplayChar(annotation.end_char);
@@ -373,6 +374,8 @@ var player = {
             reader.revealCharsUpTo(displayChar);
             reader._currentPosition = displayChar;
             console.log('点评触发后：_revealedUpTo=' + reader._revealedUpTo);
+        } else {
+            console.log('点评触发：reader 未定义，跳过 revealCharsUpTo');
         }
         
         // 将音频回退到点评开始位置
