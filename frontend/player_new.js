@@ -10,8 +10,6 @@ var player = {
     charTimeline: [],
     isPlaying: false,
     currentTime: 0,
-    _justResumedFromAnnotation: false,  // 刚从点评恢复，不加偏移
-    _resumeTime: 0,  // 恢复时的时间点
 
     init: function() {
         var self = this;
@@ -215,11 +213,7 @@ var player = {
             if (this.charTimeline[i] > time) { charIndex = i; break; }
         }
         // 文字提前 TEXT_AHEAD_OFFSET 个字符显示（模仿自然阅读）
-        // 但刚从点评恢复时不加偏移，直到播放超过 1 秒后才恢复
-        if (!this._justResumedFromAnnotation || (this.currentTime - this._resumeTime) > 1) {
-            charIndex = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
-            this._justResumedFromAnnotation = false;  // 已恢复正常偏移
-        }
+        charIndex = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
         return charIndex;
     },
 
@@ -357,13 +351,20 @@ var player = {
             console.log('点评时间:', startIdx, '->', endIdx, '=', annotationStartTime, '->', annotationEndTime);
         }
         
+        // 显示到点评结束位置（让用户看到完整的点评原文）
+        if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
+            // 计算显示字符位置（考虑换行符）
+            var displayChar = reader._contentCharToDisplayChar(annotation.end_char);
+            reader.revealCharsUpTo(displayChar);
+            reader._currentPosition = displayChar;
+        }
+        
         // 将音频回退到点评开始位置
         this.audio.currentTime = annotationStartTime;
         this.currentTime = annotationStartTime;
         this.audio.load();
         
-        // 不在这里额外显示文字，让 _updateDisplayByTime 控制
-        // 只高亮点评原文部分
+        // 高亮点评原文部分
         if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
             reader._highlightAnnotation(annotation);
         }
@@ -444,10 +445,6 @@ var player = {
             
             // 点评播放结束，允许文字更新
             state.isPlayingAnnotation = false;
-            
-            // 标记刚从点评恢复，1秒内不加 TEXT_AHEAD_OFFSET
-            this._justResumedFromAnnotation = true;
-            this._resumeTime = resumeTime;
             
             // 恢复 onended 事件处理器（点评/小结播放时被覆盖了）
             var self = this;
@@ -549,10 +546,6 @@ var player = {
         
         // 恢复播放状态
         state.isPlayingAnnotation = false;
-        
-        // 标记刚从点评恢复，1秒内不加 TEXT_AHEAD_OFFSET
-        this._justResumedFromAnnotation = true;
-        this._resumeTime = endTime;
         
         // 恢复点评标签轮播
         if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
