@@ -1639,7 +1639,6 @@
 
             // 检查是否触发点评播放
             _checkAnnotationTrigger: function(currentCharIndex) {
-                console.log('_checkAnnotationTrigger: currentCharIndex=' + currentCharIndex + ', isPlayingAnnotation=' + state.isPlayingAnnotation + ', annotations=' + (state.currentAnnotations ? state.currentAnnotations.length : 'undefined'));
                 if (state.isPlayingAnnotation) return; // 正在播放点评中，不重复触发
                 
                 var annotations = state.currentAnnotations;
@@ -1649,7 +1648,7 @@
                     var ann = annotations[i];
                     // 在语音播放到点评原文结束位置时触发
                     if (!ann._triggered && currentCharIndex >= ann.end_char) {
-                        console.log('_checkAnnotationTrigger: 触发点评', ann.id, 'currentCharIndex=' + currentCharIndex, 'end_char=' + ann.end_char);
+                        console.log('触发点评', ann.id, 'currentCharIndex=' + currentCharIndex, 'end_char=' + ann.end_char);
                         ann._triggered = true;
                         // 立即设置标志，防止句子结束后继续朗读
                         state.isPlayingAnnotation = true;
@@ -2382,16 +2381,13 @@
                 // 保存点评的 end_char，用于恢复时精确定位
                 this._annotationEndChar = annotation.end_char;
                 
-                // 将原始音频位置设置为点评开始位置（点评音频播放完后从这里恢复）
-                this.audio.currentTime = annotationStartTime;
-                this.currentTime = annotationStartTime;
-                console.log('点评触发：设置原始音频位置到 startTime=' + annotationStartTime.toFixed(3));
+                // 将原始音频位置设置为点评结束位置（点评音频播放完后从这里恢复）
+                this.audio.currentTime = annotationEndTime;
+                this.currentTime = annotationEndTime;
+                console.log('点评触发：设置原始音频位置到 endTime=' + annotationEndTime.toFixed(3));
                 
-                // 先将文字回退到 start_char 位置（不含偏移），让 ontimeupdate 重新计算正确的显示位置
-                // 这样可以避免 ontimeupdate 之前设置的较大值被回退的问题
-                console.log('点评触发：先将文字回退到 start_char=' + annotation.start_char);
-                reader.revealCharsUpTo(annotation.start_char);
-                reader._currentPosition = annotation.start_char;
+                // 点评触发时不改变文字显示，只做高亮
+                // 文字保持当前状态，点评音频播放期间不变
                 
                 // 高亮点评原文
                 if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
