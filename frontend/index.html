@@ -1594,31 +1594,18 @@
                 }
             },
 
-            // 显示到第 N 个字符（支持回退：如果 index 小于之前显示的位置，隐藏多余文字）
-            revealCharsUpTo: function(index, allowRollback) {
-                allowRollback = allowRollback !== false; // 默认允许回退
+            // 显示到第 N 个字符（只前进不回退）
+            revealCharsUpTo: function(index) {
                 var target = Math.min(index, this._totalChars);
                 var prevTarget = this._revealedUpTo || 0;
                 
-                // 如果不允许回退且 target 小于之前的位置，保持之前的位置
-                if (!allowRollback && target < prevTarget) {
+                // 只前进不回退：如果 target 小于之前的位置，保持之前的位置
+                if (target < prevTarget) {
                     return; // 不回退，保持当前显示
                 }
-                
-                // 调试日志
-                if (target < prevTarget) {
-                    console.log('revealCharsUpTo: 回退 ' + prevTarget + ' -> ' + target);
-                }
 
-                // 如果需要回退，先隐藏多余的文字
-                if (target < prevTarget) {
-                    for (var i = target; i < prevTarget && i < this._allChars.length; i++) {
-                        this._allChars[i].classList.remove('visible');
-                    }
-                }
-
-                for (var i = 0; i < target; i++) {
-                    if (!this._allChars[i].classList.contains('visible')) {
+                for (var i = prevTarget; i < target; i++) {
+                    if (this._allChars[i]) {
                         this._allChars[i].classList.add('visible');
                     }
                 }
@@ -2270,7 +2257,7 @@
                 return charIndex;
             },
 
-            // 更新文字显示：精确同步语音位置，不加偏移
+            // 更新文字显示：文字始终比声音快 TEXT_AHEAD_OFFSET 个字
             _updateDisplayByTime: function() {
                 if (this._isLeaving) return;
                 // 正在播放点评或小结音频时，阻止更新（只有主音频才更新文字）
@@ -2278,18 +2265,17 @@
                 if (!this._hasPlayed && this.currentTime < 0.5) return;
                 if (this.currentTime > 0.5) this._hasPlayed = true;
                 
-                // 精确字符位置（用于文字显示和点评触发判断）
+                // 精确字符位置（用于点评触发判断）
                 var charIndex = this._getCharIndexFromTime(this.currentTime);
                 
-                // 先检查是否触发点评（如果触发，由点评逻辑控制文字显示，这里不更新）
+                // 检查是否触发点评
                 if (typeof reader !== 'undefined' && reader._checkAnnotationTrigger) {
-                    if (reader._checkAnnotationTrigger(charIndex)) {
-                        return; // 点评已触发，不更新文字
-                    }
+                    reader._checkAnnotationTrigger(charIndex);
                 }
                 
-                // 禁止回退：点评触发时已经预显示了后续文字，恢复后不应该回退
-                reader.revealCharsUpTo(charIndex, false);
+                // 文字显示：始终比声音快 TEXT_AHEAD_OFFSET 个字
+                var displayChar = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
+                reader.revealCharsUpTo(displayChar);
                 reader._currentPosition = charIndex;
                 
                 if (this.audioDuration > 0) {
@@ -2397,15 +2383,10 @@
                 this.currentTime = annotationEndTime;
                 console.log('点评触发：设置原始音频位置到 endTime=' + annotationEndTime.toFixed(3));
                 
-                // 强制重置 _revealedUpTo 为 end_char，确保预显示文字数正确
-                reader._revealedUpTo = annotation.end_char;
-                
-                // 显示到 end_char + TEXT_AHEAD_OFFSET（预显示后续文字）
-                var displayChar = Math.min(this.charTimeline.length, annotation.end_char + this.TEXT_AHEAD_OFFSET);
-                console.log('点评触发：显示到 charIndex=' + displayChar + ' (end_char=' + annotation.end_char + ' + ' + this.TEXT_AHEAD_OFFSET + ')');
-                reader.revealCharsUpTo(displayChar);
-                // 设置 currentPosition 为 displayChar，这样恢复后不会回退
-                reader._currentPosition = displayChar;
+                // 点评触发时不干预文字显示，保持时间轴上的自然状态
+                // 文字和声音保持 TEXT_AHEAD_OFFSET 的差距，由 _updateDisplayByTime 统一管理
+                // 设置 currentPosition 为 end_char，恢复后继续从此位置播放
+                reader._currentPosition = annotation.end_char;
                 
                 // 高亮点评原文
                 if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
@@ -2466,13 +2447,8 @@
                 this._originalAudioSrc = null;
                 this._originalAudioMode = null;
                 
-                // 重置 _revealedUpTo 为 resumeTime 对应的字符位置
-                // 这样 ontimeupdate 可以正常继续更新文字
-                var resumeCharIndex = this._getCharIndexFromTime(resumeTime);
-                if (typeof reader !== 'undefined') {
-                    reader._revealedUpTo = resumeCharIndex;
-                    console.log('_restoreMainAudio: 重置 _revealedUpTo=' + resumeCharIndex);
-                }
+                // 点评恢复时不干预文字显示，保持时间轴上的自然状态
+                // 文字和声音保持 TEXT_AHEAD_OFFSET 的差距，由 _updateDisplayByTime 统一管理
                 
                 // 恢复 onended
                 var self = this;
