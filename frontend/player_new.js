@@ -226,6 +226,10 @@ var player = {
         if (state.isPlayingAnnotation) {
             return;
         }
+        // 刚恢复时不让 ontimeupdate 更新文字（由 _restoreMainAudio 统一控制）
+        if (this._skipDisplayUpdate) {
+            return;
+        }
         // 播放过之后标记
         if (this.currentTime > 0.5) {
             this._hasPlayed = true;
@@ -439,6 +443,13 @@ var player = {
             // 点评播放结束，允许文字更新
             state.isPlayingAnnotation = false;
             
+            // 标记刚恢复，短时间内不让 ontimeupdate 更新文字
+            var self = this;
+            this._skipDisplayUpdate = true;
+            setTimeout(function() {
+                self._skipDisplayUpdate = false;
+            }, 2000);
+            
             // 恢复 onended 事件处理器（点评/小结播放时被覆盖了）
             var self = this;
             this.audio.onended = function() {
@@ -539,6 +550,13 @@ var player = {
         
         // 恢复播放状态
         state.isPlayingAnnotation = false;
+        
+        // 标记刚恢复，短时间内不让 ontimeupdate 更新文字
+        this._skipDisplayUpdate = true;
+        var self2 = this;
+        setTimeout(function() {
+            self2._skipDisplayUpdate = false;
+        }, 2000);
         
         // 恢复点评标签轮播
         if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
