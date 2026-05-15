@@ -2459,6 +2459,14 @@
                 this._originalAudioSrc = null;
                 this._originalAudioMode = null;
                 
+                // 重置 _revealedUpTo 为 resumeTime 对应的字符位置
+                // 这样 ontimeupdate 可以正常继续更新文字
+                var resumeCharIndex = this._getCharIndexFromTime(resumeTime);
+                if (typeof reader !== 'undefined') {
+                    reader._revealedUpTo = resumeCharIndex;
+                    console.log('_restoreMainAudio: 重置 _revealedUpTo=' + resumeCharIndex);
+                }
+                
                 // 恢复 onended
                 var self = this;
                 this.audio.onended = function() {
