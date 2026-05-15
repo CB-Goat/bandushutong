@@ -473,15 +473,16 @@ var player = {
                 self.onAudioEnd();
             };
             
-            // 根据 resumeTime 计算字符位置
+            // 根据 resumeTime 计算字符位置（加上 TEXT_AHEAD_OFFSET，与 _updateDisplayByTime 一致）
             var charIndex = this._getCharIndexFromTime(resumeTime);
-            console.log('_restoreMainAudio: charIndex=' + charIndex + ' (不含TEXT_AHEAD_OFFSET)');
+            var displayCharIndex = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
+            console.log('_restoreMainAudio: charIndex=' + charIndex + ', displayCharIndex=' + displayCharIndex + ' (含TEXT_AHEAD_OFFSET)');
             
             // 直接更新 reader 的位置
             if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
-                console.log('_restoreMainAudio: 调用 revealCharsUpTo(' + charIndex + ')');
-                reader.revealCharsUpTo(charIndex);
-                reader._currentPosition = charIndex;
+                console.log('_restoreMainAudio: 调用 revealCharsUpTo(' + displayCharIndex + ')');
+                reader.revealCharsUpTo(displayCharIndex);
+                reader._currentPosition = charIndex;  // 保存不含偏移的位置用于断点续读
                 console.log('_restoreMainAudio 后: reader._revealedUpTo=' + reader._revealedUpTo);
             }
             
@@ -573,14 +574,15 @@ var player = {
         }
         
         if (this.mode === 'timeline' && this.audioUrl) {
-            // 根据 endTime 计算正确的字符位置（不加偏移）
+            // 根据 endTime 计算字符位置（加上 TEXT_AHEAD_OFFSET，与 _updateDisplayByTime 一致）
             var charIndex = this._getCharIndexFromTime(endTime);
-            console.log('_resumeAfterAnnotation: endTime=' + endTime + ', charIndex=' + charIndex);
+            var displayCharIndex = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
+            console.log('_resumeAfterAnnotation: endTime=' + endTime + ', charIndex=' + charIndex + ', displayCharIndex=' + displayCharIndex);
             
             // 直接更新 reader 的位置
             if (typeof reader !== 'undefined') {
-                reader.revealCharsUpTo(charIndex);
-                reader._currentPosition = charIndex;
+                reader.revealCharsUpTo(displayCharIndex);
+                reader._currentPosition = charIndex;  // 保存不含偏移的位置用于断点续读
             }
             
             // 从点评结束位置继续播放（等待音频就绪）
