@@ -448,9 +448,20 @@ var player = {
                 self.onAudioEnd();
             };
             
+            // 根据 resumeTime 计算正确的字符位置
+            var charIndex = this._getCharIndexFromTime(resumeTime);
+            console.log('_restoreMainAudio: resumeTime=' + resumeTime + ', charIndex=' + charIndex);
+            
+            // 直接更新 reader 的位置（不依赖 ontimeupdate）
+            if (typeof reader !== 'undefined') {
+                reader.revealCharsUpTo(charIndex);
+                reader._currentPosition = charIndex;
+            }
+            
             if (resumeTime > 0) {
                 this.audio.onloadedmetadata = function() {
                     self.audio.currentTime = resumeTime;
+                    self.currentTime = resumeTime;
                     self.audio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
@@ -461,6 +472,19 @@ var player = {
                 this.audio.load();
             }
         }
+    },
+    
+    // 根据时间获取对应的字符索引
+    _getCharIndexFromTime: function(time) {
+        if (!this.charTimeline || this.charTimeline.length === 0) return 0;
+        var charIndex = this.charTimeline.length;
+        for (var i = 0; i < this.charTimeline.length; i++) {
+            if (this.charTimeline[i] > time) {
+                charIndex = i;
+                break;
+            }
+        }
+        return charIndex;
     },
 
     // 使用浏览器 TTS 朗读文本
@@ -508,8 +532,19 @@ var player = {
         }
         
         if (this.mode === 'timeline' && this.audioUrl) {
+            // 根据 endTime 计算正确的字符位置
+            var charIndex = this._getCharIndexFromTime(endTime);
+            console.log('_resumeAfterAnnotation: endTime=' + endTime + ', charIndex=' + charIndex);
+            
+            // 直接更新 reader 的位置（不依赖 ontimeupdate）
+            if (typeof reader !== 'undefined') {
+                reader.revealCharsUpTo(charIndex);
+                reader._currentPosition = charIndex;
+            }
+            
             // 从点评结束位置继续播放
             this.audio.currentTime = endTime;
+            this.currentTime = endTime;
             this.audio.play().then(function() {
                 self.isPlaying = true;
                 state.isPlaying = true;
