@@ -2269,11 +2269,9 @@
                 if (!this._hasPlayed && this.currentTime < 0.5) return;
                 if (this.currentTime > 0.5) this._hasPlayed = true;
                 
-                // 精确字符位置（不加偏移，用于点评触发判断）
+                // 精确字符位置（用于文字显示和点评触发判断）
                 var charIndex = this._getCharIndexFromTime(this.currentTime);
-                // 显示位置（加偏移，用于文字显示）
-                var displayChar = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
-                reader.revealCharsUpTo(displayChar);
+                reader.revealCharsUpTo(charIndex);
                 reader._currentPosition = charIndex;
                 
                 // 检查是否触发点评（使用精确位置判断）
