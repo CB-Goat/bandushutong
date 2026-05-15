@@ -2437,8 +2437,6 @@
                 this._originalAudioSrc = null;
                 this._originalAudioMode = null;
                 
-                state.isPlayingAnnotation = false;
-                
                 // 恢复 onended
                 var self = this;
                 this.audio.onended = function() {
@@ -2463,6 +2461,10 @@
                 reader.revealCharsUpTo(displayChar);
                 reader._currentPosition = endChar;
                 this._annotationEndChar = null;  // 清除，避免下次误用
+                
+                // 在 revealCharsUpTo 之后才设置 state.isPlayingAnnotation = false
+                // 这样 _checkAnnotationTrigger 不会在 revealCharsUpTo 期间被误触发
+                state.isPlayingAnnotation = false;
                 
                 if (resumeTime > 0) {
                     // 标记刚恢复，阻止 ontimeupdate 覆盖文字显示
