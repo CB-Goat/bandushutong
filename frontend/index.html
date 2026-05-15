@@ -2384,11 +2384,11 @@
                 this.currentTime = annotationStartTime;
                 console.log('点评触发：设置原始音频位置到 startTime=' + annotationStartTime.toFixed(3));
                 
-                // 每段开始时：显示到点评结束位置 + TEXT_AHEAD_OFFSET（预显示后续原文）
-                var displayChar = Math.min(this.charTimeline.length, annotation.end_char + this.TEXT_AHEAD_OFFSET);
-                console.log('点评触发：显示到 charIndex=' + displayChar + ' (end_char=' + annotation.end_char + ' + TEXT_AHEAD_OFFSET=' + this.TEXT_AHEAD_OFFSET + ')');
-                reader.revealCharsUpTo(displayChar);
-                reader._currentPosition = annotation.end_char;
+                // 先将文字回退到 start_char 位置（不含偏移），让 ontimeupdate 重新计算正确的显示位置
+                // 这样可以避免 ontimeupdate 之前设置的较大值被回退的问题
+                console.log('点评触发：先将文字回退到 start_char=' + annotation.start_char);
+                reader.revealCharsUpTo(annotation.start_char);
+                reader._currentPosition = annotation.start_char;
                 
                 // 高亮点评原文
                 if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
