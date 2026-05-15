@@ -2343,6 +2343,7 @@
             // ===== 点评播放 =====
             _triggerAnnotationPlayback: function(annotation) {
                 console.log('触发点评播放: id=' + annotation.id + ', start_char=' + annotation.start_char + ', end_char=' + annotation.end_char);
+                console.log('点评原文长度:', annotation.original_text ? annotation.original_text.length : 0, '内容:', annotation.original_text ? annotation.original_text.substring(0, 50) : 'N/A');
                 var self = this;
                 
                 state.isPlayingAnnotation = true;
