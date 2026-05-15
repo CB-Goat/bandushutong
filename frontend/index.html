@@ -2277,7 +2277,9 @@
                 reader._currentPosition = charIndex;
                 
                 // 检查是否触发点评（使用精确位置判断）
-                this._checkAnnotationTrigger(charIndex);
+                if (typeof reader !== 'undefined' && reader._checkAnnotationTrigger) {
+                    reader._checkAnnotationTrigger(charIndex);
+                }
                 
                 if (this.audioDuration > 0) {
                     document.getElementById('progressFill').style.width = (this.currentTime / this.audioDuration * 100) + '%';
