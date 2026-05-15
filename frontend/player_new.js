@@ -459,16 +459,30 @@ var player = {
             }
             
             if (resumeTime > 0) {
-                this.audio.onloadedmetadata = function() {
+                // 等待音频可以播放后再设置时间和播放
+                var canPlayHandler = function() {
+                    console.log('音频可以播放，设置 currentTime=' + resumeTime);
                     self.audio.currentTime = resumeTime;
                     self.currentTime = resumeTime;
                     self.audio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
                         document.getElementById('playBtn').textContent = '\u23F8';
-                    }).catch(function() {});
-                    self.audio.onloadedmetadata = null;
+                    }).catch(function(e) {
+                        console.log('播放失败:', e);
+                    });
+                    self.audio.removeEventListener('canplay', canPlayHandler);
                 };
+                this.audio.addEventListener('canplay', canPlayHandler);
+                // 超时处理：如果 canplay 不触发，3秒后尝试播放
+                setTimeout(function() {
+                    if (self.audio.currentTime < resumeTime - 1) {
+                        console.log('canplay 超时，强制设置 currentTime');
+                        self.audio.currentTime = resumeTime;
+                        self.currentTime = resumeTime;
+                        self.audio.play().catch(function() {});
+                    }
+                }, 3000);
                 this.audio.load();
             }
         }
@@ -542,14 +556,25 @@ var player = {
                 reader._currentPosition = charIndex;
             }
             
-            // 从点评结束位置继续播放
-            this.audio.currentTime = endTime;
-            this.currentTime = endTime;
-            this.audio.play().then(function() {
-                self.isPlaying = true;
-                state.isPlaying = true;
-                document.getElementById('playBtn').textContent = '\u23F8';
-            }).catch(function() {});
+            // 从点评结束位置继续播放（等待音频就绪）
+            var canPlayHandler = function() {
+                console.log('_resumeAfterAnnotation: 音频就绪，设置 currentTime=' + endTime);
+                self.audio.currentTime = endTime;
+                self.currentTime = endTime;
+                self.audio.play().then(function() {
+                    self.isPlaying = true;
+                    state.isPlaying = true;
+                    document.getElementById('playBtn').textContent = '\u23F8';
+                }).catch(function(e) {
+                    console.log('播放失败:', e);
+                });
+                self.audio.removeEventListener('canplay', canPlayHandler);
+            };
+            this.audio.addEventListener('canplay', canPlayHandler);
+            // 如果音频已经就绪，直接播放
+            if (self.audio.readyState >= 3) {
+                canPlayHandler();
+            }
         }
     }
 };
