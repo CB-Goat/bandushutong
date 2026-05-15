@@ -1635,9 +1635,6 @@
                 // 更新进度
                 var percent = this._totalChars ? (target / this._totalChars) * 100 : 0;
                 document.getElementById('progressFill').style.width = percent + '%';
-
-                // 检查是否到达某个点评点的 end_char 位置
-                this._checkAnnotationTrigger(target);
             },
 
             // 检查是否触发点评播放
@@ -2266,14 +2263,18 @@
             _updateDisplayByTime: function() {
                 if (this._isLeaving) return;
                 if (state.isPlayingAnnotation) return;
-                // 刚从点评恢复时，跳过更新（由 _restoreMainAudio 统一控制）
-                if (this._skipDisplayUpdate) return;
                 if (!this._hasPlayed && this.currentTime < 0.5) return;
                 if (this.currentTime > 0.5) this._hasPlayed = true;
                 
+                // 精确字符位置（不加偏移，用于点评触发判断）
                 var charIndex = this._getCharIndexFromTime(this.currentTime);
-                reader.revealCharsUpTo(charIndex);
+                // 显示位置（加偏移，用于文字显示）
+                var displayChar = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
+                reader.revealCharsUpTo(displayChar);
                 reader._currentPosition = charIndex;
+                
+                // 检查是否触发点评（使用精确位置判断）
+                this._checkAnnotationTrigger(charIndex);
                 
                 if (this.audioDuration > 0) {
                     document.getElementById('progressFill').style.width = (this.currentTime / this.audioDuration * 100) + '%';
@@ -2325,19 +2326,26 @@
                     if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
                         analysisManager.resumeRotation();
                     }
-                    self._restoreMainAudio(0);
+                    // 小结结束后不需要恢复主音频，只需清理状态
+                    self._originalAudioSrc = null;
+                    self._originalAudioMode = null;
+                    state.isPlayingAnnotation = false;
                 };
                 this.audio.onerror = function() {
                     if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
                         analysisManager.resumeRotation();
                     }
-                    self._restoreMainAudio(0);
+                    self._originalAudioSrc = null;
+                    self._originalAudioMode = null;
+                    state.isPlayingAnnotation = false;
                 };
                 this.audio.play().catch(function() {
                     if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
                         analysisManager.resumeRotation();
                     }
-                    self._restoreMainAudio(0);
+                    self._originalAudioSrc = null;
+                    self._originalAudioMode = null;
+                    state.isPlayingAnnotation = false;
                 });
             },
 
@@ -2445,36 +2453,14 @@
                     self.onAudioEnd();
                 };
                 
-                // 每段开始时：使用保存的 end_char 精确定位（避免时间→字符转换的误差）
-                var endChar;
-                var endCharSource;
-                if (this._annotationEndChar !== null && this._annotationEndChar !== undefined) {
-                    endChar = this._annotationEndChar;
-                    endCharSource = 'from _annotationEndChar';
-                } else {
-                    endChar = this._getCharIndexFromTime(resumeTime);
-                    endCharSource = 'from _getCharIndexFromTime';
-                }
-                var displayChar = Math.min(this.charTimeline.length, endChar + this.TEXT_AHEAD_OFFSET);
-                console.log('_restoreMainAudio: endChar=' + endChar + ' (' + endCharSource + '), displayChar=' + displayChar + ' (+' + this.TEXT_AHEAD_OFFSET + ')');
-                reader.revealCharsUpTo(displayChar);
-                reader._currentPosition = endChar;
-                this._annotationEndChar = null;  // 清除，避免下次误用
-                
-                // 在 revealCharsUpTo 之后才设置 state.isPlayingAnnotation = false
-                // 这样 _checkAnnotationTrigger 不会在 revealCharsUpTo 期间被误触发
+                // 允许 _updateDisplayByTime 更新文字
                 state.isPlayingAnnotation = false;
                 
                 if (resumeTime > 0) {
-                    // 标记刚恢复，阻止 ontimeupdate 覆盖文字显示
-                    this._skipDisplayUpdate = true;
-                    
                     var canPlayHandler = function() {
                         console.log('恢复播放: currentTime=' + resumeTime.toFixed(3));
                         self.audio.currentTime = resumeTime;
                         self.currentTime = resumeTime;
-                        // 播放开始后，允许 ontimeupdate 更新文字
-                        self._skipDisplayUpdate = false;
                         self.audio.play().then(function() {
                             self.isPlaying = true;
                             state.isPlaying = true;
@@ -2489,14 +2475,10 @@
                         if (self.audio.currentTime < resumeTime - 1) {
                             self.audio.currentTime = resumeTime;
                             self.currentTime = resumeTime;
-                            self._skipDisplayUpdate = false;
                             self.audio.play().catch(function() {});
                         }
                     }, 3000);
                     this.audio.load();
-                } else {
-                    // resumeTime = 0，直接允许 ontimeupdate 更新
-                    this._skipDisplayUpdate = false;
                 }
             },
 
@@ -2535,21 +2517,9 @@
                 }
                 
                 if (this.mode === 'timeline' && this.audioUrl) {
-                    // 每段开始时：使用保存的 end_char 精确定位
-                    var endChar = this._annotationEndChar || this._getCharIndexFromTime(endTime);
-                    var displayChar = Math.min(this.charTimeline.length, endChar + this.TEXT_AHEAD_OFFSET);
-                    console.log('_resumeAfterAnnotation: 显示到 charIndex=' + displayChar + ' (endChar=' + endChar + ')');
-                    reader.revealCharsUpTo(displayChar);
-                    reader._currentPosition = endChar;
-                    
-                    // 标记刚恢复，阻止 ontimeupdate 覆盖文字显示
-                    this._skipDisplayUpdate = true;
-                    
                     var canPlayHandler = function() {
                         self.audio.currentTime = endTime;
                         self.currentTime = endTime;
-                        // 播放开始后，允许 ontimeupdate 更新文字
-                        self._skipDisplayUpdate = false;
                         self.audio.play().then(function() {
                             self.isPlaying = true;
                             state.isPlaying = true;
@@ -2563,9 +2533,6 @@
                     if (self.audio.readyState >= 3) {
                         canPlayHandler();
                     }
-                } else {
-                    // 非时间轴模式，直接允许 ontimeupdate 更新
-                    this._skipDisplayUpdate = false;
                 }
             }
         };
