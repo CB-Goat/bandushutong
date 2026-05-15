@@ -10,6 +10,8 @@ var player = {
     charTimeline: [],
     isPlaying: false,
     currentTime: 0,
+    _justResumedFromAnnotation: false,  // 刚从点评恢复，不加偏移
+    _resumeTime: 0,  // 恢复时的时间点
 
     init: function() {
         var self = this;
@@ -213,7 +215,11 @@ var player = {
             if (this.charTimeline[i] > time) { charIndex = i; break; }
         }
         // 文字提前 TEXT_AHEAD_OFFSET 个字符显示（模仿自然阅读）
-        charIndex = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
+        // 但刚从点评恢复时不加偏移，直到播放超过 1 秒后才恢复
+        if (!this._justResumedFromAnnotation || (this.currentTime - this._resumeTime) > 1) {
+            charIndex = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
+            this._justResumedFromAnnotation = false;  // 已恢复正常偏移
+        }
         return charIndex;
     },
 
@@ -224,10 +230,6 @@ var player = {
         }
         // 点评播放期间不更新文字显示
         if (state.isPlayingAnnotation) {
-            return;
-        }
-        // 刚恢复时不让 ontimeupdate 更新文字（由 _restoreMainAudio 统一控制）
-        if (this._skipDisplayUpdate) {
             return;
         }
         // 播放过之后标记
@@ -443,12 +445,9 @@ var player = {
             // 点评播放结束，允许文字更新
             state.isPlayingAnnotation = false;
             
-            // 标记刚恢复，短时间内不让 ontimeupdate 更新文字
-            var self = this;
-            this._skipDisplayUpdate = true;
-            setTimeout(function() {
-                self._skipDisplayUpdate = false;
-            }, 2000);
+            // 标记刚从点评恢复，1秒内不加 TEXT_AHEAD_OFFSET
+            this._justResumedFromAnnotation = true;
+            this._resumeTime = resumeTime;
             
             // 恢复 onended 事件处理器（点评/小结播放时被覆盖了）
             var self = this;
@@ -459,11 +458,11 @@ var player = {
                 self.onAudioEnd();
             };
             
-            // 根据 resumeTime 计算正确的字符位置
+            // 根据 resumeTime 计算正确的字符位置（不加偏移）
             var charIndex = this._getCharIndexFromTime(resumeTime);
             console.log('_restoreMainAudio: resumeTime=' + resumeTime + ', charIndex=' + charIndex);
             
-            // 直接更新 reader 的位置（不依赖 ontimeupdate）
+            // 直接更新 reader 的位置
             if (typeof reader !== 'undefined') {
                 reader.revealCharsUpTo(charIndex);
                 reader._currentPosition = charIndex;
@@ -551,12 +550,9 @@ var player = {
         // 恢复播放状态
         state.isPlayingAnnotation = false;
         
-        // 标记刚恢复，短时间内不让 ontimeupdate 更新文字
-        this._skipDisplayUpdate = true;
-        var self2 = this;
-        setTimeout(function() {
-            self2._skipDisplayUpdate = false;
-        }, 2000);
+        // 标记刚从点评恢复，1秒内不加 TEXT_AHEAD_OFFSET
+        this._justResumedFromAnnotation = true;
+        this._resumeTime = endTime;
         
         // 恢复点评标签轮播
         if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
@@ -564,11 +560,11 @@ var player = {
         }
         
         if (this.mode === 'timeline' && this.audioUrl) {
-            // 根据 endTime 计算正确的字符位置
+            // 根据 endTime 计算正确的字符位置（不加偏移）
             var charIndex = this._getCharIndexFromTime(endTime);
             console.log('_resumeAfterAnnotation: endTime=' + endTime + ', charIndex=' + charIndex);
             
-            // 直接更新 reader 的位置（不依赖 ontimeupdate）
+            // 直接更新 reader 的位置
             if (typeof reader !== 'undefined') {
                 reader.revealCharsUpTo(charIndex);
                 reader._currentPosition = charIndex;
