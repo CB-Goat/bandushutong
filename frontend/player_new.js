@@ -249,6 +249,12 @@ var player = {
         var section = state.currentSections[state.currentSectionIndex];
         var currentIndex = state.currentSectionIndex;
         
+        // 显示所有文字
+        if (typeof reader !== 'undefined' && reader.revealAll) {
+            reader.revealAll();
+        }
+        document.getElementById('progressFill').style.width = '100%';
+        
         if (section && state.currentBook) {
             fetch(API_BASE + '/sections/' + section.id + '/status', {
                 method: 'POST',
@@ -350,14 +356,8 @@ var player = {
         this.currentTime = annotationStartTime;
         this.audio.load();
         
-        // 文字显示回退到：点评结束位置 + 提前量（因为正常阅读时文字会提前显示）
-        // 这样用户能看到完整的点评原文
-        var displayChar = Math.min(this.charTimeline.length, annotation.end_char + this.TEXT_AHEAD_OFFSET);
-        if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
-            reader.revealCharsUpTo(displayChar);
-        }
-        
-        // 高亮使用原始 annotation 位置（不调整，因为 _highlightAnnotation 直接操作 DOM span）
+        // 不在这里额外显示文字，让 _updateDisplayByTime 控制
+        // 只高亮点评原文部分
         if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
             reader._highlightAnnotation(annotation);
         }
@@ -439,8 +439,16 @@ var player = {
             // 点评播放结束，允许文字更新
             state.isPlayingAnnotation = false;
             
+            // 恢复 onended 事件处理器（点评/小结播放时被覆盖了）
+            var self = this;
+            this.audio.onended = function() {
+                self.isPlaying = false;
+                state.isPlaying = false;
+                document.getElementById('playBtn').textContent = '\u25B6';
+                self.onAudioEnd();
+            };
+            
             if (resumeTime > 0) {
-                var self = this;
                 this.audio.onloadedmetadata = function() {
                     self.audio.currentTime = resumeTime;
                     self.audio.play().then(function() {
