@@ -1720,6 +1720,8 @@
                 existingMarkers.forEach(function(m) { m.remove(); });
                 if (this._container) this._container.scrollTop = 0;
                 document.getElementById('progressFill').style.width = '0%';
+                // 重置已显示位置，允许 revealCharsUpTo 从头开始
+                this._revealedUpTo = 0;
                 // 重置点评触发状态
                 state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
                 // 隐藏点评显示区域
