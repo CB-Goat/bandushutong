@@ -411,7 +411,7 @@ def generate_book_audio(book_id, person=3, speed=5):
 def generate_annotation_audio(annotation_id, original_text, comment, person=3, speed=5):
     """
     生成点评音频
-    格式："我们看下这里" + 原文引用 + 点评内容 + "回到原文"
+    格式：点评内容（不再重复读原文，因为原文已经在触发点评前播放过了）
     
     返回: {'audio_path': 路径, 'audio_duration': 时长} 或 None
     """
@@ -421,8 +421,8 @@ def generate_annotation_audio(annotation_id, original_text, comment, person=3, s
     if not token:
         return None
     
-    # 构建点评文本
-    text = f"我们看下这里。{original_text}。{comment}。回到原文。"
+    # 构建点评文本（不包含原文引用，避免重复）
+    text = f"{comment}"
     
     # 分段处理
     segments = []
