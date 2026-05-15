@@ -2265,7 +2265,8 @@
             // 更新文字显示：精确同步语音位置，不加偏移
             _updateDisplayByTime: function() {
                 if (this._isLeaving) return;
-                if (state.isPlayingAnnotation) return;
+                // 正在播放点评或小结音频时，阻止更新（只有主音频才更新文字）
+                if (state.isPlayingAnnotation || this._originalAudioSrc) return;
                 if (!this._hasPlayed && this.currentTime < 0.5) return;
                 if (this.currentTime > 0.5) this._hasPlayed = true;
                 
@@ -2326,6 +2327,8 @@
                 this._originalAudioMode = this.mode;
                 this.audio.src = section.summary_audio_path;
                 this.audio.load();
+                // 播放小结音频时，阻止 ontimeupdate 更新文字
+                state.isPlayingAnnotation = true;
                 this.audio.onended = function() {
                     console.log('小结音频播放结束');
                     if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
