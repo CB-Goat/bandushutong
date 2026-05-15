@@ -2458,14 +2458,13 @@
                     self.onAudioEnd();
                 };
                 
-                // 允许 _updateDisplayByTime 更新文字
-                state.isPlayingAnnotation = false;
-                
                 if (resumeTime > 0) {
                     var canPlayHandler = function() {
                         console.log('恢复播放: currentTime=' + resumeTime.toFixed(3));
                         self.audio.currentTime = resumeTime;
                         self.currentTime = resumeTime;
+                        // 在设置 currentTime 之后再允许 ontimeupdate 更新文字
+                        state.isPlayingAnnotation = false;
                         self.audio.play().then(function() {
                             self.isPlaying = true;
                             state.isPlaying = true;
@@ -2480,10 +2479,13 @@
                         if (self.audio.currentTime < resumeTime - 1) {
                             self.audio.currentTime = resumeTime;
                             self.currentTime = resumeTime;
+                            state.isPlayingAnnotation = false;
                             self.audio.play().catch(function() {});
                         }
                     }, 3000);
                     this.audio.load();
+                } else {
+                    state.isPlayingAnnotation = false;
                 }
             },
 
