@@ -1639,9 +1639,12 @@
 
             // 检查是否触发点评播放
             _checkAnnotationTrigger: function(currentCharIndex) {
+                console.log('_checkAnnotationTrigger: currentCharIndex=' + currentCharIndex + ', isPlayingAnnotation=' + state.isPlayingAnnotation + ', annotations=' + (state.currentAnnotations ? state.currentAnnotations.length : 'undefined'));
                 if (state.isPlayingAnnotation) return; // 正在播放点评中，不重复触发
-
+                
                 var annotations = state.currentAnnotations;
+                if (!annotations) return;
+                
                 for (var i = 0; i < annotations.length; i++) {
                     var ann = annotations[i];
                     // 在语音播放到点评原文结束位置时触发
