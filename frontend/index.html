@@ -2255,8 +2255,10 @@
             _getCharIndexFromTime: function(time) {
                 if (!this.charTimeline || this.charTimeline.length === 0) return 0;
                 var charIndex = this.charTimeline.length;
+                // 使用容差比较，避免浮点精度问题
+                var epsilon = 0.001;
                 for (var i = 0; i < this.charTimeline.length; i++) {
-                    if (this.charTimeline[i] > time) { charIndex = i; break; }
+                    if (this.charTimeline[i] >= time - epsilon) { charIndex = i; break; }
                 }
                 return charIndex;
             },
