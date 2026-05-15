@@ -2393,6 +2393,9 @@
                 this.currentTime = annotationEndTime;
                 console.log('点评触发：设置原始音频位置到 endTime=' + annotationEndTime.toFixed(3));
                 
+                // 强制重置 _revealedUpTo 为 end_char，确保预显示文字数正确
+                reader._revealedUpTo = annotation.end_char;
+                
                 // 显示到 end_char + TEXT_AHEAD_OFFSET（预显示后续文字）
                 var displayChar = Math.min(this.charTimeline.length, annotation.end_char + this.TEXT_AHEAD_OFFSET);
                 console.log('点评触发：显示到 charIndex=' + displayChar + ' (end_char=' + annotation.end_char + ' + ' + this.TEXT_AHEAD_OFFSET + ')');
