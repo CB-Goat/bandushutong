@@ -2386,8 +2386,11 @@
                 this.currentTime = annotationEndTime;
                 console.log('点评触发：设置原始音频位置到 endTime=' + annotationEndTime.toFixed(3));
                 
-                // 点评触发时不改变文字显示，只做高亮
-                // 文字保持当前状态，点评音频播放期间不变
+                // 显示到 end_char + TEXT_AHEAD_OFFSET（预显示后续文字）
+                var displayChar = Math.min(this.charTimeline.length, annotation.end_char + this.TEXT_AHEAD_OFFSET);
+                console.log('点评触发：显示到 charIndex=' + displayChar + ' (end_char=' + annotation.end_char + ' + ' + this.TEXT_AHEAD_OFFSET + ')');
+                reader.revealCharsUpTo(displayChar);
+                reader._currentPosition = annotation.end_char;
                 
                 // 高亮点评原文
                 if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
