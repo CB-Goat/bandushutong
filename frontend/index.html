@@ -1510,6 +1510,7 @@
                 container.scrollTop = 0;
                 this._allChars = [];
                 this._content = content;  // 保存原始 content（含\n）
+                this._revealedUpTo = 0;  // 重置已显示位置
 
                 // 标点符号集合
                 var puncts = '\uFF0C\u3002\uFF01\uFF1F\u3001\uFF1B\uFF1A\u201C\u201D\u2018\u2019\uFF08\uFF09\u3010\u3011\u300A\u300B\u2014\u2026\u00B7,.!?\;:\'\"()-[]{}';
@@ -1593,15 +1594,26 @@
                 }
             },
 
-            // 显示到第 N 个字符
+            // 显示到第 N 个字符（支持回退：如果 index 小于之前显示的位置，隐藏多余文字）
             revealCharsUpTo: function(index) {
                 var target = Math.min(index, this._totalChars);
+                var prevTarget = this._revealedUpTo || 0;
+
+                // 如果需要回退，先隐藏多余的文字
+                if (target < prevTarget) {
+                    for (var i = target; i < prevTarget && i < this._allChars.length; i++) {
+                        this._allChars[i].classList.remove('visible');
+                    }
+                }
 
                 for (var i = 0; i < target; i++) {
                     if (!this._allChars[i].classList.contains('visible')) {
                         this._allChars[i].classList.add('visible');
                     }
                 }
+                
+                // 记录当前已显示位置
+                this._revealedUpTo = target;
 
                 // 滚动
                 if (target > 0 && target <= this._allChars.length) {
@@ -1691,6 +1703,7 @@
             // 显示全部文字
             revealAll: function() {
                 this._allChars.forEach(function(c) { c.classList.add('visible'); });
+                this._revealedUpTo = this._allChars.length;
                 document.getElementById('progressFill').style.width = '100%';
                 this._container.scrollTop = this._container.scrollHeight;
             },
