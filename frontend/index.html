@@ -171,7 +171,8 @@
         }
 
         .reader-header .section-title {
-            font-size: 16px;
+            font-size: 18px;
+            font-weight: bold;
             color: #e8e0c8;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
             white-space: nowrap;
@@ -1416,14 +1417,22 @@
                 }
                 state.currentSectionIndex = 0;
 
-                // 设置导航栏标题：书名 + 作者（国籍）
-                var bookTitle = data.book.title;
-                if (data.book.author) {
-                    bookTitle += ' <small style="font-size:12px;color:rgba(255,255,255,0.7);">' + data.book.author;
-                    if (data.book.author_nationality) {
-                        bookTitle += ' [' + data.book.author_nationality + ']';
+                // 设置导航栏标题：如果有章节则显示章名，否则显示书名+作者
+                var bookTitle;
+                if (data.book.total_chapters > 0 && state.currentSections.length > 0) {
+                    // 有章节：显示第一个节所属的章名（后续在 renderCurrentSection 中更新）
+                    var firstSection = state.currentSections[0];
+                    bookTitle = firstSection.chapter_title || data.book.title;
+                } else {
+                    // 无章节：显示书名 + 作者（国籍）
+                    bookTitle = data.book.title;
+                    if (data.book.author) {
+                        bookTitle += ' <small style="font-size:12px;color:rgba(255,255,255,0.7);">' + data.book.author;
+                        if (data.book.author_nationality) {
+                            bookTitle += ' [' + data.book.author_nationality + ']';
+                        }
+                        bookTitle += '</small>';
                     }
-                    bookTitle += '</small>';
                 }
                 document.getElementById('navbarTitle').innerHTML = bookTitle;
 
@@ -1452,6 +1461,11 @@
                 // 显示节标题：第X节 节名
                 document.getElementById('readerSectionTitle').textContent =
                     '第' + (state.currentSectionIndex + 1) + '节 ' + (section.title || '');
+                
+                // 如果有章节，更新导航栏标题为当前章名
+                if (state.currentBook && state.currentBook.total_chapters > 0 && section.chapter_title) {
+                    document.getElementById('navbarTitle').innerHTML = section.chapter_title;
+                }
 
                 // 加载当前节的点评数据
                 state.currentAnnotations = (section.annotations || []).slice();
@@ -1927,7 +1941,7 @@
             // 添加点评标签
             addAnnotationTab: function(annotation) {
                 var tabId = 'annotation_' + annotation.id;
-                var tabLabel = '点评' + getCircledNumber(annotation.annotation_index);
+                var tabLabel = getCircledNumber(annotation.annotation_index);  // 只显示序号
                 
                 // 检查是否已存在
                 var exists = this.tabs.some(function(t) { return t.id === tabId; });
