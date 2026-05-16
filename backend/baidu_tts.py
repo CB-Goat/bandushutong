@@ -626,7 +626,7 @@ def generate_book_audio(book_id, person=3, speed=5):
     import sys
     import threading
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from backend.database import get_sections_by_book, update_section_audio_timeline, update_book_tts_status, get_annotations_by_section, update_annotation_audio, update_section_summary_audio
+    from backend.database import get_sections_by_book, update_section_audio_timeline, update_section_audio_segments, update_book_tts_status, get_annotations_by_section, update_annotation_audio, update_section_summary_audio
 
     def _generate():
         if not is_configured():
@@ -676,6 +676,9 @@ def generate_book_audio(book_id, person=3, speed=5):
                         seg_result['char_timeline'],
                         seg_result['audio_path']
                     )
+                    # 保存分段信息到数据库
+                    if seg_result.get('audio_segments'):
+                        update_section_audio_segments(section_id, seg_result['audio_segments'])
                     print(f"[TTS] 节 {section_id} 分段音频完成")
                     
                     # 3. 生成所有点评音频
