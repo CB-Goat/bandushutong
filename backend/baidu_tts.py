@@ -659,37 +659,38 @@ def generate_book_audio(book_id, person=3, speed=5):
                 continue
 
             try:
-                # 1. 生成原文音频
-                result = generate_section_audio_with_timeline(content, section_id, speed=speed, person=person)
-                if result:
-                    update_section_audio_timeline(section_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
-                    print(f"[TTS] 节 {section_id} 原文音频完成")
+                # 1. 获取该节的点评
+                annotations = get_annotations_by_section(section_id)
+                
+                # 2. 生成分段音频（按点评边界分割，同时生成合并的完整音频）
+                seg_result = generate_segmented_audio(
+                    content, section_id,
+                    annotations=annotations,
+                    speed=speed, person=person
+                )
+                if seg_result:
+                    # 用分段音频的结果更新完整音频信息（兼容降级模式）
+                    update_section_audio_timeline(
+                        section_id,
+                        seg_result['audio_duration'],
+                        seg_result['char_timeline'],
+                        seg_result['audio_path']
+                    )
+                    print(f"[TTS] 节 {section_id} 分段音频完成")
                     
-                    # 2. 生成所有点评音频
-                    annotations = get_annotations_by_section(section_id)
+                    # 3. 生成所有点评音频
                     for ann in annotations:
-                        ann_result = generate_annotation_audio(
-                            ann['id'], 
-                            ann['original_text'], 
-                            ann['comment'],
-                            person=person, 
-                            speed=speed
-                        )
-                        if ann_result:
-                            update_annotation_audio(ann['id'], ann_result['audio_path'], ann_result['audio_duration'])
-                            print(f"[TTS] 点评 {ann['id']} 音频完成")
-                    
-                    # 3. 生成分段音频（按点评边界分割，用于前端分段播放）
-                    try:
-                        seg_result = generate_segmented_audio(
-                            content, section_id,
-                            annotations=annotations,
-                            speed=speed, person=person
-                        )
-                        if seg_result:
-                            print(f"[TTS] 节 {section_id} 分段音频完成")
-                    except Exception as seg_e:
-                        print(f"[TTS] 节 {section_id} 分段音频失败: {seg_e}")
+                        if not ann.get('audio_path'):
+                            ann_result = generate_annotation_audio(
+                                ann['id'], 
+                                ann['original_text'], 
+                                ann['comment'],
+                                person=person, 
+                                speed=speed
+                            )
+                            if ann_result:
+                                update_annotation_audio(ann['id'], ann_result['audio_path'], ann_result['audio_duration'])
+                                print(f"[TTS] 点评 {ann['id']} 音频完成")
                     
                     # 4. 生成小结音频
                     summary = section.get('summary', '')
