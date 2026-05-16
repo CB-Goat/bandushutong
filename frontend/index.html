@@ -2478,12 +2478,16 @@
                     }
                 }
                 
+                // 计算当前应该显示的字符位置
+                // 预显示在段开始时已经处理（_playOriginalSegment 中显示 start_char + TEXT_AHEAD_OFFSET）
+                // 这里只需要跟随音频进度，显示当前字符 + TEXT_AHEAD_OFFSET
                 var absCharIndex = seg.start_char + charInSegment;
                 
                 var displayIndex = absCharIndex;
                 if (typeof reader !== 'undefined' && reader._contentCharToDisplayChar) {
                     displayIndex = reader._contentCharToDisplayChar(absCharIndex);
                 }
+                // 保持预显示偏移：当前字符位置 + TEXT_AHEAD_OFFSET
                 var displayChar = Math.min(reader._allChars ? reader._allChars.length : 0, displayIndex + this.TEXT_AHEAD_OFFSET);
                 if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                     reader.revealCharsUpTo(displayChar);

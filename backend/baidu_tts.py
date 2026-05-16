@@ -457,16 +457,17 @@ def _generate_single_segment_audio(text, section_id, seg_idx, start_char, speed,
     import subprocess
     
     # 按 TTS 限制分段（每段约 500 字符）
+    # 注意：保留原始文本，不要 strip()，否则字符数会不匹配
     sub_segments = []
     current = ''
     for char in text:
         current += char
         if len(current.encode('utf-8')) >= 900 or char in '。！？\n':
-            if current.strip():
-                sub_segments.append(current.strip())
+            if current:
+                sub_segments.append(current)
             current = ''
-    if current.strip():
-        sub_segments.append(current.strip())
+    if current:
+        sub_segments.append(current)
     
     if not sub_segments:
         return None
