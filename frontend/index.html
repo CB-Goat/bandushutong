@@ -2417,13 +2417,13 @@
                     var seg = this._currentSegment;
                     // end_char 是包含的，下一段从 end_char + 1 开始
                     var nextStartChar = seg.end_char + 1;
-                    // 重置 _revealedUpTo，确保下一段的预显示从 nextStartChar 开始
-                    if (typeof reader !== 'undefined') {
-                        reader._revealedUpTo = nextStartChar - 1;
-                    }
+                    // 重置 _revealedUpTo 为下一段起点的 display index，确保预显示正确
                     var nextDisplayIndex = nextStartChar;
                     if (typeof reader !== 'undefined' && reader._contentCharToDisplayChar) {
                         nextDisplayIndex = reader._contentCharToDisplayChar(nextStartChar);
+                    }
+                    if (typeof reader !== 'undefined') {
+                        reader._revealedUpTo = nextDisplayIndex;
                     }
                     // 显示到下一段起点 + TEXT_AHEAD_OFFSET（为下一段预显示）
                     var displayChar = nextDisplayIndex + this.TEXT_AHEAD_OFFSET;
