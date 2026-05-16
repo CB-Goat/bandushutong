@@ -1074,6 +1074,19 @@
             return String(num);
         }
 
+        // 将阿拉伯数字转换为中文数字（一、二、三...）
+        function toChineseNumber(num) {
+            const chineseNums = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+            if (num <= 10) return chineseNums[num];
+            if (num < 20) return '十' + (num % 10 === 0 ? '' : chineseNums[num % 10]);
+            if (num < 100) {
+                const tens = Math.floor(num / 10);
+                const ones = num % 10;
+                return chineseNums[tens] + '十' + (ones === 0 ? '' : chineseNums[ones]);
+            }
+            return String(num);
+        }
+
         const state = {
             currentUser: null,  // 当前登录用户
             books: [],
@@ -1243,7 +1256,7 @@
 
                         var header = document.createElement('div');
                         header.className = 'catalog-chapter-header';
-                        header.innerHTML = '<span class="ch-label">第' + ch.chapter_number + '章 ' + (ch.title || '') + '</span>' +
+                        header.innerHTML = '<span class="ch-label">第' + toChineseNumber(ch.chapter_number) + '章 ' + (ch.title || '') + '</span>' +
                             '<span class="ch-stats">' +
                             '<span>' + chSections.length + '节</span>' +
                             '<span>已读' + chReadCount + '节</span>' +
@@ -1417,13 +1430,13 @@
                 }
                 state.currentSectionIndex = 0;
 
-                // 设置导航栏标题：如果有章节则显示"第X章 章名"，否则显示书名+作者
+                // 设置导航栏标题：如果有章节则显示"第X章 章名"（中文数字），否则显示书名+作者
                 var bookTitle;
                 if (data.book.total_chapters > 0 && state.currentSections.length > 0) {
-                    // 有章节：显示"第X章 章名"
+                    // 有章节：显示"第X章 章名"（中文数字）
                     var firstSection = state.currentSections[0];
                     if (firstSection.chapter_number && firstSection.chapter_title) {
-                        bookTitle = '第' + firstSection.chapter_number + '章 ' + firstSection.chapter_title;
+                        bookTitle = '第' + toChineseNumber(firstSection.chapter_number) + '章 ' + firstSection.chapter_title;
                     } else {
                         bookTitle = firstSection.chapter_title || data.book.title;
                     }
@@ -1466,10 +1479,10 @@
                 document.getElementById('readerSectionTitle').textContent =
                     '第' + (state.currentSectionIndex + 1) + '节 ' + (section.title || '');
                 
-                // 如果有章节，更新导航栏标题为"第X章 章名"
+                // 如果有章节，更新导航栏标题为"第X章 章名"（中文数字）
                 if (state.currentBook && state.currentBook.total_chapters > 0 && section.chapter_title) {
                     var chapterTitle = section.chapter_number ? 
-                        '第' + section.chapter_number + '章 ' + section.chapter_title : 
+                        '第' + toChineseNumber(section.chapter_number) + '章 ' + section.chapter_title : 
                         section.chapter_title;
                     document.getElementById('navbarTitle').innerHTML = chapterTitle;
                 }
@@ -3009,7 +3022,7 @@
                             var div = document.createElement('div');
                             div.className = 'chapter-item';
                             div.innerHTML = '<div class="ch-info">' +
-                                '<div class="ch-title">第' + ch.chapter_number + '章 ' + (ch.title || '') + '</div>' +
+                                '<div class="ch-title">第' + toChineseNumber(ch.chapter_number) + '章 ' + (ch.title || '') + '</div>' +
                                 '<div class="ch-meta">' + (ch.section_count || 0) + '节 | ' + (ch.total_words || 0) + '字</div>' +
                                 '</div>' +
                                 '<div style="display:flex;gap:4px;">' +
@@ -3069,7 +3082,7 @@
                     fetch(API_BASE + '/books/' + bookId + '/chapters', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({chapter_number: nextNum, title: '第' + nextNum + '章'})
+                        body: JSON.stringify({chapter_number: nextNum, title: '第' + toChineseNumber(nextNum) + '章'})
                     }).then(function() { admin.loadChapters(bookId); });
                 });
             },
@@ -3225,7 +3238,7 @@
                         data.chapters.forEach(function(ch) {
                             var chDiv = document.createElement('div');
                             chDiv.className = 'chapter-browse-item';
-                            chDiv.innerHTML = '<div class="cb-header"><div><div class="cb-title">第' + ch.chapter_number + '章 ' + (ch.title || '') + '</div>' +
+                            chDiv.innerHTML = '<div class="cb-header"><div><div class="cb-title">第' + toChineseNumber(ch.chapter_number) + '章 ' + (ch.title || '') + '</div>' +
                                 '<div class="cb-meta">' + (ch.section_count || 0) + '节 | ' + (ch.total_words || 0) + '字</div></div></div>';
                             list.appendChild(chDiv);
                             
