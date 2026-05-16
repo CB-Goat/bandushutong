@@ -1669,11 +1669,12 @@
                     original_text: annotation.original_text
                 }));
                 var startIdx = this._contentCharToDisplayChar(annotation.start_char);
-                var endIdx = this._contentCharToDisplayChar(annotation.end_char);
+                // end_char 在数据库中是包含的（Python切片风格），需要+1才能正确高亮到最后一个字符
+                var endIdx = this._contentCharToDisplayChar(annotation.end_char) + 1;
                 console.log('Highlight range:', startIdx, '->', endIdx, 'allChars length:', this._allChars.length);
                 console.log('_allChars[' + startIdx + ']:', this._allChars[startIdx] ? this._allChars[startIdx].textContent : 'N/A');
                 console.log('_allChars[' + (endIdx-1) + ']:', this._allChars[endIdx-1] ? this._allChars[endIdx-1].textContent : 'N/A');
-                // end_char 是 Python 切片风格（不包含），所以用 < 而不是 <=
+                // end_char 是包含的，所以用 < endIdx
                 for (var i = startIdx; i < endIdx && i < this._allChars.length; i++) {
                     this._allChars[i].classList.add('annotated');
                 }
@@ -1683,8 +1684,9 @@
             _clearAnnotationHighlight: function(annotation) {
                 if (!annotation) return;
                 var startIdx = this._contentCharToDisplayChar(annotation.start_char);
-                var endIdx = this._contentCharToDisplayChar(annotation.end_char);
-                // end_char 是 Python 切片风格（不包含），所以用 < 而不是 <=
+                // end_char 在数据库中是包含的，需要+1才能正确清除到最后一个字符
+                var endIdx = this._contentCharToDisplayChar(annotation.end_char) + 1;
+                // end_char 是包含的，所以用 < endIdx
                 for (var i = startIdx; i < endIdx && i < this._allChars.length; i++) {
                     this._allChars[i].classList.remove('annotated');
                 }
