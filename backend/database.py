@@ -660,11 +660,11 @@ def add_section(book_id, chapter_id, section_number, content, title=''):
     return section_id
 
 def get_sections_by_book(book_id):
-    """获取书籍的所有小节，包含章节标题"""
+    """获取书籍的所有小节，包含章节编号和标题"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT s.*, c.title as chapter_title 
+        SELECT s.*, c.chapter_number, c.title as chapter_title 
         FROM sections s 
         LEFT JOIN chapters c ON s.chapter_id = c.id 
         WHERE s.book_id = ? 

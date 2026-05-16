@@ -1417,12 +1417,16 @@
                 }
                 state.currentSectionIndex = 0;
 
-                // 设置导航栏标题：如果有章节则显示章名，否则显示书名+作者
+                // 设置导航栏标题：如果有章节则显示"第X章 章名"，否则显示书名+作者
                 var bookTitle;
                 if (data.book.total_chapters > 0 && state.currentSections.length > 0) {
-                    // 有章节：显示第一个节所属的章名（后续在 renderCurrentSection 中更新）
+                    // 有章节：显示"第X章 章名"
                     var firstSection = state.currentSections[0];
-                    bookTitle = firstSection.chapter_title || data.book.title;
+                    if (firstSection.chapter_number && firstSection.chapter_title) {
+                        bookTitle = '第' + firstSection.chapter_number + '章 ' + firstSection.chapter_title;
+                    } else {
+                        bookTitle = firstSection.chapter_title || data.book.title;
+                    }
                 } else {
                     // 无章节：显示书名 + 作者（国籍）
                     bookTitle = data.book.title;
@@ -1462,9 +1466,12 @@
                 document.getElementById('readerSectionTitle').textContent =
                     '第' + (state.currentSectionIndex + 1) + '节 ' + (section.title || '');
                 
-                // 如果有章节，更新导航栏标题为当前章名
+                // 如果有章节，更新导航栏标题为"第X章 章名"
                 if (state.currentBook && state.currentBook.total_chapters > 0 && section.chapter_title) {
-                    document.getElementById('navbarTitle').innerHTML = section.chapter_title;
+                    var chapterTitle = section.chapter_number ? 
+                        '第' + section.chapter_number + '章 ' + section.chapter_title : 
+                        section.chapter_title;
+                    document.getElementById('navbarTitle').innerHTML = chapterTitle;
                 }
 
                 // 加载当前节的点评数据
