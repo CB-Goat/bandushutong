@@ -334,6 +334,51 @@ def generate_section_audio_api(section_id):
     else:
         return jsonify({'error': '音频生成失败'}), 500
 
+@api_bp.route('/sections/<int:section_id>/generate-segmented-audio', methods=['POST'])
+def generate_segmented_audio_api(section_id):
+    """为节生成分段音频（按点评边界分割）"""
+    from backend.database import get_section, update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section
+    from backend.baidu_tts import generate_segmented_audio
+    
+    section = get_section(section_id)
+    if not section:
+        return jsonify({'error': '节不存在'}), 404
+    
+    # 获取该节的所有点评
+    annotations = get_annotations_by_section(section_id)
+    # 按 end_char 排序
+    annotations = sorted(annotations, key=lambda a: a.get('end_char', 0))
+    
+    print(f"[TTS] 开始为节 {section_id} 生成分段音频，共 {len(annotations)} 个点评")
+    
+    result = generate_segmented_audio(
+        section['content'], 
+        section_id,
+        annotations=annotations,
+        speed=5,
+        person=0
+    )
+    
+    if result:
+        update_section_audio_timeline(
+            section_id,
+            result['audio_duration'],
+            result['char_timeline'],
+            result['audio_path']
+        )
+        # 保存分段信息
+        if result.get('audio_segments'):
+            update_section_audio_segments(section_id, result['audio_segments'])
+        
+        return jsonify({
+            'success': True,
+            'audio_path': result['audio_path'],
+            'audio_duration': result['audio_duration'],
+            'segment_count': len(result.get('audio_segments', []))
+        })
+    else:
+        return jsonify({'error': '分段音频生成失败'}), 500
+
 @api_bp.route('/books/<int:book_id>/tts-status', methods=['GET'])
 def get_book_tts_status(book_id):
     """获取书籍的TTS生成状态"""
