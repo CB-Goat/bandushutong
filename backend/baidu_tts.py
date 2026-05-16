@@ -10,7 +10,35 @@ import hashlib
 import requests
 from datetime import datetime
 
-# 百度 TTS 配置（通过环境变量或直接填写）
+# 尝试从 .env 文件加载环境变量
+def _load_env_file():
+    """从 .env 文件加载环境变量"""
+    env_paths = [
+        os.path.join(os.path.dirname(__file__), '.env'),
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'),
+        '/opt/bandushutong/.env',
+        '/opt/bandushutong/backend/.env'
+    ]
+    for env_path in env_paths:
+        if os.path.exists(env_path):
+            try:
+                with open(env_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            key, value = line.split('=', 1)
+                            key = key.strip()
+                            value = value.strip().strip('"').strip("'")
+                            if key and value and key not in os.environ:
+                                os.environ[key] = value
+                                print(f"[ENV] 从 {env_path} 加载: {key}")
+            except Exception as e:
+                print(f"[ENV] 加载 {env_path} 失败: {e}")
+            break
+
+_load_env_file()
+
+# 百度 TTS 配置（通过环境变量或 .env 文件）
 BAIDU_TTS_APP_ID = os.environ.get('BAIDU_TTS_APP_ID', '')
 BAIDU_TTS_API_KEY = os.environ.get('BAIDU_TTS_API_KEY', '')
 BAIDU_TTS_SECRET_KEY = os.environ.get('BAIDU_TTS_SECRET_KEY', '')
