@@ -679,7 +679,19 @@ def generate_book_audio(book_id, person=3, speed=5):
                             update_annotation_audio(ann['id'], ann_result['audio_path'], ann_result['audio_duration'])
                             print(f"[TTS] 点评 {ann['id']} 音频完成")
                     
-                    # 3. 生成小结音频
+                    # 3. 生成分段音频（按点评边界分割，用于前端分段播放）
+                    try:
+                        seg_result = generate_segmented_audio(
+                            content, section_id,
+                            annotations=annotations,
+                            speed=speed, person=person
+                        )
+                        if seg_result:
+                            print(f"[TTS] 节 {section_id} 分段音频完成")
+                    except Exception as seg_e:
+                        print(f"[TTS] 节 {section_id} 分段音频失败: {seg_e}")
+                    
+                    # 4. 生成小结音频
                     summary = section.get('summary', '')
                     if summary:
                         sum_result = generate_summary_audio(section_id, summary, person=person, speed=speed)
