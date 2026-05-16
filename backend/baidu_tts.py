@@ -662,7 +662,23 @@ def generate_book_audio(book_id, person=3, speed=5):
                 # 1. 获取该节的点评
                 annotations = get_annotations_by_section(section_id)
                 
-                # 2. 生成分段音频（按点评边界分割，同时生成合并的完整音频）
+                # 2. 先生成所有点评音频（分段音频需要引用点评的 audio_path）
+                for ann in annotations:
+                    if not ann.get('audio_path'):
+                        ann_result = generate_annotation_audio(
+                            ann['id'], 
+                            ann['original_text'], 
+                            ann['comment'],
+                            person=person, 
+                            speed=speed
+                        )
+                        if ann_result:
+                            update_annotation_audio(ann['id'], ann_result['audio_path'], ann_result['audio_duration'])
+                            ann['audio_path'] = ann_result['audio_path']
+                            ann['audio_duration'] = ann_result['audio_duration']
+                            print(f"[TTS] 点评 {ann['id']} 音频完成")
+                
+                # 3. 生成分段音频（按点评边界分割，此时点评已有音频）
                 seg_result = generate_segmented_audio(
                     content, section_id,
                     annotations=annotations,
@@ -680,20 +696,6 @@ def generate_book_audio(book_id, person=3, speed=5):
                     if seg_result.get('audio_segments'):
                         update_section_audio_segments(section_id, seg_result['audio_segments'])
                     print(f"[TTS] 节 {section_id} 分段音频完成")
-                    
-                    # 3. 生成所有点评音频
-                    for ann in annotations:
-                        if not ann.get('audio_path'):
-                            ann_result = generate_annotation_audio(
-                                ann['id'], 
-                                ann['original_text'], 
-                                ann['comment'],
-                                person=person, 
-                                speed=speed
-                            )
-                            if ann_result:
-                                update_annotation_audio(ann['id'], ann_result['audio_path'], ann_result['audio_duration'])
-                                print(f"[TTS] 点评 {ann['id']} 音频完成")
                     
                     # 4. 生成小结音频
                     summary = section.get('summary', '')
