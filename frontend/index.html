@@ -2269,16 +2269,20 @@
                 if (!this._hasPlayed && this.currentTime < 0.5) return;
                 if (this.currentTime > 0.5) this._hasPlayed = true;
                 
-                // 精确字符位置（用于点评触发判断）
+                // 精确字符位置（内容索引，用于点评触发判断）
                 var charIndex = this._getCharIndexFromTime(this.currentTime);
                 
-                // 检查是否触发点评
+                // 检查是否触发点评（使用内容索引）
                 if (typeof reader !== 'undefined' && reader._checkAnnotationTrigger) {
                     reader._checkAnnotationTrigger(charIndex);
                 }
                 
-                // 文字显示：始终比声音快 TEXT_AHEAD_OFFSET 个字
-                var displayChar = Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
+                // 文字显示：将内容索引转换为显示索引（去除换行），再加 TEXT_AHEAD_OFFSET
+                var displayIndex = charIndex;
+                if (typeof reader !== 'undefined' && reader._contentCharToDisplayChar) {
+                    displayIndex = reader._contentCharToDisplayChar(charIndex);
+                }
+                var displayChar = Math.min(reader._allChars.length, displayIndex + this.TEXT_AHEAD_OFFSET);
                 reader.revealCharsUpTo(displayChar);
                 reader._currentPosition = charIndex;
                 
@@ -2388,8 +2392,12 @@
                 
                 // 保存点评的结束时间，用于恢复时精确定位
                 this._annotationEndTime = annotationEndTime;
-                // 保存点评触发时的精确显示位置，恢复时重置 _revealedUpTo 防止累积
-                this._annotationRevealedUpTo = annotation.end_char + this.TEXT_AHEAD_OFFSET;
+                // 保存点评触发时的精确显示位置（转换为显示索引），恢复时重置 _revealedUpTo 防止累积
+                var resumeDisplayIndex = annotation.end_char;
+                if (typeof reader !== 'undefined' && reader._contentCharToDisplayChar) {
+                    resumeDisplayIndex = reader._contentCharToDisplayChar(annotation.end_char);
+                }
+                this._annotationRevealedUpTo = resumeDisplayIndex + this.TEXT_AHEAD_OFFSET;
                 
                 // 高亮点评原文
                 if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
