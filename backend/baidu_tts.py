@@ -351,8 +351,6 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
         'char_timeline': [...]  # 完整时间轴（兼容）
     }
     """
-    import subprocess
-    
     token = get_access_token()
     if not token:
         return None
