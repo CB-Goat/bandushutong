@@ -2417,6 +2417,11 @@
                     var seg = this._currentSegment;
                     // end_char 是包含的，下一段从 end_char + 1 开始
                     var nextStartChar = seg.end_char + 1;
+                    // 跳过开头的空白字符（换行符、制表符等），找到第一个可见字符
+                    var content = (typeof reader !== 'undefined' && reader._content) ? reader._content : '';
+                    while (nextStartChar < content.length && /[\n\t\r]/.test(content[nextStartChar])) {
+                        nextStartChar++;
+                    }
                     // 重置 _revealedUpTo 为下一段起点的 display index，确保预显示正确
                     var nextDisplayIndex = nextStartChar;
                     if (typeof reader !== 'undefined' && reader._contentCharToDisplayChar) {
