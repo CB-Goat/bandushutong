@@ -2415,12 +2415,14 @@
                 // 如果当前段是原文段，确保所有文字都已显示
                 if (this._currentSegment && this._currentSegment.type === 'original') {
                     var seg = this._currentSegment;
-                    var endDisplayIndex = seg.end_char;
+                    // end_char 是包含的，下一段从 end_char + 1 开始
+                    var nextStartChar = seg.end_char + 1;
+                    var nextDisplayIndex = nextStartChar;
                     if (typeof reader !== 'undefined' && reader._contentCharToDisplayChar) {
-                        endDisplayIndex = reader._contentCharToDisplayChar(seg.end_char);
+                        nextDisplayIndex = reader._contentCharToDisplayChar(nextStartChar);
                     }
-                    // 显示到段末尾 + TEXT_AHEAD_OFFSET（为下一段预显示）
-                    var displayChar = endDisplayIndex + this.TEXT_AHEAD_OFFSET;
+                    // 显示到下一段起点 + TEXT_AHEAD_OFFSET（为下一段预显示）
+                    var displayChar = nextDisplayIndex + this.TEXT_AHEAD_OFFSET;
                     if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                         reader.revealCharsUpTo(displayChar);
                     }
