@@ -3323,6 +3323,8 @@
                 bookList.style.display = 'block';
                 chapterArea.style.display = 'none';
                 browse.loadBooks();
+                // 重置导航栏标题
+                document.getElementById('navbarTitle').textContent = '伴读书童';
             }
         }
 
@@ -3416,6 +3418,7 @@
                 document.getElementById('backBtn').style.display = 'block';
                 document.getElementById('adminBtn').style.display = 'none';
                 // 标题由 showBookCatalog 设置，这里不覆盖
+                return; // 不执行下面的标题重置
             } else {
                 // 其他页面隐藏返回按钮
                 document.getElementById('backBtn').style.display = 'none';
