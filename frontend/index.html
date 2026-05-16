@@ -2417,6 +2417,10 @@
                     var seg = this._currentSegment;
                     // end_char 是包含的，下一段从 end_char + 1 开始
                     var nextStartChar = seg.end_char + 1;
+                    // 重置 _revealedUpTo，确保下一段的预显示从 nextStartChar 开始
+                    if (typeof reader !== 'undefined') {
+                        reader._revealedUpTo = nextStartChar - 1;
+                    }
                     var nextDisplayIndex = nextStartChar;
                     if (typeof reader !== 'undefined' && reader._contentCharToDisplayChar) {
                         nextDisplayIndex = reader._contentCharToDisplayChar(nextStartChar);
