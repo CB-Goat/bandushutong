@@ -2388,6 +2388,8 @@
                 
                 // 保存点评的结束时间，用于恢复时精确定位
                 this._annotationEndTime = annotationEndTime;
+                // 保存点评触发时的精确显示位置，恢复时重置 _revealedUpTo 防止累积
+                this._annotationRevealedUpTo = annotation.end_char + this.TEXT_AHEAD_OFFSET;
                 
                 // 高亮点评原文
                 if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
@@ -2453,6 +2455,11 @@
                 this._annotationEndTime = null;
                 // 恢复主时间轴状态，允许 _updateDisplayByTime 更新文字
                 state.isPlayingAnnotation = false;
+                // 重置 _revealedUpTo 为点评触发时的精确位置，防止累积偏移
+                if (typeof reader !== 'undefined' && this._annotationRevealedUpTo) {
+                    reader._revealedUpTo = this._annotationRevealedUpTo;
+                    this._annotationRevealedUpTo = null;
+                }
                 
                 // 恢复 onended
                 var self = this;
