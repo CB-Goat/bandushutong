@@ -766,6 +766,7 @@ def get_section_audio_timeline(section_id):
 
 def update_section_audio_segments(section_id, audio_segments):
     """更新小节的分段音频信息"""
+    import json
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
@@ -777,6 +778,7 @@ def update_section_audio_segments(section_id, audio_segments):
 
 def get_section_audio_segments(section_id):
     """获取小节的分段音频信息"""
+    import json
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
