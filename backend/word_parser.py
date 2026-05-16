@@ -204,9 +204,14 @@ class WordStructureParser:
                         comment_ranges[cid]['end_char'] = char_offset
                 
                 elif tag == 'r':
-                    for t in child.findall('.//w:t', self.nsmap):
-                        if t.text:
-                            char_offset += len(t.text)
+                    # 计算该 run 中的所有字符（包括文本和TAB等特殊字符）
+                    for elem in child.iter():
+                        elem_tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                        if elem_tag == 't' and elem.text:
+                            char_offset += len(elem.text)
+                        elif elem_tag == 'tab':
+                            # TAB 字符也算一个字符
+                            char_offset += 1
         
         return comment_ranges
     
