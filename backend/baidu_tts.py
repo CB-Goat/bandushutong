@@ -356,11 +356,17 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
         return None
     
     # 1. 确定分割点：按点评的 end_char 分割
-    split_points = [0]  # 从0开始
+    # 建立 end_char 到点评的映射，用于后续查找
+    ann_by_end_char = {}
     for ann in annotations:
-        if ann.get('end_char') and ann['end_char'] > split_points[-1]:
-            split_points.append(ann['end_char'])
-    split_points.append(len(text))  # 到结尾
+        if ann.get('end_char'):
+            ann_by_end_char[ann['end_char']] = ann
+    
+    # 获取所有唯一的分割点（包括0、所有点评的end_char、文本结尾）
+    split_points = sorted(set([0] + list(ann_by_end_char.keys()) + [len(text)]))
+    
+    print(f"[TTS] 分割点: {split_points}")
+    print(f"[TTS] 点评映射: {list(ann_by_end_char.keys())}")
     
     # 2. 为每段原文生成独立音频
     audio_segments = []
@@ -372,10 +378,13 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
         end_char = split_points[seg_idx + 1]
         seg_text = text[start_char:end_char]
         
+        print(f"[TTS] 处理段 {seg_idx}: chars {start_char}-{end_char}, 长度 {len(seg_text)}")
+        
         if not seg_text.strip():
+            print(f"[TTS] 段 {seg_idx} 为空，跳过")
             continue
         
-        # 为该段生成音频（复用现有的分段合成逻辑）
+        # 为该段生成音频
         seg_result = _generate_single_segment_audio(
             seg_text, section_id, seg_idx, start_char, speed, person, token
         )
@@ -385,9 +394,10 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
             full_timeline.extend(seg_result['char_timeline'])
             full_duration += seg_result['audio_duration']
             
-            # 如果该段后面有点评，添加点评段
-            if seg_idx < len(annotations):
-                ann = annotations[seg_idx]
+            # 查找该段结束位置对应的点评
+            if end_char in ann_by_end_char:
+                ann = ann_by_end_char[end_char]
+                print(f"[TTS] 段 {seg_idx} 结束后有点评 id={ann['id']}")
                 if ann.get('audio_path'):
                     audio_segments.append({
                         'type': 'annotation',
@@ -396,6 +406,8 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
                         'audio_duration': ann.get('audio_duration', 0)
                     })
                     full_duration += ann.get('audio_duration', 0)
+            else:
+                print(f"[TTS] 段 {seg_idx} 结束后无点评")
     
     # 3. 合并所有段为完整音频（兼容旧模式）
     final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
