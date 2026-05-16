@@ -290,10 +290,14 @@ def tts_status():
 
 @api_bp.route('/sections/<int:section_id>/audio-timeline', methods=['GET'])
 def get_section_audio_timeline_api(section_id):
-    """获取节的音频时间轴信息"""
-    from backend.database import get_section_audio_timeline
+    """获取节的音频时间轴信息（包含分段信息）"""
+    from backend.database import get_section_audio_timeline, get_section_audio_segments
     timeline = get_section_audio_timeline(section_id)
     if timeline:
+        # 尝试获取分段信息
+        segments = get_section_audio_segments(section_id)
+        if segments:
+            timeline['audio_segments'] = segments
         return jsonify(timeline)
     else:
         return jsonify({'error': '音频时间轴不存在'}), 404

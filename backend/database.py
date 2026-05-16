@@ -148,6 +148,12 @@ def init_db():
     except:
         pass
 
+    # 添加分段音频信息字段（如果不存在）
+    try:
+        cursor.execute('ALTER TABLE sections ADD COLUMN audio_segments TEXT')
+    except:
+        pass
+
     # 用户表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -756,6 +762,31 @@ def get_section_audio_timeline(section_id):
             'audio_duration': row['audio_duration'],
             'char_timeline': json.loads(row['char_timeline']) if row['char_timeline'] else []
         }
+    return None
+
+def update_section_audio_segments(section_id, audio_segments):
+    """更新小节的分段音频信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE sections SET audio_segments = ? WHERE id = ?',
+        (json.dumps(audio_segments), section_id)
+    )
+    conn.commit()
+    conn.close()
+
+def get_section_audio_segments(section_id):
+    """获取小节的分段音频信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'SELECT audio_segments FROM sections WHERE id = ?',
+        (section_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if row and row['audio_segments']:
+        return json.loads(row['audio_segments'])
     return None
 
 def update_book_tts_status(book_id, status, progress=''):

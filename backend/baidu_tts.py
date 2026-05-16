@@ -316,6 +316,251 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=3):
     }
 
 
+def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
+    """
+    按点评边界分割原文为多段，每段独立生成音频。
+    
+    参数:
+        text: 原文内容
+        section_id: 节ID
+        annotations: 该节的点评列表，按 end_char 排序，例如:
+            [{'id': 119, 'start_char': 46, 'end_char': 80}, ...]
+        speed: 语速
+        person: 音色
+    
+    返回: {
+        'audio_segments': [
+            {
+                'type': 'original',
+                'audio_path': '/api/audio/segment_{section_id}_0.mp3',
+                'audio_duration': 10.5,
+                'start_char': 0,
+                'end_char': 80,
+                'char_timeline': [0.0, 0.1, ...]  # 该段内每个字符的时间点
+            },
+            {
+                'type': 'annotation',
+                'annotation_id': 119,
+                'audio_path': '/api/audio/annotation_119.mp3',
+                'audio_duration': 5.0
+            },
+            ...
+        ],
+        'audio_path': '/api/audio/section_{section_id}.mp3',  # 完整合并音频（兼容）
+        'audio_duration': 75.3,
+        'char_timeline': [...]  # 完整时间轴（兼容）
+    }
+    """
+    import subprocess
+    
+    token = get_access_token()
+    if not token:
+        return None
+    
+    # 1. 确定分割点：按点评的 end_char 分割
+    split_points = [0]  # 从0开始
+    for ann in annotations:
+        if ann.get('end_char') and ann['end_char'] > split_points[-1]:
+            split_points.append(ann['end_char'])
+    split_points.append(len(text))  # 到结尾
+    
+    # 2. 为每段原文生成独立音频
+    audio_segments = []
+    full_timeline = []
+    full_duration = 0
+    
+    for seg_idx in range(len(split_points) - 1):
+        start_char = split_points[seg_idx]
+        end_char = split_points[seg_idx + 1]
+        seg_text = text[start_char:end_char]
+        
+        if not seg_text.strip():
+            continue
+        
+        # 为该段生成音频（复用现有的分段合成逻辑）
+        seg_result = _generate_single_segment_audio(
+            seg_text, section_id, seg_idx, start_char, speed, person, token
+        )
+        
+        if seg_result:
+            audio_segments.append(seg_result)
+            full_timeline.extend(seg_result['char_timeline'])
+            full_duration += seg_result['audio_duration']
+            
+            # 如果该段后面有点评，添加点评段
+            if seg_idx < len(annotations):
+                ann = annotations[seg_idx]
+                if ann.get('audio_path'):
+                    audio_segments.append({
+                        'type': 'annotation',
+                        'annotation_id': ann['id'],
+                        'audio_path': ann['audio_path'],
+                        'audio_duration': ann.get('audio_duration', 0)
+                    })
+                    full_duration += ann.get('audio_duration', 0)
+    
+    # 3. 合并所有段为完整音频（兼容旧模式）
+    final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
+    original_segments = [s for s in audio_segments if s['type'] == 'original']
+    seg_files = []
+    for seg in original_segments:
+        # 从 audio_path 提取文件名
+        filename = seg['audio_path'].split('/')[-1]
+        filepath = os.path.join(AUDIO_DIR, filename)
+        if os.path.exists(filepath):
+            seg_files.append(filepath)
+    
+    if seg_files:
+        try:
+            with open(final_path, 'wb') as outfile:
+                for sf in seg_files:
+                    with open(sf, 'rb') as infile:
+                        outfile.write(infile.read())
+            print(f"[TTS] 合并分段音频完成: {final_path}")
+        except Exception as e:
+            print(f"[TTS] 合并分段音频失败: {e}")
+    
+    # 4. 添加小结段（如果有）
+    # 小结音频在 generate_book_audio 中单独生成，这里不处理
+    
+    return {
+        'audio_segments': audio_segments,
+        'audio_path': f'/api/audio/section_{section_id}.mp3',
+        'audio_duration': full_duration,
+        'char_timeline': full_timeline
+    }
+
+
+def _generate_single_segment_audio(text, section_id, seg_idx, start_char, speed, person, token):
+    """
+    为单段文本生成音频，返回分段信息。
+    
+    返回: {
+        'type': 'original',
+        'audio_path': '/api/audio/segment_{section_id}_{seg_idx}.mp3',
+        'audio_duration': 10.5,
+        'start_char': 0,
+        'end_char': 80,
+        'char_timeline': [0.0, 0.1, ...]
+    } 或 None
+    """
+    import subprocess
+    
+    # 按 TTS 限制分段（每段约 500 字符）
+    sub_segments = []
+    current = ''
+    for char in text:
+        current += char
+        if len(current.encode('utf-8')) >= 900 or char in '。！？\n':
+            if current.strip():
+                sub_segments.append(current.strip())
+            current = ''
+    if current.strip():
+        sub_segments.append(current.strip())
+    
+    if not sub_segments:
+        return None
+    
+    # 计算每段对应的字符范围（相对于该段的起始位置）
+    char_ranges = []
+    char_pos = 0
+    for seg in sub_segments:
+        seg_chars = len(seg)
+        char_ranges.append((char_pos, char_pos + seg_chars))
+        char_pos += seg_chars
+    
+    # 合成所有子段
+    audio_files = []
+    segment_durations = []
+    
+    for i, seg in enumerate(sub_segments):
+        params = {
+            'tok': token,
+            'tex': seg,
+            'per': person,
+            'spd': speed,
+            'pit': 5,
+            'vol': 5,
+            'aue': 3,
+            'cuid': 'bandushutong_app',
+            'lan': 'zh',
+            'ctp': 1
+        }
+        
+        try:
+            response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
+            content_type = response.headers.get('Content-Type', '')
+            
+            if 'audio' in content_type:
+                filename = f'segment_{section_id}_{seg_idx}_{i}.mp3'
+                filepath = os.path.join(AUDIO_DIR, filename)
+                with open(filepath, 'wb') as f:
+                    f.write(response.content)
+                audio_files.append(filepath)
+                
+                seg_duration = 0
+                try:
+                    dur_result = subprocess.run(
+                        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                         '-of', 'default=noprint_wrappers=1:nokey=1', filepath],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
+                    seg_duration = float(dur_result.stdout.strip())
+                except:
+                    seg_duration = len(seg) / 200 * 60
+                segment_durations.append(seg_duration)
+            else:
+                print(f"子段 {seg_idx}-{i} 合成失败: {response.text}")
+                return None
+        except Exception as e:
+            print(f"子段 {seg_idx}-{i} 合成异常: {e}")
+            return None
+    
+    # 合并子段为该段的完整音频
+    final_filename = f'segment_{section_id}_{seg_idx}.mp3'
+    final_path = os.path.join(AUDIO_DIR, final_filename)
+    
+    if len(audio_files) == 1:
+        os.rename(audio_files[0], final_path)
+    else:
+        with open(final_path, 'wb') as outfile:
+            for af in audio_files:
+                with open(af, 'rb') as infile:
+                    outfile.write(infile.read())
+        for af in audio_files:
+            os.remove(af)
+    
+    # 计算该段的总时长
+    seg_total_duration = sum(segment_durations)
+    
+    # 构建该段的字符时间轴（相对于该段音频的起始时间）
+    char_timeline = []
+    for sub_idx, seg in enumerate(sub_segments):
+        sub_start = char_ranges[sub_idx][0]
+        sub_end = char_ranges[sub_idx][1]
+        sub_len = sub_end - sub_start
+        sub_dur = segment_durations[sub_idx] if sub_idx < len(segment_durations) else 1
+        time_offset = sum(segment_durations[:sub_idx])
+        
+        if sub_len > 0 and sub_dur > 0:
+            for j in range(sub_len):
+                t = time_offset + (j / sub_len) * sub_dur
+                char_timeline.append(round(t, 3))
+    
+    end_char = start_char + len(text)
+    
+    print(f"[TTS] 分段 {seg_idx} 完成: chars {start_char}-{end_char}, 时长 {seg_total_duration:.1f}s")
+    
+    return {
+        'type': 'original',
+        'audio_path': f'/api/audio/segment_{section_id}_{seg_idx}.mp3',
+        'audio_duration': seg_total_duration,
+        'start_char': start_char,
+        'end_char': end_char,
+        'char_timeline': char_timeline
+    }
+
+
 def generate_book_audio(book_id, person=3, speed=5):
     """
     为书籍的所有节预生成音频（后台线程调用）
