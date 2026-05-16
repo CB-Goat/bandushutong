@@ -375,18 +375,22 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
     
     for seg_idx in range(len(split_points) - 1):
         start_char = split_points[seg_idx]
-        end_char = split_points[seg_idx + 1]
-        seg_text = text[start_char:end_char]
+        next_point = split_points[seg_idx + 1]
+        # Python切片是左闭右开的，text[start:next]包含start到next-1
+        seg_text = text[start_char:next_point]
+        # 段的实际结束字符是next_point-1（最后一个包含的字符）
+        actual_end_char = next_point - 1
         
-        print(f"[TTS] 处理段 {seg_idx}: chars {start_char}-{end_char}, 长度 {len(seg_text)}")
+        print(f"[TTS] 处理段 {seg_idx}: chars {start_char}-{actual_end_char}, 长度 {len(seg_text)}")
         
         if not seg_text.strip():
             print(f"[TTS] 段 {seg_idx} 为空，跳过")
             continue
         
         # 为该段生成音频
+        # 传入actual_end_char确保段的结束位置正确（next_point-1）
         seg_result = _generate_single_segment_audio(
-            seg_text, section_id, seg_idx, start_char, speed, person, token
+            seg_text, section_id, seg_idx, start_char, actual_end_char, speed, person, token
         )
         
         if seg_result:
@@ -394,9 +398,9 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
             full_timeline.extend(seg_result['char_timeline'])
             full_duration += seg_result['audio_duration']
             
-            # 查找该段结束位置对应的点评
-            if end_char in ann_by_end_char:
-                ann = ann_by_end_char[end_char]
+            # 查找该段结束位置对应的点评（使用next_point，因为ann_by_end_char的key是点评的end_char）
+            if next_point in ann_by_end_char:
+                ann = ann_by_end_char[next_point]
                 print(f"[TTS] 段 {seg_idx} 结束后有点评 id={ann['id']}")
                 if ann.get('audio_path'):
                     audio_segments.append({
@@ -441,16 +445,26 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
     }
 
 
-def _generate_single_segment_audio(text, section_id, seg_idx, start_char, speed, person, token):
+def _generate_single_segment_audio(text, section_id, seg_idx, start_char, actual_end_char, speed, person, token):
     """
     为单段文本生成音频，返回分段信息。
+    
+    参数:
+        text: 该段的原始文本
+        section_id: 节ID
+        seg_idx: 段索引
+        start_char: 该段在原文中的起始字符位置（包含）
+        actual_end_char: 该段在原文中的结束字符位置（包含）
+        speed: 语速
+        person: 音色
+        token: 百度TTS token
     
     返回: {
         'type': 'original',
         'audio_path': '/api/audio/segment_{section_id}_{seg_idx}.mp3',
         'audio_duration': 10.5,
         'start_char': 0,
-        'end_char': 80,
+        'end_char': 79,  # 注意：这是包含的结束位置
         'char_timeline': [0.0, 0.1, ...]
     } 或 None
     """
@@ -558,16 +572,20 @@ def _generate_single_segment_audio(text, section_id, seg_idx, start_char, speed,
                 t = time_offset + (j / sub_len) * sub_dur
                 char_timeline.append(round(t, 3))
     
-    end_char = start_char + len(text)
+    # 使用传入的actual_end_char，确保段的结束位置正确
+    # 验证actual_end_char与text长度是否匹配
+    expected_end = start_char + len(text) - 1
+    if actual_end_char != expected_end:
+        print(f"[TTS] 警告: 分段 {seg_idx} actual_end_char({actual_end_char}) != expected({expected_end})")
     
-    print(f"[TTS] 分段 {seg_idx} 完成: chars {start_char}-{end_char}, 时长 {seg_total_duration:.1f}s")
+    print(f"[TTS] 分段 {seg_idx} 完成: chars {start_char}-{actual_end_char}, 时长 {seg_total_duration:.1f}s")
     
     return {
         'type': 'original',
         'audio_path': f'/api/audio/segment_{section_id}_{seg_idx}.mp3',
         'audio_duration': seg_total_duration,
         'start_char': start_char,
-        'end_char': end_char,
+        'end_char': actual_end_char,
         'char_timeline': char_timeline
     }
 
