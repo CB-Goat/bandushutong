@@ -2451,6 +2451,8 @@
                 this._originalAudioSrc = null;
                 this._originalAudioMode = null;
                 this._annotationEndTime = null;
+                // 恢复主时间轴状态，允许 _updateDisplayByTime 更新文字
+                state.isPlayingAnnotation = false;
                 
                 // 恢复 onended
                 var self = this;
