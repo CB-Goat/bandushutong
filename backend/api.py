@@ -23,7 +23,7 @@ from backend.database import (
     # 用户系统
     create_user, get_user, get_user_by_phone, get_user_by_wechat_openid, get_all_users, update_user_role, delete_user,
     update_user_profile, update_user_phone, update_user_password, update_user_wechat, verify_user_phone_password,
-    add_message, get_messages_by_user, get_all_messages, reply_message
+    add_message, get_messages_by_user, get_all_messages, reply_message,
     # 订阅系统
     subscribe_book, get_user_subscriptions, check_book_access, get_subscription_requests, add_subscription_request, approve_subscription_request, reject_subscription_request,
     # 思考系统
