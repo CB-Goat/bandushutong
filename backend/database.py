@@ -294,6 +294,24 @@ def init_db():
     except:
         pass
 
+    # 兼容旧数据库：确保users表有所有字段
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN gender TEXT')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN age INTEGER')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN grade TEXT')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN device_info TEXT')
+    except:
+        pass
+
     conn.commit()
     conn.close()
     print("数据库初始化完成")
