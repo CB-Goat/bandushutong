@@ -977,10 +977,20 @@
                     <button onclick="changePassword()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">修改密码</button>
                 </div>
                 
+                <!-- 当前设备信息 -->
+                <div id="deviceInfoSection" style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);margin-bottom:20px;">
+                    <h3 style="margin:0 0 20px;color:#333;">当前设备</h3>
+                    <div id="currentDeviceInfo" style="padding:15px;background:#f5f5f5;border-radius:8px;margin-bottom:15px;">
+                        <div style="font-size:15px;color:#333;font-weight:bold;" id="deviceName">--</div>
+                        <div style="font-size:12px;color:#999;margin-top:5px;" id="deviceDetail">--</div>
+                    </div>
+                    <p style="font-size:12px;color:#999;margin:0;">如需在新设备登录，请先生成换机校验码</p>
+                </div>
+
                 <!-- 换机校验码 -->
                 <div id="transferCodeSection" style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);margin-bottom:20px;">
                     <h3 style="margin:0 0 20px;color:#333;">换机校验码</h3>
-                    <p style="font-size:13px;color:#666;margin-bottom:15px;">如需在新设备登录，请先生成换机校验码（1分钟内有效）</p>
+                    <p style="font-size:13px;color:#666;margin-bottom:15px;">在新设备上输入此验证码可登录您的账号（1分钟内有效）</p>
                     <div id="transferCodeDisplay" style="display:none;margin-bottom:15px;padding:15px;background:#f5f5f5;border-radius:8px;text-align:center;">
                         <div style="font-size:32px;font-weight:bold;color:#2d5016;letter-spacing:8px;" id="transferCodeValue"></div>
                         <div style="font-size:12px;color:#999;margin-top:8px;" id="transferCodeTimer"></div>
@@ -3486,15 +3496,72 @@
         function browseLoadBooks() { browse.loadBooks(); }
 
         // ===== 用户系统 =====
-        // 设备ID管理
-        function getDeviceId() {
-            var deviceId = localStorage.getItem('deviceId');
-            if (!deviceId) {
-                // 生成设备ID（时间戳+随机数）
-                deviceId = 'D' + Date.now() + Math.random().toString(36).substr(2, 9);
-                localStorage.setItem('deviceId', deviceId);
+        // 设备信息获取
+        function getDeviceInfo() {
+            var ua = navigator.userAgent;
+            var deviceInfo = {
+                deviceId: localStorage.getItem('deviceId'),
+                deviceType: '未知设备',
+                os: '未知系统',
+                browser: '未知浏览器',
+                screenSize: window.screen.width + 'x' + window.screen.height
+            };
+            
+            // 生成或获取设备ID
+            if (!deviceInfo.deviceId) {
+                deviceInfo.deviceId = 'D' + Date.now() + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('deviceId', deviceInfo.deviceId);
             }
-            return deviceId;
+            
+            // 判断设备类型
+            if (/iPhone|iPad|iPod/.test(ua)) {
+                deviceInfo.deviceType = '苹果' + (/iPad/.test(ua) ? 'iPad' : 'iPhone');
+                deviceInfo.os = 'iOS ' + (/OS (\d+)[_\d]+/.test(ua) ? RegExp.$1 : '');
+            } else if (/Android/.test(ua)) {
+                deviceInfo.deviceType = '安卓手机';
+                if (/Mobile/.test(ua)) {
+                    deviceInfo.deviceType = '安卓手机';
+                } else {
+                    deviceInfo.deviceType = '安卓平板';
+                }
+                var androidVersion = ua.match(/Android (\d+\.?\d*)/);
+                deviceInfo.os = androidVersion ? 'Android ' + androidVersion[1] : 'Android';
+            } else if (/Windows/.test(ua)) {
+                deviceInfo.deviceType = 'Windows电脑';
+                deviceInfo.os = 'Windows';
+            } else if (/Mac/.test(ua)) {
+                deviceInfo.deviceType = 'Mac电脑';
+                deviceInfo.os = 'macOS';
+            } else if (/Linux/.test(ua)) {
+                deviceInfo.deviceType = 'Linux设备';
+                deviceInfo.os = 'Linux';
+            }
+            
+            // 判断浏览器
+            if (/WeChat|MicroMessenger/.test(ua)) {
+                deviceInfo.browser = '微信内置浏览器';
+            } else if (/QQ/.test(ua)) {
+                deviceInfo.browser = 'QQ浏览器';
+            } else if (/Chrome/.test(ua) && !/Edg/.test(ua)) {
+                deviceInfo.browser = 'Chrome浏览器';
+            } else if (/Edg/.test(ua)) {
+                deviceInfo.browser = 'Edge浏览器';
+            } else if (/Firefox/.test(ua)) {
+                deviceInfo.browser = 'Firefox浏览器';
+            } else if (/Safari/.test(ua) && !/Chrome/.test(ua)) {
+                deviceInfo.browser = 'Safari浏览器';
+            }
+            
+            return deviceInfo;
+        }
+        
+        function getDeviceId() {
+            return getDeviceInfo().deviceId;
+        }
+        
+        function getDeviceDisplayName() {
+            var info = getDeviceInfo();
+            return info.deviceType + ' (' + info.browser + ')';
         }
 
         // 手机号格式校验
@@ -3521,8 +3588,13 @@
             if (!password) { errEl.textContent = '请输入密码'; errEl.style.display = 'block'; return; }
             errEl.style.display = 'none';
             
-            var deviceId = getDeviceId();
-            var requestBody = {phone: phone, password: password, device_id: deviceId};
+            var deviceInfo = getDeviceInfo();
+            var requestBody = {
+                phone: phone, 
+                password: password, 
+                device_id: deviceInfo.deviceId,
+                device_info: getDeviceDisplayName()
+            };
             if (transferCode) {
                 requestBody.transfer_code = transferCode;
             }
@@ -3593,10 +3665,15 @@
             if (!password) { errEl.textContent = '请输入密码'; errEl.style.display = 'block'; return; }
             if (password.length < 6) { errEl.textContent = '密码至少6位'; errEl.style.display = 'block'; return; }
             errEl.style.display = 'none';
-            var deviceId = getDeviceId();
+            var deviceInfo = getDeviceInfo();
             fetch(API_BASE + '/auth/register', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({phone: phone, password: password, device_id: deviceId})
+                body: JSON.stringify({
+                    phone: phone, 
+                    password: password, 
+                    device_id: deviceInfo.deviceId,
+                    device_info: getDeviceDisplayName()
+                })
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.user) {
                     hideRegister();
@@ -3760,6 +3837,15 @@
                 // 如果没有设置密码，隐藏原密码输入框
                 document.getElementById('oldPasswordDiv').style.display = user.password ? 'block' : 'none';
             }
+            
+            // 显示当前设备信息
+            var deviceInfo = getDeviceInfo();
+            document.getElementById('deviceName').textContent = getDeviceDisplayName();
+            var detailText = '设备ID: ' + deviceInfo.deviceId.substring(0, 16) + '...';
+            if (user.device_info) {
+                detailText = '已绑定设备: ' + user.device_info + '\n' + detailText;
+            }
+            document.getElementById('deviceDetail').textContent = detailText;
         }
 
         function saveProfile() {

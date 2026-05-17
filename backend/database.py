@@ -164,6 +164,7 @@ def init_db():
             wechat_nickname TEXT,
             wechat_avatar TEXT,
             device_id TEXT,
+            device_info TEXT,
             gender TEXT,
             age INTEGER,
             grade TEXT,
@@ -295,14 +296,14 @@ def init_db():
 
 # ===== 用户系统 =====
 
-def create_user(phone=None, password=None, wechat_openid=None, wechat_nickname=None, wechat_avatar=None, device_id=None, role='user'):
+def create_user(phone=None, password=None, wechat_openid=None, wechat_nickname=None, wechat_avatar=None, device_id=None, device_info=None, role='user'):
     """创建用户（支持手机号或微信登录）"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, role) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)''',
-        (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, role)
+        '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+        (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role)
     )
     user_id = cursor.lastrowid
     conn.commit()
@@ -475,11 +476,14 @@ def reply_message(message_id, admin_reply):
 
 # ===== 设备管理 =====
 
-def update_user_device(user_id, device_id):
-    """更新用户绑定的设备ID"""
+def update_user_device(user_id, device_id, device_info=None):
+    """更新用户绑定的设备ID和设备信息"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE users SET device_id = ? WHERE id = ?', (device_id, user_id))
+    if device_info:
+        cursor.execute('UPDATE users SET device_id = ?, device_info = ? WHERE id = ?', (device_id, device_info, user_id))
+    else:
+        cursor.execute('UPDATE users SET device_id = ? WHERE id = ?', (device_id, user_id))
     conn.commit()
     conn.close()
 

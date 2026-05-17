@@ -742,6 +742,7 @@ def login():
         return jsonify({'error': '手机号或密码错误'}), 401
     
     # 设备校验
+    device_info = data.get('device_info', '').strip()
     if user.get('device_id') and user['device_id'] != device_id:
         # 设备不匹配，需要换机校验码
         if not transfer_code:
@@ -756,11 +757,11 @@ def login():
         if not success:
             return jsonify({'error': msg, 'need_transfer_code': True}), 403
         
-        # 验证成功，更新设备ID
-        update_user_device(user['id'], device_id)
+        # 验证成功，更新设备ID和设备信息
+        update_user_device(user['id'], device_id, device_info)
     elif not user.get('device_id'):
         # 首次登录，绑定设备
-        update_user_device(user['id'], device_id)
+        update_user_device(user['id'], device_id, device_info)
     
     user = get_user(user['id'])
     user.pop('password', None)
@@ -784,7 +785,8 @@ def register():
         return jsonify({'error': '该手机号已注册'}), 400
     
     device_id = data.get('device_id', '').strip()
-    user_id = create_user(phone=phone, password=password, device_id=device_id, role='user')
+    device_info = data.get('device_info', '').strip()
+    user_id = create_user(phone=phone, password=password, device_id=device_id, device_info=device_info, role='user')
     user = get_user(user_id)
     user.pop('password', None)
     return jsonify({'user': user, 'message': '注册成功'})
