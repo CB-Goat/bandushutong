@@ -24,6 +24,8 @@ from backend.database import (
     create_user, get_user, get_user_by_phone, get_user_by_wechat_openid, get_all_users, update_user_role, delete_user,
     update_user_profile, update_user_phone, update_user_password, update_user_wechat, verify_user_phone_password,
     add_message, get_messages_by_user, get_all_messages, reply_message,
+    # 设备管理
+    update_user_device, create_transfer_code, verify_transfer_code,
     # 订阅系统
     subscribe_book, get_user_subscriptions, check_book_access, get_subscription_requests, add_subscription_request, approve_subscription_request, reject_subscription_request,
     # 思考系统
@@ -725,10 +727,12 @@ def wechat_login():
 
 @api_bp.route('/auth/login', methods=['POST'])
 def login():
-    """手机号密码登录"""
+    """手机号密码登录（带设备校验）"""
     data = request.json
     phone = data.get('phone', '').strip()
     password = data.get('password', '').strip()
+    device_id = data.get('device_id', '').strip()
+    transfer_code = data.get('transfer_code', '').strip()
     
     if not phone or not password:
         return jsonify({'error': '请输入手机号和密码'}), 400
@@ -737,6 +741,28 @@ def login():
     if not user:
         return jsonify({'error': '手机号或密码错误'}), 401
     
+    # 设备校验
+    if user.get('device_id') and user['device_id'] != device_id:
+        # 设备不匹配，需要换机校验码
+        if not transfer_code:
+            return jsonify({
+                'error': '设备不匹配，请输入换机校验码',
+                'need_transfer_code': True,
+                'user_id': user['id']
+            }), 403
+        
+        # 验证换机校验码
+        success, msg = verify_transfer_code(user['id'], transfer_code)
+        if not success:
+            return jsonify({'error': msg, 'need_transfer_code': True}), 403
+        
+        # 验证成功，更新设备ID
+        update_user_device(user['id'], device_id)
+    elif not user.get('device_id'):
+        # 首次登录，绑定设备
+        update_user_device(user['id'], device_id)
+    
+    user = get_user(user['id'])
     user.pop('password', None)
     return jsonify({'user': user})
 
@@ -757,7 +783,8 @@ def register():
     if existing:
         return jsonify({'error': '该手机号已注册'}), 400
     
-    user_id = create_user(phone=phone, password=password, role='user')
+    device_id = data.get('device_id', '').strip()
+    user_id = create_user(phone=phone, password=password, device_id=device_id, role='user')
     user = get_user(user_id)
     user.pop('password', None)
     return jsonify({'user': user, 'message': '注册成功'})
@@ -827,6 +854,18 @@ def change_password(user_id):
     
     update_user_password(user_id, new_password)
     return jsonify({'message': '密码修改成功'})
+
+# ===== 设备换机 API =====
+
+@api_bp.route('/users/<int:user_id>/transfer-code', methods=['POST'])
+def generate_transfer_code(user_id):
+    """生成换机校验码"""
+    transfer_code = create_transfer_code(user_id)
+    return jsonify({
+        'transfer_code': transfer_code,
+        'message': '换机校验码已生成，1分钟内有效',
+        'valid_seconds': 60
+    })
 
 # ===== 留言 API =====
 

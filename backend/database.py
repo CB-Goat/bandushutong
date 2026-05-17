@@ -163,6 +163,7 @@ def init_db():
             wechat_openid TEXT UNIQUE,
             wechat_nickname TEXT,
             wechat_avatar TEXT,
+            device_id TEXT,
             gender TEXT,
             age INTEGER,
             grade TEXT,
@@ -181,6 +182,17 @@ def init_db():
             is_read INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             replied_at TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+
+    # 换机校验码表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS device_transfer_codes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            transfer_code TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
@@ -283,14 +295,14 @@ def init_db():
 
 # ===== 用户系统 =====
 
-def create_user(phone=None, password=None, wechat_openid=None, wechat_nickname=None, wechat_avatar=None, role='user'):
+def create_user(phone=None, password=None, wechat_openid=None, wechat_nickname=None, wechat_avatar=None, device_id=None, role='user'):
     """创建用户（支持手机号或微信登录）"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, role) 
-           VALUES (?, ?, ?, ?, ?, ?)''',
-        (phone, password, wechat_openid, wechat_nickname, wechat_avatar, role)
+        '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, role) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)''',
+        (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, role)
     )
     user_id = cursor.lastrowid
     conn.commit()
@@ -460,6 +472,60 @@ def reply_message(message_id, admin_reply):
     )
     conn.commit()
     conn.close()
+
+# ===== 设备管理 =====
+
+def update_user_device(user_id, device_id):
+    """更新用户绑定的设备ID"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET device_id = ? WHERE id = ?', (device_id, user_id))
+    conn.commit()
+    conn.close()
+
+def create_transfer_code(user_id):
+    """生成换机校验码（6位数字）"""
+    import random
+    conn = get_db()
+    cursor = conn.cursor()
+    # 生成6位随机数字
+    transfer_code = ''.join(random.choices('0123456789', k=6))
+    # 删除该用户旧的校验码
+    cursor.execute('DELETE FROM device_transfer_codes WHERE user_id = ?', (user_id,))
+    # 插入新校验码
+    cursor.execute(
+        'INSERT INTO device_transfer_codes (user_id, transfer_code) VALUES (?, ?)',
+        (user_id, transfer_code)
+    )
+    conn.commit()
+    conn.close()
+    return transfer_code
+
+def verify_transfer_code(user_id, transfer_code):
+    """验证换机校验码（1分钟有效）"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'SELECT * FROM device_transfer_codes WHERE user_id = ? AND transfer_code = ?',
+        (user_id, transfer_code)
+    )
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return False, '校验码错误'
+    
+    # 检查是否超过1分钟
+    from datetime import datetime, timedelta
+    created_at = datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
+    if datetime.now() - created_at > timedelta(minutes=1):
+        conn.close()
+        return False, '校验码已过期（1分钟有效）'
+    
+    # 验证成功，删除校验码
+    cursor.execute('DELETE FROM device_transfer_codes WHERE id = ?', (row['id'],))
+    conn.commit()
+    conn.close()
+    return True, '验证成功'
 
 # ===== 订阅系统 =====
 

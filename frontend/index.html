@@ -977,6 +977,17 @@
                     <button onclick="changePassword()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">修改密码</button>
                 </div>
                 
+                <!-- 换机校验码 -->
+                <div id="transferCodeSection" style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);margin-bottom:20px;">
+                    <h3 style="margin:0 0 20px;color:#333;">换机校验码</h3>
+                    <p style="font-size:13px;color:#666;margin-bottom:15px;">如需在新设备登录，请先生成换机校验码（1分钟内有效）</p>
+                    <div id="transferCodeDisplay" style="display:none;margin-bottom:15px;padding:15px;background:#f5f5f5;border-radius:8px;text-align:center;">
+                        <div style="font-size:32px;font-weight:bold;color:#2d5016;letter-spacing:8px;" id="transferCodeValue"></div>
+                        <div style="font-size:12px;color:#999;margin-top:8px;" id="transferCodeTimer"></div>
+                    </div>
+                    <button onclick="generateTransferCode()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">生成换机校验码</button>
+                </div>
+                
                 <!-- 留言 -->
                 <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
                     <h3 style="margin:0 0 20px;color:#333;">留言反馈</h3>
@@ -3475,6 +3486,17 @@
         function browseLoadBooks() { browse.loadBooks(); }
 
         // ===== 用户系统 =====
+        // 设备ID管理
+        function getDeviceId() {
+            var deviceId = localStorage.getItem('deviceId');
+            if (!deviceId) {
+                // 生成设备ID（时间戳+随机数）
+                deviceId = 'D' + Date.now() + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('deviceId', deviceId);
+            }
+            return deviceId;
+        }
+
         // 手机号格式校验
         function validatePhone(phone) {
             if (!phone) return '请输入手机号';
@@ -3482,24 +3504,73 @@
             return null;
         }
 
+        // 换机校验码相关状态
+        var transferCodeState = {
+            userId: null,
+            phone: null,
+            password: null
+        };
+
         function doLogin() {
             var phone = document.getElementById('loginPhone').value.trim();
             var password = document.getElementById('loginPassword').value;
+            var transferCode = document.getElementById('transferCode') ? document.getElementById('transferCode').value.trim() : '';
             var errEl = document.getElementById('loginError');
             var phoneErr = validatePhone(phone);
             if (phoneErr) { errEl.textContent = phoneErr; errEl.style.display = 'block'; return; }
             if (!password) { errEl.textContent = '请输入密码'; errEl.style.display = 'block'; return; }
             errEl.style.display = 'none';
+            
+            var deviceId = getDeviceId();
+            var requestBody = {phone: phone, password: password, device_id: deviceId};
+            if (transferCode) {
+                requestBody.transfer_code = transferCode;
+            }
+            
             fetch(API_BASE + '/auth/login', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({phone: phone, password: password})
+                body: JSON.stringify(requestBody)
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.user) {
+                    // 清除换机状态
+                    transferCodeState = {userId: null, phone: null, password: null};
+                    hideTransferCodeInput();
                     onLoginSuccess(data.user);
+                } else if (data.need_transfer_code) {
+                    // 需要换机校验码
+                    transferCodeState.userId = data.user_id;
+                    transferCodeState.phone = phone;
+                    transferCodeState.password = password;
+                    showTransferCodeInput();
+                    errEl.textContent = data.error; 
+                    errEl.style.display = 'block';
                 } else {
-                    errEl.textContent = data.error || '登录失败'; errEl.style.display = 'block';
+                    errEl.textContent = data.error || '登录失败'; 
+                    errEl.style.display = 'block';
                 }
             }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
+        }
+
+        function showTransferCodeInput() {
+            var container = document.getElementById('transferCodeContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'transferCodeContainer';
+                container.style.marginBottom = '15px';
+                container.innerHTML = '<label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">换机校验码（在原设备用户中心生成）</label>' +
+                    '<input type="text" id="transferCode" placeholder="请输入6位换机校验码" maxlength="6" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">';
+                var loginBtn = document.querySelector('#loginPage button[onclick="doLogin()"]');
+                loginBtn.parentNode.insertBefore(container, loginBtn);
+            }
+            container.style.display = 'block';
+        }
+
+        function hideTransferCodeInput() {
+            var container = document.getElementById('transferCodeContainer');
+            if (container) {
+                container.style.display = 'none';
+                document.getElementById('transferCode').value = '';
+            }
         }
 
         function showRegister() {
@@ -3522,9 +3593,10 @@
             if (!password) { errEl.textContent = '请输入密码'; errEl.style.display = 'block'; return; }
             if (password.length < 6) { errEl.textContent = '密码至少6位'; errEl.style.display = 'block'; return; }
             errEl.style.display = 'none';
+            var deviceId = getDeviceId();
             fetch(API_BASE + '/auth/register', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({phone: phone, password: password})
+                body: JSON.stringify({phone: phone, password: password, device_id: deviceId})
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.user) {
                     hideRegister();
@@ -3709,6 +3781,40 @@
                     alert(data.error || '提交失败');
                 }
             }).catch(function() { alert('网络错误'); });
+        }
+
+        // 换机校验码倒计时
+        var transferCodeCountdown = null;
+
+        function generateTransferCode() {
+            fetch(API_BASE + '/users/' + state.currentUser.id + '/transfer-code', {
+                method: 'POST', headers: {'Content-Type': 'application/json'}
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.transfer_code) {
+                    document.getElementById('transferCodeValue').textContent = data.transfer_code;
+                    document.getElementById('transferCodeDisplay').style.display = 'block';
+                    startTransferCodeCountdown(60);
+                } else {
+                    alert(data.error || '生成失败');
+                }
+            }).catch(function() { alert('网络错误'); });
+        }
+
+        function startTransferCodeCountdown(seconds) {
+            if (transferCodeCountdown) clearInterval(transferCodeCountdown);
+            var remaining = seconds;
+            var timerEl = document.getElementById('transferCodeTimer');
+            timerEl.textContent = remaining + '秒后过期';
+            transferCodeCountdown = setInterval(function() {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(transferCodeCountdown);
+                    document.getElementById('transferCodeDisplay').style.display = 'none';
+                    timerEl.textContent = '已过期';
+                } else {
+                    timerEl.textContent = remaining + '秒后过期';
+                }
+            }, 1000);
         }
 
         function loadUserMessages() {
