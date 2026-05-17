@@ -3623,30 +3623,24 @@
             return getDeviceInfo().deviceId;
         }
         
+        // 用于显示的设备名称（品牌+型号+类型+浏览器）
         function getDeviceDisplayName() {
             var info = getDeviceInfo();
-            var name = info.deviceBrand;
-            if (info.deviceModel && info.deviceModel !== info.deviceBrand) {
-                name = info.deviceModel;
-            }
-            if (!name) name = info.deviceType;
-            if (info.osVersion) {
-                name += ' ' + info.os + ' ' + info.osVersion;
-            }
-            return name;
+            var parts = [];
+            // 品牌
+            if (info.deviceBrand) parts.push(info.deviceBrand);
+            // 型号
+            if (info.deviceModel && info.deviceModel !== info.deviceBrand) parts.push(info.deviceModel);
+            // 类型
+            if (info.deviceType) parts.push(info.deviceType);
+            // 浏览器
+            if (info.browser) parts.push(info.browser);
+            return parts.join(' ');
         }
         
+        // 用于存储的完整设备信息
         function getDeviceFullInfo() {
-            var info = getDeviceInfo();
-            var parts = [info.deviceBrand || info.deviceType];
-            if (info.deviceModel && info.deviceModel !== info.deviceBrand) {
-                parts.push(info.deviceModel);
-            }
-            parts.push(info.browser);
-            if (info.browserVersion) {
-                parts.push(info.browserVersion);
-            }
-            return parts.join(' | ');
+            return getDeviceDisplayName();
         }
 
         // 手机号格式校验
