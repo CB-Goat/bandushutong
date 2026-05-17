@@ -3945,11 +3945,7 @@
             // 显示当前设备信息
             var deviceInfo = getDeviceInfo();
             document.getElementById('deviceName').textContent = getDeviceDisplayName();
-            var detailText = '设备ID: ' + deviceInfo.deviceId.substring(0, 16) + '...';
-            if (user.device_info) {
-                detailText = '已绑定设备: ' + user.device_info + '\n' + detailText;
-            }
-            document.getElementById('deviceDetail').textContent = detailText;
+            document.getElementById('deviceDetail').textContent = '设备ID: ' + deviceInfo.deviceId;
         }
 
         function saveProfile() {
