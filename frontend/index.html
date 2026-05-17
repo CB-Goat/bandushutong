@@ -3613,7 +3613,7 @@
                     transferCodeState.userId = data.user_id;
                     transferCodeState.phone = phone;
                     transferCodeState.password = password;
-                    showTransferCodeInput();
+                    showTransferCodeInput(data.bound_device);
                     errEl.textContent = data.error; 
                     errEl.style.display = 'block';
                 } else {
@@ -3623,16 +3623,26 @@
             }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
         }
 
-        function showTransferCodeInput() {
+        function showTransferCodeInput(boundDevice) {
             var container = document.getElementById('transferCodeContainer');
             if (!container) {
                 container = document.createElement('div');
                 container.id = 'transferCodeContainer';
                 container.style.marginBottom = '15px';
-                container.innerHTML = '<label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">换机校验码（在原设备用户中心生成）</label>' +
+                var deviceInfoText = boundDevice ? '<div style="font-size:12px;color:#666;margin-bottom:10px;padding:10px;background:#fff3cd;border-radius:6px;">您之前使用的设备：<b>' + boundDevice + '</b><br>请在该设备上生成换机校验码</div>' : '';
+                container.innerHTML = deviceInfoText +
+                    '<label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">换机校验码</label>' +
                     '<input type="text" id="transferCode" placeholder="请输入6位换机校验码" maxlength="6" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">';
                 var loginBtn = document.querySelector('#loginPage button[onclick="doLogin()"]');
                 loginBtn.parentNode.insertBefore(container, loginBtn);
+            } else {
+                // 更新设备信息提示
+                var deviceInfoDiv = container.querySelector('div');
+                if (boundDevice && !deviceInfoDiv) {
+                    container.innerHTML = '<div style="font-size:12px;color:#666;margin-bottom:10px;padding:10px;background:#fff3cd;border-radius:6px;">您之前使用的设备：<b>' + boundDevice + '</b><br>请在该设备上生成换机校验码</div>' +
+                        '<label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">换机校验码</label>' +
+                        '<input type="text" id="transferCode" placeholder="请输入6位换机校验码" maxlength="6" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">';
+                }
             }
             container.style.display = 'block';
         }

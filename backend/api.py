@@ -746,10 +746,13 @@ def login():
     if user.get('device_id') and user['device_id'] != device_id:
         # 设备不匹配，需要换机校验码
         if not transfer_code:
+            # 获取之前绑定的设备信息
+            bound_device_info = user.get('device_info') or '未知设备'
             return jsonify({
                 'error': '设备不匹配，请输入换机校验码',
                 'need_transfer_code': True,
-                'user_id': user['id']
+                'user_id': user['id'],
+                'bound_device': bound_device_info
             }), 403
         
         # 验证换机校验码
