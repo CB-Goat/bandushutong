@@ -33,12 +33,83 @@ from backend.database import (
 )
 from backend.text_parser import parse_file, get_book_title
 from backend.tts_service import generate_audio
+import hashlib
+import xml.etree.ElementTree as ET
 
 api_bp = Blueprint('api', __name__)
+
+# 微信公众号配置（需要在环境变量中设置）
+WECHAT_TOKEN = os.environ.get('WECHAT_TOKEN', 'bandushutong2024')  # 公众号Token
 
 # 文件上传目录
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), '..', 'books')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# ===== 微信公众号 API =====
+
+@api_bp.route('/wechat', methods=['GET', 'POST'])
+def wechat_handler():
+    """微信公众号消息处理入口"""
+    if request.method == 'GET':
+        # 验证服务器地址有效性
+        signature = request.args.get('signature', '')
+        timestamp = request.args.get('timestamp', '')
+        nonce = request.args.get('nonce', '')
+        echostr = request.args.get('echostr', '')
+        
+        # 验证签名
+        tmp_list = [WECHAT_TOKEN, timestamp, nonce]
+        tmp_list.sort()
+        tmp_str = ''.join(tmp_list)
+        tmp_hash = hashlib.sha1(tmp_str.encode('utf-8')).hexdigest()
+        
+        if tmp_hash == signature:
+            return echostr
+        else:
+            return 'invalid', 403
+    
+    else:
+        # 处理微信消息
+        try:
+            xml_data = request.data.decode('utf-8')
+            root = ET.fromstring(xml_data)
+            
+            msg_type = root.find('MsgType').text
+            from_user = root.find('FromUserName').text
+            to_user = root.find('ToUserName').text
+            
+            if msg_type == 'event':
+                event = root.find('Event').text
+                if event == 'subscribe':
+                    # 用户关注公众号
+                    return _make_text_reply(to_user, from_user, 
+                        '欢迎关注伴读书童！\n\n点击下方菜单"开始阅读"即可进入系统。')
+                elif event == 'CLICK':
+                    # 菜单点击事件
+                    event_key = root.find('EventKey').text
+                    if event_key == 'start_reading':
+                        # 返回带用户openid的链接
+                        url = f"{request.host_url}?wechat_openid={from_user}"
+                        return _make_text_reply(to_user, from_user, 
+                            f'点击链接进入伴读书童：\n{url}')
+            
+            # 默认回复
+            return _make_text_reply(to_user, from_user, '收到消息，请使用菜单功能。')
+            
+        except Exception as e:
+            print(f"[WeChat] Error: {e}")
+            return 'success'
+
+def _make_text_reply(to_user, from_user, content):
+    """生成文本回复XML"""
+    import time
+    return f'''<xml>
+<ToUserName><![CDATA[{to_user}]]></ToUserName>
+<FromUserName><![CDATA[{from_user}]]></FromUserName>
+<CreateTime>{int(time.time())}</CreateTime>
+<MsgType><![CDATA[text]]></MsgType>
+<Content><![CDATA[{content}]]></Content>
+</xml>'''
 
 @api_bp.route('/init', methods=['POST'])
 def init_database():

@@ -1234,7 +1234,19 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             initDatabase();
-            checkLogin();
+            // 检查URL参数，是否从公众号链接进入
+            var urlParams = new URLSearchParams(window.location.search);
+            var wechatOpenid = urlParams.get('wechat_openid');
+            var wechatNickname = urlParams.get('wechat_nickname') || '微信用户';
+            var wechatAvatar = urlParams.get('wechat_avatar') || '';
+            
+            if (wechatOpenid) {
+                // 从公众号链接进入，自动微信登录
+                wechatLogin(wechatOpenid, decodeURIComponent(wechatNickname), decodeURIComponent(wechatAvatar));
+            } else {
+                // 正常检查登录状态
+                checkLogin();
+            }
             setupEventListeners();
             player.init();
         });
