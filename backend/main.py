@@ -38,16 +38,18 @@ init_db()
 
 if __name__ == '__main__':
     # 确保目录存在
-    os.makedirs('books', exist_ok=True)
-    os.makedirs('audio_files', exist_ok=True)
+    if not os.path.exists('books'):
+        os.makedirs('books')
+    if not os.path.exists('audio_files'):
+        os.makedirs('audio_files')
     
     # 从环境变量获取端口，默认5000
     port = int(os.environ.get('PORT', 5000))
     
     print("=" * 50)
     print("伴读书童后端服务启动")
-    print(f"访问地址: http://localhost:{port}")
-    print(f"API 地址: http://localhost:{port}/api")
+    print("访问地址: http://localhost:%d" % port)
+    print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
     
     app.run(host='0.0.0.0', port=port, debug=False)

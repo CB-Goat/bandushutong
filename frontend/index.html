@@ -772,6 +772,38 @@
         .book-admin-item .book-info .meta { font-size: 12px; color: #999; margin-top: 2px; font-family: -apple-system, sans-serif; }
         .book-admin-item .book-actions { display: flex; gap: 6px; }
 
+        /* Admin tab styles */
+        .admin-tabs { display: flex; gap: 0; margin-bottom: 15px; border-bottom: 2px solid #eee; }
+        .admin-tab { padding: 10px 20px; cursor: pointer; font-size: 14px; color: #666; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; font-family: inherit; }
+        .admin-tab:hover { color: #2d5016; }
+        .admin-tab.active { color: #2d5016; border-bottom-color: #2d5016; font-weight: 600; }
+        .admin-tab-content { display: none; }
+        .admin-tab-content.active { display: block; }
+        .admin-search-bar { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
+        .admin-search-bar input, .admin-search-bar select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: inherit; }
+        .admin-search-bar input { flex: 1; min-width: 150px; }
+        .admin-search-bar select { min-width: 100px; }
+        .admin-search-bar button { padding: 8px 16px; background: #2d5016; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: inherit; white-space: nowrap; }
+        .admin-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+        .admin-table th { background: #f5f5f5; padding: 10px 8px; text-align: left; font-weight: 600; color: #333; border-bottom: 2px solid #ddd; white-space: nowrap; }
+        .admin-table td { padding: 10px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        .admin-table tr:hover { background: #fafafa; }
+        .admin-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+        .admin-badge.admin { background: #d4edda; color: #155724; }
+        .admin-badge.user { background: #e9ecef; color: #6c757d; }
+        .admin-inline-btn { padding: 3px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #ddd; background: white; cursor: pointer; font-family: inherit; }
+        .admin-inline-btn:hover { background: #f0f0f0; }
+        .admin-inline-btn.danger { color: #dc3545; border-color: #dc3545; }
+        .admin-inline-btn.primary { color: #2d5016; border-color: #2d5016; }
+        .catalog-tree { margin-top: 10px; }
+        .catalog-chapter { margin-bottom: 10px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+        .catalog-chapter-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #f8f9fa; cursor: pointer; font-weight: 600; }
+        .catalog-chapter-header:hover { background: #f0f0f0; }
+        .catalog-chapter-stats { font-size: 12px; color: #999; font-weight: normal; }
+        .catalog-section-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 15px 8px 30px; border-top: 1px solid #f0f0f0; font-size: 13px; }
+        .catalog-section-item:hover { background: #fafafa; }
+        .catalog-section-stats { font-size: 12px; color: #999; }
+
         /* 章节管理 */
         .chapter-item { display: flex; align-items: center; padding: 10px 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 6px; }
         .chapter-item .ch-info { flex: 1; }
@@ -1082,80 +1114,121 @@
         <!-- 管理页面 -->
         <div class="page" id="adminPage">
         <div class="admin-page">
+            <!-- Header -->
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                <h2 style="margin:0;border:none;padding:0;">📚 书目管理</h2>
+                <h2 style="margin:0;border:none;padding:0;">⚙️ 系统管理</h2>
                 <button class="btn btn-sm" onclick="showPage('homePage')">← 返回书架</button>
             </div>
             
-            <!-- 上传Word文件 -->
-            <div class="admin-card">
-                <h3>📤 上传书籍文件</h3>
-                <div class="upload-area" id="uploadArea" style="margin:10px 0;">
-                    <div class="icon">📄</div>
-                    <p>点击上传 Word 书籍文件（.docx）</p>
-                    <input type="file" id="fileInput" accept=".docx" style="display:none">
-                </div>
-            </div>
-
-            <!-- 用户管理 -->
-            <div class="admin-card" id="userManageCard">
-                <h3>👤 用户管理</h3>
-                <div id="adminUserList"></div>
-            </div>
-
-            <!-- 订阅审批 -->
-            <div class="admin-card" id="subRequestCard">
-                <h3>📋 订阅审批</h3>
-                <div id="adminSubRequests"></div>
-            </div>
-
-            <!-- 书籍列表 -->
-            <div class="admin-card">
-                <h3>书籍列表</h3>
-                <div id="adminBookList"><div style="color:#999;padding:20px;text-align:center;">点击书籍进行管理</div></div>
+            <!-- Tab Navigation -->
+            <div class="admin-tabs" style="display:flex;gap:0;margin-bottom:15px;border-bottom:2px solid #eee;">
+                <div class="admin-tab active" onclick="switchAdminTab('userManage')">用户管理</div>
+                <div class="admin-tab" onclick="switchAdminTab('bookManage')">书籍管理</div>
+                <div class="admin-tab" onclick="switchAdminTab('subManage')">订阅管理</div>
+                <div class="admin-tab" onclick="switchAdminTab('commentManage')">评论管理</div>
+                <div class="admin-tab" onclick="switchAdminTab('msgManage')">留言管理</div>
             </div>
             
-            <!-- 书籍详情编辑区 -->
-            <div id="adminBookDetail" style="display:none;">
+            <!-- Tab Content: User Management -->
+            <div id="adminTab_userManage" class="admin-tab-content active">
                 <div class="admin-card">
-                    <h3 id="adminDetailTitle">书籍详情</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>书名</label>
-                            <input type="text" id="editBookTitle">
-                        </div>
-                        <div class="form-group">
-                            <label>作者</label>
-                            <input type="text" id="editBookAuthor">
-                        </div>
+                    <h3>👤 用户管理</h3>
+                    <!-- Search bar -->
+                    <div class="admin-search-bar">
+                        <input type="text" id="adminUserPhone" placeholder="手机号码">
+                        <select id="adminUserRole">
+                            <option value="">全部角色</option>
+                            <option value="user">普通用户</option>
+                            <option value="admin">系统用户</option>
+                        </select>
+                        <select id="adminUserGender">
+                            <option value="">全部性别</option>
+                            <option value="男">男</option>
+                            <option value="女">女</option>
+                        </select>
+                        <input type="number" id="adminUserAgeAbove" placeholder="年龄≥" style="width:70px;flex:none;">
+                        <input type="number" id="adminUserAgeBelow" placeholder="年龄≤" style="width:70px;flex:none;">
+                        <button onclick="searchAdminUsers()">搜索</button>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>作者国籍</label>
-                            <input type="text" id="editBookNationality">
-                        </div>
-                        <div class="form-group">
-                            <label>版本</label>
-                            <input type="text" id="editBookVersion">
-                        </div>
-                    </div>
-                    <div style="text-align:right;margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
-                        <button class="btn btn-danger" onclick="adminDeleteBook()">删除此书</button>
-                        <button class="btn btn-primary" onclick="adminSaveBook()">保存修改</button>
-                    </div>
+                    <div id="adminUserList" style="overflow-x:auto;"></div>
                 </div>
-                
-                <!-- 章节管理 -->
+            </div>
+            
+            <!-- Tab Content: Book Management -->
+            <div id="adminTab_bookManage" class="admin-tab-content" style="display:none;">
+                <!-- Upload -->
                 <div class="admin-card">
-                    <h3>章节管理 <button class="btn btn-sm" onclick="adminAddChapter()">＋ 添加章节</button></h3>
-                    <div id="adminChapterList"></div>
+                    <h3>📤 上传书籍文件</h3>
+                    <div class="upload-area" id="uploadArea" style="margin:10px 0;">
+                        <div class="icon">📄</div>
+                        <p>点击上传 Word 书籍文件（.docx）</p>
+                        <input type="file" id="fileInput" accept=".docx" style="display:none">
+                    </div>
                 </div>
-                
-                <!-- 节管理 -->
-                <div class="admin-card" id="adminSectionCard" style="display:none;">
-                    <h3 id="adminSectionTitle">小节管理</h3>
-                    <div id="adminSectionList"></div>
+                <!-- Book List -->
+                <div class="admin-card">
+                    <h3>📚 书籍列表</h3>
+                    <div id="adminBookList"></div>
                 </div>
+                <!-- Book Detail (hidden by default) -->
+                <div id="adminBookDetail" style="display:none;">
+                    <div class="admin-card">
+                        <h3 id="adminDetailTitle">书籍详情</h3>
+                        <div class="form-row">
+                            <div class="form-group"><label>书名</label><input type="text" id="editBookTitle"></div>
+                            <div class="form-group"><label>作者</label><input type="text" id="editBookAuthor"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>作者国籍</label><input type="text" id="editBookNationality"></div>
+                            <div class="form-group"><label>版本</label><input type="text" id="editBookVersion"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>订阅价格</label><input type="text" id="editBookPrice" placeholder="￥0.00"></div>
+                            <div class="form-group"></div>
+                        </div>
+                        <div style="text-align:right;margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
+                            <button class="btn btn-danger" onclick="adminDeleteBook()">删除此书</button>
+                            <button class="btn btn-primary" onclick="adminSaveBook()">保存修改</button>
+                        </div>
+                    </div>
+                    <!-- Chapter Management -->
+                    <div class="admin-card">
+                        <h3>章节管理 <button class="btn btn-sm" onclick="adminAddChapter()">＋ 添加章节</button></h3>
+                        <div id="adminChapterList"></div>
+                    </div>
+                    <!-- Section Management -->
+                    <div class="admin-card" id="adminSectionCard" style="display:none;">
+                        <h3 id="adminSectionTitle">小节管理</h3>
+                        <div id="adminSectionList"></div>
+                    </div>
+                    <!-- Catalog Stats -->
+                    <div class="admin-card">
+                        <h3>📖 章节目录</h3>
+                        <div id="adminCatalogStats"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tab Content: Subscription Management -->
+            <div id="adminTab_subManage" class="admin-tab-content" style="display:none;">
+                <div class="admin-card">
+                    <h3>📋 订阅管理</h3>
+                    <div class="admin-search-bar">
+                        <input type="text" id="adminSubPhone" placeholder="输入用户手机号查询">
+                        <button onclick="searchAdminSubscriptions()">查询</button>
+                    </div>
+                    <div id="adminSubList"></div>
+                </div>
+            </div>
+            
+            <!-- Tab Content: Comment Management (placeholder) -->
+            <div id="adminTab_commentManage" class="admin-tab-content" style="display:none;">
+                <div class="admin-card"><p style="color:#999;text-align:center;padding:30px;">评论管理功能开发中...</p></div>
+            </div>
+            
+            <!-- Tab Content: Message Management (placeholder) -->
+            <div id="adminTab_msgManage" class="admin-tab-content" style="display:none;">
+                <div class="admin-card"><p style="color:#999;text-align:center;padding:30px;">留言管理功能开发中...</p></div>
             </div>
         </div>
     </div>
@@ -3140,7 +3213,7 @@
                 if (!list) return;
                 list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">加载中...</div>';
                 
-                fetch(API_BASE + '/books')
+                fetch(API_BASE + '/admin/books')
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
                         list.innerHTML = '';
@@ -3153,7 +3226,9 @@
                             div.className = 'book-admin-item';
                             div.innerHTML = '<div class="book-info">' +
                                 '<div class="title">' + (book.title || '无标题') + '</div>' +
-                                '<div class="meta">' + (book.author || '未知作者') + ' | ' + (book.total_sections || 0) + '节</div>' +
+                                '<div class="meta">' + (book.author || '未知作者') + ' | ' + (book.total_sections || 0) + '节 | ' + (book.total_words || 0) + '字 | ' + (book.total_annotations || 0) + '点评' +
+                                (book.subscription_price ? ' | ￥' + book.subscription_price : '') +
+                                ' | ' + (book.subscription_count || 0) + '订阅</div>' +
                                 '</div>' +
                                 '<div class="book-actions">' +
                                 '<button class="btn btn-sm" onclick="event.stopPropagation();admin.editBook(' + book.id + ')">编辑</button>' +
@@ -3176,9 +3251,11 @@
                     document.getElementById('editBookAuthor').value = book.author || '';
                     document.getElementById('editBookNationality').value = book.author_nationality || '';
                     document.getElementById('editBookVersion').value = book.version || '';
+                    document.getElementById('editBookPrice').value = book.subscription_price || '';
                     document.getElementById('adminDetailTitle').textContent = '编辑：' + book.title;
                     document.getElementById('adminBookDetail').style.display = 'block';
                     admin.loadChapters(bookId);
+                    adminShowCatalogStats(bookId);
                 });
             },
             
@@ -3336,8 +3413,15 @@
                     version: document.getElementById('editBookVersion').value
                 })
             }).then(function(r) { return r.json(); }).then(function() {
-                alert('保存成功');
-                admin.loadBooks();
+                // Save price separately
+                var price = document.getElementById('editBookPrice').value;
+                fetch(API_BASE + '/admin/books/' + bookId + '/price', {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({subscription_price: price})
+                }).then(function() {
+                    alert('保存成功');
+                    admin.loadBooks();
+                });
             });
         }
 
@@ -4138,9 +4222,7 @@
                 document.getElementById('homeBtn').style.display = '';
                 document.getElementById('adminBtn').style.display = 'none';
                 document.getElementById('userBtn').style.display = 'none';
-                if (typeof admin !== 'undefined' && admin.loadBooks) admin.loadBooks();
-                loadAdminUsers();
-                loadSubRequests();
+                switchAdminTab('userManage');
             } else if (pageId === 'userPage') {
                 // 用户页面显示返回书架按钮，隐藏用户按钮
                 document.getElementById('homeBtn').style.display = '';
@@ -4181,58 +4263,180 @@
             if (el) el.remove();
         }
 
-        // 用户管理
-        function loadAdminUsers() {
-            fetch(API_BASE + '/admin/users').then(function(r) { return r.json(); }).then(function(data) {
-                var list = document.getElementById('adminUserList');
-                if (!data.users || data.users.length === 0) { list.innerHTML = '<p style="color:#999;">暂无用户</p>'; return; }
-                list.innerHTML = '<table style="width:100%;font-size:13px;border-collapse:collapse;">' +
-                    '<tr style="background:#f5f5f5;"><th style="padding:8px;text-align:left;">手机号</th><th style="padding:8px;">角色</th><th style="padding:8px;">授权码</th><th style="padding:8px;">操作</th></tr>' +
-                    data.users.map(function(u) {
-                        var roleLabel = u.role === 'admin' ? '系统用户' : '普通用户';
-                        var roleColor = u.role === 'admin' ? '#2d5016' : '#666';
-                        return '<tr style="border-bottom:1px solid #eee;"><td style="padding:8px;">' + u.phone + '</td>' +
-                            '<td style="padding:8px;text-align:center;color:' + roleColor + ';">' + roleLabel + '</td>' +
-                            '<td style="padding:8px;text-align:center;"><button class="btn btn-sm" onclick="resetAuthCode(' + u.id + ')">重置</button></td>' +
-                            '<td style="padding:8px;text-align:center;"><button class="btn btn-sm" onclick="toggleUserRole(' + u.id + ',\'' + u.role + '\')">' + (u.role === 'admin' ? '设为普通' : '设为系统') + '</button></td></tr>';
-                    }).join('') + '</table>';
-            });
+        // Tab switching
+        function switchAdminTab(tabName) {
+            document.querySelectorAll('.admin-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.admin-tab-content').forEach(function(c) { c.style.display = 'none'; c.classList.remove('active'); });
+            document.querySelector('.admin-tab[onclick*="' + tabName + '"]').classList.add('active');
+            var panel = document.getElementById('adminTab_' + tabName);
+            panel.style.display = 'block';
+            panel.classList.add('active');
+            // Load data for the tab
+            if (tabName === 'userManage') searchAdminUsers();
+            if (tabName === 'bookManage') admin.loadBooks();
+            if (tabName === 'subManage') { /* don't auto-load, wait for search */ }
+        }
+
+        // User Management
+        function searchAdminUsers() {
+            var phone = document.getElementById('adminUserPhone').value.trim();
+            var role = document.getElementById('adminUserRole').value;
+            var gender = document.getElementById('adminUserGender').value;
+            var ageAbove = document.getElementById('adminUserAgeAbove').value;
+            var ageBelow = document.getElementById('adminUserAgeBelow').value;
+            var params = [];
+            if (phone) params.push('phone=' + encodeURIComponent(phone));
+            if (role) params.push('role=' + role);
+            if (gender) params.push('gender=' + encodeURIComponent(gender));
+            if (ageAbove) params.push('age_above=' + ageAbove);
+            if (ageBelow) params.push('age_below=' + ageBelow);
+            var url = API_BASE + '/admin/users' + (params.length ? '?' + params.join('&') : '');
+            
+            var list = document.getElementById('adminUserList');
+            list.innerHTML = '<p style="color:#999;text-align:center;">加载中...</p>';
+            
+            fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+                if (!data.users || data.users.length === 0) {
+                    list.innerHTML = '<p style="color:#999;text-align:center;">未找到用户</p>';
+                    return;
+                }
+                var html = '<table class="admin-table"><thead><tr>' +
+                    '<th>手机号</th><th>角色</th><th>性别</th><th>年龄</th><th>年级</th><th>创建时间</th>' +
+                    '<th>已读章节</th><th>已读字数</th><th>思考量</th><th>密码</th><th>操作</th>' +
+                    '</tr></thead><tbody>';
+                data.users.forEach(function(u) {
+                    var roleBadge = u.role === 'admin' ? '<span class="admin-badge admin">系统用户</span>' : '<span class="admin-badge user">普通用户</span>';
+                    html += '<tr>' +
+                        '<td>' + (u.phone || '-') + '</td>' +
+                        '<td>' + roleBadge + '</td>' +
+                        '<td>' + (u.gender || '-') + '</td>' +
+                        '<td>' + (u.age || '-') + '</td>' +
+                        '<td>' + (u.grade || '-') + '</td>' +
+                        '<td>' + (u.created_at || '').substring(0, 10) + '</td>' +
+                        '<td>' + (u.read_sections_count || 0) + '</td>' +
+                        '<td>' + (u.read_words_count || 0) + '</td>' +
+                        '<td>' + (u.thoughts_count || 0) + '</td>' +
+                        '<td><button class="admin-inline-btn" onclick="resetUserPassword(' + u.id + ')">重置</button></td>' +
+                        '<td><button class="admin-inline-btn primary" onclick="toggleUserRole(' + u.id + ',\'' + u.role + '\')">' + (u.role === 'admin' ? '设为普通' : '设为系统') + '</button></td>' +
+                        '</tr>';
+                });
+                html += '</tbody></table>';
+                list.innerHTML = html;
+            }).catch(function() { list.innerHTML = '<p style="color:red;text-align:center;">加载失败</p>'; });
         }
 
         function toggleUserRole(userId, currentRole) {
             var newRole = currentRole === 'admin' ? 'user' : 'admin';
-            fetch(API_BASE + '/admin/users/' + userId + '/role', {
+            var label = newRole === 'admin' ? '系统用户' : '普通用户';
+            if (confirm('确定将该用户设为' + label + '？')) {
+                fetch(API_BASE + '/admin/users/' + userId + '/role', {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({role: newRole})
+                }).then(function() { searchAdminUsers(); });
+            }
+        }
+
+        function resetUserPassword(userId) {
+            var newPwd = prompt('请输入新密码（至少6位，包含字母和数字）：');
+            if (!newPwd) return;
+            fetch(API_BASE + '/admin/users/' + userId + '/reset-password', {
                 method: 'PUT', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({role: newRole})
-            }).then(function() { loadAdminUsers(); });
+                body: JSON.stringify({password: newPwd})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                alert(data.message || '密码已重置');
+            }).catch(function() { alert('重置失败'); });
         }
 
-        function resetAuthCode(userId) {
-            fetch(API_BASE + '/admin/users/' + userId + '/auth-code', {method: 'POST'}).then(function(r) { return r.json(); }).then(function(d) {
-                alert('新授权码: ' + d.auth_code);
-            });
+        // Catalog Stats
+        function adminShowCatalogStats(bookId) {
+            var container = document.getElementById('adminCatalogStats');
+            container.innerHTML = '<p style="color:#999;text-align:center;">加载中...</p>';
+            fetch(API_BASE + '/admin/books/' + bookId + '/catalog-stats')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.chapters || data.chapters.length === 0) {
+                        container.innerHTML = '<p style="color:#999;text-align:center;">暂无章节数据</p>';
+                        return;
+                    }
+                    var html = '<div class="catalog-tree">';
+                    data.chapters.forEach(function(ch) {
+                        html += '<div class="catalog-chapter">' +
+                            '<div class="catalog-chapter-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">' +
+                            '<span>第' + toChineseNumber(ch.chapter_number) + '章 ' + (ch.title || '') + '</span>' +
+                            '<span class="catalog-chapter-stats">' + ch.section_count + '节 | ' + ch.total_words + '字 | ' + ch.total_annotations + '点评</span>' +
+                            '</div>';
+                        if (ch.sections && ch.sections.length > 0) {
+                            html += '<div>';
+                            ch.sections.forEach(function(sec) {
+                                html += '<div class="catalog-section-item">' +
+                                    '<span>第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                    '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评</span>' +
+                                    '</div>';
+                            });
+                            html += '</div>';
+                        }
+                        html += '</div>';
+                    });
+                    // Orphan sections
+                    if (data.orphan_sections && data.orphan_sections.length > 0) {
+                        html += '<div class="catalog-chapter">' +
+                            '<div class="catalog-chapter-header">独立节</div><div>';
+                        data.orphan_sections.forEach(function(sec) {
+                            html += '<div class="catalog-section-item">' +
+                                '<span>第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评</span>' +
+                                '</div>';
+                        });
+                        html += '</div></div>';
+                    }
+                    html += '</div>';
+                    container.innerHTML = html;
+                });
         }
 
-        // 订阅审批
-        function loadSubRequests() {
-            fetch(API_BASE + '/admin/subscription-requests').then(function(r) { return r.json(); }).then(function(data) {
-                var list = document.getElementById('adminSubRequests');
-                if (!data.requests || data.requests.length === 0) { list.innerHTML = '<p style="color:#999;">暂无订阅申请</p>'; return; }
-                list.innerHTML = data.requests.map(function(r) {
-                    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee;font-size:13px;">' +
-                        '<span>用户ID:' + r.user_id + ' 申请订阅 书籍ID:' + r.book_id + '</span>' +
-                        '<div><button class="btn btn-sm" style="background:#4CAF50;" onclick="approveSub(' + r.id + ')">通过</button> ' +
-                        '<button class="btn btn-sm" style="background:#f44336;" onclick="rejectSub(' + r.id + ')">拒绝</button></div></div>';
-                }).join('');
-            });
+        // Subscription Management
+        function searchAdminSubscriptions() {
+            var phone = document.getElementById('adminSubPhone').value.trim();
+            if (!phone) { alert('请输入手机号'); return; }
+            var list = document.getElementById('adminSubList');
+            list.innerHTML = '<p style="color:#999;text-align:center;">加载中...</p>';
+            fetch(API_BASE + '/admin/subscriptions?phone=' + encodeURIComponent(phone))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.user) { list.innerHTML = '<p style="color:#999;text-align:center;">未找到该用户</p>'; return; }
+                    var html = '<div style="margin-bottom:15px;padding:10px;background:#f5f5f5;border-radius:8px;font-size:14px;">用户：' + (data.user.phone || '-') + '（' + (data.user.wechat_nickname || '-') + '）</div>';
+                    if (!data.subscriptions || data.subscriptions.length === 0) {
+                        html += '<p style="color:#999;text-align:center;">该用户暂无订阅</p>';
+                    } else {
+                        html += '<table class="admin-table"><thead><tr>' +
+                            '<th>书名</th><th>作者国籍</th><th>版本</th><th>订阅时间</th><th>已读章节</th><th>已读字数</th><th>思考量</th><th>操作</th>' +
+                            '</tr></thead><tbody>';
+                        data.subscriptions.forEach(function(sub) {
+                            html += '<tr>' +
+                                '<td>' + (sub.title || '-') + '</td>' +
+                                '<td>' + (sub.author_nationality || '-') + '</td>' +
+                                '<td>' + (sub.version || '-') + '</td>' +
+                                '<td>' + (sub.subscribed_at || '').substring(0, 10) + '</td>' +
+                                '<td>' + (sub.read_sections_count || 0) + '</td>' +
+                                '<td>' + (sub.read_words_count || 0) + '</td>' +
+                                '<td>' + (sub.thoughts_count || 0) + '</td>' +
+                                '<td><button class="admin-inline-btn danger" onclick="adminRemoveSub(' + sub.user_id + ',' + sub.book_id + ')">取消订阅</button></td>' +
+                                '</tr>';
+                        });
+                        html += '</tbody></table>';
+                    }
+                    list.innerHTML = html;
+                })
+                .catch(function() { list.innerHTML = '<p style="color:red;text-align:center;">查询失败</p>'; });
         }
 
-        function approveSub(reqId) {
-            fetch(API_BASE + '/admin/subscription-requests/' + reqId + '/approve', {method: 'POST'}).then(function() { loadSubRequests(); });
-        }
-
-        function rejectSub(reqId) {
-            fetch(API_BASE + '/admin/subscription-requests/' + reqId + '/reject', {method: 'POST'}).then(function() { loadSubRequests(); });
+        function adminRemoveSub(userId, bookId) {
+            if (confirm('确定取消该订阅？')) {
+                fetch(API_BASE + '/admin/subscriptions', {
+                    method: 'DELETE', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: userId, book_id: bookId})
+                }).then(function() { searchAdminSubscriptions(); });
+            }
         }
 
         // 关闭/刷新页面时保存阅读进度
