@@ -1134,9 +1134,15 @@
                     if (currentPos > 0) {
                         reader.saveProgress(currentPos);
                     }
-                    showPage('catalogPage');
                     player.stop();
                     annotationEditor.exitEditMode();
+                    // 恢复导航栏标题为书名+作者
+                    if (state.currentBook) {
+                        var book = state.currentBook;
+                        document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
+                            (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
+                    }
+                    showPage('catalogPage');
                 } else {
                     // 目录页 → 返回书架
                     showPage('homePage');
