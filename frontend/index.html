@@ -1303,6 +1303,10 @@
                             (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
                     }
                     showPage('catalogPage');
+                    // 重新加载目录数据以刷新阅读状态
+                    if (state.currentBook) {
+                        showBookCatalog(state.currentBook.id);
+                    }
                 } else {
                     // 目录页 → 返回书架
                     showPage('homePage');
