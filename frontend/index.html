@@ -3475,11 +3475,20 @@
         function browseLoadBooks() { browse.loadBooks(); }
 
         // ===== 用户系统 =====
+        // 手机号格式校验
+        function validatePhone(phone) {
+            if (!phone) return '请输入手机号';
+            if (!/^1[3-9]\d{9}$/.test(phone)) return '请输入正确的手机号';
+            return null;
+        }
+
         function doLogin() {
             var phone = document.getElementById('loginPhone').value.trim();
             var password = document.getElementById('loginPassword').value;
             var errEl = document.getElementById('loginError');
-            if (!phone || !password) { errEl.textContent = '请输入手机号和密码'; errEl.style.display = 'block'; return; }
+            var phoneErr = validatePhone(phone);
+            if (phoneErr) { errEl.textContent = phoneErr; errEl.style.display = 'block'; return; }
+            if (!password) { errEl.textContent = '请输入密码'; errEl.style.display = 'block'; return; }
             errEl.style.display = 'none';
             fetch(API_BASE + '/auth/login', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -3508,7 +3517,9 @@
             var phone = document.getElementById('registerPhone').value.trim();
             var password = document.getElementById('registerPassword').value;
             var errEl = document.getElementById('registerError');
-            if (!phone || !password) { errEl.textContent = '请输入手机号和密码'; errEl.style.display = 'block'; return; }
+            var phoneErr = validatePhone(phone);
+            if (phoneErr) { errEl.textContent = phoneErr; errEl.style.display = 'block'; return; }
+            if (!password) { errEl.textContent = '请输入密码'; errEl.style.display = 'block'; return; }
             if (password.length < 6) { errEl.textContent = '密码至少6位'; errEl.style.display = 'block'; return; }
             errEl.style.display = 'none';
             fetch(API_BASE + '/auth/register', {
@@ -3553,7 +3564,8 @@
             var phone = document.getElementById('bindPhone').value.trim();
             var password = document.getElementById('bindPassword').value;
             var errEl = document.getElementById('bindPhoneError');
-            if (!phone) { errEl.textContent = '请输入手机号'; errEl.style.display = 'block'; return; }
+            var phoneErr = validatePhone(phone);
+            if (phoneErr) { errEl.textContent = phoneErr; errEl.style.display = 'block'; return; }
             if (password && password.length < 6) { errEl.textContent = '密码至少6位'; errEl.style.display = 'block'; return; }
             errEl.style.display = 'none';
             fetch(API_BASE + '/auth/bind-phone', {
