@@ -3653,9 +3653,14 @@
             }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
         }
 
+        // 设备检测定时器
+        var deviceCheckInterval = null;
+
         function onLoginSuccess(user) {
             state.currentUser = user;
             localStorage.setItem('userId', user.id);
+            // 存储当前设备ID到localStorage用于后续比对
+            localStorage.setItem('boundDeviceId', getDeviceId());
             // 显示用户按钮
             document.getElementById('userBtn').style.display = '';
             // 系统用户显示管理按钮
@@ -3667,11 +3672,37 @@
             document.getElementById('logoutBtn').style.display = '';
             showPage('homePage');
             loadBooks();
+            // 启动设备检测
+            startDeviceCheck();
+        }
+
+        function startDeviceCheck() {
+            // 每5秒检测一次设备是否被替换
+            if (deviceCheckInterval) clearInterval(deviceCheckInterval);
+            deviceCheckInterval = setInterval(function() {
+                if (!state.currentUser) return;
+                var currentDeviceId = getDeviceId();
+                var boundDeviceId = localStorage.getItem('boundDeviceId');
+                // 如果当前设备ID与绑定的设备ID不一致，说明被换机了
+                if (boundDeviceId && currentDeviceId !== boundDeviceId) {
+                    alert('您的账号已在其他设备登录，本设备已下线');
+                    logout();
+                }
+            }, 5000);
+        }
+
+        function stopDeviceCheck() {
+            if (deviceCheckInterval) {
+                clearInterval(deviceCheckInterval);
+                deviceCheckInterval = null;
+            }
         }
 
         function logout() {
+            stopDeviceCheck();
             state.currentUser = null;
             localStorage.removeItem('userId');
+            localStorage.removeItem('boundDeviceId');
             document.getElementById('adminBtn').style.display = 'none';
             document.getElementById('userBtn').style.display = 'none';
             document.getElementById('logoutBtn').style.display = 'none';
