@@ -3947,8 +3947,9 @@
                 document.getElementById('passwordSection').style.display = 'none';
             } else {
                 document.getElementById('passwordSection').style.display = '';
-                // 如果没有设置密码，隐藏原密码输入框
-                document.getElementById('oldPasswordDiv').style.display = user.password ? 'block' : 'none';
+                // 如果没有设置密码（微信登录用户首次设置密码），显示原密码输入框但提示可为空
+                document.getElementById('oldPasswordDiv').style.display = 'block';
+                document.getElementById('oldPassword').placeholder = user.password ? '请输入原密码' : '首次设置密码可留空';
             }
             
             // 显示当前设备信息
