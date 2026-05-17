@@ -3498,7 +3498,7 @@
         function getDeviceInfo() {
             var ua = navigator.userAgent;
             var deviceInfo = {
-                deviceId: localStorage.getItem('deviceId'),
+                deviceId: '',
                 deviceType: '未知设备',
                 deviceBrand: '',
                 deviceModel: '',
@@ -3511,36 +3511,32 @@
                 language: navigator.language || 'zh-CN'
             };
             
-            // 生成或获取设备ID - 使用硬件特征生成稳定ID
-            if (!deviceInfo.deviceId) {
-                // 提取稳定的硬件特征（只使用最稳定的几个）
-                var ua = navigator.userAgent;
-                
-                // 提取设备型号（Android的Build信息）
-                var deviceModel = '';
-                var buildMatch = ua.match(/;\s*([^;]+)\s+Build\//);
-                if (buildMatch) {
-                    deviceModel = buildMatch[1].trim();
-                } else if (/iPhone|iPad|iPod/.test(ua)) {
-                    deviceModel = /iPad/.test(ua) ? 'iPad' : 'iPhone';
-                }
-                
-                // 基于设备型号+屏幕尺寸生成唯一标识（最稳定的特征）
-                var hardwareFingerprint = deviceModel + '|' + 
-                    window.screen.width + 'x' + window.screen.height;
-                
-                // 简单哈希函数
-                var hash = 0;
-                for (var i = 0; i < hardwareFingerprint.length; i++) {
-                    var char = hardwareFingerprint.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash;
-                }
-                
-                deviceInfo.deviceId = 'D' + Math.abs(hash).toString(16).toUpperCase();
-                localStorage.setItem('deviceId', deviceInfo.deviceId);
-                console.log('[Device] Fingerprint:', hardwareFingerprint, 'ID:', deviceInfo.deviceId);
+            // 生成设备指纹（每次实时生成，不缓存到localStorage）
+            var ua = navigator.userAgent;
+            
+            // 提取设备型号（Android的Build信息）
+            var deviceModel = '';
+            var buildMatch = ua.match(/;\s*([^;]+)\s+Build\//);
+            if (buildMatch) {
+                deviceModel = buildMatch[1].trim();
+            } else if (/iPhone|iPad|iPod/.test(ua)) {
+                deviceModel = /iPad/.test(ua) ? 'iPad' : 'iPhone';
             }
+            
+            // 基于设备型号+屏幕尺寸生成指纹
+            var hardwareFingerprint = deviceModel + '|' + 
+                window.screen.width + 'x' + window.screen.height;
+            
+            // 简单哈希函数
+            var hash = 0;
+            for (var i = 0; i < hardwareFingerprint.length; i++) {
+                var char = hardwareFingerprint.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            
+            deviceInfo.deviceId = 'D' + Math.abs(hash).toString(16).toUpperCase();
+            console.log('[Device] Fingerprint:', hardwareFingerprint, 'ID:', deviceInfo.deviceId);
             
             // iOS设备识别
             if (/iPhone|iPad|iPod/.test(ua)) {
