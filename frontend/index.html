@@ -4099,17 +4099,19 @@
             document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById(pageId).classList.add('active');
 
-            // 阅读页面：隐藏管理按钮，设置标题
+            // 阅读页面：隐藏管理按钮和用户按钮，设置标题
             if (pageId === 'readerPage') {
-                // 阅读页隐藏管理按钮
+                // 阅读页隐藏管理按钮和用户按钮
                 document.getElementById('adminBtn').style.display = 'none';
+                document.getElementById('userBtn').style.display = 'none';
                 // 显示返回按钮
                 document.getElementById('backBtn').style.display = 'block';
                 // 标题已在 openBook 中设置
             } else if (pageId === 'catalogPage') {
-                // 目录页显示返回按钮，隐藏管理按钮
+                // 目录页显示返回按钮，隐藏管理按钮和用户按钮
                 document.getElementById('backBtn').style.display = 'block';
                 document.getElementById('adminBtn').style.display = 'none';
+                document.getElementById('userBtn').style.display = 'none';
                 // 标题由 showBookCatalog 设置，这里不覆盖
                 return; // 不执行下面的标题重置
             } else {
