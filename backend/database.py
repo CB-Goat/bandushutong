@@ -158,10 +158,30 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            phone TEXT NOT NULL UNIQUE,
-            auth_code TEXT NOT NULL,
+            phone TEXT UNIQUE,
+            password TEXT,
+            wechat_openid TEXT UNIQUE,
+            wechat_nickname TEXT,
+            wechat_avatar TEXT,
+            gender TEXT,
+            age INTEGER,
+            grade TEXT,
             role TEXT DEFAULT 'user',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # 用户留言表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            admin_reply TEXT,
+            is_read INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            replied_at TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
 
@@ -263,13 +283,14 @@ def init_db():
 
 # ===== 用户系统 =====
 
-def create_user(phone, auth_code, role='user'):
-    """创建用户"""
+def create_user(phone=None, password=None, wechat_openid=None, wechat_nickname=None, wechat_avatar=None, role='user'):
+    """创建用户（支持手机号或微信登录）"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT INTO users (phone, auth_code, role) VALUES (?, ?, ?)',
-        (phone, auth_code, role)
+        '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, role) 
+           VALUES (?, ?, ?, ?, ?, ?)''',
+        (phone, password, wechat_openid, wechat_nickname, wechat_avatar, role)
     )
     user_id = cursor.lastrowid
     conn.commit()
@@ -281,6 +302,15 @@ def get_user_by_phone(phone):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM users WHERE phone = ?', (phone,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_user_by_wechat_openid(wechat_openid):
+    """通过微信openid获取用户"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users WHERE wechat_openid = ?', (wechat_openid,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -311,6 +341,57 @@ def update_user_role(user_id, role):
     conn.commit()
     conn.close()
 
+def update_user_profile(user_id, gender=None, age=None, grade=None):
+    """更新用户个人信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    updates = []
+    params = []
+    if gender is not None:
+        updates.append('gender = ?')
+        params.append(gender)
+    if age is not None:
+        updates.append('age = ?')
+        params.append(age)
+    if grade is not None:
+        updates.append('grade = ?')
+        params.append(grade)
+    if updates:
+        params.append(user_id)
+        cursor.execute(f'UPDATE users SET {", ".join(updates)} WHERE id = ?', params)
+        conn.commit()
+    conn.close()
+
+def update_user_phone(user_id, phone, password=None):
+    """绑定/更新用户手机号和密码"""
+    conn = get_db()
+    cursor = conn.cursor()
+    if password:
+        cursor.execute('UPDATE users SET phone = ?, password = ? WHERE id = ?', (phone, password, user_id))
+    else:
+        cursor.execute('UPDATE users SET phone = ? WHERE id = ?', (phone, user_id))
+    conn.commit()
+    conn.close()
+
+def update_user_password(user_id, password):
+    """更新用户密码"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET password = ? WHERE id = ?', (password, user_id))
+    conn.commit()
+    conn.close()
+
+def update_user_wechat(user_id, wechat_openid, wechat_nickname=None, wechat_avatar=None):
+    """更新用户微信信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE users SET wechat_openid = ?, wechat_nickname = ?, wechat_avatar = ? WHERE id = ?',
+        (wechat_openid, wechat_nickname, wechat_avatar, user_id)
+    )
+    conn.commit()
+    conn.close()
+
 def delete_user(user_id):
     """删除用户"""
     conn = get_db()
@@ -319,19 +400,66 @@ def delete_user(user_id):
     conn.commit()
     conn.close()
 
-def verify_user(phone, auth_code):
-    """验证用户登录"""
+def verify_user_phone_password(phone, password):
+    """验证手机号密码登录"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE phone = ? AND auth_code = ?', (phone, auth_code))
+    cursor.execute('SELECT * FROM users WHERE phone = ? AND password = ?', (phone, password))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
 
-def generate_auth_code():
-    """生成6位随机授权码"""
-    import random, string
-    return ''.join(random.choices(string.digits, k=6))
+# ===== 留言系统 =====
+
+def add_message(user_id, content):
+    """添加用户留言"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'INSERT INTO messages (user_id, content) VALUES (?, ?)',
+        (user_id, content)
+    )
+    message_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return message_id
+
+def get_messages_by_user(user_id):
+    """获取用户的留言"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'SELECT * FROM messages WHERE user_id = ? ORDER BY created_at DESC',
+        (user_id,)
+    )
+    messages = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return messages
+
+def get_all_messages():
+    """获取所有留言（管理员用）"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT m.*, u.wechat_nickname, u.phone 
+        FROM messages m 
+        LEFT JOIN users u ON m.user_id = u.id 
+        ORDER BY m.created_at DESC
+    ''')
+    messages = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return messages
+
+def reply_message(message_id, admin_reply):
+    """管理员回复留言"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE messages SET admin_reply = ?, replied_at = CURRENT_TIMESTAMP WHERE id = ?',
+        (admin_reply, message_id)
+    )
+    conn.commit()
+    conn.close()
 
 # ===== 订阅系统 =====
 

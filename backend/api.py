@@ -21,7 +21,9 @@ from backend.database import (
     get_sections_by_chapter, update_section, delete_section, update_section_word_count,
     set_section_status, get_section_status, get_all_section_status, get_book_reading_stats,
     # 用户系统
-    create_user, verify_user, get_user, get_user_by_phone, get_all_users, update_user_role, delete_user, generate_auth_code,
+    create_user, get_user, get_user_by_phone, get_user_by_wechat_openid, get_all_users, update_user_role, delete_user,
+    update_user_profile, update_user_phone, update_user_password, update_user_wechat, verify_user_phone_password,
+    add_message, get_messages_by_user, get_all_messages, reply_message
     # 订阅系统
     subscribe_book, get_user_subscriptions, check_book_access, get_subscription_requests, add_subscription_request, approve_subscription_request, reject_subscription_request,
     # 思考系统
@@ -619,36 +621,96 @@ def get_reading_status(book_id):
 
 # ===== 用户 API =====
 
+@api_bp.route('/auth/wechat-login', methods=['POST'])
+def wechat_login():
+    """微信登录（从公众号链接进入）"""
+    data = request.json
+    wechat_openid = data.get('wechat_openid', '').strip()
+    wechat_nickname = data.get('wechat_nickname', '').strip()
+    wechat_avatar = data.get('wechat_avatar', '').strip()
+    
+    if not wechat_openid:
+        return jsonify({'error': '缺少微信身份信息'}), 400
+    
+    # 查找是否已有该微信openid的用户
+    user = get_user_by_wechat_openid(wechat_openid)
+    if user:
+        # 已存在，更新微信信息
+        update_user_wechat(user['id'], wechat_openid, wechat_nickname, wechat_avatar)
+        user = get_user(user['id'])
+    else:
+        # 创建新用户
+        user_id = create_user(
+            wechat_openid=wechat_openid,
+            wechat_nickname=wechat_nickname,
+            wechat_avatar=wechat_avatar,
+            role='user'
+        )
+        user = get_user(user_id)
+    
+    # 移除敏感信息
+    user.pop('password', None)
+    return jsonify({'user': user})
+
 @api_bp.route('/auth/login', methods=['POST'])
 def login():
-    """用户登录"""
+    """手机号密码登录"""
     data = request.json
     phone = data.get('phone', '').strip()
-    auth_code = data.get('auth_code', '').strip()
-    if not phone or not auth_code:
-        return jsonify({'error': '请输入手机号和授权码'}), 400
-    user = verify_user(phone, auth_code)
+    password = data.get('password', '').strip()
+    
+    if not phone or not password:
+        return jsonify({'error': '请输入手机号和密码'}), 400
+    
+    user = verify_user_phone_password(phone, password)
     if not user:
-        return jsonify({'error': '手机号或授权码错误'}), 401
-    # 不返回auth_code
-    user.pop('auth_code', None)
+        return jsonify({'error': '手机号或密码错误'}), 401
+    
+    user.pop('password', None)
     return jsonify({'user': user})
 
 @api_bp.route('/auth/register', methods=['POST'])
 def register():
-    """用户注册（需要授权码）"""
+    """用户注册（手机号+密码）"""
     data = request.json
     phone = data.get('phone', '').strip()
-    auth_code = data.get('auth_code', '').strip()
-    if not phone or not auth_code:
-        return jsonify({'error': '请输入手机号和授权码'}), 400
+    password = data.get('password', '').strip()
+    
+    if not phone or not password:
+        return jsonify({'error': '请输入手机号和密码'}), 400
+    
+    if len(password) < 6:
+        return jsonify({'error': '密码至少6位'}), 400
+    
     existing = get_user_by_phone(phone)
     if existing:
         return jsonify({'error': '该手机号已注册'}), 400
-    user_id = create_user(phone, auth_code, 'user')
+    
+    user_id = create_user(phone=phone, password=password, role='user')
     user = get_user(user_id)
-    user.pop('auth_code', None)
+    user.pop('password', None)
     return jsonify({'user': user, 'message': '注册成功'})
+
+@api_bp.route('/auth/bind-phone', methods=['POST'])
+def bind_phone():
+    """绑定手机号（微信用户首次登录时）"""
+    data = request.json
+    user_id = data.get('user_id')
+    phone = data.get('phone', '').strip()
+    password = data.get('password', '').strip()
+    
+    if not user_id or not phone:
+        return jsonify({'error': '缺少必要参数'}), 400
+    
+    # 检查手机号是否已被其他用户绑定
+    existing = get_user_by_phone(phone)
+    if existing and existing['id'] != user_id:
+        return jsonify({'error': '该手机号已被其他用户绑定'}), 400
+    
+    update_user_phone(user_id, phone, password if password else None)
+    user = get_user(user_id)
+    user.pop('password', None)
+    return jsonify({'user': user, 'message': '绑定成功'})
 
 @api_bp.route('/auth/check', methods=['GET'])
 def check_auth():
@@ -659,8 +721,78 @@ def check_auth():
     user = get_user(int(user_id))
     if not user:
         return jsonify({'error': '用户不存在'}), 401
-    user.pop('auth_code', None)
+    user.pop('password', None)
     return jsonify({'user': user})
+
+@api_bp.route('/users/<int:user_id>/profile', methods=['PUT'])
+def update_profile(user_id):
+    """更新用户个人信息"""
+    data = request.json
+    gender = data.get('gender')
+    age = data.get('age')
+    grade = data.get('grade')
+    update_user_profile(user_id, gender, age, grade)
+    user = get_user(user_id)
+    user.pop('password', None)
+    return jsonify({'user': user, 'message': '更新成功'})
+
+@api_bp.route('/users/<int:user_id>/password', methods=['PUT'])
+def change_password(user_id):
+    """修改密码"""
+    data = request.json
+    old_password = data.get('old_password', '').strip()
+    new_password = data.get('new_password', '').strip()
+    
+    if not new_password or len(new_password) < 6:
+        return jsonify({'error': '新密码至少6位'}), 400
+    
+    user = get_user(user_id)
+    if not user:
+        return jsonify({'error': '用户不存在'}), 404
+    
+    # 如果已有密码，需要验证旧密码
+    if user.get('password') and user['password'] != old_password:
+        return jsonify({'error': '原密码错误'}), 401
+    
+    update_user_password(user_id, new_password)
+    return jsonify({'message': '密码修改成功'})
+
+# ===== 留言 API =====
+
+@api_bp.route('/messages', methods=['POST'])
+def post_message():
+    """用户提交留言"""
+    data = request.json
+    user_id = data.get('user_id')
+    content = data.get('content', '').strip()
+    
+    if not user_id or not content:
+        return jsonify({'error': '缺少必要参数'}), 400
+    
+    message_id = add_message(user_id, content)
+    return jsonify({'message_id': message_id, 'message': '留言提交成功'})
+
+@api_bp.route('/users/<int:user_id>/messages', methods=['GET'])
+def get_user_messages(user_id):
+    """获取用户的留言列表"""
+    messages = get_messages_by_user(user_id)
+    return jsonify({'messages': messages})
+
+@api_bp.route('/admin/messages', methods=['GET'])
+def admin_get_messages():
+    """管理员获取所有留言"""
+    messages = get_all_messages()
+    return jsonify({'messages': messages})
+
+@api_bp.route('/admin/messages/<int:message_id>/reply', methods=['POST'])
+def admin_reply_message(message_id):
+    """管理员回复留言"""
+    data = request.json
+    admin_reply = data.get('reply', '').strip()
+    if not admin_reply:
+        return jsonify({'error': '回复内容不能为空'}), 400
+    reply_message(message_id, admin_reply)
+    return jsonify({'message': '回复成功'})
 
 # ===== 订阅 API =====
 
@@ -706,7 +838,7 @@ def admin_list_users():
     """获取所有用户"""
     users = get_all_users()
     for u in users:
-        u.pop('auth_code', None)
+        u.pop('password', None)
     return jsonify({'users': users})
 
 @api_bp.route('/admin/users/<int:user_id>/role', methods=['PUT'])
@@ -718,18 +850,6 @@ def admin_update_role(user_id):
         return jsonify({'error': '无效的角色'}), 400
     update_user_role(user_id, role)
     return jsonify({'message': '更新成功'})
-
-@api_bp.route('/admin/users/<int:user_id>/auth-code', methods=['POST'])
-def admin_reset_auth_code(user_id):
-    """重置用户授权码"""
-    from backend.database import get_db
-    new_code = generate_auth_code()
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute('UPDATE users SET auth_code = ? WHERE id = ?', (new_code, user_id))
-    conn.commit()
-    conn.close()
-    return jsonify({'auth_code': new_code})
 
 # ===== 管理员-订阅审批 API =====
 

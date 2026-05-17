@@ -840,6 +840,7 @@
         <h1 id="navbarTitle" style="flex:1;text-align:center;margin:0;">伴读书童</h1>
         <div style="display:flex;gap:8px;align-items:center;">
             <button class="navbar-btn" id="adminBtn" onclick="showPage('adminPage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">⚙️ 管理</button>
+            <button class="navbar-btn" id="userBtn" onclick="showUserPage()" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">👤 用户</button>
             <button class="navbar-btn" id="homeBtn" onclick="showPage('homePage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">🏠 返回书架</button>
             <button class="navbar-btn" id="logoutBtn" onclick="logout()" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">退出</button>
         </div>
@@ -851,17 +852,141 @@
             <div style="max-width:400px;margin:60px auto;padding:30px;">
                 <h1 style="text-align:center;color:#2d5016;margin-bottom:30px;font-size:28px;">伴读书童</h1>
                 <div style="background:white;border-radius:12px;padding:30px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
-                    <h3 style="margin:0 0 20px;text-align:center;color:#333;">登录 / 注册</h3>
+                    <!-- 微信登录区域（从公众号链接进入时显示） -->
+                    <div id="wechatLoginArea" style="display:none;text-align:center;margin-bottom:20px;">
+                        <img id="wechatAvatar" src="" style="width:60px;height:60px;border-radius:50%;margin-bottom:10px;">
+                        <div id="wechatNickname" style="font-size:16px;color:#333;font-weight:bold;"></div>
+                        <div style="font-size:12px;color:#999;margin-top:5px;">微信登录</div>
+                    </div>
+                    
+                    <h3 style="margin:0 0 20px;text-align:center;color:#333;" id="loginTitle">登录</h3>
                     <div style="margin-bottom:15px;">
                         <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">手机号码</label>
                         <input type="tel" id="loginPhone" placeholder="请输入手机号" maxlength="11" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
                     </div>
                     <div style="margin-bottom:20px;">
-                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">授权码</label>
-                        <input type="text" id="loginAuthCode" placeholder="请输入授权码" maxlength="6" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">密码</label>
+                        <input type="password" id="loginPassword" placeholder="请输入密码" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
                     </div>
-                    <button onclick="doLogin()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">登录 / 注册</button>
+                    <button onclick="doLogin()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">登录</button>
+                    <button onclick="showRegister()" style="width:100%;padding:12px;background:white;color:#2d5016;border:1px solid #2d5016;border-radius:8px;font-size:16px;cursor:pointer;margin-top:10px;">注册新账号</button>
                     <p id="loginError" style="color:red;font-size:13px;text-align:center;margin-top:10px;display:none;"></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 注册弹窗 -->
+        <div id="registerModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;">
+            <div style="background:white;border-radius:12px;padding:30px;width:90%;max-width:350px;">
+                <h3 style="margin:0 0 20px;text-align:center;color:#333;">注册新账号</h3>
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">手机号码</label>
+                    <input type="tel" id="registerPhone" placeholder="请输入手机号" maxlength="11" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">密码（至少6位）</label>
+                    <input type="password" id="registerPassword" placeholder="请设置密码" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="hideRegister()" style="flex:1;padding:12px;background:#f5f5f5;color:#333;border:none;border-radius:8px;font-size:16px;cursor:pointer;">取消</button>
+                    <button onclick="doRegister()" style="flex:1;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">注册</button>
+                </div>
+                <p id="registerError" style="color:red;font-size:13px;text-align:center;margin-top:10px;display:none;"></p>
+            </div>
+        </div>
+        
+        <!-- 绑定手机弹窗（微信用户首次登录） -->
+        <div id="bindPhoneModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;">
+            <div style="background:white;border-radius:12px;padding:30px;width:90%;max-width:350px;">
+                <h3 style="margin:0 0 20px;text-align:center;color:#333;">绑定手机号</h3>
+                <p style="font-size:13px;color:#666;margin-bottom:15px;text-align:center;">绑定手机号后可使用手机号密码登录</p>
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">手机号码</label>
+                    <input type="tel" id="bindPhone" placeholder="请输入手机号" maxlength="11" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">密码（可选，至少6位）</label>
+                    <input type="password" id="bindPassword" placeholder="设置密码后可用手机号登录" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="skipBindPhone()" style="flex:1;padding:12px;background:#f5f5f5;color:#333;border:none;border-radius:8px;font-size:16px;cursor:pointer;">跳过</button>
+                    <button onclick="doBindPhone()" style="flex:1;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">绑定</button>
+                </div>
+                <p id="bindPhoneError" style="color:red;font-size:13px;text-align:center;margin-top:10px;display:none;"></p>
+            </div>
+        </div>
+        
+        <!-- 用户中心页面 -->
+        <div class="page" id="userPage">
+            <div style="max-width:500px;margin:20px auto;padding:20px;">
+                <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);margin-bottom:20px;">
+                    <h3 style="margin:0 0 20px;color:#333;">个人信息</h3>
+                    <div style="display:flex;align-items:center;margin-bottom:20px;">
+                        <img id="userAvatar" src="" style="width:60px;height:60px;border-radius:50%;margin-right:15px;background:#f5f5f5;">
+                        <div>
+                            <div id="userDisplayName" style="font-size:18px;font-weight:bold;color:#333;"></div>
+                            <div id="userPhone" style="font-size:13px;color:#999;margin-top:4px;"></div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">性别</label>
+                        <select id="userGender" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                            <option value="">未设置</option>
+                            <option value="male">男</option>
+                            <option value="female">女</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">年龄</label>
+                        <input type="number" id="userAge" placeholder="请输入年龄" min="1" max="120" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">年级</label>
+                        <select id="userGrade" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                            <option value="">未设置</option>
+                            <option value="小学一年级">小学一年级</option>
+                            <option value="小学二年级">小学二年级</option>
+                            <option value="小学三年级">小学三年级</option>
+                            <option value="小学四年级">小学四年级</option>
+                            <option value="小学五年级">小学五年级</option>
+                            <option value="小学六年级">小学六年级</option>
+                            <option value="初中一年级">初中一年级</option>
+                            <option value="初中二年级">初中二年级</option>
+                            <option value="初中三年级">初中三年级</option>
+                            <option value="高中一年级">高中一年级</option>
+                            <option value="高中二年级">高中二年级</option>
+                            <option value="高中三年级">高中三年级</option>
+                            <option value="大学生">大学生</option>
+                            <option value="成人">成人</option>
+                        </select>
+                    </div>
+                    <button onclick="saveProfile()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">保存个人信息</button>
+                </div>
+                
+                <!-- 修改密码 -->
+                <div id="passwordSection" style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);margin-bottom:20px;">
+                    <h3 style="margin:0 0 20px;color:#333;">修改密码</h3>
+                    <div id="oldPasswordDiv" style="margin-bottom:15px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">原密码</label>
+                        <input type="password" id="oldPassword" placeholder="请输入原密码" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">新密码（至少6位）</label>
+                        <input type="password" id="newPassword" placeholder="请输入新密码" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                    </div>
+                    <button onclick="changePassword()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">修改密码</button>
+                </div>
+                
+                <!-- 留言 -->
+                <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+                    <h3 style="margin:0 0 20px;color:#333;">留言反馈</h3>
+                    <div style="margin-bottom:15px;">
+                        <textarea id="messageContent" rows="4" placeholder="请输入您的需求、意见或建议..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+                    </div>
+                    <button onclick="submitMessage()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">提交留言</button>
+                    
+                    <!-- 留言记录 -->
+                    <div id="messageList" style="margin-top:20px;"></div>
                 </div>
             </div>
         </div>
@@ -3340,29 +3465,94 @@
         // ===== 用户系统 =====
         function doLogin() {
             var phone = document.getElementById('loginPhone').value.trim();
-            var authCode = document.getElementById('loginAuthCode').value.trim();
+            var password = document.getElementById('loginPassword').value;
             var errEl = document.getElementById('loginError');
-            if (!phone || !authCode) { errEl.textContent = '请输入手机号和授权码'; errEl.style.display = 'block'; return; }
+            if (!phone || !password) { errEl.textContent = '请输入手机号和密码'; errEl.style.display = 'block'; return; }
             errEl.style.display = 'none';
-            // 先尝试登录
             fetch(API_BASE + '/auth/login', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({phone: phone, auth_code: authCode})
+                body: JSON.stringify({phone: phone, password: password})
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.user) {
                     onLoginSuccess(data.user);
                 } else {
-                    // 登录失败，尝试注册
-                    fetch(API_BASE + '/auth/register', {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({phone: phone, auth_code: authCode})
-                    }).then(function(r2) { return r2.json(); }).then(function(data2) {
-                        if (data2.user) {
-                            onLoginSuccess(data2.user);
-                        } else {
-                            errEl.textContent = data2.error || '注册失败'; errEl.style.display = 'block';
-                        }
-                    });
+                    errEl.textContent = data.error || '登录失败'; errEl.style.display = 'block';
+                }
+            }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
+        }
+
+        function showRegister() {
+            document.getElementById('registerModal').style.display = 'flex';
+            document.getElementById('registerPhone').value = '';
+            document.getElementById('registerPassword').value = '';
+            document.getElementById('registerError').style.display = 'none';
+        }
+
+        function hideRegister() {
+            document.getElementById('registerModal').style.display = 'none';
+        }
+
+        function doRegister() {
+            var phone = document.getElementById('registerPhone').value.trim();
+            var password = document.getElementById('registerPassword').value;
+            var errEl = document.getElementById('registerError');
+            if (!phone || !password) { errEl.textContent = '请输入手机号和密码'; errEl.style.display = 'block'; return; }
+            if (password.length < 6) { errEl.textContent = '密码至少6位'; errEl.style.display = 'block'; return; }
+            errEl.style.display = 'none';
+            fetch(API_BASE + '/auth/register', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({phone: phone, password: password})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.user) {
+                    hideRegister();
+                    onLoginSuccess(data.user);
+                } else {
+                    errEl.textContent = data.error || '注册失败'; errEl.style.display = 'block';
+                }
+            }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
+        }
+
+        // 微信登录（从公众号链接进入时调用）
+        function wechatLogin(openid, nickname, avatar) {
+            fetch(API_BASE + '/auth/wechat-login', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wechat_openid: openid, wechat_nickname: nickname, wechat_avatar: avatar})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.user) {
+                    if (!data.user.phone) {
+                        // 未绑定手机号，显示绑定弹窗
+                        state.currentUser = data.user;
+                        document.getElementById('bindPhoneModal').style.display = 'flex';
+                    } else {
+                        onLoginSuccess(data.user);
+                    }
+                }
+            });
+        }
+
+        function skipBindPhone() {
+            document.getElementById('bindPhoneModal').style.display = 'none';
+            if (state.currentUser) {
+                onLoginSuccess(state.currentUser);
+            }
+        }
+
+        function doBindPhone() {
+            var phone = document.getElementById('bindPhone').value.trim();
+            var password = document.getElementById('bindPassword').value;
+            var errEl = document.getElementById('bindPhoneError');
+            if (!phone) { errEl.textContent = '请输入手机号'; errEl.style.display = 'block'; return; }
+            if (password && password.length < 6) { errEl.textContent = '密码至少6位'; errEl.style.display = 'block'; return; }
+            errEl.style.display = 'none';
+            fetch(API_BASE + '/auth/bind-phone', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user_id: state.currentUser.id, phone: phone, password: password || null})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.user) {
+                    document.getElementById('bindPhoneModal').style.display = 'none';
+                    onLoginSuccess(data.user);
+                } else {
+                    errEl.textContent = data.error || '绑定失败'; errEl.style.display = 'block';
                 }
             }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
         }
@@ -3370,6 +3560,8 @@
         function onLoginSuccess(user) {
             state.currentUser = user;
             localStorage.setItem('userId', user.id);
+            // 显示用户按钮
+            document.getElementById('userBtn').style.display = '';
             // 系统用户显示管理按钮
             if (user.role === 'admin') {
                 document.getElementById('adminBtn').style.display = '';
@@ -3385,9 +3577,10 @@
             state.currentUser = null;
             localStorage.removeItem('userId');
             document.getElementById('adminBtn').style.display = 'none';
+            document.getElementById('userBtn').style.display = 'none';
             document.getElementById('logoutBtn').style.display = 'none';
             document.getElementById('loginPhone').value = '';
-            document.getElementById('loginAuthCode').value = '';
+            document.getElementById('loginPassword').value = '';
             showPage('loginPage');
         }
 
@@ -3404,6 +3597,117 @@
             } else {
                 showPage('loginPage');
             }
+        }
+
+        // ===== 用户中心 =====
+        function showUserPage() {
+            showPage('userPage');
+            loadUserProfile();
+            loadUserMessages();
+        }
+
+        function loadUserProfile() {
+            var user = state.currentUser;
+            if (!user) return;
+            
+            // 显示头像和名称
+            var avatar = user.wechat_avatar || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23ddd"/><text x="50" y="60" text-anchor="middle" font-size="40" fill="%23999">👤</text></svg>';
+            document.getElementById('userAvatar').src = avatar;
+            document.getElementById('userDisplayName').textContent = user.wechat_nickname || user.phone || '用户';
+            document.getElementById('userPhone').textContent = user.phone ? '手机: ' + user.phone : '未绑定手机号';
+            
+            // 填充个人信息
+            document.getElementById('userGender').value = user.gender || '';
+            document.getElementById('userAge').value = user.age || '';
+            document.getElementById('userGrade').value = user.grade || '';
+            
+            // 如果没有绑定手机号，隐藏密码修改区域
+            if (!user.phone) {
+                document.getElementById('passwordSection').style.display = 'none';
+            } else {
+                document.getElementById('passwordSection').style.display = '';
+                // 如果没有设置密码，隐藏原密码输入框
+                document.getElementById('oldPasswordDiv').style.display = user.password ? 'block' : 'none';
+            }
+        }
+
+        function saveProfile() {
+            var gender = document.getElementById('userGender').value;
+            var age = document.getElementById('userAge').value;
+            var grade = document.getElementById('userGrade').value;
+            
+            fetch(API_BASE + '/users/' + state.currentUser.id + '/profile', {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({gender: gender, age: age ? parseInt(age) : null, grade: grade})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.user) {
+                    state.currentUser = data.user;
+                    alert('保存成功');
+                } else {
+                    alert(data.error || '保存失败');
+                }
+            }).catch(function() { alert('网络错误'); });
+        }
+
+        function changePassword() {
+            var oldPassword = document.getElementById('oldPassword').value;
+            var newPassword = document.getElementById('newPassword').value;
+            
+            if (!newPassword || newPassword.length < 6) { alert('新密码至少6位'); return; }
+            
+            fetch(API_BASE + '/users/' + state.currentUser.id + '/password', {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({old_password: oldPassword, new_password: newPassword})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.message) {
+                    alert('密码修改成功');
+                    document.getElementById('oldPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                } else {
+                    alert(data.error || '修改失败');
+                }
+            }).catch(function() { alert('网络错误'); });
+        }
+
+        function submitMessage() {
+            var content = document.getElementById('messageContent').value.trim();
+            if (!content) { alert('请输入留言内容'); return; }
+            
+            fetch(API_BASE + '/messages', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user_id: state.currentUser.id, content: content})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.message) {
+                    document.getElementById('messageContent').value = '';
+                    loadUserMessages();
+                    alert('留言提交成功');
+                } else {
+                    alert(data.error || '提交失败');
+                }
+            }).catch(function() { alert('网络错误'); });
+        }
+
+        function loadUserMessages() {
+            fetch(API_BASE + '/users/' + state.currentUser.id + '/messages').then(function(r) { return r.json(); }).then(function(data) {
+                var list = document.getElementById('messageList');
+                list.innerHTML = '';
+                if (!data.messages || data.messages.length === 0) {
+                    list.innerHTML = '<p style="color:#999;text-align:center;">暂无留言记录</p>';
+                    return;
+                }
+                data.messages.forEach(function(msg) {
+                    var div = document.createElement('div');
+                    div.style.cssText = 'border-top:1px solid #eee;padding:15px 0;';
+                    div.innerHTML = '<div style="font-size:13px;color:#666;margin-bottom:8px;">' + msg.created_at + '</div>' +
+                        '<div style="font-size:15px;color:#333;">' + msg.content + '</div>';
+                    if (msg.admin_reply) {
+                        div.innerHTML += '<div style="margin-top:10px;padding:10px;background:#f5f5f5;border-radius:6px;">' +
+                            '<div style="font-size:12px;color:#2d5016;margin-bottom:5px;">管理员回复：</div>' +
+                            '<div style="font-size:14px;color:#333;">' + msg.admin_reply + '</div></div>';
+                    }
+                    list.appendChild(div);
+                });
+            });
         }
 
         // ===== 页面切换 =====
@@ -3442,9 +3746,15 @@
             if (pageId === 'adminPage') {
                 document.getElementById('homeBtn').style.display = '';
                 document.getElementById('adminBtn').style.display = 'none';
+                document.getElementById('userBtn').style.display = 'none';
                 if (typeof admin !== 'undefined' && admin.loadBooks) admin.loadBooks();
                 loadAdminUsers();
                 loadSubRequests();
+            } else if (pageId === 'userPage') {
+                // 用户页面显示返回书架按钮
+                document.getElementById('homeBtn').style.display = '';
+                document.getElementById('adminBtn').style.display = 'none';
+                document.getElementById('userBtn').style.display = 'none';
             } else {
                 document.getElementById('homeBtn').style.display = 'none';
             }
