@@ -3677,17 +3677,21 @@
         }
 
         function startDeviceCheck() {
-            // 每5秒检测一次设备是否被替换
+            // 每5秒从服务器获取当前绑定的设备ID进行比对
             if (deviceCheckInterval) clearInterval(deviceCheckInterval);
             deviceCheckInterval = setInterval(function() {
                 if (!state.currentUser) return;
                 var currentDeviceId = getDeviceId();
-                var boundDeviceId = localStorage.getItem('boundDeviceId');
-                // 如果当前设备ID与绑定的设备ID不一致，说明被换机了
-                if (boundDeviceId && currentDeviceId !== boundDeviceId) {
-                    alert('您的账号已在其他设备登录，本设备已下线');
-                    logout();
-                }
+                // 从服务器获取用户当前绑定的设备ID
+                fetch(API_BASE + '/auth/check?user_id=' + state.currentUser.id)
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.user && data.user.device_id && data.user.device_id !== currentDeviceId) {
+                            alert('您的账号已在其他设备登录，本设备已下线');
+                            logout();
+                        }
+                    })
+                    .catch(function() {});
             }, 5000);
         }
 
