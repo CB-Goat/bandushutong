@@ -1585,6 +1585,8 @@
                     .catch(function() {})
                     .finally(function() {
                         showPage('readerPage');
+                        // 确保阅读页隐藏用户按钮
+                        document.getElementById('userBtn').style.display = 'none';
                         reader.renderCurrentSection();
                     });
                 
