@@ -514,13 +514,13 @@ def verify_transfer_code(user_id, transfer_code):
         conn.close()
         return False, '校验码错误'
     
-    # 检查是否超过1分钟
-    from datetime import datetime, timedelta
+    # 检查是否超过1分钟 - 使用UTC时间避免时区问题
+    from datetime import datetime, timedelta, timezone
     created_at_str = row['created_at']
-    # 处理SQLite时间格式 - SQLite返回的是本地时间字符串
-    created_at = datetime.strptime(created_at_str, '%Y-%m-%d %H:%M:%S')
-    # 获取当前时间（本地时间）
-    now = datetime.now()
+    # 解析数据库时间（SQLite存储的是UTC时间）
+    created_at = datetime.strptime(created_at_str, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+    # 获取当前UTC时间
+    now = datetime.now(timezone.utc)
     # 计算时间差
     diff = now - created_at
     print(f"[DEBUG] Transfer code check: created_at={created_at}, now={now}, diff={diff.total_seconds()}s")
@@ -535,12 +535,6 @@ def verify_transfer_code(user_id, transfer_code):
     return True, '验证成功'
 
 # ===== 订阅系统 =====
-    
-    # 验证成功，删除校验码
-    cursor.execute('DELETE FROM device_transfer_codes WHERE id = ?', (row['id'],))
-    conn.commit()
-    conn.close()
-    return True, '验证成功'
 
 # ===== 订阅系统 =====
 
