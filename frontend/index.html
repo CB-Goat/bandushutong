@@ -3502,9 +3502,15 @@
             var deviceInfo = {
                 deviceId: localStorage.getItem('deviceId'),
                 deviceType: '未知设备',
+                deviceBrand: '',
+                deviceModel: '',
                 os: '未知系统',
+                osVersion: '',
                 browser: '未知浏览器',
-                screenSize: window.screen.width + 'x' + window.screen.height
+                browserVersion: '',
+                screenSize: window.screen.width + 'x' + window.screen.height,
+                devicePixelRatio: window.devicePixelRatio || 1,
+                language: navigator.language || 'zh-CN'
             };
             
             // 生成或获取设备ID
@@ -3513,43 +3519,101 @@
                 localStorage.setItem('deviceId', deviceInfo.deviceId);
             }
             
-            // 判断设备类型
+            // iOS设备识别
             if (/iPhone|iPad|iPod/.test(ua)) {
-                deviceInfo.deviceType = '苹果' + (/iPad/.test(ua) ? 'iPad' : 'iPhone');
-                deviceInfo.os = 'iOS ' + (/OS (\d+)[_\d]+/.test(ua) ? RegExp.$1 : '');
-            } else if (/Android/.test(ua)) {
-                deviceInfo.deviceType = '安卓手机';
+                if (/iPad/.test(ua)) {
+                    deviceInfo.deviceType = 'iPad';
+                } else if (/iPhone/.test(ua)) {
+                    deviceInfo.deviceType = 'iPhone';
+                } else {
+                    deviceInfo.deviceType = 'iPod';
+                }
+                deviceInfo.deviceBrand = 'Apple';
+                // 尝试获取iOS版本
+                var iosMatch = ua.match(/OS (\d+)[_\d]+/);
+                if (iosMatch) {
+                    deviceInfo.os = 'iOS';
+                    deviceInfo.osVersion = iosMatch[1];
+                }
+            } 
+            // Android设备识别
+            else if (/Android/.test(ua)) {
+                deviceInfo.deviceBrand = 'Android';
+                // 尝试获取设备品牌和型号
+                var androidBrandMatch = ua.match(/;\s*([^;]+)\s+Build\//);
+                if (androidBrandMatch) {
+                    var brandModel = androidBrandMatch[1].trim();
+                    // 常见品牌识别
+                    var brands = ['Samsung', 'HUAWEI', 'Xiaomi', 'OPPO', 'vivo', 'OnePlus', 'Realme', 'Redmi', 'Honor'];
+                    for (var i = 0; i < brands.length; i++) {
+                        if (brandModel.toLowerCase().indexOf(brands[i].toLowerCase()) !== -1 || 
+                            ua.toLowerCase().indexOf(brands[i].toLowerCase()) !== -1) {
+                            deviceInfo.deviceBrand = brands[i];
+                            break;
+                        }
+                    }
+                    deviceInfo.deviceModel = brandModel;
+                }
+                
                 if (/Mobile/.test(ua)) {
                     deviceInfo.deviceType = '安卓手机';
                 } else {
                     deviceInfo.deviceType = '安卓平板';
                 }
+                
                 var androidVersion = ua.match(/Android (\d+\.?\d*)/);
-                deviceInfo.os = androidVersion ? 'Android ' + androidVersion[1] : 'Android';
-            } else if (/Windows/.test(ua)) {
-                deviceInfo.deviceType = 'Windows电脑';
+                if (androidVersion) {
+                    deviceInfo.os = 'Android';
+                    deviceInfo.osVersion = androidVersion[1];
+                }
+            } 
+            // Windows设备
+            else if (/Windows/.test(ua)) {
+                deviceInfo.deviceType = '电脑';
+                deviceInfo.deviceBrand = 'Windows PC';
                 deviceInfo.os = 'Windows';
-            } else if (/Mac/.test(ua)) {
-                deviceInfo.deviceType = 'Mac电脑';
+                var winVersion = ua.match(/Windows NT (\d+\.\d+)/);
+                if (winVersion) {
+                    var verMap = {'10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7'};
+                    deviceInfo.osVersion = verMap[winVersion[1]] || winVersion[1];
+                }
+            } 
+            // Mac设备
+            else if (/Mac/.test(ua)) {
+                deviceInfo.deviceType = '电脑';
+                deviceInfo.deviceBrand = 'Apple';
                 deviceInfo.os = 'macOS';
-            } else if (/Linux/.test(ua)) {
-                deviceInfo.deviceType = 'Linux设备';
-                deviceInfo.os = 'Linux';
+                var macVersion = ua.match(/Mac OS X (\d+[._]\d+)/);
+                if (macVersion) {
+                    deviceInfo.osVersion = macVersion[1].replace('_', '.');
+                }
             }
             
-            // 判断浏览器
+            // 浏览器识别（更详细）
             if (/WeChat|MicroMessenger/.test(ua)) {
-                deviceInfo.browser = '微信内置浏览器';
-            } else if (/QQ/.test(ua)) {
+                deviceInfo.browser = '微信';
+                var wxVer = ua.match(/MicroMessenger\/(\d+\.\d+)/);
+                if (wxVer) deviceInfo.browserVersion = wxVer[1];
+            } else if (/QQ/.test(ua) && /QQBrowser/.test(ua)) {
                 deviceInfo.browser = 'QQ浏览器';
-            } else if (/Chrome/.test(ua) && !/Edg/.test(ua)) {
-                deviceInfo.browser = 'Chrome浏览器';
+                var qqVer = ua.match(/QQBrowser\/(\d+\.\d+)/);
+                if (qqVer) deviceInfo.browserVersion = qqVer[1];
             } else if (/Edg/.test(ua)) {
-                deviceInfo.browser = 'Edge浏览器';
+                deviceInfo.browser = 'Edge';
+                var edgeVer = ua.match(/Edg\/(\d+\.\d+)/);
+                if (edgeVer) deviceInfo.browserVersion = edgeVer[1];
+            } else if (/Chrome/.test(ua)) {
+                deviceInfo.browser = 'Chrome';
+                var chromeVer = ua.match(/Chrome\/(\d+\.\d+)/);
+                if (chromeVer) deviceInfo.browserVersion = chromeVer[1];
             } else if (/Firefox/.test(ua)) {
-                deviceInfo.browser = 'Firefox浏览器';
+                deviceInfo.browser = 'Firefox';
+                var ffVer = ua.match(/Firefox\/(\d+\.\d+)/);
+                if (ffVer) deviceInfo.browserVersion = ffVer[1];
             } else if (/Safari/.test(ua) && !/Chrome/.test(ua)) {
-                deviceInfo.browser = 'Safari浏览器';
+                deviceInfo.browser = 'Safari';
+                var sfVer = ua.match(/Version\/(\d+\.\d+)/);
+                if (sfVer) deviceInfo.browserVersion = sfVer[1];
             }
             
             return deviceInfo;
@@ -3561,7 +3625,28 @@
         
         function getDeviceDisplayName() {
             var info = getDeviceInfo();
-            return info.deviceType + ' (' + info.browser + ')';
+            var name = info.deviceBrand;
+            if (info.deviceModel && info.deviceModel !== info.deviceBrand) {
+                name = info.deviceModel;
+            }
+            if (!name) name = info.deviceType;
+            if (info.osVersion) {
+                name += ' ' + info.os + ' ' + info.osVersion;
+            }
+            return name;
+        }
+        
+        function getDeviceFullInfo() {
+            var info = getDeviceInfo();
+            var parts = [info.deviceBrand || info.deviceType];
+            if (info.deviceModel && info.deviceModel !== info.deviceBrand) {
+                parts.push(info.deviceModel);
+            }
+            parts.push(info.browser);
+            if (info.browserVersion) {
+                parts.push(info.browserVersion);
+            }
+            return parts.join(' | ');
         }
 
         // 手机号格式校验
@@ -3593,7 +3678,7 @@
                 phone: phone, 
                 password: password, 
                 device_id: deviceInfo.deviceId,
-                device_info: getDeviceDisplayName()
+                device_info: getDeviceFullInfo()
             };
             if (transferCode) {
                 requestBody.transfer_code = transferCode;
@@ -3682,7 +3767,7 @@
                     phone: phone, 
                     password: password, 
                     device_id: deviceInfo.deviceId,
-                    device_info: getDeviceDisplayName()
+                    device_info: getDeviceFullInfo()
                 })
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.user) {
