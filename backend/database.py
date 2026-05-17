@@ -517,18 +517,24 @@ def verify_transfer_code(user_id, transfer_code):
     # 检查是否超过1分钟
     from datetime import datetime, timedelta
     created_at_str = row['created_at']
-    # 处理SQLite时间格式
-    if 'T' in created_at_str:
-        created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00').replace('+00:00', ''))
-    else:
-        created_at = datetime.strptime(created_at_str, '%Y-%m-%d %H:%M:%S')
-    # 使用无时区的now进行比较
+    # 处理SQLite时间格式 - SQLite返回的是本地时间字符串
+    created_at = datetime.strptime(created_at_str, '%Y-%m-%d %H:%M:%S')
+    # 获取当前时间（本地时间）
     now = datetime.now()
-    if now < created_at:
-        now = datetime.utcnow()
-    if now - created_at > timedelta(minutes=1):
+    # 计算时间差
+    diff = now - created_at
+    print(f"[DEBUG] Transfer code check: created_at={created_at}, now={now}, diff={diff.total_seconds()}s")
+    if diff > timedelta(minutes=1):
         conn.close()
-        return False, '校验码已过期（1分钟有效）'
+        return False, f'校验码已过期（1分钟有效），已过去{int(diff.total_seconds())}秒'
+    
+    # 验证成功，删除校验码
+    cursor.execute('DELETE FROM device_transfer_codes WHERE id = ?', (row['id'],))
+    conn.commit()
+    conn.close()
+    return True, '验证成功'
+
+# ===== 订阅系统 =====
     
     # 验证成功，删除校验码
     cursor.execute('DELETE FROM device_transfer_codes WHERE id = ?', (row['id'],))
