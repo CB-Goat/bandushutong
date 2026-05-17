@@ -3993,7 +3993,7 @@
                 }
             }
 
-            // 管理页面显示"返回书架"按钮，隐藏管理按钮
+            // 管理页面显示"返回书架"按钮，隐藏管理按钮和用户按钮
             if (pageId === 'adminPage') {
                 document.getElementById('homeBtn').style.display = '';
                 document.getElementById('adminBtn').style.display = 'none';
@@ -4002,12 +4002,16 @@
                 loadAdminUsers();
                 loadSubRequests();
             } else if (pageId === 'userPage') {
-                // 用户页面显示返回书架按钮
+                // 用户页面显示返回书架按钮，隐藏用户按钮
                 document.getElementById('homeBtn').style.display = '';
                 document.getElementById('adminBtn').style.display = 'none';
                 document.getElementById('userBtn').style.display = 'none';
             } else {
+                // 其他页面（书架、目录等）显示用户按钮
                 document.getElementById('homeBtn').style.display = 'none';
+                if (state.currentUser) {
+                    document.getElementById('userBtn').style.display = '';
+                }
             }
 
             if (pageId === 'browsePage') {
