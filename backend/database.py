@@ -516,7 +516,12 @@ def verify_transfer_code(user_id, transfer_code):
     
     # 检查是否超过1分钟
     from datetime import datetime, timedelta
-    created_at = datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
+    created_at_str = row['created_at']
+    # 处理SQLite时间格式
+    if 'T' in created_at_str:
+        created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+    else:
+        created_at = datetime.strptime(created_at_str, '%Y-%m-%d %H:%M:%S')
     if datetime.now() - created_at > timedelta(minutes=1):
         conn.close()
         return False, '校验码已过期（1分钟有效）'
