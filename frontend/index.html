@@ -3511,9 +3511,26 @@
                 language: navigator.language || 'zh-CN'
             };
             
-            // 生成或获取设备ID
+            // 生成或获取设备ID - 使用硬件特征生成稳定ID
             if (!deviceInfo.deviceId) {
-                deviceInfo.deviceId = 'D' + Date.now() + Math.random().toString(36).substr(2, 9);
+                // 基于设备硬件特征生成唯一标识（同一台设备不同浏览器会生成相同ID）
+                var hardwareFingerprint = [
+                    navigator.userAgent,
+                    window.screen.width + 'x' + window.screen.height,
+                    window.devicePixelRatio || 1,
+                    navigator.language || 'zh-CN',
+                    navigator.platform || ''
+                ].join('|');
+                
+                // 简单哈希函数
+                var hash = 0;
+                for (var i = 0; i < hardwareFingerprint.length; i++) {
+                    var char = hardwareFingerprint.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                
+                deviceInfo.deviceId = 'H' + Math.abs(hash).toString(16).toUpperCase();
                 localStorage.setItem('deviceId', deviceInfo.deviceId);
             }
             
