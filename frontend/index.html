@@ -882,8 +882,8 @@
                     <input type="tel" id="registerPhone" placeholder="请输入手机号" maxlength="11" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
                 </div>
                 <div style="margin-bottom:20px;">
-                    <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">密码（至少6位）</label>
-                    <input type="password" id="registerPassword" placeholder="请设置密码" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                    <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">密码</label>
+                    <input type="password" id="registerPassword" placeholder="至少6位，需包含字母、数字、符号中的两种" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
                 </div>
                 <div style="display:flex;gap:10px;">
                     <button onclick="hideRegister()" style="flex:1;padding:12px;background:#f5f5f5;color:#333;border:none;border-radius:8px;font-size:16px;cursor:pointer;">取消</button>
@@ -969,8 +969,12 @@
                         <input type="password" id="oldPassword" placeholder="请输入原密码" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
                     </div>
                     <div style="margin-bottom:15px;">
-                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">新密码（至少6位）</label>
-                        <input type="password" id="newPassword" placeholder="请输入新密码" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">新密码</label>
+                        <input type="password" id="newPassword" placeholder="至少6位，需包含字母、数字、符号中的两种" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">确认密码</label>
+                        <input type="password" id="confirmPassword" placeholder="请再次输入新密码" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
                     </div>
                     <button onclick="changePassword()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">修改密码</button>
                 </div>
@@ -3770,8 +3774,9 @@
             var errEl = document.getElementById('registerError');
             var phoneErr = validatePhone(phone);
             if (phoneErr) { errEl.textContent = phoneErr; errEl.style.display = 'block'; return; }
-            if (!password) { errEl.textContent = '请输入密码'; errEl.style.display = 'block'; return; }
-            if (password.length < 6) { errEl.textContent = '密码至少6位'; errEl.style.display = 'block'; return; }
+            // 校验密码强度
+            var strengthCheck = validatePasswordStrength(password);
+            if (!strengthCheck.valid) { errEl.textContent = strengthCheck.message; errEl.style.display = 'block'; return; }
             errEl.style.display = 'none';
             var deviceInfo = getDeviceInfo();
             fetch(API_BASE + '/auth/register', {
@@ -3970,11 +3975,32 @@
             }).catch(function() { alert('网络错误'); });
         }
 
+        // 密码强度校验：至少6位，包含字母、数字、符号中的两种或以上
+        function validatePasswordStrength(password) {
+            if (!password || password.length < 6) {
+                return { valid: false, message: '密码至少6位' };
+            }
+            var hasLetter = /[a-zA-Z]/.test(password);
+            var hasNumber = /\d/.test(password);
+            var hasSymbol = /[^a-zA-Z0-9]/.test(password);
+            var typeCount = (hasLetter ? 1 : 0) + (hasNumber ? 1 : 0) + (hasSymbol ? 1 : 0);
+            if (typeCount < 2) {
+                return { valid: false, message: '密码需包含字母、数字、符号中的至少两种' };
+            }
+            return { valid: true };
+        }
+
         function changePassword() {
             var oldPassword = document.getElementById('oldPassword').value;
             var newPassword = document.getElementById('newPassword').value;
+            var confirmPassword = document.getElementById('confirmPassword').value;
             
-            if (!newPassword || newPassword.length < 6) { alert('新密码至少6位'); return; }
+            // 校验新密码强度
+            var strengthCheck = validatePasswordStrength(newPassword);
+            if (!strengthCheck.valid) { alert(strengthCheck.message); return; }
+            
+            // 校验两次密码是否一致
+            if (newPassword !== confirmPassword) { alert('两次输入的新密码不一致'); return; }
             
             fetch(API_BASE + '/users/' + state.currentUser.id + '/password', {
                 method: 'PUT', headers: {'Content-Type': 'application/json'},
@@ -3984,6 +4010,7 @@
                     alert('密码修改成功');
                     document.getElementById('oldPassword').value = '';
                     document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
                 } else {
                     alert(data.error || '修改失败');
                 }
