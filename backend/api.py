@@ -31,7 +31,11 @@ from backend.database import (
     # 思考系统
     add_thought, get_thoughts_by_section, get_all_thoughts_by_section, delete_thought, update_thought,
     # 书籍查找
-    get_book_by_title_author_version
+    get_book_by_title_author_version,
+    # 管理员统计
+    get_users_with_stats, get_books_with_stats, update_book_price, get_book_catalog_stats,
+    get_user_subscription_stats, admin_add_subscription, admin_remove_subscription,
+    get_user_by_phone as _get_user_by_phone
 )
 from backend.text_parser import parse_file, get_book_title
 from backend.tts_service import generate_audio
@@ -950,10 +954,13 @@ def get_my_subscriptions():
 
 @api_bp.route('/admin/users', methods=['GET'])
 def admin_list_users():
-    """获取所有用户"""
-    users = get_all_users()
-    for u in users:
-        u.pop('password', None)
+    """获取所有用户（支持筛选，含阅读统计）"""
+    phone = request.args.get('phone', '').strip() or None
+    role = request.args.get('role', '').strip() or None
+    gender = request.args.get('gender', '').strip() or None
+    age_above = request.args.get('age_above', type=int)
+    age_below = request.args.get('age_below', type=int)
+    users = get_users_with_stats(phone=phone, role=role, gender=gender, age_above=age_above, age_below=age_below)
     return jsonify({'users': users})
 
 @api_bp.route('/admin/users/<int:user_id>/role', methods=['PUT'])
@@ -965,6 +972,95 @@ def admin_update_role(user_id):
         return jsonify({'error': '无效的角色'}), 400
     update_user_role(user_id, role)
     return jsonify({'message': '更新成功'})
+
+@api_bp.route('/admin/users/<int:user_id>/reset-password', methods=['PUT'])
+def admin_reset_password(user_id):
+    """管理员重置用户密码"""
+    data = request.json
+    password = data.get('password', '').strip()
+    if not password or len(password) < 6:
+        return jsonify({'error': '密码至少6位'}), 400
+    user = get_user(user_id)
+    if not user:
+        return jsonify({'error': '用户不存在'}), 404
+    update_user_password(user_id, password)
+    return jsonify({'message': '密码重置成功'})
+
+# ===== 管理员-书籍管理 API =====
+
+@api_bp.route('/admin/books', methods=['GET'])
+def admin_list_books():
+    """获取书籍列表（含统计信息）"""
+    books = get_books_with_stats()
+    return jsonify({'books': books})
+
+@api_bp.route('/admin/books/<int:book_id>/price', methods=['PUT'])
+def admin_update_book_price(book_id):
+    """更新书籍订阅价格"""
+    book = get_book(book_id)
+    if not book:
+        return jsonify({'error': '书籍不存在'}), 404
+    data = request.json
+    price = data.get('price', 0)
+    update_book_price(book_id, price)
+    return jsonify({'message': '价格更新成功'})
+
+@api_bp.route('/admin/books/<int:book_id>/catalog-stats', methods=['GET'])
+def admin_book_catalog_stats(book_id):
+    """获取书籍目录结构及统计"""
+    book = get_book(book_id)
+    if not book:
+        return jsonify({'error': '书籍不存在'}), 404
+    catalog = get_book_catalog_stats(book_id)
+    return jsonify(catalog)
+
+# ===== 管理员-订阅管理 API =====
+
+@api_bp.route('/admin/subscriptions', methods=['GET'])
+def admin_list_subscriptions():
+    """获取用户订阅列表（按手机号搜索）"""
+    phone = request.args.get('phone', '').strip()
+    if not phone:
+        return jsonify({'error': '缺少phone参数'}), 400
+    user = get_user_by_phone(phone)
+    if not user:
+        return jsonify({'subscriptions': []})
+    subs = get_user_subscription_stats(user['id'])
+    return jsonify({'subscriptions': subs, 'user_id': user['id']})
+
+@api_bp.route('/admin/subscriptions', methods=['POST'])
+def admin_add_sub():
+    """管理员添加订阅"""
+    data = request.json
+    user_id = data.get('user_id')
+    book_id = data.get('book_id')
+    if not user_id or not book_id:
+        return jsonify({'error': '缺少user_id或book_id'}), 400
+    admin_add_subscription(user_id, book_id)
+    return jsonify({'message': '订阅添加成功'})
+
+@api_bp.route('/admin/subscriptions', methods=['DELETE'])
+def admin_remove_sub():
+    """管理员移除订阅"""
+    data = request.json
+    user_id = data.get('user_id')
+    book_id = data.get('book_id')
+    if not user_id or not book_id:
+        return jsonify({'error': '缺少user_id或book_id'}), 400
+    admin_remove_subscription(user_id, book_id)
+    return jsonify({'message': '订阅已移除'})
+
+# ===== 管理员-章节/节重新导入 API =====
+
+@api_bp.route('/admin/books/<int:book_id>/reimport-chapter/<int:chapter_id>', methods=['POST'])
+def admin_reimport_chapter(book_id, chapter_id):
+    """重新导入章节（占位）"""
+    return jsonify({'message': '功能开发中'})
+
+@api_bp.route('/admin/books/<int:book_id>/reimport-section/<int:section_id>', methods=['POST'])
+def admin_reimport_section(book_id, section_id):
+    """重新导入小节（占位）"""
+    return jsonify({'message': '功能开发中'})
 
 # ===== 管理员-订阅审批 API =====
 

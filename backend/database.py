@@ -289,6 +289,10 @@ def init_db():
         cursor.execute('ALTER TABLE books ADD COLUMN tts_progress TEXT DEFAULT ""')
     except:
         pass
+    try:
+        cursor.execute('ALTER TABLE books ADD COLUMN subscription_price REAL DEFAULT 0')
+    except:
+        pass
 
     conn.commit()
     conn.close()
@@ -1170,6 +1174,233 @@ def get_book_reading_stats(user_id, book_id):
         'reading': row['reading'],
         'read': row['read_count']
     }
+
+# ===== 管理员统计查询 =====
+
+def get_users_with_stats(phone=None, role=None, gender=None, age_above=None, age_below=None):
+    """获取用户列表及其阅读统计"""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    query = '''
+        SELECT u.id, u.phone, u.role, u.gender, u.age, u.grade, u.created_at, u.device_info,
+               COALESCE(read_stats.read_sections_count, 0) as read_sections_count,
+               COALESCE(read_stats.read_words_count, 0) as read_words_count,
+               COALESCE(thought_stats.thoughts_count, 0) as thoughts_count
+        FROM users u
+        LEFT JOIN (
+            SELECT srs.user_id,
+                   COUNT(*) as read_sections_count,
+                   COALESCE(SUM(sec.word_count), 0) as read_words_count
+            FROM section_reading_status srs
+            JOIN sections sec ON srs.section_id = sec.id
+            WHERE srs.status = 'read'
+            GROUP BY srs.user_id
+        ) read_stats ON u.id = read_stats.user_id
+        LEFT JOIN (
+            SELECT t.user_id, COUNT(*) as thoughts_count
+            FROM thoughts t
+            GROUP BY t.user_id
+        ) thought_stats ON u.id = thought_stats.user_id
+        WHERE 1=1
+    '''
+    params = []
+
+    if phone:
+        query += ' AND u.phone LIKE ?'
+        params.append(f'%{phone}%')
+    if role:
+        query += ' AND u.role = ?'
+        params.append(role)
+    if gender:
+        query += ' AND u.gender = ?'
+        params.append(gender)
+    if age_above is not None:
+        query += ' AND u.age >= ?'
+        params.append(int(age_above))
+    if age_below is not None:
+        query += ' AND u.age <= ?'
+        params.append(int(age_below))
+
+    query += ' ORDER BY u.created_at DESC'
+
+    cursor.execute(query, params)
+    users = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return users
+
+
+def get_books_with_stats():
+    """获取书籍列表及其统计信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT b.*,
+               COALESCE(sec_stats.total_words, 0) as total_words,
+               COALESCE(anno_stats.total_annotations, 0) as total_annotations,
+               COALESCE(sub_stats.subscription_count, 0) as subscription_count
+        FROM books b
+        LEFT JOIN (
+            SELECT book_id, COALESCE(SUM(word_count), 0) as total_words
+            FROM sections
+            GROUP BY book_id
+        ) sec_stats ON b.id = sec_stats.book_id
+        LEFT JOIN (
+            SELECT s.book_id, COUNT(*) as total_annotations
+            FROM annotations a
+            JOIN sections s ON a.section_id = s.id
+            GROUP BY s.book_id
+        ) anno_stats ON b.id = anno_stats.book_id
+        LEFT JOIN (
+            SELECT book_id, COUNT(*) as subscription_count
+            FROM subscriptions
+            GROUP BY book_id
+        ) sub_stats ON b.id = sub_stats.book_id
+        ORDER BY b.created_at DESC
+    ''')
+    books = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return books
+
+
+def update_book_price(book_id, price):
+    """更新书籍订阅价格"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE books SET subscription_price = ? WHERE id = ?', (price, book_id))
+    conn.commit()
+    conn.close()
+
+
+def get_book_catalog_stats(book_id):
+    """获取书籍的目录结构及统计信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 获取所有章节
+    cursor.execute('''
+        SELECT c.*,
+               COALESCE(sec_agg.section_count, 0) as section_count,
+               COALESCE(sec_agg.total_words, 0) as total_words,
+               COALESCE(sec_agg.total_annotations, 0) as total_annotations
+        FROM chapters c
+        LEFT JOIN (
+            SELECT s.chapter_id,
+                   COUNT(*) as section_count,
+                   COALESCE(SUM(s.word_count), 0) as total_words,
+                   COALESCE(SUM(anno.cnt), 0) as total_annotations
+            FROM sections s
+            LEFT JOIN (
+                SELECT section_id, COUNT(*) as cnt
+                FROM annotations
+                GROUP BY section_id
+            ) anno ON s.id = anno.section_id
+            WHERE s.book_id = ?
+            GROUP BY s.chapter_id
+        ) sec_agg ON c.id = sec_agg.chapter_id
+        WHERE c.book_id = ?
+        ORDER BY c.chapter_number
+    ''', (book_id, book_id))
+    chapters = [dict(row) for row in cursor.fetchall()]
+
+    # 获取每个章节的sections及统计
+    for ch in chapters:
+        cursor.execute('''
+            SELECT s.*,
+                   COALESCE(anno.cnt, 0) as annotation_count
+            FROM sections s
+            LEFT JOIN (
+                SELECT section_id, COUNT(*) as cnt
+                FROM annotations
+                GROUP BY section_id
+            ) anno ON s.id = anno.section_id
+            WHERE s.chapter_id = ?
+            ORDER BY s.section_number
+        ''', (ch['id'],))
+        sections = [dict(row) for row in cursor.fetchall()]
+        ch['sections'] = sections
+
+    # 获取不属于任何章节的sections
+    cursor.execute('''
+        SELECT s.*,
+               COALESCE(anno.cnt, 0) as annotation_count
+        FROM sections s
+        LEFT JOIN (
+            SELECT section_id, COUNT(*) as cnt
+            FROM annotations
+            GROUP BY section_id
+        ) anno ON s.id = anno.section_id
+        WHERE s.book_id = ? AND s.chapter_id IS NULL
+        ORDER BY s.section_number
+    ''', (book_id,))
+    orphan_sections = [dict(row) for row in cursor.fetchall()]
+
+    conn.close()
+    return {
+        'chapters': chapters,
+        'orphan_sections': orphan_sections
+    }
+
+
+def get_user_subscription_stats(user_id):
+    """获取用户订阅的书籍及每本书的阅读统计"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT b.id as book_id, b.title, b.author_nationality, b.version,
+               sub.created_at as subscribed_at,
+               COALESCE(read_stats.read_sections_count, 0) as read_sections_count,
+               COALESCE(read_stats.read_words_count, 0) as read_words_count,
+               COALESCE(thought_stats.thoughts_count, 0) as thoughts_count
+        FROM subscriptions sub
+        JOIN books b ON sub.book_id = b.id
+        LEFT JOIN (
+            SELECT srs.book_id,
+                   COUNT(*) as read_sections_count,
+                   COALESCE(SUM(sec.word_count), 0) as read_words_count
+            FROM section_reading_status srs
+            JOIN sections sec ON srs.section_id = sec.id
+            WHERE srs.status = 'read' AND srs.user_id = ?
+            GROUP BY srs.book_id
+        ) read_stats ON b.id = read_stats.book_id
+        LEFT JOIN (
+            SELECT t.user_id, sec.book_id, COUNT(*) as thoughts_count
+            FROM thoughts t
+            JOIN sections sec ON t.section_id = sec.id
+            WHERE t.user_id = ?
+            GROUP BY sec.book_id
+        ) thought_stats ON b.id = thought_stats.book_id
+        WHERE sub.user_id = ?
+        ORDER BY sub.created_at DESC
+    ''', (user_id, user_id, user_id))
+    rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def admin_add_subscription(user_id, book_id):
+    """管理员添加订阅"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'INSERT OR IGNORE INTO subscriptions (user_id, book_id) VALUES (?, ?)',
+        (user_id, book_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def admin_remove_subscription(user_id, book_id):
+    """管理员移除订阅"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'DELETE FROM subscriptions WHERE user_id = ? AND book_id = ?',
+        (user_id, book_id)
+    )
+    conn.commit()
+    conn.close()
+
 
 if __name__ == '__main__':
     init_db()
