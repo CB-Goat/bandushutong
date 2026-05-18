@@ -1171,8 +1171,44 @@ def admin_reimport_chapter(book_id, chapter_id):
         conn.close()
         update_book_sections_count(book_id, total_sections)
 
+        # 为更新的节生成TTS音频（异步）
+        try:
+            from backend.baidu_tts import generate_section_audio_with_timeline, get_annotations_by_section, update_annotation_audio, update_section_summary_audio
+            import threading
+            def generate_tts_for_chapter():
+                for sec in matched_sections:
+                    sec_number = sec['section_number']
+                    if sec_number in existing_sections:
+                        sec_id = existing_sections[sec_number]
+                        # 生成节音频
+                        result = generate_section_audio_with_timeline(sec.get('content', ''), sec_id)
+                        if result:
+                            from backend.database import get_db as _db
+                            _conn = _db()
+                            _cursor = _conn.cursor()
+                            _cursor.execute('UPDATE sections SET audio_path = ?, audio_duration = ?, char_timeline = ?, has_audio = 1 WHERE id = ?',
+                                          (result.get('audio_path'), result.get('audio_duration', 0), result.get('char_timeline'), sec_id))
+                            _conn.commit()
+                            _conn.close()
+                        # 生成点评音频
+                        for idx, anno in enumerate(sec.get('annotations', [])):
+                            if anno.get('comment'):
+                                anno_result = generate_section_audio_with_timeline(anno['comment'], sec_id)
+                                if anno_result:
+                                    update_annotation_audio(sec_id, idx + 1, anno_result.get('audio_path'), anno_result.get('audio_duration', 0))
+                        # 生成小结音频
+                        if sec.get('summary'):
+                            summary_result = generate_section_audio_with_timeline(sec['summary'], sec_id)
+                            if summary_result:
+                                update_section_summary_audio(sec_id, summary_result.get('audio_path'), summary_result.get('audio_duration', 0))
+            t = threading.Thread(target=generate_tts_for_chapter)
+            t.daemon = True
+            t.start()
+        except Exception as e:
+            print(f'[TTS] 章节音频生成失败: {e}')
+
         return jsonify({
-            'message': '章节导入成功',
+            'message': '章节导入成功（音频生成中）',
             'section_count': len(matched_sections)
         })
 
@@ -1270,7 +1306,39 @@ def admin_reimport_section(book_id, section_id):
         conn.close()
         update_book_sections_count(book_id, total_sections)
 
-        return jsonify({'message': '小节导入成功'})
+        # 为更新的节生成TTS音频（异步）
+        try:
+            from backend.baidu_tts import generate_section_audio_with_timeline, update_annotation_audio, update_section_summary_audio
+            import threading
+            def generate_tts_for_section():
+                # 生成节音频
+                result = generate_section_audio_with_timeline(content, section_id)
+                if result:
+                    from backend.database import get_db as _db
+                    _conn = _db()
+                    _cursor = _conn.cursor()
+                    _cursor.execute('UPDATE sections SET audio_path = ?, audio_duration = ?, char_timeline = ?, has_audio = 1 WHERE id = ?',
+                                  (result.get('audio_path'), result.get('audio_duration', 0), result.get('char_timeline'), section_id))
+                    _conn.commit()
+                    _conn.close()
+                # 生成点评音频
+                for idx, anno in enumerate(annotations):
+                    if anno.get('comment'):
+                        anno_result = generate_section_audio_with_timeline(anno['comment'], section_id)
+                        if anno_result:
+                            update_annotation_audio(section_id, idx + 1, anno_result.get('audio_path'), anno_result.get('audio_duration', 0))
+                # 生成小结音频
+                if summary:
+                    summary_result = generate_section_audio_with_timeline(summary, section_id)
+                    if summary_result:
+                        update_section_summary_audio(section_id, summary_result.get('audio_path'), summary_result.get('audio_duration', 0))
+            t = threading.Thread(target=generate_tts_for_section)
+            t.daemon = True
+            t.start()
+        except Exception as e:
+            print(f'[TTS] 小节音频生成失败: {e}')
+
+        return jsonify({'message': '小节导入成功（音频生成中）'})
 
     except Exception as e:
         return jsonify({'error': f'导入失败: {str(e)}'}), 500
