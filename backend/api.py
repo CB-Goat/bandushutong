@@ -986,6 +986,15 @@ def admin_reset_password(user_id):
     update_user_password(user_id, password)
     return jsonify({'message': '密码重置成功'})
 
+@api_bp.route('/admin/users/<int:user_id>/clear-device', methods=['PUT'])
+def admin_clear_device(user_id):
+    """管理员清除用户绑定的设备"""
+    user = get_user(user_id)
+    if not user:
+        return jsonify({'error': '用户不存在'}), 404
+    update_user_device(user_id, '', '')
+    return jsonify({'message': '设备已清除'})
+
 # ===== 管理员-书籍管理 API =====
 
 @api_bp.route('/admin/books', methods=['GET'])

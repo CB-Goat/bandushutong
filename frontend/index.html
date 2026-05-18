@@ -4316,7 +4316,7 @@
                 }
                 var html = '<table class="admin-table"><thead><tr>' +
                     '<th>手机号</th><th>角色</th><th>性别</th><th>年龄</th><th>年级</th><th>创建时间</th>' +
-                    '<th>已读章节</th><th>已读字数</th><th>思考量</th><th>密码</th><th>操作</th>' +
+                    '<th>已读章节</th><th>已读字数</th><th>思考量</th><th>设备ID</th><th>密码</th><th>操作</th>' +
                     '</tr></thead><tbody>';
                 data.users.forEach(function(u) {
                     var roleBadge = u.role === 'admin' ? '<span class="admin-badge admin">系统</span>' : '<span class="admin-badge user">普通</span>';
@@ -4330,6 +4330,7 @@
                         '<td>' + (u.read_sections_count || 0) + '</td>' +
                         '<td>' + (u.read_words_count || 0) + '</td>' +
                         '<td>' + (u.thoughts_count || 0) + '</td>' +
+                        '<td style="font-size:11px;max-width:120px;"><span title="' + (u.device_id || '') + '">' + (u.device_id ? u.device_id.substring(0, 10) + '...' : '-') + '</span>' + (u.device_id ? ' <button class="admin-inline-btn danger" style="font-size:11px;padding:1px 6px;" onclick="clearUserDevice(' + u.id + ')">清除</button>' : '') + '</td>' +
                         '<td><button class="admin-inline-btn" onclick="resetUserPassword(' + u.id + ')">重置</button></td>' +
                         '<td><button class="admin-inline-btn primary" onclick="toggleUserRole(' + u.id + ',\'' + u.role + '\')">' + (u.role === 'admin' ? '设为普通' : '设为系统') + '</button></td>' +
                         '</tr>';
@@ -4359,6 +4360,17 @@
             }).then(function(r) { return r.json(); }).then(function(data) {
                 alert(data.message || '密码已重置');
             }).catch(function() { alert('重置失败'); });
+        }
+
+        function clearUserDevice(userId) {
+            if (confirm('确定清除该用户的设备绑定？清除后用户可在任意设备登录。')) {
+                fetch(API_BASE + '/admin/users/' + userId + '/clear-device', {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    alert(data.message || '设备已清除');
+                    searchAdminUsers();
+                }).catch(function() { alert('操作失败'); });
+            }
         }
 
         // Catalog Stats
