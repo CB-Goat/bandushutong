@@ -749,11 +749,11 @@ def login():
     if not user:
         return jsonify({'error': '手机号或密码错误'}), 401
     
-    # 设备校验（系统用户/管理员跳过）
+    # 设备校验（管理员跳过）
     device_info = data.get('device_info', '').strip()
-    is_system_user = user.get('role') in ('system', 'admin')
+    is_admin = user.get('role') == 'admin'
     
-    if not is_system_user:
+    if not is_admin:
         if user.get('device_id') and user['device_id'] != device_id:
             # 设备不匹配，需要换机校验码
             if not transfer_code:
