@@ -749,9 +749,9 @@ def login():
     if not user:
         return jsonify({'error': '手机号或密码错误'}), 401
     
-    # 设备校验（系统用户跳过）
+    # 设备校验（系统用户/管理员跳过）
     device_info = data.get('device_info', '').strip()
-    is_system_user = user.get('role') == 'system'
+    is_system_user = user.get('role') in ('system', 'admin')
     
     if not is_system_user:
         if user.get('device_id') and user['device_id'] != device_id:
