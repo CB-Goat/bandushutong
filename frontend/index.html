@@ -746,6 +746,14 @@
         }
         /* ===== 管理页面样式 ===== */
         .admin-page { padding: 15px; overflow-y: auto; max-height: calc(100vh - 60px); width: 100%; box-sizing: border-box; }
+        /* 管理页面突破container的600px限制 */
+        .container:has(.admin-page.active) {
+            max-width: 100% !important;
+        }
+        /* 兼容不支持:has()的浏览器 */
+        .container.admin-active {
+            max-width: 100% !important;
+        }
         .admin-page h2 { font-size: 20px; margin-bottom: 15px; color: #2d5016; border-bottom: 2px solid #2d5016; padding-bottom: 8px; }
         .admin-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .admin-card h3 { font-size: 16px; margin-bottom: 12px; color: #333; display: flex; justify-content: space-between; align-items: center; }
@@ -4222,15 +4230,19 @@
                 document.getElementById('homeBtn').style.display = '';
                 document.getElementById('adminBtn').style.display = 'none';
                 document.getElementById('userBtn').style.display = 'none';
+                // 管理页面全宽显示
+                document.querySelector('.container').classList.add('admin-active');
                 switchAdminTab('userManage');
             } else if (pageId === 'userPage') {
                 // 用户页面显示返回书架按钮，隐藏用户按钮
                 document.getElementById('homeBtn').style.display = '';
                 document.getElementById('adminBtn').style.display = 'none';
                 document.getElementById('userBtn').style.display = 'none';
+                document.querySelector('.container').classList.remove('admin-active');
             } else {
                 // 其他页面（书架、目录等）显示用户按钮
                 document.getElementById('homeBtn').style.display = 'none';
+                document.querySelector('.container').classList.remove('admin-active');
                 if (state.currentUser) {
                     document.getElementById('userBtn').style.display = '';
                 }
