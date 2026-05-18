@@ -1175,6 +1175,13 @@
                 <!-- Book List -->
                 <div class="admin-card">
                     <h3>📚 书籍列表</h3>
+                    <!-- Search bar -->
+                    <div class="admin-search-bar">
+                        <input type="text" id="adminBookTitle" placeholder="书名">
+                        <input type="text" id="adminBookAuthor" placeholder="作者">
+                        <input type="number" id="adminBookPrice" placeholder="订阅金额" style="width:100px;flex:none;">
+                        <button onclick="searchAdminBooks()">搜索</button>
+                    </div>
                     <div id="adminBookList"></div>
                 </div>
                 <!-- Book Detail (hidden by default) -->
@@ -3215,39 +3222,55 @@
 
         // ===== 管理员功能 =====
         var admin = {
-            loadBooks: function() {
+            loadBooks: function(books) {
                 var list = document.getElementById('adminBookList');
                 if (!list) return;
+                
+                if (books) {
+                    // 使用传入的书籍数据渲染
+                    renderBookTable(books);
+                    return;
+                }
+                
                 list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">加载中...</div>';
                 
                 fetch(API_BASE + '/admin/books')
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
-                        list.innerHTML = '';
-                        if (!data.books || data.books.length === 0) {
-                            list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">暂无书籍</div>';
-                            return;
-                        }
-                        data.books.forEach(function(book) {
-                            var div = document.createElement('div');
-                            div.className = 'book-admin-item';
-                            div.innerHTML = '<div class="book-info">' +
-                                '<div class="title">' + (book.title || '无标题') + '</div>' +
-                                '<div class="meta">' + (book.author || '未知作者') + ' | ' + (book.total_sections || 0) + '节 | ' + (book.total_words || 0) + '字 | ' + (book.total_annotations || 0) + '点评' +
-                                (book.subscription_price ? ' | ￥' + book.subscription_price : '') +
-                                ' | ' + (book.subscription_count || 0) + '订阅</div>' +
-                                '</div>' +
-                                '<div class="book-actions">' +
-                                '<button class="btn btn-sm" onclick="event.stopPropagation();admin.editBook(' + book.id + ')">编辑</button>' +
-                                '<button class="btn btn-sm" style="color:#dc3545;" onclick="event.stopPropagation();admin.deleteBookConfirm(' + book.id + ')">删除</button>' +
-                                '</div>';
-                            div.onclick = function() { admin.editBook(book.id); };
-                            list.appendChild(div);
-                        });
+                        renderBookTable(data.books || []);
                     })
                     .catch(function(e) {
                         list.innerHTML = '<div style="color:red;padding:20px;text-align:center;">加载失败: ' + e.message + '</div>';
                     });
+                
+                function renderBookTable(books) {
+                    list.innerHTML = '';
+                    if (books.length === 0) {
+                        list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">暂无书籍</div>';
+                        return;
+                    }
+                    var html = '<table class="admin-table"><thead><tr>' +
+                        '<th>书名</th><th>作者国籍</th><th>版本</th><th>章节数</th><th>总字数</th><th>点评数</th><th>订阅价格</th><th>订阅数</th><th>操作</th>' +
+                        '</tr></thead><tbody>';
+                    books.forEach(function(book) {
+                        html += '<tr>' +
+                            '<td>' + (book.title || '-') + '</td>' +
+                            '<td>' + (book.author_nationality || '-') + '</td>' +
+                            '<td>' + (book.version || '-') + '</td>' +
+                            '<td>' + (book.total_chapters || 0) + '</td>' +
+                            '<td>' + (book.total_words || 0) + '</td>' +
+                            '<td>' + (book.total_annotations || 0) + '</td>' +
+                            '<td>' + (book.subscription_price ? '￥' + book.subscription_price.toFixed(2) : '-') + '</td>' +
+                            '<td>' + (book.subscription_count || 0) + '</td>' +
+                            '<td>' +
+                            '<button class="admin-inline-btn" onclick="admin.editBook(' + book.id + ')">编辑</button> ' +
+                            '<button class="admin-inline-btn danger" onclick="admin.deleteBookConfirm(' + book.id + ')">删除</button>' +
+                            '</td>' +
+                            '</tr>';
+                    });
+                    html += '</tbody></table>';
+                    list.innerHTML = html;
+                }
             },
             
             editBook: function(bookId) {
@@ -4289,6 +4312,36 @@
         }
 
         // User Management
+        function searchAdminBooks() {
+            var title = document.getElementById('adminBookTitle').value.trim().toLowerCase();
+            var author = document.getElementById('adminBookAuthor').value.trim().toLowerCase();
+            var price = document.getElementById('adminBookPrice').value.trim();
+            
+            var list = document.getElementById('adminBookList');
+            list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">加载中...</div>';
+            
+            fetch(API_BASE + '/admin/books')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var books = data.books || [];
+                    // 前端过滤
+                    if (title) {
+                        books = books.filter(function(b) { return (b.title || '').toLowerCase().includes(title); });
+                    }
+                    if (author) {
+                        books = books.filter(function(b) { return (b.author || '').toLowerCase().includes(author); });
+                    }
+                    if (price) {
+                        var p = parseFloat(price);
+                        books = books.filter(function(b) { return b.subscription_price && b.subscription_price <= p; });
+                    }
+                    admin.loadBooks(books);
+                })
+                .catch(function(e) {
+                    list.innerHTML = '<div style="color:red;padding:20px;text-align:center;">加载失败</div>';
+                });
+        }
+
         function searchAdminUsers() {
             var phone = document.getElementById('adminUserPhone').value.trim();
             var role = document.getElementById('adminUserRole').value;
