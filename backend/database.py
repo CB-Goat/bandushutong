@@ -323,11 +323,22 @@ def create_user(phone=None, password=None, wechat_openid=None, wechat_nickname=N
     """创建用户（支持手机号或微信登录）"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute(
-        '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-        (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role)
-    )
+    try:
+        cursor.execute(
+            '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role)
+        )
+    except Exception as e:
+        # 兼容旧数据库有auth_code NOT NULL约束
+        if 'auth_code' in str(e):
+            cursor.execute(
+                '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role, auth_code) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, '')''',
+                (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role)
+            )
+        else:
+            raise e
     user_id = cursor.lastrowid
     conn.commit()
     conn.close()
