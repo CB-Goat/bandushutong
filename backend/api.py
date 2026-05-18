@@ -749,30 +749,33 @@ def login():
     if not user:
         return jsonify({'error': '手机号或密码错误'}), 401
     
-    # 设备校验
+    # 设备校验（系统用户跳过）
     device_info = data.get('device_info', '').strip()
-    if user.get('device_id') and user['device_id'] != device_id:
-        # 设备不匹配，需要换机校验码
-        if not transfer_code:
-            # 获取之前绑定的设备信息
-            bound_device_info = user.get('device_info') or '未知设备'
-            return jsonify({
-                'error': '设备不匹配，请输入换机校验码',
-                'need_transfer_code': True,
-                'user_id': user['id'],
-                'bound_device': bound_device_info
-            }), 403
-        
-        # 验证换机校验码
-        success, msg = verify_transfer_code(user['id'], transfer_code)
-        if not success:
-            return jsonify({'error': msg, 'need_transfer_code': True}), 403
-        
-        # 验证成功，更新设备ID和设备信息
-        update_user_device(user['id'], device_id, device_info)
-    elif not user.get('device_id'):
-        # 首次登录，绑定设备
-        update_user_device(user['id'], device_id, device_info)
+    is_system_user = user.get('role') == 'system'
+    
+    if not is_system_user:
+        if user.get('device_id') and user['device_id'] != device_id:
+            # 设备不匹配，需要换机校验码
+            if not transfer_code:
+                # 获取之前绑定的设备信息
+                bound_device_info = user.get('device_info') or '未知设备'
+                return jsonify({
+                    'error': '设备不匹配，请输入换机校验码',
+                    'need_transfer_code': True,
+                    'user_id': user['id'],
+                    'bound_device': bound_device_info
+                }), 403
+            
+            # 验证换机校验码
+            success, msg = verify_transfer_code(user['id'], transfer_code)
+            if not success:
+                return jsonify({'error': msg, 'need_transfer_code': True}), 403
+            
+            # 验证成功，更新设备ID和设备信息
+            update_user_device(user['id'], device_id, device_info)
+        elif not user.get('device_id'):
+            # 首次登录，绑定设备
+            update_user_device(user['id'], device_id, device_info)
     
     user = get_user(user['id'])
     user.pop('password', None)
