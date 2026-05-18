@@ -3417,7 +3417,8 @@
             deleteChapterConfirm: function(chapterId, bookId) {
                 if (confirm('确定要删除这个章节吗？章节下所有小节和点评都会被删除！')) {
                     fetch(API_BASE + '/chapters/' + chapterId, {method: 'DELETE'}).then(function() {
-                        admin.loadChapters(bookId);
+                        // 强制重新加载书籍详情以刷新所有数据
+                        admin.editBook(bookId);
                     });
                 }
             },
