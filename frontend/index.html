@@ -1862,6 +1862,7 @@
                 });
 
                 this._totalChars = charIndex;
+                console.log('_prepareChalkText done, _totalChars:', this._totalChars, '_allChars length:', this._allChars.length);
 
                 this._container = container;
                 this._containerHeight = container.clientHeight;
@@ -1877,13 +1878,17 @@
 
                 // 显示所有点评序号标记
                 var annotations = state.currentAnnotations;
+                console.log('_renderAnnotationMarkers, annotations count:', annotations.length, 'allChars length:', this._allChars.length);
                 for (var i = 0; i < annotations.length; i++) {
                     var ann = annotations[i];
                     // 显示所有点评标记（不只是已触发的）
                     // end_char 是结束位置（不包含），需要减1得到最后一个字符的索引
                     var endIdx = ann.end_char - 1;
-                    if (endIdx >= 0 && endIdx < this._allChars.length) {
-                        var endCharSpan = this._allChars[endIdx];
+                    // 转换为显示索引（减去换行符）
+                    var displayEndIdx = this._contentCharToDisplayChar(endIdx);
+                    console.log('Annotation', ann.annotation_index, 'end_char:', ann.end_char, '-> displayEndIdx:', displayEndIdx);
+                    if (displayEndIdx >= 0 && displayEndIdx < this._allChars.length) {
+                        var endCharSpan = this._allChars[displayEndIdx];
                         var sup = document.createElement('span');
                         sup.className = 'annotation-superscript';
                         sup.textContent = getCircledNumber(ann.annotation_index);
