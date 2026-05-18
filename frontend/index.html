@@ -4293,6 +4293,9 @@
             var phone = document.getElementById('adminUserPhone').value.trim();
             var role = document.getElementById('adminUserRole').value;
             var gender = document.getElementById('adminUserGender').value;
+            // 性别中文转英文
+            var genderMap = {'男': 'male', '女': 'female'};
+            if (gender && genderMap[gender]) gender = genderMap[gender];
             var ageAbove = document.getElementById('adminUserAgeAbove').value;
             var ageBelow = document.getElementById('adminUserAgeBelow').value;
             var params = [];
@@ -4320,7 +4323,7 @@
                     html += '<tr>' +
                         '<td>' + (u.phone || '-') + '</td>' +
                         '<td>' + roleBadge + '</td>' +
-                        '<td>' + (u.gender || '-') + '</td>' +
+                        '<td>' + ({'male':'男','female':'女'}[u.gender] || u.gender || '-') + '</td>' +
                         '<td>' + (u.age || '-') + '</td>' +
                         '<td>' + (u.grade || '-') + '</td>' +
                         '<td>' + (u.created_at || '').substring(0, 10) + '</td>' +
