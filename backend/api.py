@@ -1093,6 +1093,10 @@ def admin_reimport_chapter(book_id, chapter_id):
 
         # 筛选属于该章节的小节
         matched_sections = [s for s in sections if s.get('chapter_number') == chapter_number]
+        
+        print(f"[Reimport] Found {len(matched_sections)} sections for chapter {chapter_number}")
+        for s in matched_sections:
+            print(f"[Reimport]   Section {s.get('section_number')}: {len(s.get('annotations', []))} annotations")
 
         if not matched_sections:
             return jsonify({'error': f'文件中未找到第 {chapter_number} 章的小节'}), 400
