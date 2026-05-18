@@ -1812,7 +1812,9 @@
 
             _prepareChalkText: function(content) {
                 console.log('_prepareChalkText, content length:', content.length);
-                console.log('content[80:95]:', JSON.stringify(content.substring(80, 95)));
+                console.log('content[40:90]:', JSON.stringify(content.substring(40, 90)));
+                console.log('content[140:200]:', JSON.stringify(content.substring(140, 200)));
+                console.log('content[290:360]:', JSON.stringify(content.substring(290, 360)));
                 var container = document.getElementById('chalkText');
                 container.innerHTML = '';
                 container.scrollTop = 0;
@@ -1983,8 +1985,8 @@
                     end_char: annotation.end_char,
                     original_text: annotation.original_text
                 }));
+                // 后端保存的位置是包含换行符的绝对位置，需要转换为显示索引
                 var startIdx = this._contentCharToDisplayChar(annotation.start_char);
-                // end_char 是 Python 切片风格（不包含），直接使用
                 var endIdx = this._contentCharToDisplayChar(annotation.end_char);
                 console.log('Highlight range:', startIdx, '->', endIdx, 'allChars length:', this._allChars.length);
                 console.log('_allChars[' + startIdx + ']:', this._allChars[startIdx] ? this._allChars[startIdx].textContent : 'N/A');
@@ -1998,7 +2000,6 @@
             _clearAnnotationHighlight: function(annotation) {
                 if (!annotation) return;
                 var startIdx = this._contentCharToDisplayChar(annotation.start_char);
-                // end_char 是 Python 切片风格（不包含），直接使用
                 var endIdx = this._contentCharToDisplayChar(annotation.end_char);
                 for (var i = startIdx; i < endIdx && i < this._allChars.length; i++) {
                     this._allChars[i].classList.remove('annotated');
