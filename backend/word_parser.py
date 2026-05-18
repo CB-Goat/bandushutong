@@ -353,7 +353,7 @@ class WordStructureParser:
                         section['annotations'].append(annotation)
                         print(f"[Parser]   点评: \"{original_text[:30]}...\" (pos:{abs_start}-{abs_end})")
                 
-                content_char_offset += para_char_count + 1  # +1 for newline
+                content_char_offset += para_char_count  # 不计算换行符，与前端一致
         
         return section
     
