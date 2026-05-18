@@ -1750,6 +1750,13 @@
                 state.currentAnnotations = (section.annotations || []).slice();
                 // 按 annotation_index 排序
                 state.currentAnnotations.sort(function(a, b) { return a.annotation_index - b.annotation_index; });
+                
+                // 调试：打印点评位置
+                console.log('[Annotations] Count:', state.currentAnnotations.length);
+                state.currentAnnotations.forEach(function(ann) {
+                    console.log('[Annotation ' + ann.annotation_index + '] start:' + ann.start_char + ' end:' + ann.end_char + 
+                                ' text:"' + (section.content ? section.content.substring(ann.start_char, ann.end_char) : 'N/A') + '"');
+                });
 
                 // 准备粉笔字
                 this._prepareChalkText(section.content);
