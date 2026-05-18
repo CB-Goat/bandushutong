@@ -1213,7 +1213,7 @@ def get_users_with_stats(phone=None, role=None, gender=None, age_above=None, age
     cursor = conn.cursor()
 
     query = '''
-        SELECT u.id, u.phone, u.role, u.gender, u.age, u.grade, u.created_at, u.device_info,
+        SELECT u.id, u.phone, u.role, u.gender, u.age, u.grade, u.created_at, u.device_id, u.device_info,
                COALESCE(read_stats.read_sections_count, 0) as read_sections_count,
                COALESCE(read_stats.read_words_count, 0) as read_words_count,
                COALESCE(thought_stats.thoughts_count, 0) as thoughts_count
