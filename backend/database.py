@@ -295,22 +295,23 @@ def init_db():
         pass
 
     # 兼容旧数据库：确保users表有所有字段
-    try:
-        cursor.execute('ALTER TABLE users ADD COLUMN gender TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE users ADD COLUMN age INTEGER')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE users ADD COLUMN grade TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE users ADD COLUMN device_info TEXT')
-    except:
-        pass
+    user_columns = [
+        ('password', 'TEXT'),
+        ('wechat_openid', 'TEXT'),
+        ('wechat_nickname', 'TEXT'),
+        ('wechat_avatar', 'TEXT'),
+        ('device_id', 'TEXT'),
+        ('device_info', 'TEXT'),
+        ('gender', 'TEXT'),
+        ('age', 'INTEGER'),
+        ('grade', 'TEXT'),
+        ('role', "TEXT DEFAULT 'user'")
+    ]
+    for col_name, col_type in user_columns:
+        try:
+            cursor.execute('ALTER TABLE users ADD COLUMN ' + col_name + ' ' + col_type)
+        except:
+            pass
 
     conn.commit()
     conn.close()
