@@ -3999,6 +3999,8 @@
             if (deviceCheckInterval) clearInterval(deviceCheckInterval);
             deviceCheckInterval = setInterval(function() {
                 if (!state.currentUser) return;
+                // 管理员跳过设备检查
+                if (state.currentUser.role === 'admin') return;
                 var currentDeviceId = getDeviceId();
                 // 从服务器获取用户当前绑定的设备ID
                 fetch(API_BASE + '/auth/check?user_id=' + state.currentUser.id)
