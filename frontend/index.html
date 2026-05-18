@@ -4437,23 +4437,29 @@
             fetch(API_BASE + '/admin/books/' + bookId + '/catalog-stats')
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
-                    if (!data.chapters || data.chapters.length === 0) {
+                    if (!data.chapters || data.chapters.length === 0 && (!data.orphan_sections || data.orphan_sections.length === 0)) {
                         container.innerHTML = '<p style="color:#999;text-align:center;">暂无章节数据</p>';
                         return;
                     }
                     var html = '<div class="catalog-tree">';
                     data.chapters.forEach(function(ch) {
                         html += '<div class="catalog-chapter">' +
-                            '<div class="catalog-chapter-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">' +
-                            '<span>第' + toChineseNumber(ch.chapter_number) + '章 ' + (ch.title || '') + '</span>' +
+                            '<div class="catalog-chapter-header">' +
+                            '<span onclick="this.parentElement.querySelector(\'.ch-sections\').style.display=this.parentElement.querySelector(\'.ch-sections\').style.display===\'none\'?\'block\':\'none\'" style="cursor:pointer;">第' + toChineseNumber(ch.chapter_number) + '章 ' + (ch.title || '') + '</span>' +
+                            '<span style="display:flex;align-items:center;gap:10px;">' +
                             '<span class="catalog-chapter-stats">' + ch.section_count + '节 | ' + ch.total_words + '字 | ' + ch.total_annotations + '点评</span>' +
+                            '<button class="admin-inline-btn primary" onclick="event.stopPropagation();reimportChapter(' + bookId + ',' + ch.id + ',this)">更新</button>' +
+                            '</span>' +
                             '</div>';
                         if (ch.sections && ch.sections.length > 0) {
-                            html += '<div>';
+                            html += '<div class="ch-sections">';
                             ch.sections.forEach(function(sec) {
                                 html += '<div class="catalog-section-item">' +
                                     '<span>第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                    '<span style="display:flex;align-items:center;gap:10px;">' +
                                     '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评</span>' +
+                                    '<button class="admin-inline-btn primary" onclick="reimportSection(' + bookId + ',' + sec.id + ',this)">更新</button>' +
+                                    '</span>' +
                                     '</div>';
                             });
                             html += '</div>';
@@ -4467,7 +4473,10 @@
                         data.orphan_sections.forEach(function(sec) {
                             html += '<div class="catalog-section-item">' +
                                 '<span>第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                '<span style="display:flex;align-items:center;gap:10px;">' +
                                 '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评</span>' +
+                                '<button class="admin-inline-btn primary" onclick="reimportSection(' + bookId + ',' + sec.id + ',this)">更新</button>' +
+                                '</span>' +
                                 '</div>';
                         });
                         html += '</div></div>';
@@ -4475,6 +4484,62 @@
                     html += '</div>';
                     container.innerHTML = html;
                 });
+        }
+
+        // 重新导入章节
+        function reimportChapter(bookId, chapterId, btn) {
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.docx';
+            input.onchange = function() {
+                var file = input.files[0];
+                if (!file) return;
+                if (!file.name.endsWith('.docx')) { alert('请选择.docx文件'); return; }
+                var formData = new FormData();
+                formData.append('file', file);
+                btn.textContent = '导入中...';
+                btn.disabled = true;
+                fetch(API_BASE + '/admin/books/' + bookId + '/reimport-chapter/' + chapterId, {
+                    method: 'POST',
+                    body: formData
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    alert(data.message || '导入完成');
+                    adminShowCatalogStats(bookId);
+                }).catch(function() {
+                    alert('导入失败');
+                    btn.textContent = '更新';
+                    btn.disabled = false;
+                });
+            };
+            input.click();
+        }
+
+        // 重新导入小节
+        function reimportSection(bookId, sectionId, btn) {
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.docx';
+            input.onchange = function() {
+                var file = input.files[0];
+                if (!file) return;
+                if (!file.name.endsWith('.docx')) { alert('请选择.docx文件'); return; }
+                var formData = new FormData();
+                formData.append('file', file);
+                btn.textContent = '导入中...';
+                btn.disabled = true;
+                fetch(API_BASE + '/admin/books/' + bookId + '/reimport-section/' + sectionId, {
+                    method: 'POST',
+                    body: formData
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    alert(data.message || '导入完成');
+                    adminShowCatalogStats(bookId);
+                }).catch(function() {
+                    alert('导入失败');
+                    btn.textContent = '更新';
+                    btn.disabled = false;
+                });
+            };
+            input.click();
         }
 
         // Subscription Management
