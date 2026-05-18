@@ -160,6 +160,10 @@ def book_detail(book_id):
     for sec in sections:
         sec['annotations'] = get_annotations_by_section(sec['id'])
     
+    # Debug: log annotations count
+    for sec in sections[:2]:
+        print(f"[API] Section {sec['id']}: {len(sec.get('annotations', []))} annotations")
+    
     return jsonify({
         'book': book,
         'sections': sections,
