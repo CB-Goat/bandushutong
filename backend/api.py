@@ -1144,6 +1144,7 @@ def admin_reimport_chapter(book_id, chapter_id):
 
             # 保存点评（在同一连接中操作，确保事务一致性）
             annotations = sec.get('annotations', [])
+            print(f"[Reimport Chapter] Section {sec_number}: {len(annotations)} annotations to save")
             if annotations:
                 conn = get_db()
                 cursor = conn.cursor()
