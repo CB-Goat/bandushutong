@@ -4316,7 +4316,7 @@
                     '<th>已读章节</th><th>已读字数</th><th>思考量</th><th>密码</th><th>操作</th>' +
                     '</tr></thead><tbody>';
                 data.users.forEach(function(u) {
-                    var roleBadge = u.role === 'admin' ? '<span class="admin-badge admin">系统用户</span>' : '<span class="admin-badge user">普通用户</span>';
+                    var roleBadge = u.role === 'admin' ? '<span class="admin-badge admin">系统</span>' : '<span class="admin-badge user">普通</span>';
                     html += '<tr>' +
                         '<td>' + (u.phone || '-') + '</td>' +
                         '<td>' + roleBadge + '</td>' +
