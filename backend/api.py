@@ -1063,13 +1063,204 @@ def admin_remove_sub():
 
 @api_bp.route('/admin/books/<int:book_id>/reimport-chapter/<int:chapter_id>', methods=['POST'])
 def admin_reimport_chapter(book_id, chapter_id):
-    """重新导入章节（占位）"""
-    return jsonify({'message': '功能开发中'})
+    """重新导入章节：上传 .docx 文件，替换指定章节的所有小节"""
+    # 验证文件
+    if 'file' not in request.files:
+        return jsonify({'error': '没有文件'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': '文件名不能为空'}), 400
+    if not file.filename.endswith('.docx'):
+        return jsonify({'error': '仅支持 .docx 文件'}), 400
+
+    # 验证章节存在且属于该书籍
+    chapter = get_chapter(chapter_id)
+    if not chapter or chapter['book_id'] != book_id:
+        return jsonify({'error': '章节不存在或不属于该书籍'}), 404
+
+    # 保存文件
+    filename = file.filename
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    file.save(filepath)
+
+    try:
+        # 解析文件
+        from backend.word_parser import parse_file as parse_word
+        result = parse_word(filepath)
+
+        sections = result.get('sections', [])
+        chapter_number = chapter['chapter_number']
+
+        # 筛选属于该章节的小节
+        matched_sections = [s for s in sections if s.get('chapter_number') == chapter_number]
+
+        if not matched_sections:
+            return jsonify({'error': f'文件中未找到第 {chapter_number} 章的小节'}), 400
+
+        # 删除该章节下所有旧小节（及其点评、阅读状态）
+        from backend.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM annotations WHERE section_id IN (SELECT id FROM sections WHERE chapter_id=?)', (chapter_id,))
+        cursor.execute('DELETE FROM section_reading_status WHERE section_id IN (SELECT id FROM sections WHERE chapter_id=?)', (chapter_id,))
+        cursor.execute('DELETE FROM sections WHERE chapter_id=?', (chapter_id,))
+        conn.commit()
+        conn.close()
+
+        # 创建新小节
+        for sec in matched_sections:
+            sec_id = add_section(
+                book_id=book_id,
+                chapter_id=chapter_id,
+                section_number=sec['section_number'],
+                content=sec.get('content', ''),
+                title=sec.get('title', '')
+            )
+
+            # 保存小结
+            if sec.get('summary'):
+                from backend.database import get_db as _get_db
+                _conn = _get_db()
+                _cursor = _conn.cursor()
+                _cursor.execute('UPDATE sections SET summary = ? WHERE id = ?', (sec['summary'], sec_id))
+                _conn.commit()
+                _conn.close()
+
+            # 保存点评
+            annotations = sec.get('annotations', [])
+            for idx, anno in enumerate(annotations):
+                add_annotation(
+                    section_id=sec_id,
+                    annotation_index=idx + 1,
+                    start_char=anno.get('start_char', 0),
+                    end_char=anno.get('end_char', 0),
+                    original_text=anno.get('original_text', ''),
+                    comment=anno.get('comment', '')
+                )
+
+        # 更新章节统计
+        ch_total_words = sum(len(s.get('content', '')) for s in matched_sections)
+        update_chapter_info(chapter_id, len(matched_sections), ch_total_words)
+
+        # 更新书籍总小节数
+        from backend.database import get_db as _get_db2
+        _conn2 = _get_db2()
+        _cursor2 = _conn2.cursor()
+        _cursor2.execute('SELECT COUNT(*) FROM sections WHERE book_id=?', (book_id,))
+        total_sections = _cursor2.fetchone()[0]
+        _conn2.close()
+        update_book_sections_count(book_id, total_sections)
+
+        return jsonify({
+            'message': '章节导入成功',
+            'section_count': len(matched_sections)
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'导入失败: {str(e)}'}), 500
 
 @api_bp.route('/admin/books/<int:book_id>/reimport-section/<int:section_id>', methods=['POST'])
 def admin_reimport_section(book_id, section_id):
-    """重新导入小节（占位）"""
-    return jsonify({'message': '功能开发中'})
+    """重新导入小节：上传 .docx 文件，替换指定小节的内容"""
+    # 验证文件
+    if 'file' not in request.files:
+        return jsonify({'error': '没有文件'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': '文件名不能为空'}), 400
+    if not file.filename.endswith('.docx'):
+        return jsonify({'error': '仅支持 .docx 文件'}), 400
+
+    # 验证小节存在且属于该书籍
+    section = get_section(section_id)
+    if not section or section['book_id'] != book_id:
+        return jsonify({'error': '小节不存在或不属于该书籍'}), 404
+
+    # 保存文件
+    filename = file.filename
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    file.save(filepath)
+
+    try:
+        # 解析文件
+        from backend.word_parser import parse_file as parse_word
+        result = parse_word(filepath)
+
+        sections = result.get('sections', [])
+        target_section_number = section['section_number']
+        chapter_id = section['chapter_id']
+
+        # 查找匹配的小节（按 section_number 匹配）
+        matched_section = None
+        for sec in sections:
+            if sec.get('section_number') == target_section_number:
+                matched_section = sec
+                break
+
+        if not matched_section:
+            return jsonify({'error': f'文件中未找到第 {target_section_number} 小节'}), 400
+
+        # 删除旧小节的点评和阅读状态
+        from backend.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM annotations WHERE section_id = ?', (section_id,))
+        cursor.execute('DELETE FROM section_reading_status WHERE section_id = ?', (section_id,))
+        conn.commit()
+        conn.close()
+
+        # 更新小节内容
+        update_section(
+            section_id=section_id,
+            title=matched_section.get('title', ''),
+            content=matched_section.get('content', ''),
+            summary=matched_section.get('summary', '')
+        )
+
+        # 更新字数
+        word_count = len(matched_section.get('content', ''))
+        from backend.database import get_db as _get_db
+        _conn = _get_db()
+        _cursor = _conn.cursor()
+        _cursor.execute('UPDATE sections SET word_count = ? WHERE id = ?', (word_count, section_id))
+        _conn.commit()
+        _conn.close()
+
+        # 重新创建点评
+        annotations = matched_section.get('annotations', [])
+        for idx, anno in enumerate(annotations):
+            add_annotation(
+                section_id=section_id,
+                annotation_index=idx + 1,
+                start_char=anno.get('start_char', 0),
+                end_char=anno.get('end_char', 0),
+                original_text=anno.get('original_text', ''),
+                comment=anno.get('comment', '')
+            )
+
+        # 更新章节统计
+        from backend.database import get_db as _get_db2
+        _conn2 = _get_db2()
+        _cursor2 = _conn2.cursor()
+        _cursor2.execute('SELECT COUNT(*), COALESCE(SUM(word_count), 0) FROM sections WHERE chapter_id=?', (chapter_id,))
+        row = _cursor2.fetchone()
+        _conn2.close()
+        if row:
+            update_chapter_info(chapter_id, row[0], row[1])
+
+        # 更新书籍总小节数
+        from backend.database import get_db as _get_db3
+        _conn3 = _get_db3()
+        _cursor3 = _conn3.cursor()
+        _cursor3.execute('SELECT COUNT(*) FROM sections WHERE book_id=?', (book_id,))
+        total_sections = _cursor3.fetchone()[0]
+        _conn3.close()
+        update_book_sections_count(book_id, total_sections)
+
+        return jsonify({'message': '小节导入成功'})
+
+    except Exception as e:
+        return jsonify({'error': f'导入失败: {str(e)}'}), 500
 
 # ===== 管理员-订阅审批 API =====
 
