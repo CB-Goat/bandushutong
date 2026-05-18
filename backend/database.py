@@ -859,7 +859,7 @@ def delete_chapter(chapter_id):
     # 先获取book_id
     cursor.execute('SELECT book_id FROM chapters WHERE id = ?', (chapter_id,))
     row = cursor.fetchone()
-    book_id = row['book_id'] if row else None
+    book_id = row[0] if row else None
     # 删除关联的点评
     cursor.execute('''
         DELETE FROM annotations WHERE section_id IN
