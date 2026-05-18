@@ -1816,8 +1816,8 @@
                 // 标点符号集合
                 var puncts = '\uFF0C\u3002\uFF01\uFF1F\u3001\uFF1B\uFF1A\u201C\u201D\u2018\u2019\uFF08\uFF09\u3010\u3011\u300A\u300B\u2014\u2026\u00B7,.!?\;:\'\"()-[]{}';
 
-                // 按段落分割
-                var paragraphs = content.split('\n').filter(function(p) { return p.trim(); });
+                // 按段落分割（不过滤空段落，与后端一致）
+                var paragraphs = content.split('\n');
 
                 var charIndex = 0;
 
@@ -1833,19 +1833,23 @@
                     paraDiv.className = 'chalk-line';
                     paraDiv.style.textIndent = '2em';
 
-                    for (var ci = 0; ci < para.length; ci++) {
-                        var char = para[ci];
-                        var span = document.createElement('span');
-                        span.className = 'chalk-char';
-                        if (puncts.indexOf(char) >= 0) span.classList.add('punct');
-                        span.textContent = char;
-                        span.dataset.index = charIndex;
-                        paraDiv.appendChild(span);
-                        reader._allChars.push(span);
-                        charIndex++;
+                    // 空段落也要计算字符索引（保持与后端一致）
+                    if (!para) {
+                        // 空段落不渲染，但已经添加了linebreak
+                    } else {
+                        for (var ci = 0; ci < para.length; ci++) {
+                            var char = para[ci];
+                            var span = document.createElement('span');
+                            span.className = 'chalk-char';
+                            if (puncts.indexOf(char) >= 0) span.classList.add('punct');
+                            span.textContent = char;
+                            span.dataset.index = charIndex;
+                            paraDiv.appendChild(span);
+                            reader._allChars.push(span);
+                            charIndex++;
+                        }
+                        container.appendChild(paraDiv);
                     }
-
-                    container.appendChild(paraDiv);
                 });
 
                 this._totalChars = charIndex;
