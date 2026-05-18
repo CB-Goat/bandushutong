@@ -4318,6 +4318,9 @@
             var author = document.getElementById('adminBookAuthor').value.trim().toLowerCase();
             var price = document.getElementById('adminBookPrice').value.trim();
             
+            // 隐藏书籍编辑卡片
+            document.getElementById('adminBookDetail').style.display = 'none';
+            
             var list = document.getElementById('adminBookList');
             list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">加载中...</div>';
             
