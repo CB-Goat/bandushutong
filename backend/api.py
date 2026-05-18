@@ -1063,7 +1063,7 @@ def admin_remove_sub():
 
 @api_bp.route('/admin/books/<int:book_id>/reimport-chapter/<int:chapter_id>', methods=['POST'])
 def admin_reimport_chapter(book_id, chapter_id):
-    """重新导入章节：上传 .docx 文件，替换指定章节的所有小节"""
+    """重新导入章节：上传 .docx 文件，更新指定章节的所有小节（保持section_id不变）"""
     # 验证文件
     if 'file' not in request.files:
         return jsonify({'error': '没有文件'}), 400
@@ -1097,34 +1097,50 @@ def admin_reimport_chapter(book_id, chapter_id):
         if not matched_sections:
             return jsonify({'error': f'文件中未找到第 {chapter_number} 章的小节'}), 400
 
-        # 删除该章节下所有旧小节（及其点评、阅读状态）
+        # 获取该章节下现有的所有小节
         from backend.database import get_db
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('DELETE FROM annotations WHERE section_id IN (SELECT id FROM sections WHERE chapter_id=?)', (chapter_id,))
-        cursor.execute('DELETE FROM section_reading_status WHERE section_id IN (SELECT id FROM sections WHERE chapter_id=?)', (chapter_id,))
-        cursor.execute('DELETE FROM sections WHERE chapter_id=?', (chapter_id,))
-        conn.commit()
+        cursor.execute('SELECT id, section_number FROM sections WHERE chapter_id=?', (chapter_id,))
+        existing_sections = {row[1]: row[0] for row in cursor.fetchall()}  # section_number -> section_id
         conn.close()
 
-        # 创建新小节
+        # 处理每个匹配的小节：更新现有或新增
         for sec in matched_sections:
-            sec_id = add_section(
-                book_id=book_id,
-                chapter_id=chapter_id,
-                section_number=sec['section_number'],
-                content=sec.get('content', ''),
-                title=sec.get('title', '')
-            )
+            sec_number = sec['section_number']
+            content = sec.get('content', '')
+            title = sec.get('title', '')
+            summary = sec.get('summary', '')
+            word_count = len(content)
 
-            # 保存小结
-            if sec.get('summary'):
-                from backend.database import get_db as _get_db
-                _conn = _get_db()
-                _cursor = _conn.cursor()
-                _cursor.execute('UPDATE sections SET summary = ? WHERE id = ?', (sec['summary'], sec_id))
-                _conn.commit()
-                _conn.close()
+            if sec_number in existing_sections:
+                # 更新现有小节（保持section_id不变）
+                sec_id = existing_sections[sec_number]
+                conn = get_db()
+                cursor = conn.cursor()
+                # 删除旧的点评
+                cursor.execute('DELETE FROM annotations WHERE section_id = ?', (sec_id,))
+                # 更新小节内容
+                cursor.execute('UPDATE sections SET title = ?, content = ?, summary = ?, word_count = ? WHERE id = ?',
+                              (title, content, summary, word_count, sec_id))
+                conn.commit()
+                conn.close()
+            else:
+                # 新增小节
+                sec_id = add_section(
+                    book_id=book_id,
+                    chapter_id=chapter_id,
+                    section_number=sec_number,
+                    content=content,
+                    title=title
+                )
+                # 设置小结
+                if summary:
+                    conn = get_db()
+                    cursor = conn.cursor()
+                    cursor.execute('UPDATE sections SET summary = ? WHERE id = ?', (summary, sec_id))
+                    conn.commit()
+                    conn.close()
 
             # 保存点评
             annotations = sec.get('annotations', [])
@@ -1139,16 +1155,20 @@ def admin_reimport_chapter(book_id, chapter_id):
                 )
 
         # 更新章节统计
-        ch_total_words = sum(len(s.get('content', '')) for s in matched_sections)
-        update_chapter_info(chapter_id, len(matched_sections), ch_total_words)
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*), COALESCE(SUM(word_count), 0) FROM sections WHERE chapter_id=?', (chapter_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            update_chapter_info(chapter_id, row[0], row[1])
 
         # 更新书籍总小节数
-        from backend.database import get_db as _get_db2
-        _conn2 = _get_db2()
-        _cursor2 = _conn2.cursor()
-        _cursor2.execute('SELECT COUNT(*) FROM sections WHERE book_id=?', (book_id,))
-        total_sections = _cursor2.fetchone()[0]
-        _conn2.close()
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM sections WHERE book_id=?', (book_id,))
+        total_sections = cursor.fetchone()[0]
+        conn.close()
         update_book_sections_count(book_id, total_sections)
 
         return jsonify({
@@ -1161,7 +1181,7 @@ def admin_reimport_chapter(book_id, chapter_id):
 
 @api_bp.route('/admin/books/<int:book_id>/reimport-section/<int:section_id>', methods=['POST'])
 def admin_reimport_section(book_id, section_id):
-    """重新导入小节：上传 .docx 文件，替换指定小节的内容"""
+    """重新导入小节：上传 .docx 文件，更新指定小节的内容（保持section_id和阅读状态不变）"""
     # 验证文件
     if 'file' not in request.files:
         return jsonify({'error': '没有文件'}), 400
@@ -1200,31 +1220,26 @@ def admin_reimport_section(book_id, section_id):
         if not matched_section:
             return jsonify({'error': f'文件中未找到第 {target_section_number} 小节'}), 400
 
-        # 删除旧小节的点评和阅读状态
+        # 删除旧点评（保留阅读状态）
         from backend.database import get_db
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute('DELETE FROM annotations WHERE section_id = ?', (section_id,))
-        cursor.execute('DELETE FROM section_reading_status WHERE section_id = ?', (section_id,))
         conn.commit()
         conn.close()
 
-        # 更新小节内容
-        update_section(
-            section_id=section_id,
-            title=matched_section.get('title', ''),
-            content=matched_section.get('content', ''),
-            summary=matched_section.get('summary', '')
-        )
+        # 更新小节内容（保持section_id不变）
+        content = matched_section.get('content', '')
+        title = matched_section.get('title', '')
+        summary = matched_section.get('summary', '')
+        word_count = len(content)
 
-        # 更新字数
-        word_count = len(matched_section.get('content', ''))
-        from backend.database import get_db as _get_db
-        _conn = _get_db()
-        _cursor = _conn.cursor()
-        _cursor.execute('UPDATE sections SET word_count = ? WHERE id = ?', (word_count, section_id))
-        _conn.commit()
-        _conn.close()
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE sections SET title = ?, content = ?, summary = ?, word_count = ? WHERE id = ?',
+                      (title, content, summary, word_count, section_id))
+        conn.commit()
+        conn.close()
 
         # 重新创建点评
         annotations = matched_section.get('annotations', [])
@@ -1239,22 +1254,20 @@ def admin_reimport_section(book_id, section_id):
             )
 
         # 更新章节统计
-        from backend.database import get_db as _get_db2
-        _conn2 = _get_db2()
-        _cursor2 = _conn2.cursor()
-        _cursor2.execute('SELECT COUNT(*), COALESCE(SUM(word_count), 0) FROM sections WHERE chapter_id=?', (chapter_id,))
-        row = _cursor2.fetchone()
-        _conn2.close()
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*), COALESCE(SUM(word_count), 0) FROM sections WHERE chapter_id=?', (chapter_id,))
+        row = cursor.fetchone()
+        conn.close()
         if row:
             update_chapter_info(chapter_id, row[0], row[1])
 
         # 更新书籍总小节数
-        from backend.database import get_db as _get_db3
-        _conn3 = _get_db3()
-        _cursor3 = _conn3.cursor()
-        _cursor3.execute('SELECT COUNT(*) FROM sections WHERE book_id=?', (book_id,))
-        total_sections = _cursor3.fetchone()[0]
-        _conn3.close()
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM sections WHERE book_id=?', (book_id,))
+        total_sections = cursor.fetchone()[0]
+        conn.close()
         update_book_sections_count(book_id, total_sections)
 
         return jsonify({'message': '小节导入成功'})
