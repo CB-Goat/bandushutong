@@ -328,6 +328,7 @@ class WordStructureParser:
         # 收集正文批注（点评）
         if content_start is not None:
             content_char_offset = 0
+            first_para = True
             for i in range(content_start, len(self.paragraphs)):
                 para = self.paragraphs[i]
                 style = para.style.name if para.style else 'Normal'
@@ -337,6 +338,11 @@ class WordStructureParser:
                 
                 # 使用与 _extract_comment_ranges 一致的字符计算方式
                 para_char_count = self._count_para_chars(para)
+                
+                # 非首个段落前有换行符，需要计入偏移
+                if not first_para:
+                    content_char_offset += 1  # 换行符
+                first_para = False
                 
                 for cid, rng in comment_ranges.items():
                     if rng['start_para'] == i and cid in comments:
@@ -353,7 +359,7 @@ class WordStructureParser:
                         section['annotations'].append(annotation)
                         print(f"[Parser]   点评: \"{original_text[:30]}...\" (pos:{abs_start}-{abs_end})")
                 
-                content_char_offset += para_char_count  # 不计算换行符，与前端一致
+                content_char_offset += para_char_count
         
         return section
     
