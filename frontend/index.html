@@ -1771,8 +1771,16 @@
                         analysisManager.addSummaryTab(section.summary);
                     }
                 } else {
-                    // 未读/在读节：重置赏析区域
+                    // 未读/在读节：显示点评标签但不自动播放
                     analysisManager.init();
+                    if (section.annotations && section.annotations.length > 0) {
+                        section.annotations.forEach(function(ann) {
+                            analysisManager.addAnnotationTab(ann);
+                        });
+                    }
+                    if (section.summary) {
+                        analysisManager.addSummaryTab(section.summary);
+                    }
                     document.getElementById('annotationDisplay').classList.remove('active');
                 }
 
@@ -1848,18 +1856,18 @@
                 document.getElementById('progressFill').style.width = '0%';
             },
 
-            // 在文字中渲染点评序号标记（仅在触发后显示）
+            // 在文字中渲染点评序号标记
             _renderAnnotationMarkers: function() {
                 // 先清除已有的标记
                 var existingMarkers = document.querySelectorAll('.annotation-superscript');
                 existingMarkers.forEach(function(m) { m.remove(); });
 
-                // 只为已触发的点评点显示序号
+                // 显示所有点评序号标记
                 var annotations = state.currentAnnotations;
                 for (var i = 0; i < annotations.length; i++) {
                     var ann = annotations[i];
-                    // 只有已触发的点评点才显示序号
-                    if (ann._triggered && ann.end_char >= 0 && ann.end_char < this._allChars.length) {
+                    // 显示所有点评标记（不只是已触发的）
+                    if (ann.end_char >= 0 && ann.end_char < this._allChars.length) {
                         var endIdx = ann.end_char;
                         var endCharSpan = this._allChars[endIdx];
                         var sup = document.createElement('span');
