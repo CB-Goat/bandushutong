@@ -308,22 +308,21 @@ class WordStructureParser:
                 section['summary'] = comments[cid]['text']
                 print(f"[Parser]   小结: {section['summary'][:40]}...")
         
-        # 收集后续正文段落
+        # 收集后续正文段落（不过滤空段落，与前端一致）
         content_start = None
         for i in range(para_idx + 1, len(self.paragraphs)):
             para = self.paragraphs[i]
             style = para.style.name if para.style else 'Normal'
-            text = para.text
+            text = para.text or ''  # 空段落也保留
             
             if style in ['Heading 1', 'Heading 2', 'Heading 3']:
                 break
             
-            if text:
-                if section['content']:
-                    section['content'] += '\n' + text
-                else:
-                    section['content'] = text
-                    content_start = i
+            if section['content']:
+                section['content'] += '\n' + text
+            else:
+                section['content'] = text
+                content_start = i
         
         # 收集正文批注（点评）
         if content_start is not None:
