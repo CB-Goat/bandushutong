@@ -335,8 +335,8 @@ class WordStructureParser:
                 if style in ['Heading 1', 'Heading 2', 'Heading 3']:
                     break
                 
-                para_text = para.text
-                para_len = len(para_text) if para_text else 0
+                # 使用与 _extract_comment_ranges 一致的字符计算方式
+                para_char_count = self._count_para_chars(para)
                 
                 for cid, rng in comment_ranges.items():
                     if rng['start_para'] == i and cid in comments:
@@ -351,11 +351,26 @@ class WordStructureParser:
                             'end_char': abs_end
                         }
                         section['annotations'].append(annotation)
-                        print(f"[Parser]   点评: \"{original_text[:30]}...\"")
+                        print(f"[Parser]   点评: \"{original_text[:30]}...\" (pos:{abs_start}-{abs_end})")
                 
-                content_char_offset += para_len + 1
+                content_char_offset += para_char_count + 1  # +1 for newline
         
         return section
+    
+    def _count_para_chars(self, para):
+        """计算段落中的字符数（与 _extract_comment_ranges 中的计算方式一致）"""
+        char_count = 0
+        para_element = para._element
+        for child in para_element:
+            tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if tag == 'r':
+                for elem in child.iter():
+                    elem_tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                    if elem_tag == 't' and elem.text:
+                        char_count += len(elem.text)
+                    elif elem_tag == 'tab':
+                        char_count += 1
+        return char_count
     
     def _get_original_text(self, rng):
         """根据批注范围提取引用的原文"""
