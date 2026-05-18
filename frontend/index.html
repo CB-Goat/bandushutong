@@ -3257,7 +3257,7 @@
                             '<td>' + (book.title || '-') + '</td>' +
                             '<td>' + (book.author || '') + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</td>' +
                             '<td>' + (book.version || '-') + '</td>' +
-                            '<td>' + (book.total_chapters || 0) + '</td>' +
+                            '<td>' + (book.total_chapters || 0) + '章' + (book.total_sections || 0) + '节</td>' +
                             '<td>' + (book.total_words || 0) + '</td>' +
                             '<td>' + (book.total_annotations || 0) + '</td>' +
                             '<td>' + (book.subscription_price ? '￥' + book.subscription_price.toFixed(2) : '-') + '</td>' +

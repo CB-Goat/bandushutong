@@ -856,6 +856,10 @@ def delete_chapter(chapter_id):
     """删除章节（同时删除关联的节和点评）"""
     conn = get_db()
     cursor = conn.cursor()
+    # 先获取book_id
+    cursor.execute('SELECT book_id FROM chapters WHERE id = ?', (chapter_id,))
+    row = cursor.fetchone()
+    book_id = row['book_id'] if row else None
     # 删除关联的点评
     cursor.execute('''
         DELETE FROM annotations WHERE section_id IN
@@ -870,6 +874,13 @@ def delete_chapter(chapter_id):
     cursor.execute('DELETE FROM sections WHERE chapter_id = ?', (chapter_id,))
     # 删除章节
     cursor.execute('DELETE FROM chapters WHERE id = ?', (chapter_id,))
+    # 更新书籍统计
+    if book_id:
+        cursor.execute('SELECT COUNT(*) FROM chapters WHERE book_id = ?', (book_id,))
+        ch_count = cursor.fetchone()[0]
+        cursor.execute('SELECT COUNT(*) FROM sections WHERE book_id = ?', (book_id,))
+        sec_count = cursor.fetchone()[0]
+        cursor.execute('UPDATE books SET total_chapters = ?, total_sections = ? WHERE id = ?', (ch_count, sec_count, book_id))
     conn.commit()
     conn.close()
 
