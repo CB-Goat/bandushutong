@@ -1878,8 +1878,9 @@
                 for (var i = 0; i < annotations.length; i++) {
                     var ann = annotations[i];
                     // 显示所有点评标记（不只是已触发的）
-                    if (ann.end_char >= 0 && ann.end_char < this._allChars.length) {
-                        var endIdx = ann.end_char;
+                    // end_char 是结束位置（不包含），需要减1得到最后一个字符的索引
+                    var endIdx = ann.end_char - 1;
+                    if (endIdx >= 0 && endIdx < this._allChars.length) {
                         var endCharSpan = this._allChars[endIdx];
                         var sup = document.createElement('span');
                         sup.className = 'annotation-superscript';
@@ -1894,8 +1895,10 @@
 
             // 显示单个点评点序号（在触发后调用）
             _showAnnotationMarker: function(annotation) {
-                if (annotation.end_char >= 0 && annotation.end_char < this._allChars.length) {
-                    var endCharSpan = this._allChars[annotation.end_char];
+                // end_char 是结束位置（不包含），需要减1得到最后一个字符的索引
+                var endIdx = annotation.end_char - 1;
+                if (endIdx >= 0 && endIdx < this._allChars.length) {
+                    var endCharSpan = this._allChars[endIdx];
                     var sup = document.createElement('span');
                     sup.className = 'annotation-superscript';
                     sup.textContent = getCircledNumber(annotation.annotation_index);
