@@ -1142,17 +1142,20 @@ def admin_reimport_chapter(book_id, chapter_id):
                     conn.commit()
                     conn.close()
 
-            # 保存点评
+            # 保存点评（在同一连接中操作，确保事务一致性）
             annotations = sec.get('annotations', [])
-            for idx, anno in enumerate(annotations):
-                add_annotation(
-                    section_id=sec_id,
-                    annotation_index=idx + 1,
-                    start_char=anno.get('start_char', 0),
-                    end_char=anno.get('end_char', 0),
-                    original_text=anno.get('original_text', ''),
-                    comment=anno.get('comment', '')
-                )
+            if annotations:
+                conn = get_db()
+                cursor = conn.cursor()
+                for idx, anno in enumerate(annotations):
+                    cursor.execute(
+                        '''INSERT INTO annotations (section_id, annotation_index, start_char, end_char, original_text, comment)
+                           VALUES (?, ?, ?, ?, ?, ?)''',
+                        (sec_id, idx + 1, anno.get('start_char', 0), anno.get('end_char', 0),
+                         anno.get('original_text', ''), anno.get('comment', ''))
+                    )
+                conn.commit()
+                conn.close()
 
         # 更新章节统计
         conn = get_db()
@@ -1256,38 +1259,35 @@ def admin_reimport_section(book_id, section_id):
         if not matched_section:
             return jsonify({'error': f'文件中未找到第 {target_section_number} 小节'}), 400
 
-        # 删除旧点评（保留阅读状态）
-        from backend.database import get_db
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute('DELETE FROM annotations WHERE section_id = ?', (section_id,))
-        conn.commit()
-        conn.close()
-
-        # 更新小节内容（保持section_id不变）
         content = matched_section.get('content', '')
         title = matched_section.get('title', '')
         summary = matched_section.get('summary', '')
         word_count = len(content)
 
+        # 删除旧点评并更新内容（同一事务）
+        from backend.database import get_db
         conn = get_db()
         cursor = conn.cursor()
+        cursor.execute('DELETE FROM annotations WHERE section_id = ?', (section_id,))
         cursor.execute('UPDATE sections SET title = ?, content = ?, summary = ?, word_count = ? WHERE id = ?',
                       (title, content, summary, word_count, section_id))
         conn.commit()
         conn.close()
 
-        # 重新创建点评
+        # 重新创建点评（同一事务）
         annotations = matched_section.get('annotations', [])
-        for idx, anno in enumerate(annotations):
-            add_annotation(
-                section_id=section_id,
-                annotation_index=idx + 1,
-                start_char=anno.get('start_char', 0),
-                end_char=anno.get('end_char', 0),
-                original_text=anno.get('original_text', ''),
-                comment=anno.get('comment', '')
-            )
+        if annotations:
+            conn = get_db()
+            cursor = conn.cursor()
+            for idx, anno in enumerate(annotations):
+                cursor.execute(
+                    '''INSERT INTO annotations (section_id, annotation_index, start_char, end_char, original_text, comment)
+                       VALUES (?, ?, ?, ?, ?, ?)''',
+                    (section_id, idx + 1, anno.get('start_char', 0), anno.get('end_char', 0),
+                     anno.get('original_text', ''), anno.get('comment', ''))
+                )
+            conn.commit()
+            conn.close()
 
         # 更新章节统计
         conn = get_db()
