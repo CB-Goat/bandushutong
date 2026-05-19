@@ -1186,17 +1186,24 @@ def admin_reimport_chapter(book_id, chapter_id):
         conn.close()
         update_book_sections_count(book_id, total_sections)
 
-        # 为更新的节生成TTS音频（异步）
+        # 为更新的节生成分段TTS音频（按点评边界分割）
         try:
-            from backend.baidu_tts import generate_section_audio_with_timeline, get_annotations_by_section, update_annotation_audio, update_section_summary_audio
+            from backend.baidu_tts import generate_segmented_audio, update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section, update_annotation_audio
             import threading
             def generate_tts_for_chapter():
                 for sec in matched_sections:
                     sec_number = sec['section_number']
                     if sec_number in existing_sections:
                         sec_id = existing_sections[sec_number]
-                        # 生成节音频
-                        result = generate_section_audio_with_timeline(sec.get('content', ''), sec_id)
+                        annotations = sec.get('annotations', [])
+                        # 按点评边界生成分段音频
+                        result = generate_segmented_audio(
+                            sec.get('content', ''),
+                            sec_id,
+                            annotations=annotations,
+                            speed=5,
+                            person=0
+                        )
                         if result:
                             from backend.database import get_db as _db
                             _conn = _db()
@@ -1205,22 +1212,14 @@ def admin_reimport_chapter(book_id, chapter_id):
                                           (result.get('audio_path'), result.get('audio_duration', 0), result.get('char_timeline'), sec_id))
                             _conn.commit()
                             _conn.close()
-                        # 生成点评音频
-                        for idx, anno in enumerate(sec.get('annotations', [])):
-                            if anno.get('comment'):
-                                anno_result = generate_section_audio_with_timeline(anno['comment'], sec_id)
-                                if anno_result:
-                                    update_annotation_audio(sec_id, idx + 1, anno_result.get('audio_path'), anno_result.get('audio_duration', 0))
-                        # 生成小结音频
-                        if sec.get('summary'):
-                            summary_result = generate_section_audio_with_timeline(sec['summary'], sec_id)
-                            if summary_result:
-                                update_section_summary_audio(sec_id, summary_result.get('audio_path'), summary_result.get('audio_duration', 0))
+                            # 更新音频分段信息
+                            if result.get('audio_segments'):
+                                update_section_audio_segments(sec_id, result['audio_segments'])
             t = threading.Thread(target=generate_tts_for_chapter)
             t.daemon = True
             t.start()
         except Exception as e:
-            print(f'[TTS] 章节音频生成失败: {e}')
+            print(f'[TTS] 章节分段音频生成失败: {e}')
 
         return jsonify({
             'message': '章节导入成功（音频生成中）',
@@ -1318,13 +1317,19 @@ def admin_reimport_section(book_id, section_id):
         conn.close()
         update_book_sections_count(book_id, total_sections)
 
-        # 为更新的节生成TTS音频（异步）
+        # 为更新的节生成分段TTS音频（按点评边界分割）
         try:
-            from backend.baidu_tts import generate_section_audio_with_timeline, update_annotation_audio, update_section_summary_audio
+            from backend.baidu_tts import generate_segmented_audio, update_section_audio_timeline, update_section_audio_segments, update_annotation_audio
             import threading
             def generate_tts_for_section():
-                # 生成节音频
-                result = generate_section_audio_with_timeline(content, section_id)
+                # 按点评边界生成分段音频
+                result = generate_segmented_audio(
+                    content,
+                    section_id,
+                    annotations=annotations,
+                    speed=5,
+                    person=0
+                )
                 if result:
                     from backend.database import get_db as _db
                     _conn = _db()
@@ -1333,22 +1338,14 @@ def admin_reimport_section(book_id, section_id):
                                   (result.get('audio_path'), result.get('audio_duration', 0), result.get('char_timeline'), section_id))
                     _conn.commit()
                     _conn.close()
-                # 生成点评音频
-                for idx, anno in enumerate(annotations):
-                    if anno.get('comment'):
-                        anno_result = generate_section_audio_with_timeline(anno['comment'], section_id)
-                        if anno_result:
-                            update_annotation_audio(section_id, idx + 1, anno_result.get('audio_path'), anno_result.get('audio_duration', 0))
-                # 生成小结音频
-                if summary:
-                    summary_result = generate_section_audio_with_timeline(summary, section_id)
-                    if summary_result:
-                        update_section_summary_audio(section_id, summary_result.get('audio_path'), summary_result.get('audio_duration', 0))
+                    # 更新音频分段信息
+                    if result.get('audio_segments'):
+                        update_section_audio_segments(section_id, result['audio_segments'])
             t = threading.Thread(target=generate_tts_for_section)
             t.daemon = True
             t.start()
         except Exception as e:
-            print(f'[TTS] 小节音频生成失败: {e}')
+            print(f'[TTS] 小节分段音频生成失败: {e}')
 
         return jsonify({'message': '小节导入成功（音频生成中）'})
 
