@@ -1437,6 +1437,7 @@
                 var sections = bookData.sections || [];
                 // 保存用户进度
                 state.currentProgress = bookData.progress || null;
+                console.log('showCatalog: bookData.progress =', JSON.stringify(bookData.progress));
 
                 // 设置导航栏标题
                 document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
