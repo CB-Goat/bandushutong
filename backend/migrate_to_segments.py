@@ -8,9 +8,13 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from database import get_db, create_text_segments, create_insert_points, update_text_segment_audio, update_insert_point_audio, get_text_segments
+from database import get_db, init_db, create_text_segments, create_insert_points, update_text_segment_audio, update_insert_point_audio, get_text_segments
 
 def migrate():
+    # 先初始化数据库表（确保新表存在）
+    print("初始化数据库表...")
+    init_db()
+    
     conn = get_db()
     cursor = conn.cursor()
 
