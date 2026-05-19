@@ -2654,6 +2654,8 @@
             _playAnnotationSegment: function(seg) {
                 var self = this;
                 var annotation = null;
+                console.log('_playAnnotationSegment: seg.annotation_id=' + seg.annotation_id);
+                console.log('currentAnnotations:', state.currentAnnotations ? state.currentAnnotations.map(function(a){return {id:a.id, annotation_index:a.annotation_index};}) : 'null');
                 if (state.currentAnnotations) {
                     for (var i = 0; i < state.currentAnnotations.length; i++) {
                         if (state.currentAnnotations[i].id === seg.annotation_id) {
@@ -2662,6 +2664,7 @@
                         }
                     }
                 }
+                console.log('Found annotation:', annotation ? {id:annotation.id, annotation_index:annotation.annotation_index} : 'null');
                 
                 if (annotation && typeof reader !== 'undefined' && reader._highlightAnnotation) {
                     reader._highlightAnnotation(annotation);
