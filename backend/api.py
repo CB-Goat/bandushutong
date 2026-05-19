@@ -1189,7 +1189,7 @@ def admin_reimport_chapter(book_id, chapter_id):
         # 为更新的节生成分段TTS音频（按点评边界分割）
         try:
             from backend.baidu_tts import generate_segmented_audio
-            from backend.database import update_section_audio_segments
+            from backend.database import update_section_audio_timeline, update_section_audio_segments
             import threading
             def generate_tts_for_chapter():
                 for sec in matched_sections:
@@ -1206,14 +1206,7 @@ def admin_reimport_chapter(book_id, chapter_id):
                             person=0
                         )
                         if result:
-                            from backend.database import get_db as _db
-                            _conn = _db()
-                            _cursor = _conn.cursor()
-                            _cursor.execute('UPDATE sections SET audio_path = ?, audio_duration = ?, char_timeline = ?, has_audio = 1 WHERE id = ?',
-                                          (result.get('audio_path'), result.get('audio_duration', 0), result.get('char_timeline'), sec_id))
-                            _conn.commit()
-                            _conn.close()
-                            # 更新音频分段信息
+                            update_section_audio_timeline(sec_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
                             if result.get('audio_segments'):
                                 update_section_audio_segments(sec_id, result['audio_segments'])
             t = threading.Thread(target=generate_tts_for_chapter)
@@ -1321,7 +1314,7 @@ def admin_reimport_section(book_id, section_id):
         # 为更新的节生成分段TTS音频（按点评边界分割）
         try:
             from backend.baidu_tts import generate_segmented_audio
-            from backend.database import update_section_audio_segments
+            from backend.database import update_section_audio_timeline, update_section_audio_segments
             import threading
             def generate_tts_for_section():
                 # 按点评边界生成分段音频
@@ -1333,14 +1326,7 @@ def admin_reimport_section(book_id, section_id):
                     person=0
                 )
                 if result:
-                    from backend.database import get_db as _db
-                    _conn = _db()
-                    _cursor = _conn.cursor()
-                    _cursor.execute('UPDATE sections SET audio_path = ?, audio_duration = ?, char_timeline = ?, has_audio = 1 WHERE id = ?',
-                                  (result.get('audio_path'), result.get('audio_duration', 0), result.get('char_timeline'), section_id))
-                    _conn.commit()
-                    _conn.close()
-                    # 更新音频分段信息
+                    update_section_audio_timeline(section_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
                     if result.get('audio_segments'):
                         update_section_audio_segments(section_id, result['audio_segments'])
             t = threading.Thread(target=generate_tts_for_section)

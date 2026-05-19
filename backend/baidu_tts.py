@@ -441,14 +441,24 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
             if next_point in ann_by_end_char:
                 ann = ann_by_end_char[next_point]
                 print(f"[TTS] 段 {seg_idx} 结束后有点评 id={ann['id']}")
-                if ann.get('audio_path'):
-                    audio_segments.append({
-                        'type': 'annotation',
-                        'annotation_id': ann['id'],
-                        'audio_path': ann['audio_path'],
-                        'audio_duration': ann.get('audio_duration', 0)
-                    })
-                    full_duration += ann.get('audio_duration', 0)
+                # 为点评生成音频
+                comment = ann.get('comment', '')
+                if comment:
+                    ann_audio = generate_annotation_audio(ann['id'], '', comment, person=person, speed=speed)
+                    if ann_audio:
+                        audio_segments.append({
+                            'type': 'annotation',
+                            'annotation_id': ann['id'],
+                            'audio_path': ann_audio['audio_path'],
+                            'audio_duration': ann_audio['audio_duration']
+                        })
+                        full_duration += ann_audio['audio_duration']
+                        # 更新数据库中的点评音频信息
+                        try:
+                            from backend.database import update_annotation_audio
+                            update_annotation_audio(section_id, ann['annotation_index'], ann_audio['audio_path'], ann_audio['audio_duration'])
+                        except:
+                            pass
             else:
                 print(f"[TTS] 段 {seg_idx} 结束后无点评")
     
@@ -474,7 +484,21 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
             print(f"[TTS] 合并分段音频失败: {e}")
     
     # 4. 添加小结段（如果有）
-    # 小结音频在 generate_book_audio 中单独生成，这里不处理
+    # 从数据库获取小结内容
+    try:
+        from backend.database import get_section
+        section = get_section(section_id)
+        if section and section.get('summary'):
+            summary_audio = generate_summary_audio(section_id, section['summary'], person=person, speed=speed)
+            if summary_audio:
+                audio_segments.append({
+                    'type': 'summary',
+                    'audio_path': summary_audio['audio_path'],
+                    'audio_duration': summary_audio['audio_duration']
+                })
+                full_duration += summary_audio['audio_duration']
+    except Exception as e:
+        print(f"[TTS] 小结音频生成失败: {e}")
     
     return {
         'audio_segments': audio_segments,
