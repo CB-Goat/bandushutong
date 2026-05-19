@@ -2549,6 +2549,24 @@
                 
                 if (this._isSegmentMode && this.audioSegments.length > 0) {
                     if (this._playlistIndex < 0) {
+                        // 检查是否有断点恢复位置
+                        var resumePosition = reader._currentPosition || 0;
+                        if (resumePosition > 0 && state.currentProgress && state.currentProgress.current_section_id === section.id) {
+                            // 找到断点对应的段
+                            var targetSegIdx = -1;
+                            for (var i = 0; i < this.audioSegments.length; i++) {
+                                var seg = this.audioSegments[i];
+                                if (seg.type === 'original' && seg.end_char >= resumePosition) {
+                                    targetSegIdx = i;
+                                    break;
+                                }
+                            }
+                            if (targetSegIdx >= 0) {
+                                // 跳到目标段
+                                this._playlistIndex = targetSegIdx - 1;
+                                console.log('断点恢复: 跳到段', targetSegIdx, '(字符', resumePosition, ')');
+                            }
+                        }
                         this._playNext();
                     } else {
                         this.audio.play().then(function() {
