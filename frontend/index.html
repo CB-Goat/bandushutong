@@ -2739,14 +2739,14 @@
                 if (this._currentSegment && this._currentSegment.type === 'original') {
                     var seg = this._currentSegment;
                     console.log('_onSegmentEnd: 原文段结束, start_char=' + seg.start_char + ', end_char=' + seg.end_char);
-                    // end_char 是包含的，下一段从 end_char + 1 开始
-                    // 注意：end_char 已经是显示索引（不含换行符），直接使用
-                    var nextDisplayIndex = seg.end_char + 1;
-                    if (typeof reader !== 'undefined') {
-                        reader._revealedUpTo = nextDisplayIndex;
+                    // 确保该段所有文字都已显示（包括最后一个字符）
+                    // end_char 是包含的，所以需要显示到 end_char + 1
+                    var revealTo = seg.end_char + 1;
+                    if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
+                        reader.revealCharsUpTo(revealTo);
                     }
-                    // 显示到下一段起点 + TEXT_AHEAD_OFFSET（为下一段预显示）
-                    var displayChar = nextDisplayIndex + this.TEXT_AHEAD_OFFSET;
+                    // 预显示下一段的前 TEXT_AHEAD_OFFSET 个字
+                    var displayChar = revealTo + this.TEXT_AHEAD_OFFSET;
                     if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                         reader.revealCharsUpTo(displayChar);
                     }
