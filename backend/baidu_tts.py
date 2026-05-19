@@ -659,12 +659,12 @@ def _generate_single_segment_audio(text, section_id, seg_idx, start_char, actual
 def generate_book_audio(book_id, person=3, speed=5):
     """
     为书籍的所有节预生成音频（后台线程调用）
-    包括：原文音频、点评音频、小结音频
+    新版：基于 text_segments + insert_points 架构
     """
     import sys
     import threading
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from backend.database import get_sections_by_book, update_section_audio_timeline, update_section_audio_segments, update_book_tts_status, get_annotations_by_section, update_annotation_audio, update_section_summary_audio
+    from backend.database import get_sections_by_book, update_book_tts_status, check_section_audio_complete
 
     def _generate():
         if not is_configured():
@@ -685,10 +685,11 @@ def generate_book_audio(book_id, person=3, speed=5):
             section_id = section['id']
             content = section.get('content', '')
 
-            # 跳过已有音频的节
-            if section.get('has_audio') and section.get('audio_path') and section.get('audio_duration', 0) > 0:
+            # 跳过已有完整音频的节
+            if check_section_audio_complete(section_id):
                 done_count += 1
                 update_book_tts_status(book_id, 'generating', f'{done_count}/{total}')
+                print(f"[TTS] 节 {section_id} 已有音频，跳过")
                 continue
 
             if not content or len(content.strip()) == 0:
@@ -697,52 +698,9 @@ def generate_book_audio(book_id, person=3, speed=5):
                 continue
 
             try:
-                # 1. 获取该节的点评
-                annotations = get_annotations_by_section(section_id)
-                
-                # 2. 先生成所有点评音频（分段音频需要引用点评的 audio_path）
-                for ann in annotations:
-                    if not ann.get('audio_path'):
-                        ann_result = generate_annotation_audio(
-                            ann['id'], 
-                            ann['original_text'], 
-                            ann['comment'],
-                            person=person, 
-                            speed=speed
-                        )
-                        if ann_result:
-                            update_annotation_audio(ann['id'], ann_result['audio_path'], ann_result['audio_duration'])
-                            ann['audio_path'] = ann_result['audio_path']
-                            ann['audio_duration'] = ann_result['audio_duration']
-                            print(f"[TTS] 点评 {ann['id']} 音频完成")
-                
-                # 3. 生成分段音频（按点评边界分割，此时点评已有音频）
-                seg_result = generate_segmented_audio(
-                    content, section_id,
-                    annotations=annotations,
-                    speed=speed, person=person
-                )
-                if seg_result:
-                    # 用分段音频的结果更新完整音频信息（兼容降级模式）
-                    update_section_audio_timeline(
-                        section_id,
-                        seg_result['audio_duration'],
-                        seg_result['char_timeline'],
-                        seg_result['audio_path']
-                    )
-                    # 保存分段信息到数据库
-                    if seg_result.get('audio_segments'):
-                        update_section_audio_segments(section_id, seg_result['audio_segments'])
-                    print(f"[TTS] 节 {section_id} 分段音频完成")
-                    
-                    # 4. 生成小结音频
-                    summary = section.get('summary', '')
-                    if summary:
-                        sum_result = generate_summary_audio(section_id, summary, person=person, speed=speed)
-                        if sum_result:
-                            update_section_summary_audio(section_id, sum_result['audio_path'], sum_result['audio_duration'])
-                            print(f"[TTS] 节 {section_id} 小结音频完成")
-                    
+                # 使用新版音频生成（基于 text_segments + insert_points）
+                result = generate_section_audio_v2(section_id, speed=speed, person=person)
+                if result:
                     done_count += 1
                     update_book_tts_status(book_id, 'generating', f'{done_count}/{total}')
                     print(f"[TTS] 节 {section_id} 全部完成 ({done_count}/{total})")
@@ -754,6 +712,8 @@ def generate_book_audio(book_id, person=3, speed=5):
                 done_count += 1
                 update_book_tts_status(book_id, 'generating', f'{done_count}/{total}')
                 print(f"[TTS] 节 {section_id} 异常: {e}")
+                import traceback
+                traceback.print_exc()
 
             time.sleep(0.3)
 
