@@ -2585,9 +2585,26 @@
             _doPlay: function() {
                 var self = this;
                 if (!this._hasPlayed) {
-                    var initialChar = Math.min(this.TEXT_AHEAD_OFFSET, this.charTimeline.length);
-                    reader.revealCharsUpTo(initialChar);
-                    reader._currentPosition = initialChar;
+                    // 检查是否有恢复的断点位置
+                    var resumePosition = reader._currentPosition || 0;
+                    if (resumePosition > 0 && this.audio.currentTime === 0) {
+                        // 有断点位置但音频时间未设置，需要从断点位置计算音频时间
+                        if (this.charTimeline && this.charTimeline.length > 0) {
+                            var resumeChar = Math.max(0, resumePosition - this.TEXT_AHEAD_OFFSET);
+                            var charIdx = Math.min(resumeChar, this.charTimeline.length - 1);
+                            var audioTime = this.charTimeline[charIdx];
+                            if (audioTime > 0) {
+                                this.audio.currentTime = audioTime;
+                                console.log('首次播放，从断点位置开始:', audioTime, '秒 (字符', resumeChar, ')');
+                            }
+                        }
+                    }
+                    // 如果没有断点位置，才使用初始位置
+                    if (resumePosition === 0) {
+                        var initialChar = Math.min(this.TEXT_AHEAD_OFFSET, this.charTimeline.length);
+                        reader.revealCharsUpTo(initialChar);
+                        reader._currentPosition = initialChar;
+                    }
                 }
                 this.audio.play().then(function() {
                     self.isPlaying = true;
