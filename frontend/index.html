@@ -1435,6 +1435,8 @@
                 var bookData = await bookResp.json();
                 var book = bookData.book;
                 var sections = bookData.sections || [];
+                // 保存用户进度
+                state.currentProgress = bookData.progress || null;
 
                 // 设置导航栏标题
                 document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
