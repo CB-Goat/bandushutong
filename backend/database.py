@@ -1532,8 +1532,8 @@ def create_text_segments(section_id):
     cursor.execute('SELECT id, start_char, end_char FROM annotations WHERE section_id = ? ORDER BY start_char', (section_id,))
     annotations = [dict(r) for r in cursor.fetchall()]
     
-    # 确定分割点
-    split_points = sorted(set([0] + [ann['start_char'] for ann in annotations] + [ann['end_char'] for ann in annotations] + [text_len]))
+    # 确定分割点：只在点评的 end_char 处切割
+    split_points = sorted(set([0] + [ann['end_char'] for ann in annotations] + [text_len]))
     
     # 删除旧的 text_segments
     cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
