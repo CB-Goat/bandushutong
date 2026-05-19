@@ -2623,13 +2623,9 @@
                 this.audio.src = seg.audio_path;
                 this.audio.load();
                 
-                // 重置 _revealedUpTo 为 start_char
-                // 注意：seg.start_char 是显示索引（不含换行符），直接使用
-                var displayIndex = seg.start_char;
-                reader._revealedUpTo = displayIndex;
-                
-                // 预显示：从 startChar 开始，显示 startChar + TEXT_AHEAD_OFFSET 个字
-                var displayChar = displayIndex + this.TEXT_AHEAD_OFFSET;
+                // 不要重置 _revealedUpTo，因为 _onSegmentEnd 已经正确设置了
+                // 只需要预显示：从当前 _revealedUpTo 开始，显示到 start_char + TEXT_AHEAD_OFFSET
+                var displayChar = seg.start_char + this.TEXT_AHEAD_OFFSET;
                 console.log('原文段: 预显示到 displayChar=' + displayChar + ' (start_char=' + seg.start_char + ' + ' + this.TEXT_AHEAD_OFFSET + ')');
                 reader.revealCharsUpTo(displayChar);
                 
@@ -2744,15 +2740,8 @@
                     var seg = this._currentSegment;
                     console.log('_onSegmentEnd: 原文段结束, start_char=' + seg.start_char + ', end_char=' + seg.end_char);
                     // end_char 是包含的，下一段从 end_char + 1 开始
-                    var nextStartChar = seg.end_char + 1;
-                    // 跳过开头的空白字符（换行符、制表符等），找到第一个可见字符
-                    var content = (typeof reader !== 'undefined' && reader._content) ? reader._content : '';
-                    while (nextStartChar < content.length && /[\n\t\r]/.test(content[nextStartChar])) {
-                        nextStartChar++;
-                    }
-                    // 重置 _revealedUpTo 为下一段起点的 display index
-                    // 注意：nextStartChar 已经是显示索引（不含换行符），直接使用
-                    var nextDisplayIndex = nextStartChar;
+                    // 注意：end_char 已经是显示索引（不含换行符），直接使用
+                    var nextDisplayIndex = seg.end_char + 1;
                     if (typeof reader !== 'undefined') {
                         reader._revealedUpTo = nextDisplayIndex;
                     }
