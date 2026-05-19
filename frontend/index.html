@@ -1777,22 +1777,21 @@
                     if (section.summary) {
                         analysisManager.addSummaryTab(section.summary);
                     }
-                } else {
-                    // 未读/在读节：显示点评标签但不自动播放
+                } else if (sectionStatus === 'reading') {
+                    // 在读节：按断点显示（由 player 控制显示进度）
                     analysisManager.init();
-                    if (section.annotations && section.annotations.length > 0) {
-                        section.annotations.forEach(function(ann) {
-                            analysisManager.addAnnotationTab(ann);
-                        });
-                    }
-                    if (section.summary) {
-                        analysisManager.addSummaryTab(section.summary);
-                    }
+                    // 不预显示点评和小结，由播放进度触发
+                    document.getElementById('annotationDisplay').classList.remove('active');
+                } else {
+                    // 未读节：不显示点评、小结和编号
+                    analysisManager.init();
                     document.getElementById('annotationDisplay').classList.remove('active');
                 }
 
-                // 如果有点评，在文字中标记点评序号
-                this._renderAnnotationMarkers();
+                // 只有已读节才显示点评编号标记
+                if (sectionStatus === 'read') {
+                    this._renderAnnotationMarkers();
+                }
 
                 // 加载用户思考
                 if (typeof thoughtEditor !== 'undefined') thoughtEditor.loadThoughts();
@@ -2211,6 +2210,19 @@
                         self._currentPosition = savedPosition;
                         document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
                         console.log('恢复阅读位置:', savedPosition, '/', self._totalChars);
+                        
+                        // 恢复已触发的点评显示（根据savedPosition判断）
+                        var section = state.currentSections[state.currentSectionIndex];
+                        if (section && section.annotations) {
+                            section.annotations.forEach(function(ann) {
+                                if (savedPosition >= ann.end_char) {
+                                    // 该点评已触发过，显示在赏析区
+                                    if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
+                                        analysisManager.addAnnotationTab(ann);
+                                    }
+                                }
+                            });
+                        }
                         
                         // 恢复音频播放位置（根据字符位置计算时间）
                         if (player.charTimeline && player.charTimeline.length > 0) {
