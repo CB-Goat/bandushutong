@@ -2228,13 +2228,15 @@
                         }
                         
                         // 恢复音频播放位置（根据字符位置计算时间）
+                        // 从 savedPosition - TEXT_AHEAD_OFFSET 的位置开始播放，与预显示对齐
                         if (player.charTimeline && player.charTimeline.length > 0) {
-                            var charIdx = Math.min(savedPosition, player.charTimeline.length - 1);
+                            var resumeChar = Math.max(0, savedPosition - player.TEXT_AHEAD_OFFSET);
+                            var charIdx = Math.min(resumeChar, player.charTimeline.length - 1);
                             var audioTime = player.charTimeline[charIdx];
                             if (audioTime > 0) {
                                 player.audio.currentTime = audioTime;
                                 player.currentTime = audioTime;
-                                console.log('恢复音频位置:', audioTime, '秒');
+                                console.log('恢复音频位置:', audioTime, '秒 (从字符', resumeChar, '开始)');
                             }
                         }
                     }, 100);
