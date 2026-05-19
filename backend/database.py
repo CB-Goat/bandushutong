@@ -816,8 +816,8 @@ def add_chapter(book_id, chapter_number, title):
         (book_id, chapter_number, title)
     )
     chapter_id = cursor.lastrowid
-    # 更新书籍的章节数
-    cursor.execute('UPDATE books SET chapters_count = chapters_count + 1 WHERE id = ?', (book_id,))
+    # 更新书籍的总章节数
+    cursor.execute('UPDATE books SET total_chapters = total_chapters + 1 WHERE id = ?', (book_id,))
     conn.commit()
     conn.close()
     return chapter_id
