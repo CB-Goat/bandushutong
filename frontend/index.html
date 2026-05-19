@@ -2074,12 +2074,16 @@
                     return;
                 }
                 var pos = position !== undefined ? position : this._currentPosition || 0;
-                console.log('saveProgress 被调用: pos=' + pos + ', section.id=' + section.id);
-                console.log('saveProgress: reader._currentPosition=' + reader._currentPosition);
+                // 同时保存当前音频位置
+                var audioPos = 0;
+                if (typeof player !== 'undefined' && player.audio) {
+                    audioPos = player.currentTime || 0;
+                }
+                console.log('saveProgress: pos=' + pos + ', audioPos=' + audioPos + ', section.id=' + section.id);
                 fetch(API_BASE + '/progress', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ book_id: state.currentBook.id, section_id: section.id, position: pos, user_id: state.currentUser.id })
+                    body: JSON.stringify({ book_id: state.currentBook.id, section_id: section.id, position: pos, audio_position: audioPos, user_id: state.currentUser.id })
                 }).catch(function(e) { console.error('保存进度失败:', e); });
             },
 
@@ -2227,17 +2231,12 @@
                             });
                         }
                         
-                        // 恢复音频播放位置（根据字符位置计算时间）
-                        // 从 savedPosition - TEXT_AHEAD_OFFSET 的位置开始播放，与预显示对齐
-                        if (player.charTimeline && player.charTimeline.length > 0) {
-                            var resumeChar = Math.max(0, savedPosition - player.TEXT_AHEAD_OFFSET);
-                            var charIdx = Math.min(resumeChar, player.charTimeline.length - 1);
-                            var audioTime = player.charTimeline[charIdx];
-                            if (audioTime > 0) {
-                                player.audio.currentTime = audioTime;
-                                player.currentTime = audioTime;
-                                console.log('恢复音频位置:', audioTime, '秒 (从字符', resumeChar, '开始)');
-                            }
+                        // 恢复音频播放位置（直接使用保存的 audio_position）
+                        var savedAudioPos = state.currentProgress.audio_position || 0;
+                        if (savedAudioPos > 0) {
+                            player.audio.currentTime = savedAudioPos;
+                            player.currentTime = savedAudioPos;
+                            console.log('恢复音频位置:', savedAudioPos, '秒 (直接使用保存值)');
                         }
                     }, 100);
                 }
@@ -2552,19 +2551,32 @@
                         // 检查是否有断点恢复位置
                         var resumePosition = reader._currentPosition || 0;
                         if (resumePosition > 0 && state.currentProgress && state.currentProgress.current_section_id === section.id) {
-                            // 找到断点对应的段
+                            // 根据保存的音频位置，找到对应的段
+                            var savedAudioPos = state.currentProgress.audio_position || 0;
                             var targetSegIdx = -1;
-                            for (var i = 0; i < this.audioSegments.length; i++) {
-                                var seg = this.audioSegments[i];
-                                if (seg.type === 'original' && seg.end_char >= resumePosition) {
-                                    targetSegIdx = i;
-                                    break;
+                            if (savedAudioPos > 0) {
+                                // 用音频位置累加找到对应的段
+                                var accumulatedTime = 0;
+                                for (var i = 0; i < this.audioSegments.length; i++) {
+                                    accumulatedTime += (this.audioSegments[i].audio_duration || 0);
+                                    if (accumulatedTime >= savedAudioPos) {
+                                        targetSegIdx = i;
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // 没有音频位置，用文字位置找段
+                                for (var i = 0; i < this.audioSegments.length; i++) {
+                                    var seg = this.audioSegments[i];
+                                    if (seg.type === 'original' && seg.end_char >= resumePosition) {
+                                        targetSegIdx = i;
+                                        break;
+                                    }
                                 }
                             }
                             if (targetSegIdx >= 0) {
-                                // 跳到目标段
                                 this._playlistIndex = targetSegIdx - 1;
-                                console.log('断点恢复: 跳到段', targetSegIdx, '(字符', resumePosition, ')');
+                                console.log('断点恢复: 跳到段', targetSegIdx, '(音频位置', savedAudioPos, '秒)');
                             }
                         }
                         this._playNext();
@@ -2606,15 +2618,10 @@
                     // 检查是否有恢复的断点位置
                     var resumePosition = reader._currentPosition || 0;
                     if (resumePosition > 0 && this.audio.currentTime === 0) {
-                        // 有断点位置但音频时间未设置，需要从断点位置计算音频时间
-                        if (this.charTimeline && this.charTimeline.length > 0) {
-                            var resumeChar = Math.max(0, resumePosition - this.TEXT_AHEAD_OFFSET);
-                            var charIdx = Math.min(resumeChar, this.charTimeline.length - 1);
-                            var audioTime = this.charTimeline[charIdx];
-                            if (audioTime > 0) {
-                                this.audio.currentTime = audioTime;
-                                console.log('首次播放，从断点位置开始:', audioTime, '秒 (字符', resumeChar, ')');
-                            }
+                        // 有断点位置但音频时间未设置，使用保存的 audio_position
+                        if (state.currentProgress && state.currentProgress.audio_position > 0) {
+                            this.audio.currentTime = state.currentProgress.audio_position;
+                            console.log('首次播放，从断点音频位置开始:', state.currentProgress.audio_position, '秒');
                         }
                     }
                     // 如果没有断点位置，才使用初始位置

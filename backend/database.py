@@ -132,6 +132,12 @@ def init_db():
     except:
         pass
 
+    # 添加 audio_position 字段到 reading_progress（如果不存在）
+    try:
+        cursor.execute('ALTER TABLE reading_progress ADD COLUMN audio_position REAL DEFAULT 0')
+    except:
+        pass
+
     # 添加 user_id 字段到 section_reading_status（如果不存在）
     try:
         cursor.execute('ALTER TABLE section_reading_status ADD COLUMN user_id INTEGER')
@@ -1094,15 +1100,15 @@ def update_section_word_count(section_id, word_count):
 
 # ==================== 阅读进度相关操作 ====================
 
-def update_progress(user_id, book_id, section_id, position=0):
+def update_progress(user_id, book_id, section_id, position=0, audio_position=0):
     """更新阅读进度（按用户隔离）"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
         '''INSERT OR REPLACE INTO reading_progress
-           (user_id, book_id, current_section_id, current_position, updated_at)
-           VALUES (?, ?, ?, ?, ?)''',
-        (user_id, book_id, section_id, position, datetime.now())
+           (user_id, book_id, current_section_id, current_position, audio_position, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)''',
+        (user_id, book_id, section_id, position, audio_position, datetime.now())
     )
     conn.commit()
     conn.close()

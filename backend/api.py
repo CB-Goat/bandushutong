@@ -503,11 +503,12 @@ def save_progress():
     book_id = data.get('book_id')
     section_id = data.get('section_id')
     position = data.get('position', 0)
+    audio_position = data.get('audio_position', 0)
     
     if not book_id or not section_id:
         return jsonify({'error': '缺少必要参数'}), 400
     
-    update_progress(user_id, book_id, section_id, position)
+    update_progress(user_id, book_id, section_id, position, audio_position)
     return jsonify({'message': '进度保存成功'})
 
 @api_bp.route('/progress/<int:book_id>', methods=['GET'])
