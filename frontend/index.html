@@ -2735,6 +2735,7 @@
                 // 如果当前段是原文段，确保所有文字都已显示
                 if (this._currentSegment && this._currentSegment.type === 'original') {
                     var seg = this._currentSegment;
+                    console.log('_onSegmentEnd: 原文段结束, start_char=' + seg.start_char + ', end_char=' + seg.end_char);
                     // end_char 是包含的，下一段从 end_char + 1 开始
                     var nextStartChar = seg.end_char + 1;
                     // 跳过开头的空白字符（换行符、制表符等），找到第一个可见字符
