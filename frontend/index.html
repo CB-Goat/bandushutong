@@ -2482,7 +2482,8 @@
                 for (var i = 0; i < this.audioSegments.length; i++) {
                     var seg = this.audioSegments[i];
                     if (seg.type === 'original') {
-                        console.log('  段' + i + ': 原文 chars ' + seg.start_char + '-' + seg.end_char);
+                        var previewText = section.content ? section.content.substring(seg.start_char, Math.min(seg.end_char + 1, seg.start_char + 15)) : 'N/A';
+                        console.log('  段' + i + ': 原文 chars ' + seg.start_char + '-' + seg.end_char + ' text:"' + previewText + '..."');
                     } else if (seg.type === 'annotation') {
                         console.log('  段' + i + ': 点评 id=' + seg.annotation_id);
                     } else if (seg.type === 'summary') {
