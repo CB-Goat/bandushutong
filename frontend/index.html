@@ -2839,6 +2839,10 @@
                 // 这里只需要跟随音频进度，显示当前字符 + TEXT_AHEAD_OFFSET
                 // 注意：seg.start_char 是显示索引（不含换行符），直接使用
                 var displayIndex = seg.start_char + charInSegment;
+                // 同时更新 reader._currentPosition，以便在返回时能正确保存断点
+                if (typeof reader !== 'undefined') {
+                    reader._currentPosition = displayIndex;
+                }
                 // 保持预显示偏移：当前字符位置 + TEXT_AHEAD_OFFSET
                 var displayChar = Math.min(reader._allChars ? reader._allChars.length : 0, displayIndex + this.TEXT_AHEAD_OFFSET);
                 if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
