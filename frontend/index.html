@@ -2779,8 +2779,20 @@
                     }
                     // 添加点评标签
                     if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
+                        // 从当前节的 annotations 中获取 annotation_index
+                        var annIndex = 1;
+                        var section = state.currentSections[state.currentSectionIndex];
+                        if (section && section.annotations) {
+                            for (var i = 0; i < section.annotations.length; i++) {
+                                if (section.annotations[i].id === seg.annotation_id) {
+                                    annIndex = section.annotations[i].annotation_index || (i + 1);
+                                    break;
+                                }
+                            }
+                        }
                         analysisManager.addAnnotationTab({
                             id: seg.annotation_id,
+                            annotation_index: annIndex,
                             start_char: seg.quote_start_char,
                             end_char: seg.quote_end_char,
                             original_text: seg.quote_text,
