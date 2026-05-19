@@ -1188,7 +1188,8 @@ def admin_reimport_chapter(book_id, chapter_id):
 
         # 为更新的节生成分段TTS音频（按点评边界分割）
         try:
-            from backend.baidu_tts import generate_segmented_audio, update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section, update_annotation_audio
+            from backend.baidu_tts import generate_segmented_audio
+            from backend.database import update_section_audio_segments
             import threading
             def generate_tts_for_chapter():
                 for sec in matched_sections:
@@ -1319,7 +1320,8 @@ def admin_reimport_section(book_id, section_id):
 
         # 为更新的节生成分段TTS音频（按点评边界分割）
         try:
-            from backend.baidu_tts import generate_segmented_audio, update_section_audio_timeline, update_section_audio_segments, update_annotation_audio
+            from backend.baidu_tts import generate_segmented_audio
+            from backend.database import update_section_audio_segments
             import threading
             def generate_tts_for_section():
                 # 按点评边界生成分段音频
