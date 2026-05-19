@@ -219,6 +219,9 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=3):
     if not token:
         return None
     
+    # 去掉换行符，统一使用显示索引（与前端 _allChars 一致）
+    text = text.replace('\n', '')
+    
     # 分段处理（每段约 500 字符）
     segments = []
     current = ''
@@ -384,6 +387,9 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
     token = get_access_token()
     if not token:
         return None
+    
+    # 去掉换行符，统一使用显示索引（与前端 _allChars 一致）
+    text = text.replace('\n', '')
     
     # 1. 确定分割点：按点评的 end_char 分割
     # 建立 end_char 到点评的映射，用于后续查找
