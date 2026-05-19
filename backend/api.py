@@ -1217,7 +1217,8 @@ def admin_reimport_chapter(book_id, chapter_id):
 
         return jsonify({
             'message': '章节导入成功（音频生成中）',
-            'section_count': len(matched_sections)
+            'section_count': len(matched_sections),
+            'section_ids': [existing_sections[s['section_number']] for s in matched_sections if s['section_number'] in existing_sections]
         })
 
     except Exception as e:
@@ -1335,7 +1336,7 @@ def admin_reimport_section(book_id, section_id):
         except Exception as e:
             print(f'[TTS] 小节分段音频生成失败: {e}')
 
-        return jsonify({'message': '小节导入成功（音频生成中）'})
+        return jsonify({'message': '小节导入成功（音频生成中）', 'section_ids': [section_id]})
 
     except Exception as e:
         return jsonify({'error': f'导入失败: {str(e)}'}), 500

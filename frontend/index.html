@@ -4509,6 +4509,54 @@
         }
 
         // 重新导入章节
+        // 轮询TTS生成进度，在按钮上显示
+        function pollTTSProgress(sectionIds, btn, bookId) {
+            var checkCount = 0;
+            var maxChecks = 120; // 最多轮询120次（约10分钟）
+            var timer = setInterval(function() {
+                checkCount++;
+                if (checkCount > maxChecks) {
+                    clearInterval(timer);
+                    btn.textContent = '更新';
+                    btn.disabled = false;
+                    btn.style.background = '#e74c3c';
+                    return;
+                }
+                // 检查所有section的音频是否生成完成
+                var pending = 0;
+                var done = 0;
+                var failed = 0;
+                var checkPromises = sectionIds.map(function(sid) {
+                    return fetch(API_BASE + '/sections/' + sid + '/audio-timeline')
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data.audio_path && data.char_timeline && data.char_timeline.length > 0) {
+                                done++;
+                            } else {
+                                pending++;
+                            }
+                        })
+                        .catch(function() { failed++; });
+                });
+                Promise.all(checkPromises).then(function() {
+                    if (failed > 0) {
+                        clearInterval(timer);
+                        btn.textContent = '音频失败';
+                        btn.style.background = '#e74c3c';
+                        btn.disabled = false;
+                    } else if (pending === 0) {
+                        clearInterval(timer);
+                        btn.textContent = '更新';
+                        btn.style.background = '';
+                        btn.disabled = false;
+                        if (bookId) adminShowCatalogStats(bookId);
+                    } else {
+                        btn.textContent = '音频 ' + done + '/' + sectionIds.length;
+                    }
+                });
+            }, 5000);
+        }
+
         function reimportChapter(bookId, chapterId, btn) {
             var input = document.createElement('input');
             input.type = 'file';
@@ -4521,15 +4569,31 @@
                 formData.append('file', file);
                 btn.textContent = '导入中...';
                 btn.disabled = true;
+                btn.style.background = '#f39c12';
                 fetch(API_BASE + '/admin/books/' + bookId + '/reimport-chapter/' + chapterId, {
                     method: 'POST',
                     body: formData
                 }).then(function(r) { return r.json(); }).then(function(data) {
-                    alert(data.message || '导入完成');
-                    adminShowCatalogStats(bookId);
+                    if (data.error) {
+                        alert(data.error);
+                        btn.textContent = '更新';
+                        btn.style.background = '#e74c3c';
+                        btn.disabled = false;
+                        return;
+                    }
+                    btn.textContent = '音频生成中...';
+                    if (data.section_ids && data.section_ids.length > 0) {
+                        pollTTSProgress(data.section_ids, btn, bookId);
+                    } else {
+                        btn.textContent = '更新';
+                        btn.style.background = '';
+                        btn.disabled = false;
+                        adminShowCatalogStats(bookId);
+                    }
                 }).catch(function() {
                     alert('导入失败');
                     btn.textContent = '更新';
+                    btn.style.background = '#e74c3c';
                     btn.disabled = false;
                 });
             };
@@ -4549,15 +4613,31 @@
                 formData.append('file', file);
                 btn.textContent = '导入中...';
                 btn.disabled = true;
+                btn.style.background = '#f39c12';
                 fetch(API_BASE + '/admin/books/' + bookId + '/reimport-section/' + sectionId, {
                     method: 'POST',
                     body: formData
                 }).then(function(r) { return r.json(); }).then(function(data) {
-                    alert(data.message || '导入完成');
-                    adminShowCatalogStats(bookId);
+                    if (data.error) {
+                        alert(data.error);
+                        btn.textContent = '更新';
+                        btn.style.background = '#e74c3c';
+                        btn.disabled = false;
+                        return;
+                    }
+                    btn.textContent = '音频生成中...';
+                    if (data.section_ids && data.section_ids.length > 0) {
+                        pollTTSProgress(data.section_ids, btn, bookId);
+                    } else {
+                        btn.textContent = '更新';
+                        btn.style.background = '';
+                        btn.disabled = false;
+                        adminShowCatalogStats(bookId);
+                    }
                 }).catch(function() {
                     alert('导入失败');
                     btn.textContent = '更新';
+                    btn.style.background = '#e74c3c';
                     btn.disabled = false;
                 });
             };
