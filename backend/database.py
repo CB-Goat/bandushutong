@@ -1541,14 +1541,15 @@ def create_text_segments(section_id):
     # 创建新的 text_segments
     for i in range(len(split_points) - 1):
         start = split_points[i]
-        end = split_points[i + 1]  # 不包含下一个分割点，所以内容到 end-1
+        end = split_points[i + 1]  # end 是下一个分割点（点评的 end_char 或下一个 start_char）
         if end <= start:
             continue
-        seg_content = text[start:end]  # end 是不包含的
+        seg_content = text[start:end]  # 内容从 start 到 end-1
         word_count = len(seg_content)
+        # end_char 存储为 end（包含），因为段应该包含到点评的 end_char
         cursor.execute(
             'INSERT INTO text_segments (section_id, segment_number, content, start_char, end_char, word_count) VALUES (?, ?, ?, ?, ?, ?)',
-            (section_id, i, seg_content, start, end - 1, word_count)  # end-1 是包含的
+            (section_id, i, seg_content, start, end, word_count)
         )
     
     conn.commit()

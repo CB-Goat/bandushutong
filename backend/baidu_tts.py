@@ -994,15 +994,15 @@ def get_audio_duration_and_timeline(audio_path, text):
 
 # ==================== 新版音频生成（基于 text_segments） ====================
 
-def generate_text_segment_audio(text, segment_id, speed=5, person=0):
+def generate_text_segment_audio(text, segment_id, speed=5, person=3):
     """为单个 text_segment 生成音频"""
     token = get_access_token()
     if not token:
         return None
-
+    
     if not text or len(text.strip()) == 0:
         return None
-
+    
     # 调用百度TTS
     result = call_baidu_tts(text, token, speed=speed, person=person)
     if not result:
@@ -1021,7 +1021,7 @@ def generate_text_segment_audio(text, segment_id, speed=5, person=0):
         'char_timeline': char_timeline
     }
 
-def generate_insert_point_audio(text, insert_point_id, speed=5, person=0):
+def generate_insert_point_audio(text, insert_point_id, speed=5, person=3):
     """为单个 insert_point 生成音频"""
     token = get_access_token()
     if not token:
@@ -1045,7 +1045,7 @@ def generate_insert_point_audio(text, insert_point_id, speed=5, person=0):
         'audio_duration': audio_duration
     }
 
-def generate_section_audio_v2(section_id, speed=5, person=0):
+def generate_section_audio_v2(section_id, speed=5, person=3):
     """新版整节音频生成：基于 text_segments 和 insert_points"""
     from database import (
         create_text_segments, create_insert_points,
