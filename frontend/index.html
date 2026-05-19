@@ -1430,8 +1430,8 @@
             showLoading('加载目录...');
             showPage('catalogPage');
             try {
-                // 获取书籍基本信息
-                var bookResp = await fetch(API_BASE + '/books/' + bookId);
+                // 获取书籍基本信息（需要user_id获取用户进度）
+                var bookResp = await fetch(API_BASE + '/books/' + bookId + '?user_id=' + state.currentUser.id);
                 var bookData = await bookResp.json();
                 var book = bookData.book;
                 var sections = bookData.sections || [];
