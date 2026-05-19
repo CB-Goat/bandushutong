@@ -2826,9 +2826,17 @@
                 var segTimeline = seg.char_timeline;
                 if (!segTimeline || segTimeline.length === 0) return;
                 
+                // 计算当前段在音频中的起始时间（前面所有段的时长之和）
+                var segStartTime = 0;
+                for (var i = 0; i < this._playlistIndex; i++) {
+                    segStartTime += (this.audioSegments[i].audio_duration || 0);
+                }
+                // 段内时间 = 全局时间 - 段起始时间
+                var timeInSegment = this.currentTime - segStartTime;
+                
                 var charInSegment = 0;
                 for (var i = segTimeline.length - 1; i >= 0; i--) {
-                    if (segTimeline[i] <= this.currentTime + 0.05) {
+                    if (segTimeline[i] <= timeInSegment + 0.05) {
                         charInSegment = i;
                         break;
                     }
