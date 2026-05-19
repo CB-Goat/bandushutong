@@ -287,6 +287,11 @@ def upload_book():
                     original_text=anno.get('original_text', ''),
                     comment=anno.get('comment', '')
                 )
+            
+            # 创建 text_segments 和 insert_points
+            from backend.database import create_text_segments, create_insert_points
+            create_text_segments(sec_id)
+            create_insert_points(sec_id)
         
         # 更新书籍统计
         update_book_sections_count(book_id, len(sections))
