@@ -1541,14 +1541,14 @@ def create_text_segments(section_id):
     # 创建新的 text_segments
     for i in range(len(split_points) - 1):
         start = split_points[i]
-        end = split_points[i + 1] - 1  # 包含
-        if end < start:
+        end = split_points[i + 1]  # 不包含下一个分割点，所以内容到 end-1
+        if end <= start:
             continue
-        seg_content = text[start:end + 1]
+        seg_content = text[start:end]  # end 是不包含的
         word_count = len(seg_content)
         cursor.execute(
             'INSERT INTO text_segments (section_id, segment_number, content, start_char, end_char, word_count) VALUES (?, ?, ?, ?, ?, ?)',
-            (section_id, i, seg_content, start, end, word_count)
+            (section_id, i, seg_content, start, end - 1, word_count)  # end-1 是包含的
         )
     
     conn.commit()
