@@ -391,15 +391,18 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
     # 去掉换行符，统一使用显示索引（与前端 _allChars 一致）
     text = text.replace('\n', '')
     
-    # 1. 确定分割点：按点评的 end_char 分割
-    # 建立 end_char 到点评的映射，用于后续查找
+    # 1. 确定分割点：按点评的 start_char 和 end_char 分割
+    # 建立 start_char 和 end_char 到点评的映射
+    ann_by_start_char = {}
     ann_by_end_char = {}
     for ann in annotations:
-        if ann.get('end_char'):
+        if ann.get('start_char') is not None:
+            ann_by_start_char[ann['start_char']] = ann
+        if ann.get('end_char') is not None:
             ann_by_end_char[ann['end_char']] = ann
     
-    # 获取所有唯一的分割点（包括0、所有点评的end_char、文本结尾）
-    split_points = sorted(set([0] + list(ann_by_end_char.keys()) + [len(text)]))
+    # 获取所有唯一的分割点（包括0、所有点评的start_char和end_char、文本结尾）
+    split_points = sorted(set([0] + list(ann_by_start_char.keys()) + list(ann_by_end_char.keys()) + [len(text)]))
     
     print(f"[TTS] 分割点: {split_points}")
     print(f"[TTS] 点评映射: {list(ann_by_end_char.keys())}")
