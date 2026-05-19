@@ -1886,7 +1886,8 @@
                     var endIdx = ann.end_char - 1;
                     // 转换为显示索引（减去换行符）
                     var displayEndIdx = this._contentCharToDisplayChar(endIdx);
-                    console.log('Annotation', ann.annotation_index, 'end_char:', ann.end_char, '-> displayEndIdx:', displayEndIdx);
+                    var markerChar = this._allChars[displayEndIdx] ? this._allChars[displayEndIdx].textContent : 'N/A';
+                    console.log('Annotation', ann.annotation_index, 'end_char:', ann.end_char, '-> displayEndIdx:', displayEndIdx, 'char:"' + markerChar + '"');
                     if (displayEndIdx >= 0 && displayEndIdx < this._allChars.length) {
                         var endCharSpan = this._allChars[displayEndIdx];
                         var sup = document.createElement('span');
