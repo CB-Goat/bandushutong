@@ -155,7 +155,9 @@ def book_detail(book_id):
     sections = get_sections_by_book(book_id)
     user_id = request.args.get('user_id', type=int)
     progress = get_progress(user_id, book_id)
-    
+    from database import get_progress_v2 as _get_progress_v2
+    progress_v2 = _get_progress_v2(user_id, book_id)
+
     # 获取每个小节的点评点
     for sec in sections:
         sec['annotations'] = get_annotations_by_section(sec['id'])
@@ -167,7 +169,8 @@ def book_detail(book_id):
     return jsonify({
         'book': book,
         'sections': sections,
-        'progress': progress
+        'progress': progress,
+        'progress_v2': progress_v2
     })
 
 @api_bp.route('/upload', methods=['POST'])
@@ -516,6 +519,52 @@ def get_book_progress(book_id):
     """获取阅读进度"""
     user_id = request.args.get('user_id', type=int)
     progress = get_progress(user_id, book_id)
+    if progress:
+        return jsonify(progress)
+    else:
+        return jsonify({'message': '暂无阅读进度'})
+
+@api_bp.route('/sections/<int:section_id>/playback-plan', methods=['GET'])
+def get_section_playback_plan(section_id):
+    """获取一节的完整播放计划"""
+    from database import get_section_playback_plan
+    plan = get_section_playback_plan(section_id)
+    if not plan or not plan.get('playlist'):
+        return jsonify({'error': '播放计划不存在'}), 404
+    return jsonify(plan)
+
+@api_bp.route('/sections/<int:section_id>/build-segments', methods=['POST'])
+def build_segments(section_id):
+    """手动触发段的切割和插入点创建"""
+    from database import create_text_segments, create_insert_points
+    seg_count = create_text_segments(section_id)
+    create_insert_points(section_id)
+    return jsonify({'message': f'已创建 {seg_count} 个文本段', 'segment_count': seg_count})
+
+@api_bp.route('/progress/v2', methods=['POST'])
+def save_progress_v2():
+    """新版断点保存"""
+    from database import update_progress_v2
+    data = request.json
+    user_id = data.get('user_id')
+    book_id = data.get('book_id')
+    section_id = data.get('section_id')
+    segment_id = data.get('segment_id')
+    text_position = data.get('text_position', 0)
+    audio_position = data.get('audio_position', 0)
+
+    if not book_id or not section_id:
+        return jsonify({'error': '缺少必要参数'}), 400
+
+    update_progress_v2(user_id, book_id, section_id, segment_id, text_position, audio_position)
+    return jsonify({'message': '进度保存成功'})
+
+@api_bp.route('/progress/v2/<int:book_id>', methods=['GET'])
+def get_progress_v2(book_id):
+    """新版断点读取"""
+    from database import get_progress_v2
+    user_id = request.args.get('user_id', type=int)
+    progress = get_progress_v2(user_id, book_id)
     if progress:
         return jsonify(progress)
     else:

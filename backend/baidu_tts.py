@@ -976,6 +976,168 @@ def generate_summary_audio(section_id, summary, person=3, speed=5):
     }
 
 
+# ==================== 新版音频生成辅助函数 ====================
+
+def call_baidu_tts(text, token, speed=5, person=0):
+    """调用百度 TTS API，返回音频字节数据"""
+    params = {
+        'tok': token,
+        'tex': text,
+        'per': person,
+        'spd': speed,
+        'pit': 5,
+        'vol': 5,
+        'aue': 3,
+        'cuid': 'bandushutong_app',
+        'lan': 'zh',
+        'ctp': 1
+    }
+    try:
+        response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
+        content_type = response.headers.get('Content-Type', '')
+        if 'audio' in content_type:
+            return response.content
+        else:
+            print(f"[TTS] call_baidu_tts 错误: {response.text}")
+            return None
+    except Exception as e:
+        print(f"[TTS] call_baidu_tts 异常: {e}")
+        return None
+
+
+def get_audio_duration_and_timeline(audio_path, text):
+    """获取音频时长和字符时间轴"""
+    import subprocess
+
+    # 获取音频时长
+    audio_duration = 0
+    try:
+        dur_result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', audio_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        audio_duration = float(dur_result.stdout.strip())
+    except:
+        audio_duration = len(text) / 200 * 60
+
+    # 构建字符时间轴（均匀分布）
+    char_timeline = []
+    text_len = len(text)
+    if text_len > 0 and audio_duration > 0:
+        for j in range(text_len):
+            t = (j / text_len) * audio_duration
+            char_timeline.append(round(t, 3))
+
+    return audio_duration, char_timeline
+
+
+# ==================== 新版音频生成（基于 text_segments） ====================
+
+def generate_text_segment_audio(text, segment_id, speed=5, person=0):
+    """为单个 text_segment 生成音频"""
+    token = get_access_token()
+    if not token:
+        return None
+
+    if not text or len(text.strip()) == 0:
+        return None
+
+    # 调用百度TTS
+    result = call_baidu_tts(text, token, speed=speed, person=person)
+    if not result:
+        return None
+
+    audio_path = os.path.join(AUDIO_DIR, f'segment_{segment_id}.mp3')
+    with open(audio_path, 'wb') as f:
+        f.write(result)
+
+    # 获取音频时长和字符时间轴
+    audio_duration, char_timeline = get_audio_duration_and_timeline(audio_path, text)
+
+    return {
+        'audio_path': f'/api/audio/segment_{segment_id}.mp3',
+        'audio_duration': audio_duration,
+        'char_timeline': char_timeline
+    }
+
+def generate_insert_point_audio(text, insert_point_id, speed=5, person=0):
+    """为单个 insert_point 生成音频"""
+    token = get_access_token()
+    if not token:
+        return None
+
+    if not text or len(text.strip()) == 0:
+        return None
+
+    result = call_baidu_tts(text, token, speed=speed, person=person)
+    if not result:
+        return None
+
+    audio_path = os.path.join(AUDIO_DIR, f'insert_point_{insert_point_id}.mp3')
+    with open(audio_path, 'wb') as f:
+        f.write(result)
+
+    audio_duration, _ = get_audio_duration_and_timeline(audio_path, text)
+
+    return {
+        'audio_path': f'/api/audio/insert_point_{insert_point_id}.mp3',
+        'audio_duration': audio_duration
+    }
+
+def generate_section_audio_v2(section_id, speed=5, person=0):
+    """新版整节音频生成：基于 text_segments 和 insert_points"""
+    from database import (
+        create_text_segments, create_insert_points,
+        get_text_segments, get_insert_points_by_segment,
+        update_text_segment_audio, update_insert_point_audio
+    )
+
+    # 1. 创建 text_segments 和 insert_points
+    create_text_segments(section_id)
+    create_insert_points(section_id)
+
+    # 2. 获取 text_segments
+    segments = get_text_segments(section_id)
+    if not segments:
+        print(f"[TTS v2] 节 {section_id} 没有文本段")
+        return False
+
+    # 3. 逐个生成段音频
+    for seg in segments:
+        print(f"[TTS v2] 生成段 {seg['id']} 音频 ({seg['word_count']}字)")
+        result = generate_text_segment_audio(seg['content'], seg['id'], speed, person)
+        if result:
+            update_text_segment_audio(
+                seg['id'],
+                result['audio_path'],
+                result['audio_duration'],
+                json.dumps(result['char_timeline']) if result.get('char_timeline') else None
+            )
+            print(f"[TTS v2] 段 {seg['id']} 完成: {result['audio_duration']:.1f}s")
+        else:
+            print(f"[TTS v2] 段 {seg['id']} 生成失败")
+
+    # 4. 逐个生成插入点音频
+    for seg in segments:
+        insert_points = get_insert_points_by_segment(seg['id'])
+        for ip in insert_points:
+            if ip['point_type'] == 'annotation':
+                print(f"[TTS v2] 生成点评 {ip['id']} 音频")
+                result = generate_insert_point_audio(ip['comment'], ip['id'], speed, person)
+                if result:
+                    update_insert_point_audio(ip['id'], result['audio_path'], result['audio_duration'])
+                    print(f"[TTS v2] 点评 {ip['id']} 完成: {result['audio_duration']:.1f}s")
+            elif ip['point_type'] == 'summary':
+                print(f"[TTS v2] 生成小结 {ip['id']} 音频")
+                result = generate_insert_point_audio(ip['comment'], ip['id'], speed, person)
+                if result:
+                    update_insert_point_audio(ip['id'], result['audio_path'], result['audio_duration'])
+                    print(f"[TTS v2] 小结 {ip['id']} 完成: {result['audio_duration']:.1f}s")
+
+    return True
+
+
 if __name__ == '__main__':
     if is_configured():
         print("百度 TTS 已配置")

@@ -1437,6 +1437,7 @@
                 var sections = bookData.sections || [];
                 // 保存用户进度
                 state.currentProgress = bookData.progress || null;
+                state.currentProgressV2 = bookData.progress_v2 || null;
                 console.log('showCatalog: bookData.progress =', JSON.stringify(bookData.progress));
 
                 // 设置导航栏标题
@@ -1661,6 +1662,7 @@
                 state.currentBook = data.book;
                 state.currentSections = data.sections;
                 state.currentProgress = data.progress || null;
+                state.currentProgressV2 = data.progress_v2 || null;
                 state.currentSectionIndex = 0;
 
                 // 加载节阅读状态（用于判断已读/未读），完成后再渲染
@@ -2074,22 +2076,29 @@
                     return;
                 }
                 var pos = position !== undefined ? position : this._currentPosition || 0;
-                // 计算全局音频位置（前面所有段的时长 + 当前段的播放时间）
-                var audioPos = 0;
-                if (typeof player !== 'undefined' && player.audio) {
-                    var segStartTime = 0;
-                    if (player._isSegmentMode && player.audioSegments && player._playlistIndex >= 0) {
-                        for (var i = 0; i < player._playlistIndex; i++) {
-                            segStartTime += (player.audioSegments[i].audio_duration || 0);
-                        }
-                    }
-                    audioPos = segStartTime + (player.currentTime || 0);
+                
+                // 获取当前段的段内文字位置和音频位置
+                var segmentId = 0;
+                var textPosition = 0;
+                var audioPosition = 0;
+                if (typeof player !== 'undefined' && player._currentSegment && player._currentSegment.type === 'text_segment') {
+                    segmentId = player._currentSegment.id;
+                    textPosition = pos - player._currentSegment.start_char;
+                    audioPosition = player.currentTime || 0;
                 }
-                console.log('saveProgress: pos=' + pos + ', audioPos=' + audioPos + ', section.id=' + section.id);
-                fetch(API_BASE + '/progress', {
+                
+                console.log('saveProgress: segment_id=' + segmentId + ', textPosition=' + textPosition + ', audioPosition=' + audioPosition);
+                fetch(API_BASE + '/progress/v2', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ book_id: state.currentBook.id, section_id: section.id, position: pos, audio_position: audioPos, user_id: state.currentUser.id })
+                    body: JSON.stringify({
+                        book_id: state.currentBook.id,
+                        section_id: section.id,
+                        segment_id: segmentId,
+                        text_position: textPosition,
+                        audio_position: audioPosition,
+                        user_id: state.currentUser.id
+                    })
                 }).catch(function(e) { console.error('保存进度失败:', e); });
             },
 
@@ -2158,13 +2167,13 @@
                 var self = this;
                 var section = state.currentSections[state.currentSectionIndex];
                 console.log('restorePosition: section.id=', section ? section.id : null);
-                console.log('restorePosition: state.currentProgress=', JSON.stringify(state.currentProgress));
-                if (!section || !state.currentProgress) {
-                    console.log('restorePosition: 跳过 - 无section或无progress');
+                console.log('restorePosition: state.currentProgressV2=', JSON.stringify(state.currentProgressV2));
+                if (!section || !state.currentProgressV2) {
+                    console.log('restorePosition: 跳过 - 无section或无progressV2');
                     return;
                 }
                 // 只对保存断点的那一节恢复位置
-                if (state.currentProgress.current_section_id !== section.id) {
+                if (state.currentProgressV2.current_section_id !== section.id) {
                     console.log('restorePosition: 跳过 - 不是断点所在节');
                     return;
                 }
@@ -2202,8 +2211,27 @@
                 doRestore();
                 
                 function doRestore() {
-                    var savedPosition = state.currentProgress.current_position || 0;
-                    console.log('restorePosition: savedPosition=', savedPosition);
+                    var progressV2 = state.currentProgressV2;
+                    // 使用 progressV2 的 segment_id 和 text_position 计算全局字符位置
+                    var savedPosition = 0;
+                    if (progressV2.current_segment_id && progressV2.text_position !== undefined) {
+                        // 找到对应的 text_segment，计算全局位置
+                        // 先尝试从 audioSegments 中查找（如果已加载）
+                        if (typeof player !== 'undefined' && player.audioSegments) {
+                            for (var i = 0; i < player.audioSegments.length; i++) {
+                                var seg = player.audioSegments[i];
+                                if (seg.type === 'text_segment' && seg.id === progressV2.current_segment_id) {
+                                    savedPosition = seg.start_char + progressV2.text_position;
+                                    break;
+                                }
+                            }
+                        }
+                        // 如果 audioSegments 未加载，用 text_position 作为近似值
+                        if (savedPosition === 0 && progressV2.text_position > 0) {
+                            savedPosition = progressV2.text_position;
+                        }
+                    }
+                    console.log('restorePosition: savedPosition=', savedPosition, '(segment_id=', progressV2.current_segment_id, ', text_position=', progressV2.text_position, ')');
                     if (savedPosition <= 0) {
                         console.log('restorePosition: 跳过 - 无有效位置');
                         return;
@@ -2237,8 +2265,7 @@
                             });
                         }
                         
-                        // 保存全局音频位置，在 play() 跳段后设置段内时间
-                        // 不在这里设置 audio.currentTime，因为分段模式下 audio.src 会被替换
+                        // 不在这里设置 audio.currentTime，由 play() 中的断点恢复处理
                     }, 100);
                 }
             }
@@ -2412,6 +2439,7 @@
             _playlistIndex: -1,
             _currentSegment: null,
             _isSegmentMode: false,
+            _resumeTimeInSegment: 0,
 
             init: function() {
                 var self = this;
@@ -2434,37 +2462,34 @@
             loadSection: function(sectionId) {
                 var self = this;
                 this._isLeaving = false;
-                if (this._currentSectionId === sectionId && this.audioUrl) {
+                if (this._currentSectionId === sectionId && this.audioSegments.length > 0) {
                     console.log('跳过重复加载节:', sectionId);
                     return;
                 }
                 this._currentSectionId = sectionId;
                 console.log('加载节:', sectionId);
-                fetch(API_BASE + '/sections/' + sectionId + '/audio-timeline')
+                fetch(API_BASE + '/sections/' + sectionId + '/playback-plan')
                     .then(function(r) { 
                         console.log('API响应状态:', r.status);
                         return r.json(); 
                     })
                     .then(function(data) {
                         console.log('API返回:', data);
-                        if (data.audio_path && data.char_timeline && data.char_timeline.length > 0) {
+                        if (data.playlist && data.playlist.length > 0) {
                             self.mode = 'timeline';
-                            self.audioUrl = data.audio_path;
-                            self.audioDuration = data.audio_duration || 0;
-                            self.charTimeline = data.char_timeline || [];
-                            if (self.audioUrl.indexOf('http') !== 0 && self.audioUrl.indexOf('/') !== 0) {
-                                self.audioUrl = '/api/audio/' + self.audioUrl.replace('audio_files/', '');
+                            self.audioDuration = data.total_duration || 0;
+                            // 从 playlist 中的 text_segment 构建 charTimeline（兼容旧逻辑）
+                            self.charTimeline = [];
+                            for (var i = 0; i < data.playlist.length; i++) {
+                                if (data.playlist[i].type === 'text_segment' && data.playlist[i].char_timeline) {
+                                    self.charTimeline = self.charTimeline.concat(data.playlist[i].char_timeline);
+                                }
                             }
-                            self.audio.src = self.audioUrl;
-                            console.log('设置音频源:', self.audioUrl);
+                            // 不再设置 audioUrl（分段模式下不需要）
+                            self.audioUrl = null;
                             
-                            // 构建播放队列
-                            if (data.audio_segments && data.audio_segments.length > 0) {
-                                self._buildPlaylist(data.audio_segments);
-                            } else {
-                                self._isSegmentMode = false;
-                                self.audioSegments = [];
-                            }
+                            // 构建播放队列（直接使用后端返回的 playlist）
+                            self._buildPlaylist(data.playlist);
                         } else {
                             self.mode = 'generating';
                             self.audioUrl = null;
@@ -2476,35 +2501,18 @@
                     });
             },
             
-            _buildPlaylist: function(segments) {
-                var section = state.currentSections[state.currentSectionIndex];
-                this.audioSegments = [];
-                
-                for (var i = 0; i < segments.length; i++) {
-                    this.audioSegments.push(segments[i]);
-                }
-                
-                // 添加小结段
-                if (section && section.summary_audio_path) {
-                    this.audioSegments.push({
-                        'type': 'summary',
-                        'audio_path': section.summary_audio_path,
-                        'audio_duration': section.summary_audio_duration || 0
-                    });
-                }
-                
+            _buildPlaylist: function(playlist) {
+                this.audioSegments = playlist || [];
                 this._isSegmentMode = true;
                 this._playlistIndex = -1;
                 console.log('播放队列构建完成:', this.audioSegments.length, '段');
+                // 打印调试信息
                 for (var i = 0; i < this.audioSegments.length; i++) {
                     var seg = this.audioSegments[i];
-                    if (seg.type === 'original') {
-                        var previewText = section.content ? section.content.substring(seg.start_char, Math.min(seg.end_char + 1, seg.start_char + 15)) : 'N/A';
-                        console.log('  段' + i + ': 原文 chars ' + seg.start_char + '-' + seg.end_char + ' text:"' + previewText + '..."');
-                    } else if (seg.type === 'annotation') {
-                        console.log('  段' + i + ': 点评 id=' + seg.annotation_id);
-                    } else if (seg.type === 'summary') {
-                        console.log('  段' + i + ': 小结');
+                    if (seg.type === 'text_segment') {
+                        console.log('  段' + i + ': 文本段 id=' + seg.id + ' chars ' + seg.start_char + '-' + seg.end_char);
+                    } else if (seg.type === 'insert_point') {
+                        console.log('  段' + i + ': ' + seg.point_type + ' id=' + seg.id);
                     }
                 }
             },
@@ -2549,41 +2557,21 @@
                 
                 if (this._isSegmentMode && this.audioSegments.length > 0) {
                     if (this._playlistIndex < 0) {
-                        // 检查是否有断点恢复位置
-                        var resumePosition = reader._currentPosition || 0;
-                        if (resumePosition > 0 && state.currentProgress && state.currentProgress.current_section_id === section.id) {
-                            // 根据保存的音频位置，找到对应的段
-                            var savedAudioPos = state.currentProgress.audio_position || 0;
+                        // 检查是否有断点恢复位置（新格式）
+                        var progressV2 = state.currentProgressV2;
+                        if (progressV2 && progressV2.current_segment_id && progressV2.current_section_id === section.id) {
+                            // 根据 segment_id 找到对应的播放队列索引
                             var targetSegIdx = -1;
-                            if (savedAudioPos > 0) {
-                                // 用音频位置累加找到对应的段
-                                var accumulatedTime = 0;
-                                for (var i = 0; i < this.audioSegments.length; i++) {
-                                    accumulatedTime += (this.audioSegments[i].audio_duration || 0);
-                                    if (accumulatedTime >= savedAudioPos) {
-                                        targetSegIdx = i;
-                                        break;
-                                    }
-                                }
-                            } else {
-                                // 没有音频位置，用文字位置找段
-                                for (var i = 0; i < this.audioSegments.length; i++) {
-                                    var seg = this.audioSegments[i];
-                                    if (seg.type === 'original' && seg.end_char >= resumePosition) {
-                                        targetSegIdx = i;
-                                        break;
-                                    }
+                            for (var i = 0; i < this.audioSegments.length; i++) {
+                                if (this.audioSegments[i].type === 'text_segment' && this.audioSegments[i].id === progressV2.current_segment_id) {
+                                    targetSegIdx = i;
+                                    break;
                                 }
                             }
                             if (targetSegIdx >= 0) {
                                 this._playlistIndex = targetSegIdx - 1;
-                                // 计算段内局部时间
-                                var segStartTime = 0;
-                                for (var j = 0; j < targetSegIdx; j++) {
-                                    segStartTime += (this.audioSegments[j].audio_duration || 0);
-                                }
-                                this._resumeTimeInSegment = savedAudioPos - segStartTime;
-                                console.log('断点恢复: 跳到段', targetSegIdx, '(全局', savedAudioPos, '秒, 段内', this._resumeTimeInSegment, '秒)');
+                                this._resumeTimeInSegment = progressV2.audio_position || 0;
+                                console.log('断点恢复: 跳到段', targetSegIdx, 'segment_id=', progressV2.current_segment_id, '段内时间', this._resumeTimeInSegment, '秒');
                             }
                         }
                         this._playNext();
@@ -2624,7 +2612,7 @@
                 if (!this._hasPlayed) {
                     // 检查是否有断点恢复的段内时间
                     if (this._resumeTimeInSegment > 0) {
-                        // 由 play() 已经设置了 _resumeTimeInSegment，_playOriginalSegment 会处理
+                        // 由 play() 已经设置了 _resumeTimeInSegment，_playTextSegment 会处理
                     } else {
                         // 没有断点，使用初始位置
                         var initialChar = Math.min(this.TEXT_AHEAD_OFFSET, this.charTimeline.length);
@@ -2673,13 +2661,63 @@
                 this._currentSegment = seg;
                 console.log('播放段 ' + this._playlistIndex + ':', seg.type);
                 
-                if (seg.type === 'original') {
-                    this._playOriginalSegment(seg);
-                } else if (seg.type === 'annotation') {
-                    this._playAnnotationSegment(seg);
-                } else if (seg.type === 'summary') {
-                    this._playSummarySegment(seg);
+                if (seg.type === 'text_segment') {
+                    this._playTextSegment(seg);
+                } else if (seg.type === 'insert_point' && seg.point_type === 'annotation') {
+                    this._playInsertPoint(seg);
+                } else if (seg.type === 'insert_point' && seg.point_type === 'summary') {
+                    this._playInsertPoint(seg);
                 }
+            },
+            
+            _playTextSegment: function(seg) {
+                var self = this;
+                this.audio.src = seg.audio_path;
+                this.audio.load();
+                
+                // 预显示：从 start_char 开始，显示到 start_char + TEXT_AHEAD_OFFSET
+                var displayChar = seg.start_char + this.TEXT_AHEAD_OFFSET;
+                console.log('文本段: 预显示到 displayChar=' + displayChar + ' (start_char=' + seg.start_char + ')');
+                reader.revealCharsUpTo(displayChar);
+                
+                // 如果有断点恢复的段内时间
+                if (this._resumeTimeInSegment > 0) {
+                    var resumeTime = this._resumeTimeInSegment;
+                    this._resumeTimeInSegment = 0;
+                    var canPlayHandler = function() {
+                        self.audio.removeEventListener('canplay', canPlayHandler);
+                        self.audio.currentTime = resumeTime;
+                        self.currentTime = resumeTime;
+                        console.log('断点恢复: 设置段内时间', resumeTime, '秒');
+                        self.audio.play().then(function() {
+                            self.isPlaying = true;
+                            state.isPlaying = true;
+                            document.getElementById('playBtn').textContent = '\u23F8';
+                        }).catch(function(e) {
+                            console.log('文本段播放失败:', e);
+                        });
+                    };
+                    this.audio.addEventListener('canplay', canPlayHandler);
+                    setTimeout(function() {
+                        if (!self.isPlaying) self.audio.play().catch(function() {});
+                    }, 5000);
+                    return;
+                }
+                
+                var canPlayHandler = function() {
+                    self.audio.removeEventListener('canplay', canPlayHandler);
+                    self.audio.play().then(function() {
+                        self.isPlaying = true;
+                        state.isPlaying = true;
+                        document.getElementById('playBtn').textContent = '\u23F8';
+                    }).catch(function(e) {
+                        console.log('文本段播放失败:', e);
+                    });
+                };
+                this.audio.addEventListener('canplay', canPlayHandler);
+                setTimeout(function() {
+                    if (!self.isPlaying) self.audio.play().catch(function() {});
+                }, 5000);
             },
             
             _playOriginalSegment: function(seg) {
@@ -2716,6 +2754,62 @@
                         self.audio.play().catch(function() {});
                     }
                 }, 3000);
+            },
+            
+            _playInsertPoint: function(seg) {
+                var self = this;
+                if (!seg.audio_path) {
+                    console.log('插入点无音频，跳过');
+                    this._onSegmentEnd();
+                    return;
+                }
+                
+                this.audio.src = seg.audio_path;
+                this.audio.load();
+                
+                if (seg.point_type === 'annotation') {
+                    // 高亮原文（适配 insert_point 数据格式）
+                    if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
+                        reader._highlightAnnotation({
+                            id: seg.annotation_id,
+                            start_char: seg.quote_start_char,
+                            end_char: seg.quote_end_char,
+                            original_text: seg.quote_text
+                        });
+                    }
+                    // 添加点评标签
+                    if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
+                        analysisManager.addAnnotationTab({
+                            id: seg.annotation_id,
+                            start_char: seg.quote_start_char,
+                            end_char: seg.quote_end_char,
+                            original_text: seg.quote_text,
+                            comment: seg.comment
+                        });
+                    }
+                } else if (seg.point_type === 'summary') {
+                    // 显示小结
+                    if (typeof analysisManager !== 'undefined' && analysisManager.addSummaryTab) {
+                        analysisManager.addSummaryTab(seg.comment);
+                    }
+                }
+                
+                var canPlayHandler = function() {
+                    self.audio.removeEventListener('canplay', canPlayHandler);
+                    self.audio.play().then(function() {
+                        self.isPlaying = true;
+                        state.isPlaying = true;
+                    }).catch(function(e) {
+                        console.log('插入点播放失败:', e);
+                        self._onSegmentEnd();
+                    });
+                };
+                this.audio.addEventListener('canplay', canPlayHandler);
+                setTimeout(function() {
+                    if (!self.isPlaying) {
+                        self._onSegmentEnd();
+                    }
+                }, 5000);
             },
             
             _playAnnotationSegment: function(seg) {
@@ -2806,10 +2900,10 @@
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
                 
-                // 如果当前段是原文段，确保所有文字都已显示
-                if (this._currentSegment && this._currentSegment.type === 'original') {
+                // 如果当前段是文本段，确保所有文字都已显示
+                if (this._currentSegment && this._currentSegment.type === 'text_segment') {
                     var seg = this._currentSegment;
-                    console.log('_onSegmentEnd: 原文段结束, start_char=' + seg.start_char + ', end_char=' + seg.end_char);
+                    console.log('_onSegmentEnd: 文本段结束, start_char=' + seg.start_char + ', end_char=' + seg.end_char);
                     // 确保该段所有文字都已显示（包括最后一个字符）
                     // end_char 是包含的，所以需要显示到 end_char + 1
                     var revealTo = seg.end_char + 1;
@@ -2823,8 +2917,8 @@
                     }
                 }
                 
-                // 清除点评高亮
-                if (this._currentSegment && this._currentSegment.type === 'annotation') {
+                // 清除点评高亮（insert_point 类型）
+                if (this._currentSegment && this._currentSegment.type === 'insert_point' && this._currentSegment.point_type === 'annotation') {
                     var highlighted = document.querySelectorAll('.annotation-highlight, .annotation-underline');
                     for (var i = 0; i < highlighted.length; i++) {
                         highlighted[i].classList.remove('annotation-highlight', 'annotation-underline');
@@ -2836,7 +2930,7 @@
                     }
                 }
                 
-                if (this._currentSegment && this._currentSegment.type === 'summary') {
+                if (this._currentSegment && this._currentSegment.type === 'insert_point' && this._currentSegment.point_type === 'summary') {
                     if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
                         analysisManager.resumeRotation();
                     }
@@ -2876,38 +2970,30 @@
                 if (!this._hasPlayed && this.currentTime < 0.5) return;
                 if (this.currentTime > 0.5) this._hasPlayed = true;
                 
-                if (!this._currentSegment || this._currentSegment.type !== 'original') return;
+                if (!this._currentSegment || this._currentSegment.type !== 'text_segment') return;
                 
                 var seg = this._currentSegment;
                 var segTimeline = seg.char_timeline;
                 if (!segTimeline || segTimeline.length === 0) return;
                 
-                // 计算当前段在音频中的起始时间（前面所有段的时长之和）
-                var segStartTime = 0;
-                for (var i = 0; i < this._playlistIndex; i++) {
-                    segStartTime += (this.audioSegments[i].audio_duration || 0);
+                // 如果 char_timeline 是字符串，解析为 JSON
+                if (typeof segTimeline === 'string') {
+                    try { segTimeline = JSON.parse(segTimeline); } catch(e) { return; }
                 }
-                // 段内时间 = 全局时间 - 段起始时间
-                var timeInSegment = this.currentTime - segStartTime;
                 
+                // currentTime 就是段内时间，直接使用
                 var charInSegment = 0;
                 for (var i = segTimeline.length - 1; i >= 0; i--) {
-                    if (segTimeline[i] <= timeInSegment + 0.05) {
+                    if (segTimeline[i] <= this.currentTime + 0.05) {
                         charInSegment = i;
                         break;
                     }
                 }
                 
-                // 计算当前应该显示的字符位置
-                // 预显示在段开始时已经处理（_playOriginalSegment 中显示 start_char + TEXT_AHEAD_OFFSET）
-                // 这里只需要跟随音频进度，显示当前字符 + TEXT_AHEAD_OFFSET
-                // 注意：seg.start_char 是显示索引（不含换行符），直接使用
                 var displayIndex = seg.start_char + charInSegment;
-                // 同时更新 reader._currentPosition，以便在返回时能正确保存断点
                 if (typeof reader !== 'undefined') {
                     reader._currentPosition = displayIndex;
                 }
-                // 保持预显示偏移：当前字符位置 + TEXT_AHEAD_OFFSET
                 var displayChar = Math.min(reader._allChars ? reader._allChars.length : 0, displayIndex + this.TEXT_AHEAD_OFFSET);
                 if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                     reader.revealCharsUpTo(displayChar);

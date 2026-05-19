@@ -300,6 +300,59 @@ def init_db():
     except:
         pass
 
+    # ===== 新架构：text_segments 和 insert_points 表 =====
+    
+    # 文本段表：一节文字按点评边界切割成 n+1 段
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS text_segments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            section_id INTEGER NOT NULL,
+            segment_number INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            start_char INTEGER NOT NULL,
+            end_char INTEGER NOT NULL,
+            word_count INTEGER DEFAULT 0,
+            audio_path TEXT,
+            audio_duration REAL DEFAULT 0,
+            char_timeline TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE,
+            UNIQUE(section_id, segment_number)
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_text_segments_section ON text_segments(section_id)')
+
+    # 插入点表：点评/小结绑定到对应段
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS insert_points (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            section_id INTEGER NOT NULL,
+            segment_id INTEGER NOT NULL,
+            point_order INTEGER NOT NULL,
+            point_type TEXT NOT NULL,
+            annotation_id INTEGER,
+            quote_text TEXT,
+            quote_start_char INTEGER,
+            quote_end_char INTEGER,
+            comment TEXT NOT NULL,
+            audio_path TEXT,
+            audio_duration REAL DEFAULT 0,
+            char_timeline TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE,
+            FOREIGN KEY (segment_id) REFERENCES text_segments(id) ON DELETE CASCADE,
+            FOREIGN KEY (annotation_id) REFERENCES annotations(id) ON DELETE SET NULL
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_insert_points_section ON insert_points(section_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_insert_points_segment ON insert_points(segment_id)')
+
+    # reading_progress 新增 current_segment_id 字段
+    try:
+        cursor.execute('ALTER TABLE reading_progress ADD COLUMN current_segment_id INTEGER')
+    except:
+        pass
+
     # 兼容旧数据库：确保users表有所有字段
     user_columns = [
         ('password', 'TEXT'),
@@ -878,6 +931,9 @@ def delete_chapter(chapter_id):
         DELETE FROM section_reading_status WHERE section_id IN
         (SELECT id FROM sections WHERE chapter_id = ?)
     ''', (chapter_id,))
+    # 级联删除 text_segments 和 insert_points
+    cursor.execute('DELETE FROM insert_points WHERE section_id IN (SELECT id FROM sections WHERE chapter_id = ?)', (chapter_id,))
+    cursor.execute('DELETE FROM text_segments WHERE section_id IN (SELECT id FROM sections WHERE chapter_id = ?)', (chapter_id,))
     # 删除关联的小节
     cursor.execute('DELETE FROM sections WHERE chapter_id = ?', (chapter_id,))
     # 删除章节
@@ -974,6 +1030,9 @@ def delete_section(section_id):
     cursor.execute('DELETE FROM annotations WHERE section_id = ?', (section_id,))
     # 删除关联的节阅读状态
     cursor.execute('DELETE FROM section_reading_status WHERE section_id = ?', (section_id,))
+    # 级联删除 text_segments 和 insert_points
+    cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (section_id,))
+    cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
     # 删除小节
     cursor.execute('DELETE FROM sections WHERE id = ?', (section_id,))
     conn.commit()
@@ -1449,6 +1508,307 @@ def admin_remove_subscription(user_id, book_id):
     )
     conn.commit()
     conn.close()
+
+# ==================== text_segments 相关操作 ====================
+
+def create_text_segments(section_id):
+    """根据节的 annotations 按边界切割 content 为 n+1 段，写入 text_segments 表"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # 获取节内容和点评
+    cursor.execute('SELECT content FROM sections WHERE id = ?', (section_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return 0
+    content = row['content']
+    
+    # 去掉换行符，得到纯文本
+    text = content.replace('\n', '')
+    text_len = len(text)
+    
+    # 获取点评（按 start_char 排序）
+    cursor.execute('SELECT id, start_char, end_char FROM annotations WHERE section_id = ? ORDER BY start_char', (section_id,))
+    annotations = [dict(r) for r in cursor.fetchall()]
+    
+    # 确定分割点
+    split_points = sorted(set([0] + [ann['start_char'] for ann in annotations] + [ann['end_char'] for ann in annotations] + [text_len]))
+    
+    # 删除旧的 text_segments
+    cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
+    
+    # 创建新的 text_segments
+    for i in range(len(split_points) - 1):
+        start = split_points[i]
+        end = split_points[i + 1] - 1  # 包含
+        if end < start:
+            continue
+        seg_content = text[start:end + 1]
+        word_count = len(seg_content)
+        cursor.execute(
+            'INSERT INTO text_segments (section_id, segment_number, content, start_char, end_char, word_count) VALUES (?, ?, ?, ?, ?, ?)',
+            (section_id, i, seg_content, start, end, word_count)
+        )
+    
+    conn.commit()
+    conn.close()
+    return len(split_points) - 1
+
+def get_text_segments(section_id):
+    """获取一节的所有 text_segments，按 segment_number 排序"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM text_segments WHERE section_id = ? ORDER BY segment_number', (section_id,))
+    segments = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return segments
+
+def get_text_segment(segment_id):
+    """获取单个 text_segment"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM text_segments WHERE id = ?', (segment_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def update_text_segment_audio(segment_id, audio_path, audio_duration, char_timeline):
+    """更新段的音频信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE text_segments SET audio_path = ?, audio_duration = ?, char_timeline = ? WHERE id = ?',
+        (audio_path, audio_duration, char_timeline, segment_id)
+    )
+    conn.commit()
+    conn.close()
+
+def delete_text_segments_by_section(section_id):
+    """删除一节的所有 text_segments"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
+    conn.commit()
+    conn.close()
+
+# ==================== insert_points 相关操作 ====================
+
+def create_insert_points(section_id):
+    """根据 annotations 和 summary 创建 insert_points 记录"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # 获取点评
+    cursor.execute('SELECT id, start_char, end_char, original_text, comment, audio_path, audio_duration FROM annotations WHERE section_id = ? ORDER BY start_char', (section_id,))
+    annotations = [dict(r) for r in cursor.fetchall()]
+    
+    # 获取小结
+    cursor.execute('SELECT summary, summary_audio_path, summary_audio_duration FROM sections WHERE id = ?', (section_id,))
+    sec_row = cursor.fetchone()
+    summary = sec_row['summary'] if sec_row else None
+    summary_audio_path = sec_row['summary_audio_path'] if sec_row else None
+    summary_audio_duration = sec_row['summary_audio_duration'] if sec_row else 0
+    
+    # 获取 text_segments
+    cursor.execute('SELECT id, end_char FROM text_segments WHERE section_id = ? ORDER BY segment_number', (section_id,))
+    segments = [dict(r) for r in cursor.fetchall()]
+    
+    # 删除旧的 insert_points
+    cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (section_id,))
+    
+    # 为每个 annotation 创建 insert_point
+    for ann in annotations:
+        # 找到 end_char 落在哪个 text_segment
+        target_segment_id = None
+        for seg in segments:
+            if seg['end_char'] >= ann['end_char']:
+                target_segment_id = seg['id']
+                break
+        if not target_segment_id and segments:
+            target_segment_id = segments[-1]['id']
+        if not target_segment_id:
+            continue
+        
+        cursor.execute(
+            '''INSERT INTO insert_points (section_id, segment_id, point_order, point_type, annotation_id, quote_text, quote_start_char, quote_end_char, comment, audio_path, audio_duration)
+               VALUES (?, ?, ?, 'annotation', ?, ?, ?, ?, ?, ?, ?)''',
+            (section_id, target_segment_id, ann['start_char'], ann['id'], ann['original_text'], ann['start_char'], ann['end_char'], ann['comment'], ann.get('audio_path'), ann.get('audio_duration', 0))
+        )
+    
+    # 为 summary 创建 insert_point（绑定到最后一个段）
+    if summary and segments:
+        last_segment = segments[-1]
+        cursor.execute(
+            '''INSERT INTO insert_points (section_id, segment_id, point_order, point_type, comment, audio_path, audio_duration)
+               VALUES (?, ?, 999999, 'summary', ?, ?, ?)''',
+            (section_id, last_segment['id'], summary, summary_audio_path, summary_audio_duration)
+        )
+    
+    conn.commit()
+    conn.close()
+
+def get_insert_points_by_section(section_id):
+    """获取一节的所有 insert_points，按 segment 关联排序"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT ip.*, ts.segment_number
+        FROM insert_points ip
+        JOIN text_segments ts ON ip.segment_id = ts.id
+        WHERE ip.section_id = ?
+        ORDER BY ts.segment_number, ip.point_order
+    ''', (section_id,))
+    points = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return points
+
+def get_insert_points_by_segment(segment_id):
+    """获取一个 text_segment 后的所有插入点"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM insert_points WHERE segment_id = ? ORDER BY point_order', (segment_id,))
+    points = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return points
+
+def update_insert_point_audio(insert_point_id, audio_path, audio_duration):
+    """更新插入点的音频信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE insert_points SET audio_path = ?, audio_duration = ? WHERE id = ?',
+        (audio_path, audio_duration, insert_point_id)
+    )
+    conn.commit()
+    conn.close()
+
+def delete_insert_points_by_section(section_id):
+    """删除一节的所有 insert_points"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (section_id,))
+    conn.commit()
+    conn.close()
+
+# ==================== 播放计划 ====================
+
+def get_section_playback_plan(section_id):
+    """获取一节的完整播放计划：text_segments + insert_points 交错排列"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # 获取所有 text_segments
+    cursor.execute('SELECT * FROM text_segments WHERE section_id = ? ORDER BY segment_number', (section_id,))
+    segments = [dict(row) for row in cursor.fetchall()]
+    
+    # 获取所有 insert_points
+    cursor.execute('SELECT * FROM insert_points WHERE section_id = ? ORDER BY point_order', (section_id,))
+    all_points = [dict(row) for row in cursor.fetchall()]
+    
+    # 按 segment_id 分组
+    points_by_segment = {}
+    for p in all_points:
+        sid = p['segment_id']
+        if sid not in points_by_segment:
+            points_by_segment[sid] = []
+        points_by_segment[sid].append(p)
+    
+    # 构建播放计划
+    playlist = []
+    total_duration = 0
+    
+    for seg in segments:
+        # 添加文本段
+        seg_item = {
+            'type': 'text_segment',
+            'id': seg['id'],
+            'segment_number': seg['segment_number'],
+            'content': seg['content'],
+            'start_char': seg['start_char'],
+            'end_char': seg['end_char'],
+            'word_count': seg['word_count'],
+            'audio_path': seg['audio_path'],
+            'audio_duration': seg['audio_duration'] or 0,
+            'char_timeline': seg['char_timeline']
+        }
+        playlist.append(seg_item)
+        total_duration += seg['audio_duration'] or 0
+        
+        # 添加该段后的插入点
+        if seg['id'] in points_by_segment:
+            for ip in points_by_segment[seg['id']]:
+                ip_item = {
+                    'type': 'insert_point',
+                    'id': ip['id'],
+                    'point_type': ip['point_type'],
+                    'segment_id': ip['segment_id'],
+                    'annotation_id': ip.get('annotation_id'),
+                    'quote_text': ip.get('quote_text'),
+                    'quote_start_char': ip.get('quote_start_char'),
+                    'quote_end_char': ip.get('quote_end_char'),
+                    'comment': ip['comment'],
+                    'audio_path': ip['audio_path'],
+                    'audio_duration': ip['audio_duration'] or 0,
+                    'char_timeline': ip.get('char_timeline')
+                }
+                playlist.append(ip_item)
+                total_duration += ip['audio_duration'] or 0
+    
+    conn.close()
+    
+    return {
+        'section_id': section_id,
+        'total_duration': total_duration,
+        'playlist': playlist
+    }
+
+# ==================== 新版断点 ====================
+
+def update_progress_v2(user_id, book_id, section_id, segment_id, text_position, audio_position):
+    """新版断点保存：包含 segment_id"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        '''INSERT OR REPLACE INTO reading_progress
+           (user_id, book_id, current_section_id, current_segment_id, current_position, audio_position, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)''',
+        (user_id, book_id, section_id, segment_id, text_position, audio_position, datetime.now())
+    )
+    conn.commit()
+    conn.close()
+
+def get_progress_v2(user_id, book_id):
+    """新版断点读取"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'SELECT * FROM reading_progress WHERE user_id = ? AND book_id = ? ORDER BY updated_at DESC LIMIT 1',
+        (user_id, book_id)
+    )
+    progress = cursor.fetchone()
+    conn.close()
+    return dict(progress) if progress else None
+
+def check_section_audio_complete(section_id):
+    """检查一节的所有 text_segments 和 insert_points 是否都有音频"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) FROM text_segments WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ""', (section_id,))
+    seg_with_audio = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM text_segments WHERE section_id = ?', (section_id,))
+    seg_total = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM insert_points WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ""', (section_id,))
+    ip_with_audio = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM insert_points WHERE section_id = ?', (section_id,))
+    ip_total = cursor.fetchone()[0]
+    
+    conn.close()
+    return seg_with_audio == seg_total and ip_with_audio == ip_total
 
 
 if __name__ == '__main__':
