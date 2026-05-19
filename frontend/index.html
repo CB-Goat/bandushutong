@@ -2654,8 +2654,12 @@
             _playAnnotationSegment: function(seg) {
                 var self = this;
                 var annotation = null;
-                console.log('_playAnnotationSegment: seg.annotation_id=' + seg.annotation_id);
-                console.log('currentAnnotations:', state.currentAnnotations ? state.currentAnnotations.map(function(a){return {id:a.id, annotation_index:a.annotation_index};}) : 'null');
+                console.log('_playAnnotationSegment: seg.annotation_id=' + seg.annotation_id + ' (type=' + typeof seg.annotation_id + ')');
+                if (state.currentAnnotations) {
+                    state.currentAnnotations.forEach(function(a, i) {
+                        console.log('  ann[' + i + ']: id=' + a.id + ' (type=' + typeof a.id + '), annotation_index=' + a.annotation_index);
+                    });
+                }
                 if (state.currentAnnotations) {
                     for (var i = 0; i < state.currentAnnotations.length; i++) {
                         if (state.currentAnnotations[i].id === seg.annotation_id) {
