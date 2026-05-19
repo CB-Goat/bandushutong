@@ -234,11 +234,11 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=3):
     if not segments:
         return None
     
-    # 计算每段对应的字符范围
+    # 计算每段对应的字符范围（strip后）
     char_ranges = []
     char_pos = 0
     for seg in segments:
-        seg_chars = len(seg)
+        seg_chars = len(seg)  # strip后的长度
         char_ranges.append((char_pos, char_pos + seg_chars))
         char_pos += seg_chars
     
@@ -318,18 +318,20 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=3):
     # 计算总时长
     audio_duration = sum(segment_durations)
     
-    # 基于每段实际时长构建精确字符时间轴
+    # 基于每段实际时长构建精确字符时间轴（不含换行符，与前端一致）
     char_timeline = []
     for seg_idx, seg in enumerate(segments):
         start_char = char_ranges[seg_idx][0]
         end_char = char_ranges[seg_idx][1]
-        seg_len = end_char - start_char
+        seg_text = text[start_char:end_char]
         seg_dur = segment_durations[seg_idx] if seg_idx < len(segment_durations) else 1
         
         # 该段之前的累计时长
         time_offset = sum(segment_durations[:seg_idx])
         
-        # 该段内每个字符的时间点
+        # 该段内每个字符的时间点（跳过换行符）
+        visible_chars = [c for c in seg_text if c != '\n']
+        seg_len = len(visible_chars)
         if seg_len > 0 and seg_dur > 0:
             for j in range(seg_len):
                 t = time_offset + (j / seg_len) * seg_dur
