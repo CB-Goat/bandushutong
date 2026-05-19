@@ -2074,10 +2074,16 @@
                     return;
                 }
                 var pos = position !== undefined ? position : this._currentPosition || 0;
-                // 同时保存当前音频位置
+                // 计算全局音频位置（前面所有段的时长 + 当前段的播放时间）
                 var audioPos = 0;
                 if (typeof player !== 'undefined' && player.audio) {
-                    audioPos = player.currentTime || 0;
+                    var segStartTime = 0;
+                    if (player._isSegmentMode && player.audioSegments && player._playlistIndex >= 0) {
+                        for (var i = 0; i < player._playlistIndex; i++) {
+                            segStartTime += (player.audioSegments[i].audio_duration || 0);
+                        }
+                    }
+                    audioPos = segStartTime + (player.currentTime || 0);
                 }
                 console.log('saveProgress: pos=' + pos + ', audioPos=' + audioPos + ', section.id=' + section.id);
                 fetch(API_BASE + '/progress', {
@@ -2231,13 +2237,8 @@
                             });
                         }
                         
-                        // 恢复音频播放位置（直接使用保存的 audio_position）
-                        var savedAudioPos = state.currentProgress.audio_position || 0;
-                        if (savedAudioPos > 0) {
-                            player.audio.currentTime = savedAudioPos;
-                            player.currentTime = savedAudioPos;
-                            console.log('恢复音频位置:', savedAudioPos, '秒 (直接使用保存值)');
-                        }
+                        // 保存全局音频位置，在 play() 跳段后设置段内时间
+                        // 不在这里设置 audio.currentTime，因为分段模式下 audio.src 会被替换
                     }, 100);
                 }
             }
@@ -2576,7 +2577,13 @@
                             }
                             if (targetSegIdx >= 0) {
                                 this._playlistIndex = targetSegIdx - 1;
-                                console.log('断点恢复: 跳到段', targetSegIdx, '(音频位置', savedAudioPos, '秒)');
+                                // 计算段内局部时间
+                                var segStartTime = 0;
+                                for (var j = 0; j < targetSegIdx; j++) {
+                                    segStartTime += (this.audioSegments[j].audio_duration || 0);
+                                }
+                                this._resumeTimeInSegment = savedAudioPos - segStartTime;
+                                console.log('断点恢复: 跳到段', targetSegIdx, '(全局', savedAudioPos, '秒, 段内', this._resumeTimeInSegment, '秒)');
                             }
                         }
                         this._playNext();
@@ -2615,17 +2622,11 @@
             _doPlay: function() {
                 var self = this;
                 if (!this._hasPlayed) {
-                    // 检查是否有恢复的断点位置
-                    var resumePosition = reader._currentPosition || 0;
-                    if (resumePosition > 0 && this.audio.currentTime === 0) {
-                        // 有断点位置但音频时间未设置，使用保存的 audio_position
-                        if (state.currentProgress && state.currentProgress.audio_position > 0) {
-                            this.audio.currentTime = state.currentProgress.audio_position;
-                            console.log('首次播放，从断点音频位置开始:', state.currentProgress.audio_position, '秒');
-                        }
-                    }
-                    // 如果没有断点位置，才使用初始位置
-                    if (resumePosition === 0) {
+                    // 检查是否有断点恢复的段内时间
+                    if (this._resumeTimeInSegment > 0) {
+                        // 由 play() 已经设置了 _resumeTimeInSegment，_playOriginalSegment 会处理
+                    } else {
+                        // 没有断点，使用初始位置
                         var initialChar = Math.min(this.TEXT_AHEAD_OFFSET, this.charTimeline.length);
                         reader.revealCharsUpTo(initialChar);
                         reader._currentPosition = initialChar;
@@ -2694,6 +2695,13 @@
                 
                 var canPlayHandler = function() {
                     self.audio.removeEventListener('canplay', canPlayHandler);
+                    // 断点恢复：设置段内局部时间
+                    if (self._resumeTimeInSegment > 0) {
+                        self.audio.currentTime = self._resumeTimeInSegment;
+                        self.currentTime = self._resumeTimeInSegment;
+                        self._resumeTimeInSegment = 0;
+                        console.log('断点恢复: 设置段内时间', self.audio.currentTime, '秒');
+                    }
                     self.audio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
