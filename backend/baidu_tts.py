@@ -434,7 +434,10 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
         
         if seg_result:
             audio_segments.append(seg_result)
-            full_timeline.extend(seg_result['char_timeline'])
+            # 加上前面所有原文段的时间偏移
+            time_offset = full_duration
+            for t in seg_result['char_timeline']:
+                full_timeline.append(round(t + time_offset, 3))
             full_duration += seg_result['audio_duration']
             
             # 查找该段结束位置对应的点评（使用next_point，因为ann_by_end_char的key是点评的end_char）
