@@ -2650,8 +2650,12 @@
 
             stop: function() {
                 this.audio.pause();
+                this.audio.onended = null;
                 this.audio.currentTime = 0;
                 this.isPlaying = false;
+                this._playlistIndex = -1;
+                this._currentSegment = null;
+                this._hasPlayed = false;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
             },
@@ -3683,10 +3687,8 @@
                 console.log('退出时保存进度:', finalPosition);
             }
             // 停止音频
-            if (typeof player !== 'undefined' && player.audio) {
-                player.audio.pause();
-                player.isPlaying = false;
-                state.isPlaying = false;
+            if (typeof player !== 'undefined' && player.stop) {
+                player.stop();
             }
             
             // 如果当前在章节目录页面，刷新当前书籍的章节目录
@@ -4105,6 +4107,10 @@
 
         function logout() {
             stopDeviceCheck();
+            // 停止音频播放
+            if (typeof player !== 'undefined' && player.stop) {
+                player.stop();
+            }
             state.currentUser = null;
             localStorage.removeItem('userId');
             localStorage.removeItem('boundDeviceId');
