@@ -1620,15 +1620,14 @@ def create_insert_points(section_id):
     
     # 为每个 annotation 创建 insert_point
     for ann in annotations:
-        # 找到 end_char 落在哪个 text_segment
+        # 找到 end_char 等于哪个 text_segment 的 end_char
         target_segment_id = None
         for seg in segments:
-            if seg['end_char'] >= ann['end_char']:
+            if seg['end_char'] == ann['end_char']:
                 target_segment_id = seg['id']
                 break
-        if not target_segment_id and segments:
-            target_segment_id = segments[-1]['id']
         if not target_segment_id:
+            print(f"[create_insert_points] 警告: 点评 {ann['id']} end_char={ann['end_char']} 找不到匹配的段")
             continue
         
         cursor.execute(
