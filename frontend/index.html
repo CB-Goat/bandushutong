@@ -2922,10 +2922,14 @@
                     if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                         reader.revealCharsUpTo(revealTo);
                     }
-                    // 预显示下一段的前 TEXT_AHEAD_OFFSET 个字
-                    var displayChar = revealTo + this.TEXT_AHEAD_OFFSET;
-                    if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
-                        reader.revealCharsUpTo(displayChar);
+                    // 只有下一段是 text_segment 时才预显示
+                    var nextIdx = this._playlistIndex + 1;
+                    if (nextIdx < this.audioSegments.length && this.audioSegments[nextIdx].type === 'text_segment') {
+                        var nextSeg = this.audioSegments[nextIdx];
+                        var displayChar = nextSeg.start_char + this.TEXT_AHEAD_OFFSET;
+                        if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
+                            reader.revealCharsUpTo(displayChar);
+                        }
                     }
                 }
                 
