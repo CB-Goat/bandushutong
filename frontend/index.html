@@ -1886,8 +1886,8 @@
                 for (var i = 0; i < annotations.length; i++) {
                     var ann = annotations[i];
                     // 显示所有点评标记（不只是已触发的）
-                    // end_char 是结束位置（不包含），需要减1得到最后一个字符的索引
-                    var endIdx = ann.end_char - 1;
+                    // end_char 是包含的最后一个字符索引
+                    var endIdx = ann.end_char;
                     // start_char/end_char 已经是显示索引，直接使用
                     var markerChar = this._allChars[endIdx] ? this._allChars[endIdx].textContent : 'N/A';
                     console.log('Annotation', ann.annotation_index, 'end_char:', ann.end_char, '-> endIdx:', endIdx, 'char:"' + markerChar + '"');
@@ -1906,8 +1906,8 @@
 
             // 显示单个点评点序号（在触发后调用）
             _showAnnotationMarker: function(annotation) {
-                // end_char 是结束位置（不包含），需要减1得到最后一个字符的索引
-                var endIdx = annotation.end_char - 1;
+                // end_char 是包含的最后一个字符索引
+                var endIdx = annotation.end_char;
                 if (endIdx >= 0 && endIdx < this._allChars.length) {
                     var endCharSpan = this._allChars[endIdx];
                     var sup = document.createElement('span');
