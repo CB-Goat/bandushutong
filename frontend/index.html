@@ -3010,7 +3010,7 @@
                 if (typeof reader !== 'undefined') {
                     reader._currentPosition = displayIndex;
                 }
-                var displayChar = Math.min(reader._allChars ? reader._allChars.length : 0, displayIndex + this.TEXT_AHEAD_OFFSET);
+                var displayChar = Math.min(reader._allChars ? reader._allChars.length : 0, displayIndex + this.TEXT_AHEAD_OFFSET - 1);
                 if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                     reader.revealCharsUpTo(displayChar);
                 }
