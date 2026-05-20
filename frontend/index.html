@@ -2443,9 +2443,13 @@
             // 点评播放多步骤状态
             _insertPointStep: 0,        // 当前步骤 (1-6)
             _currentInsertPoint: null,  // 当前播放的 insert_point 段
+            _annotationAudio: null,     // 独立的点评音频元素，避免和主线音频冲突
 
             init: function() {
                 var self = this;
+                // 初始化独立的点评音频元素
+                this._annotationAudio = new Audio();
+                
                 this.audio.ontimeupdate = function() {
                     self.currentTime = self.audio.currentTime;
                     self._updateDisplayByTime();
@@ -2649,6 +2653,14 @@
                 this.audio.pause();
                 this.audio.onended = null;
                 this.audio.currentTime = 0;
+                // 停止并清理点评音频
+                if (this._annotationAudio) {
+                    this._annotationAudio.pause();
+                    this._annotationAudio.src = '';
+                    this._annotationAudio.onended = null;
+                    this._annotationAudio.oncanplay = null;
+                    this._annotationAudio.onerror = null;
+                }
                 this.isPlaying = false;
                 this._playlistIndex = -1;
                 this._currentSegment = null;
@@ -2771,6 +2783,9 @@
             _playInsertPoint: function(seg) {
                 var self = this;
                 
+                // 暂停主线音频，避免和点评音频冲突
+                this.audio.pause();
+                
                 // 保存当前 insert_point 段
                 this._currentInsertPoint = seg;
                 this._insertPointStep = 1;
@@ -2876,32 +2891,32 @@
                 var self = this;
                 console.log('步骤1：播放开场白');
                 
-                this.audio.src = '/api/audio/annotation_opening.mp3';
-                this.audio.load();
+                this._annotationAudio.src = '/api/audio/annotation_opening.mp3';
+                this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
-                    self.audio.removeEventListener('canplay', canPlayHandler);
-                    self.audio.play().then(function() {
+                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('开场白播放失败:', e);
-                        self._onSegmentEnd();
+                        self._finishInsertPoint();
                     });
                 };
                 
                 var endedHandler = function() {
-                    self.audio.removeEventListener('ended', endedHandler);
+                    self._annotationAudio.removeEventListener('ended', endedHandler);
                     self._insertPointStep = 2;
                     self._executeInsertPointStep();
                 };
                 
-                this.audio.addEventListener('canplay', canPlayHandler);
-                this.audio.addEventListener('ended', endedHandler);
+                this._annotationAudio.addEventListener('canplay', canPlayHandler);
+                this._annotationAudio.addEventListener('ended', endedHandler);
                 
                 setTimeout(function() {
                     if (self._insertPointStep === 1) {
-                        self._onSegmentEnd();
+                        self._finishInsertPoint();
                     }
                 }, 5000);
             },
@@ -2928,19 +2943,19 @@
                     return;
                 }
                 
-                this.audio.src = segmentAudioPath;
-                this.audio.load();
+                this._annotationAudio.src = segmentAudioPath;
+                this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
-                    self.audio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
                     // 确保音频已加载后再跳转
-                    if (self.audio.readyState >= 2) {
+                    if (self._annotationAudio.readyState >= 2) {
                         // 跳到引用开始位置
                         var startTime = seg.quote_start_time || 0;
-                        self.audio.currentTime = startTime;
+                        self._annotationAudio.currentTime = startTime;
                         console.log('引用音频跳转至:', startTime);
                     }
-                    self.audio.play().then(function() {
+                    self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
                         
@@ -2951,7 +2966,7 @@
                             setTimeout(function() {
                                 if (self._insertPointStep === 2) {
                                     console.log('引用播放结束，进入步骤3');
-                                    self.audio.pause();
+                                    self._annotationAudio.pause();
                                     self._insertPointStep = 3;
                                     self._executeInsertPointStep();
                                 }
@@ -2964,15 +2979,15 @@
                         }
                     }).catch(function(e) {
                         console.log('引用音频播放失败:', e);
-                        self._onSegmentEnd();
+                        self._finishInsertPoint();
                     });
                 };
                 
-                this.audio.addEventListener('canplay', canPlayHandler);
+                this._annotationAudio.addEventListener('canplay', canPlayHandler);
                 
                 setTimeout(function() {
                     if (self._insertPointStep === 2) {
-                        self._onSegmentEnd();
+                        self._finishInsertPoint();
                     }
                 }, 10000);
             },
@@ -2993,33 +3008,33 @@
                 // 显示评论区域并开始逐字显示
                 this._startCommentTextAnimation(seg.comment);
                 
-                this.audio.src = seg.audio_path;
-                this.audio.load();
+                this._annotationAudio.src = seg.audio_path;
+                this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
-                    self.audio.removeEventListener('canplay', canPlayHandler);
-                    self.audio.play().then(function() {
+                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('评论音频播放失败:', e);
-                        self._onSegmentEnd();
+                        self._finishInsertPoint();
                     });
                 };
                 
                 var endedHandler = function() {
-                    self.audio.removeEventListener('ended', endedHandler);
+                    self._annotationAudio.removeEventListener('ended', endedHandler);
                     self._stopCommentTextAnimation();
                     self._insertPointStep = 5;
                     self._executeInsertPointStep();
                 };
                 
-                this.audio.addEventListener('canplay', canPlayHandler);
-                this.audio.addEventListener('ended', endedHandler);
+                this._annotationAudio.addEventListener('canplay', canPlayHandler);
+                this._annotationAudio.addEventListener('ended', endedHandler);
                 
                 setTimeout(function() {
                     if (self._insertPointStep === 4) {
-                        self._onSegmentEnd();
+                        self._finishInsertPoint();
                     }
                 }, 60000); // 评论音频最长60秒
             },
@@ -3037,12 +3052,12 @@
                 
                 console.log('步骤6：播放结束语');
                 
-                this.audio.src = '/api/audio/annotation_closing.mp3';
-                this.audio.load();
+                this._annotationAudio.src = '/api/audio/annotation_closing.mp3';
+                this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
-                    self.audio.removeEventListener('canplay', canPlayHandler);
-                    self.audio.play().then(function() {
+                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
                     }).catch(function(e) {
@@ -3052,12 +3067,12 @@
                 };
                 
                 var endedHandler = function() {
-                    self.audio.removeEventListener('ended', endedHandler);
+                    self._annotationAudio.removeEventListener('ended', endedHandler);
                     self._finishInsertPoint();
                 };
                 
-                this.audio.addEventListener('canplay', canPlayHandler);
-                this.audio.addEventListener('ended', endedHandler);
+                this._annotationAudio.addEventListener('canplay', canPlayHandler);
+                this._annotationAudio.addEventListener('ended', endedHandler);
                 
                 setTimeout(function() {
                     self._finishInsertPoint();
@@ -3080,40 +3095,54 @@
             
             // 完成点评播放
             _finishInsertPoint: function() {
+                // 停止并清理点评音频
+                if (this._annotationAudio) {
+                    this._annotationAudio.pause();
+                    this._annotationAudio.src = '';
+                    this._annotationAudio.onended = null;
+                    this._annotationAudio.oncanplay = null;
+                    this._annotationAudio.onerror = null;
+                }
                 this._insertPointStep = 0;
                 this._currentInsertPoint = null;
                 this._onSegmentEnd();
             },
             
-            // 播放小结音频（小结类型使用原有逻辑）
+            // 播放小结音频（小结类型使用独立的点评音频元素）
             _playSummaryAudio: function(seg) {
                 var self = this;
                 
                 if (!seg.audio_path) {
                     console.log('小结无音频，跳过');
-                    this._onSegmentEnd();
+                    this._finishInsertPoint();
                     return;
                 }
                 
-                this.audio.src = seg.audio_path;
-                this.audio.load();
+                this._annotationAudio.src = seg.audio_path;
+                this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
-                    self.audio.removeEventListener('canplay', canPlayHandler);
-                    self.audio.play().then(function() {
+                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('小结播放失败:', e);
-                        self._onSegmentEnd();
+                        self._finishInsertPoint();
                     });
                 };
                 
-                this.audio.addEventListener('canplay', canPlayHandler);
+                var endedHandler = function() {
+                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    self._finishInsertPoint();
+                };
+                
+                this._annotationAudio.addEventListener('canplay', canPlayHandler);
+                this._annotationAudio.addEventListener('ended', endedHandler);
                 
                 setTimeout(function() {
                     if (!self.isPlaying) {
-                        self._onSegmentEnd();
+                        self._finishInsertPoint();
                     }
                 }, 5000);
             },
