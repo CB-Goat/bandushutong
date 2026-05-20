@@ -1021,8 +1021,43 @@ def generate_text_segment_audio(text, segment_id, speed=5, person=3):
         'char_timeline': char_timeline
     }
 
+def generate_fixed_audio_files(speed=5, person=3):
+    """生成系统固定音频文件（开场白、结束语）"""
+    token = get_access_token()
+    if not token:
+        return False
+    
+    files = {
+        'annotation_opening.mp3': '我们来看下这里：',
+        'annotation_closing.mp3': '回到原文'
+    }
+    
+    for filename, text in files.items():
+        audio_path = os.path.join(AUDIO_DIR, filename)
+        # 如果已存在且不为空，跳过
+        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
+            print(f"[TTS] 固定音频已存在: {filename}")
+            continue
+        
+        result = call_baidu_tts(text, token, speed=speed, person=person)
+        if result:
+            with open(audio_path, 'wb') as f:
+                f.write(result)
+            print(f"[TTS] 生成固定音频: {filename}")
+        else:
+            print(f"[TTS] 生成固定音频失败: {filename}")
+    
+    return True
+
+def get_fixed_audio_path(filename):
+    """获取固定音频文件的URL路径"""
+    audio_path = os.path.join(AUDIO_DIR, filename)
+    if os.path.exists(audio_path):
+        return f'/api/audio/{filename}'
+    return None
+
 def generate_insert_point_audio(text, insert_point_id, speed=5, person=3):
-    """为单个 insert_point 生成音频"""
+    """为单个 insert_point 生成音频（仅评论内容）"""
     token = get_access_token()
     if not token:
         return None
@@ -1050,8 +1085,12 @@ def generate_section_audio_v2(section_id, speed=5, person=3):
     from database import (
         create_text_segments, create_insert_points,
         get_text_segments, get_insert_points_by_segment,
-        update_text_segment_audio, update_insert_point_audio
+        update_text_segment_audio, update_insert_point_audio,
+        update_insert_point_quote_timing
     )
+
+    # 0. 生成固定音频文件
+    generate_fixed_audio_files(speed, person)
 
     # 1. 创建 text_segments 和 insert_points
     create_text_segments(section_id)
@@ -1078,15 +1117,32 @@ def generate_section_audio_v2(section_id, speed=5, person=3):
         else:
             print(f"[TTS v2] 段 {seg['id']} 生成失败")
 
-    # 4. 逐个生成插入点音频
+    # 4. 逐个生成插入点音频，并计算引用时间
     for seg in segments:
         insert_points = get_insert_points_by_segment(seg['id'])
+        # 获取段音频的 char_timeline 用于计算引用时间
+        seg_char_timeline = None
+        if seg.get('char_timeline'):
+            try:
+                seg_char_timeline = json.loads(seg['char_timeline'])
+            except:
+                pass
+        
         for ip in insert_points:
             if ip['point_type'] == 'annotation':
                 print(f"[TTS v2] 生成点评 {ip['id']} 音频")
                 result = generate_insert_point_audio(ip['comment'], ip['id'], speed, person)
                 if result:
                     update_insert_point_audio(ip['id'], result['audio_path'], result['audio_duration'])
+                    # 计算引用时间（从段音频中截取）
+                    if seg_char_timeline and ip.get('quote_start_char') is not None and ip.get('quote_end_char') is not None:
+                        quote_start_idx = ip['quote_start_char'] - seg['start_char']  # 引用在段内的起始索引
+                        quote_end_idx = ip['quote_end_char'] - seg['start_char'] - 1  # 引用在段内的结束索引（不包含）
+                        if 0 <= quote_start_idx < len(seg_char_timeline) and 0 <= quote_end_idx < len(seg_char_timeline):
+                            quote_start_time = seg_char_timeline[quote_start_idx]
+                            quote_end_time = seg_char_timeline[quote_end_idx] if quote_end_idx < len(seg_char_timeline) else seg['audio_duration']
+                            update_insert_point_quote_timing(ip['id'], quote_start_time, quote_end_time)
+                            print(f"[TTS v2] 点评 {ip['id']} 引用时间: {quote_start_time:.2f}s - {quote_end_time:.2f}s")
                     print(f"[TTS v2] 点评 {ip['id']} 完成: {result['audio_duration']:.1f}s")
             elif ip['point_type'] == 'summary':
                 print(f"[TTS v2] 生成小结 {ip['id']} 音频")

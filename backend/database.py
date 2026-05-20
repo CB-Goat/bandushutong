@@ -352,6 +352,16 @@ def init_db():
         cursor.execute('ALTER TABLE reading_progress ADD COLUMN current_segment_id INTEGER')
     except:
         pass
+    
+    # insert_points 新增引用时间字段（用于从段音频中截取引用部分）
+    try:
+        cursor.execute('ALTER TABLE insert_points ADD COLUMN quote_start_time REAL DEFAULT 0')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE insert_points ADD COLUMN quote_end_time REAL DEFAULT 0')
+    except:
+        pass
 
     # 兼容旧数据库：确保users表有所有字段
     user_columns = [
@@ -1680,6 +1690,17 @@ def update_insert_point_audio(insert_point_id, audio_path, audio_duration):
     cursor.execute(
         'UPDATE insert_points SET audio_path = ?, audio_duration = ? WHERE id = ?',
         (audio_path, audio_duration, insert_point_id)
+    )
+    conn.commit()
+    conn.close()
+
+def update_insert_point_quote_timing(insert_point_id, quote_start_time, quote_end_time):
+    """更新插入点的引用时间信息（从段音频中截取引用部分的时间点）"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'UPDATE insert_points SET quote_start_time = ?, quote_end_time = ? WHERE id = ?',
+        (quote_start_time, quote_end_time, insert_point_id)
     )
     conn.commit()
     conn.close()
