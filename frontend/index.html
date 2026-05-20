@@ -2449,7 +2449,11 @@
                 
                 if (tab) {
                     var contentEl = document.getElementById('analysisContent');
-                    if (tab.isHtml) {
+                    // 如果是点评 tab，检查是否已播放完（tab._played === true）
+                    if (tab.annotationId && tab._played) {
+                        // 已播放完，直接显示完整文本
+                        contentEl.innerHTML = '<div class="comment-text">' + tab._commentText + '</div>';
+                    } else if (tab.isHtml) {
                         contentEl.innerHTML = tab.content;
                     } else {
                         contentEl.textContent = tab.content;
@@ -3131,12 +3135,13 @@
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
                     }
-                    // 更新 tab 的 content 为完整可见的 HTML，避免轮播切回时重新渲染为不可见
+                    // 更新 tab 的状态为已播放完
                     if (typeof analysisManager !== 'undefined') {
                         var tabId = 'annotation_' + seg.annotation_id;
                         var tab = analysisManager.tabs.find(function(t) { return t.id === tabId; });
                         if (tab) {
-                            tab.content = '<div class="comment-text">' + commentText + '</div>';
+                            tab._played = true;
+                            tab._commentText = commentText;
                         }
                     }
                     self._insertPointStep = 5;
