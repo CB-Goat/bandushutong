@@ -2933,22 +2933,34 @@
                 
                 var canPlayHandler = function() {
                     self.audio.removeEventListener('canplay', canPlayHandler);
-                    // 跳到引用开始位置
-                    self.audio.currentTime = seg.quote_start_time || 0;
+                    // 确保音频已加载后再跳转
+                    if (self.audio.readyState >= 2) {
+                        // 跳到引用开始位置
+                        var startTime = seg.quote_start_time || 0;
+                        self.audio.currentTime = startTime;
+                        console.log('引用音频跳转至:', startTime);
+                    }
                     self.audio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
                         
                         // 设置定时器在引用结束时停止
                         var quoteDuration = (seg.quote_end_time - seg.quote_start_time) * 1000;
+                        console.log('引用播放时长:', quoteDuration, 'ms');
                         if (quoteDuration > 0) {
                             setTimeout(function() {
                                 if (self._insertPointStep === 2) {
+                                    console.log('引用播放结束，进入步骤3');
                                     self.audio.pause();
                                     self._insertPointStep = 3;
                                     self._executeInsertPointStep();
                                 }
                             }, quoteDuration);
+                        } else {
+                            // 如果时间计算错误，直接跳到下一步
+                            console.log('引用时间计算错误，跳过引用播放');
+                            self._insertPointStep = 3;
+                            self._executeInsertPointStep();
                         }
                     }).catch(function(e) {
                         console.log('引用音频播放失败:', e);
