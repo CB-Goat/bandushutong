@@ -3473,16 +3473,23 @@
             // 步骤1：播放开场语
             _playSummaryOpening: function() {
                 var self = this;
+                var stepCompleted = false;
                 
-                // 激活点评显示区域，显示提示文字
-                var commentEl = document.getElementById('annotationComment');
-                if (commentEl) {
-                    commentEl.textContent = '这篇内容已读完，我们回顾一下...';
-                }
-                document.getElementById('annotationDisplay').classList.add('active');
+                // 不在 annotationComment 里显示文字，小结内容通过 tab 显示
+                // 隐藏点评区域
+                document.getElementById('annotationDisplay').classList.remove('active');
                 
                 this._annotationAudio.src = '/api/audio/summary_opening.mp3';
                 this._annotationAudio.load();
+                
+                var completeStep = function() {
+                    if (stepCompleted) return;
+                    stepCompleted = true;
+                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.removeEventListener('error', errorHandler);
+                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    self._executeSummaryStep();
+                };
                 
                 var canPlayHandler = function() {
                     self._annotationAudio.removeEventListener('canplay', canPlayHandler);
@@ -3491,18 +3498,30 @@
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('小结开场播放失败:', e);
-                        self._executeSummaryStep();
+                        completeStep();
                     });
                 };
                 
                 var endedHandler = function() {
-                    self._annotationAudio.removeEventListener('ended', endedHandler);
-                    // 进入下一步
-                    self._executeSummaryStep();
+                    completeStep();
+                };
+                
+                var errorHandler = function(e) {
+                    console.log('小结开场音频加载失败:', e);
+                    completeStep();
                 };
                 
                 this._annotationAudio.addEventListener('canplay', canPlayHandler);
                 this._annotationAudio.addEventListener('ended', endedHandler);
+                this._annotationAudio.addEventListener('error', errorHandler);
+                
+                // 3秒超时保护：如果音频无法加载，直接进入下一步
+                this._safeSetTimeout(function() {
+                    if (!stepCompleted) {
+                        console.log('小结开场超时(3秒)，跳过');
+                        completeStep();
+                    }
+                }, 3000);
             },
             
             // 步骤2：5秒倒计时动画
@@ -3569,28 +3588,54 @@
                 var audioDuration = seg.audio_duration || 1;
                 var commentChars = [];
                 
-                // 准备逐字显示的span元素
-                var commentEl = document.getElementById('annotationComment');
-                if (commentEl) {
-                    commentEl.innerHTML = '';
+                // 在 tab 里创建逐字 span 元素（类似点评的处理方式）
+                var analysisContent = document.getElementById('analysisContent');
+                if (analysisContent) {
+                    // 清空并创建逐字 span
+                    analysisContent.innerHTML = '';
                     var chars = commentText.split('');
                     for (var i = 0; i < chars.length; i++) {
                         var span = document.createElement('span');
                         span.className = 'comment-char';
                         span.textContent = chars[i];
-                        commentEl.appendChild(span);
+                        analysisContent.appendChild(span);
                         commentChars.push(span);
                     }
                 }
                 
-                // 激活点评显示区域
-                document.getElementById('annotationDisplay').classList.add('active');
+                // 隐藏点评区域（小结内容通过 tab 显示，不通过 annotationComment）
+                document.getElementById('annotationDisplay').classList.remove('active');
                 
                 var charCount = commentChars.length;
                 
                 // 加载并播放小结音频
                 this._annotationAudio.src = seg.audio_path;
                 this._annotationAudio.load();
+                
+                var stepCompleted = false;
+                
+                var completeStep = function() {
+                    if (stepCompleted) return;
+                    stepCompleted = true;
+                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.removeEventListener('error', errorHandler);
+                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    self._annotationAudio.removeEventListener('timeupdate', timeUpdateHandler);
+                    // 确保显示完整文字
+                    for (var i = 0; i < commentChars.length; i++) {
+                        commentChars[i].classList.add('visible');
+                    }
+                    // 更新 summary tab 的状态为已播放
+                    if (typeof analysisManager !== 'undefined') {
+                        var tab = analysisManager.tabs.find(function(t) { return t.id === 'summary'; });
+                        if (tab) {
+                            tab._played = true;
+                            tab._commentText = commentText;
+                        }
+                    }
+                    // 进入下一步
+                    self._executeSummaryStep();
+                };
                 
                 var canPlayHandler = function() {
                     self._annotationAudio.removeEventListener('canplay', canPlayHandler);
@@ -3599,19 +3644,17 @@
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('小结内容播放失败:', e);
-                        self._executeSummaryStep();
+                        completeStep();
                     });
                 };
                 
                 var endedHandler = function() {
-                    self._annotationAudio.removeEventListener('ended', endedHandler);
-                    self._annotationAudio.removeEventListener('timeupdate', timeUpdateHandler);
-                    // 确保显示完整文字
-                    for (var i = 0; i < commentChars.length; i++) {
-                        commentChars[i].classList.add('visible');
-                    }
-                    // 进入下一步
-                    self._executeSummaryStep();
+                    completeStep();
+                };
+                
+                var errorHandler = function(e) {
+                    console.log('小结内容音频加载失败:', e);
+                    completeStep();
                 };
                 
                 // 追踪上一次显示的字符位置
@@ -3635,13 +3678,14 @@
                 
                 this._annotationAudio.addEventListener('canplay', canPlayHandler);
                 this._annotationAudio.addEventListener('ended', endedHandler);
+                this._annotationAudio.addEventListener('error', errorHandler);
                 this._annotationAudio.addEventListener('timeupdate', timeUpdateHandler);
                 
                 // 超时保护
                 this._safeSetTimeout(function() {
-                    if (self._summaryStep === 3 && !self._isFinishing) {
-                        self._annotationAudio.removeEventListener('timeupdate', timeUpdateHandler);
-                        self._executeSummaryStep();
+                    if (!stepCompleted) {
+                        console.log('小结内容播放超时，跳过');
+                        completeStep();
                     }
                 }, Math.max(audioDuration * 1000 + 5000, 60000));
             },
@@ -3659,16 +3703,24 @@
             // 步骤5：播放结束语
             _playSummaryClosing: function() {
                 var self = this;
+                var stepCompleted = false;
                 
-                // 更新显示文字
-                var commentEl = document.getElementById('annotationComment');
-                if (commentEl) {
-                    commentEl.textContent = '小结之外有其他思考，请添加到右上角。';
-                }
-                document.getElementById('annotationDisplay').classList.add('active');
+                // 不在 annotationComment 里显示文字，小结内容通过 tab 显示
+                // 隐藏点评区域
+                document.getElementById('annotationDisplay').classList.remove('active');
                 
                 this._annotationAudio.src = '/api/audio/summary_closing.mp3';
                 this._annotationAudio.load();
+                
+                var completeStep = function() {
+                    if (stepCompleted) return;
+                    stepCompleted = true;
+                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.removeEventListener('error', errorHandler);
+                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    // 完成所有步骤
+                    self._finishSummaryPlayback();
+                };
                 
                 var canPlayHandler = function() {
                     self._annotationAudio.removeEventListener('canplay', canPlayHandler);
@@ -3677,18 +3729,30 @@
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('小结结束语播放失败:', e);
-                        self._finishSummaryPlayback();
+                        completeStep();
                     });
                 };
                 
                 var endedHandler = function() {
-                    self._annotationAudio.removeEventListener('ended', endedHandler);
-                    // 完成所有步骤
-                    self._finishSummaryPlayback();
+                    completeStep();
+                };
+                
+                var errorHandler = function(e) {
+                    console.log('小结结束语音频加载失败:', e);
+                    completeStep();
                 };
                 
                 this._annotationAudio.addEventListener('canplay', canPlayHandler);
                 this._annotationAudio.addEventListener('ended', endedHandler);
+                this._annotationAudio.addEventListener('error', errorHandler);
+                
+                // 3秒超时保护：如果音频无法加载，直接完成
+                this._safeSetTimeout(function() {
+                    if (!stepCompleted) {
+                        console.log('小结结束语超时(3秒)，跳过');
+                        completeStep();
+                    }
+                }, 3000);
             },
             
             // 完成小结播放
@@ -3707,6 +3771,31 @@
                 var countdownOverlay = document.getElementById('summaryCountdownOverlay');
                 if (countdownOverlay) {
                     countdownOverlay.classList.remove('active');
+                }
+                
+                // 隐藏点评显示区域（小结内容通过 tab 显示）
+                var annotationDisplay = document.getElementById('annotationDisplay');
+                if (annotationDisplay) {
+                    annotationDisplay.classList.remove('active');
+                }
+                
+                // 清理所有定时器
+                this._clearAllTimers();
+                
+                // 清理评论文字动画定时器
+                if (this._commentTextAnimationTimer) {
+                    clearInterval(this._commentTextAnimationTimer);
+                    this._commentTextAnimationTimer = null;
+                }
+                
+                // 停止并清理点评音频，移除所有事件监听
+                if (this._annotationAudio) {
+                    this._annotationAudio.pause();
+                    // 通过替换 src 来移除所有事件监听（cloneNode 替代方案）
+                    var oldAudio = this._annotationAudio;
+                    var newAudio = oldAudio.cloneNode(true);
+                    oldAudio.parentNode.replaceChild(newAudio, oldAudio);
+                    this._annotationAudio = newAudio;
                 }
                 
                 // 调用原有的结束处理
