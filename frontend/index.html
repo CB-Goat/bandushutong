@@ -2848,15 +2848,7 @@
                 
                 // 显示点评UI（annotation 类型）
                 if (seg.point_type === 'annotation') {
-                    // 高亮原文（适配 insert_point 数据格式）
-                    if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
-                        reader._highlightAnnotation({
-                            id: seg.annotation_id,
-                            start_char: seg.quote_start_char,
-                            end_char: seg.quote_end_char,
-                            original_text: seg.quote_text
-                        });
-                    }
+                    // 注意：不在触发时高亮原文，高亮在读引用时通过动画效果显示
                     // 添加点评标签
                     if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
                         // 从当前节的 annotations 中获取 annotation_index
