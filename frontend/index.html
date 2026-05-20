@@ -3125,6 +3125,14 @@
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
                     }
+                    // 更新 tab 的 content 为完整可见的 HTML，避免轮播切回时重新渲染为不可见
+                    if (typeof analysisManager !== 'undefined') {
+                        var tabId = 'annotation_' + seg.annotation_id;
+                        var tab = analysisManager.tabs.find(function(t) { return t.id === tabId; });
+                        if (tab) {
+                            tab.content = '<div class="comment-text">' + commentText + '</div>';
+                        }
+                    }
                     self._insertPointStep = 5;
                     self._executeInsertPointStep();
                 };
