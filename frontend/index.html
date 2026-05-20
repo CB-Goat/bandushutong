@@ -3225,10 +3225,7 @@
                     this._commentTextAnimationTimer = null;
                 }
                 
-                // 清除引用高亮
-                if (typeof reader !== 'undefined' && reader._clearQuoteHighlight) {
-                    reader._clearQuoteHighlight();
-                }
+                // 注意：不清除引用高亮，保持高亮状态在页面上
                 
                 // 停止并清理点评音频
                 if (this._annotationAudio) {
