@@ -2043,15 +2043,16 @@
                 // 更新上一次高亮结束位置
                 this._lastHighlightEnd = maxIdx;
             },
-            // 清除引用高亮（在引用开始时调用）
-            _clearQuoteHighlight: function() {
+            // 清除指定范围的引用高亮（在引用开始时调用）
+            _clearQuoteHighlight: function(startChar, endChar) {
                 if (!this._allChars) return;
-                // 移除所有 annotated 类
-                for (var i = 0; i < this._allChars.length; i++) {
+                // 只移除指定范围的 annotated 类
+                var maxIdx = Math.min(endChar, this._allChars.length);
+                for (var i = startChar; i < maxIdx; i++) {
                     this._allChars[i].classList.remove('annotated');
                 }
                 // 重置上一次高亮结束位置
-                this._lastHighlightEnd = 0;
+                this._lastHighlightEnd = startChar;
             },
 
             // 将 content 字符位置（含\n）转换为 _allChars 索引（不含\n）
@@ -2987,9 +2988,9 @@
                     return;
                 }
                 
-                // 清除之前的高亮
+                // 清除当前引用范围之前的高亮（不影响其他点评的高亮）
                 if (typeof reader !== 'undefined' && reader._clearQuoteHighlight) {
-                    reader._clearQuoteHighlight();
+                    reader._clearQuoteHighlight(quoteStartChar, quoteEndChar);
                 }
                 
                 this._annotationAudio.src = seg.quote_audio_path;
