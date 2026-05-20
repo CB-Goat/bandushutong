@@ -481,12 +481,6 @@
             margin-bottom: 8px;
         }
 
-        .chalkboard .analysis-area .content {
-            font-size: 18px;
-            line-height: 1.8;
-            color: #e8dcc8;
-        }
-
         /* 点评原文引用样式 */
         .chalkboard .analysis-area .content .original-text {
             color: #FFD700;
@@ -1795,6 +1789,11 @@
                             analysisManager.addAnnotationTab(ann);
                         });
                     }
+                    // 已读节：所有点评内容直接显示为可见
+                    setTimeout(function() {
+                        var chars = document.querySelectorAll('.analysis-area .content .comment-char');
+                        chars.forEach(function(c) { c.classList.add('visible'); });
+                    }, 50);
                     if (section.summary) {
                         analysisManager.addSummaryTab(section.summary);
                     }
