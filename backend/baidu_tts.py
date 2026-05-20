@@ -1029,7 +1029,9 @@ def generate_fixed_audio_files(speed=5, person=3):
     
     files = {
         'annotation_opening.mp3': '我们来看下这里：',
-        'annotation_closing.mp3': '回到原文'
+        'annotation_closing.mp3': '回到原文',
+        'summary_opening.mp3': '这篇内容已读完，我们回顾一下：',
+        'summary_closing.mp3': '小结之外有其他思考，请添加到右上角。'
     }
     
     for filename, text in files.items():

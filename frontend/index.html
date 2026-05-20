@@ -883,6 +883,52 @@
     .thought-bubble:hover { transform: scale(1.3); }
     .chalk-char.thought-selected { background: rgba(255, 152, 0, 0.3); border-radius: 2px; }
     </style>
+    <!-- 小结倒计时CSS -->
+    <style>
+    .summary-countdown-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+        flex-direction: column;
+    }
+    .summary-countdown-overlay.active {
+        display: flex;
+    }
+    .summary-countdown-text {
+        font-size: 24px;
+        color: #f0e8d0;
+        margin-bottom: 30px;
+        font-family: inherit;
+    }
+    .summary-countdown-number {
+        font-size: 120px;
+        color: #FFD700;
+        font-weight: bold;
+        animation: countdownPulse 1s ease-in-out;
+        font-family: inherit;
+    }
+    @keyframes countdownPulse {
+        0% {
+            transform: scale(0.5);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.2);
+            opacity: 1;
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    </style>
 </head>
 <body>
     <!-- 导航栏 -->
@@ -1107,6 +1153,12 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- 小结倒计时遮罩 -->
+        <div id="summaryCountdownOverlay" class="summary-countdown-overlay">
+            <div class="summary-countdown-text">准备回顾...</div>
+            <div class="summary-countdown-number" id="summaryCountdownNumber">5</div>
         </div>
 
         <!-- 思考输入弹窗 -->
@@ -3354,16 +3406,189 @@
                 return timerId;
             },
             
-            // 播放小结音频（小结类型使用独立的点评音频元素）
+            // 播放小结音频（5步骤流程）
             _playSummaryAudio: function(seg) {
                 var self = this;
                 
-                if (!seg.audio_path) {
-                    console.log('小结无音频，跳过');
-                    this._finishInsertPoint();
+                // 防重复调用保护
+                if (this._isFinishing) {
+                    console.log('_playSummaryAudio: 已在完成中，跳过重复调用');
                     return;
                 }
                 
+                // 存储当前小结数据
+                this._currentSummarySeg = seg;
+                this._summaryStep = 0;
+                
+                // 开始第1步：播放开场白
+                this._executeSummaryStep();
+            },
+            
+            // 当前小结数据
+            _currentSummarySeg: null,
+            _summaryStep: 0,
+            
+            // 执行小结播放的各步骤
+            _executeSummaryStep: function() {
+                var self = this;
+                var seg = this._currentSummarySeg;
+                
+                if (!seg) {
+                    console.log('_executeSummaryStep: 无小结数据，结束');
+                    this._finishSummaryPlayback();
+                    return;
+                }
+                
+                this._summaryStep++;
+                console.log('_executeSummaryStep: 步骤 ' + this._summaryStep);
+                
+                switch (this._summaryStep) {
+                    case 1:
+                        // 步骤1：播放固定开场语
+                        this._playSummaryOpening();
+                        break;
+                    case 2:
+                        // 步骤2：5秒倒计时
+                        this._playSummaryCountdown();
+                        break;
+                    case 3:
+                        // 步骤3：播放小结内容（逐字显示+同步语音）
+                        this._playSummaryContent();
+                        break;
+                    case 4:
+                        // 步骤4：2秒停顿
+                        this._playSummaryPause();
+                        break;
+                    case 5:
+                        // 步骤5：播放结束语
+                        this._playSummaryClosing();
+                        break;
+                    default:
+                        // 完成所有步骤
+                        this._finishSummaryPlayback();
+                        break;
+                }
+            },
+            
+            // 步骤1：播放开场语
+            _playSummaryOpening: function() {
+                var self = this;
+                
+                // 激活点评显示区域，显示提示文字
+                var commentEl = document.getElementById('annotationComment');
+                if (commentEl) {
+                    commentEl.textContent = '这篇内容已读完，我们回顾一下...';
+                }
+                document.getElementById('annotationDisplay').classList.add('active');
+                
+                this._annotationAudio.src = '/api/audio/summary_opening.mp3';
+                this._annotationAudio.load();
+                
+                var canPlayHandler = function() {
+                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.play().then(function() {
+                        self.isPlaying = true;
+                        state.isPlaying = true;
+                    }).catch(function(e) {
+                        console.log('小结开场播放失败:', e);
+                        self._executeSummaryStep();
+                    });
+                };
+                
+                var endedHandler = function() {
+                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    // 进入下一步
+                    self._executeSummaryStep();
+                };
+                
+                this._annotationAudio.addEventListener('canplay', canPlayHandler);
+                this._annotationAudio.addEventListener('ended', endedHandler);
+            },
+            
+            // 步骤2：5秒倒计时动画
+            _playSummaryCountdown: function() {
+                var self = this;
+                var countdownOverlay = document.getElementById('summaryCountdownOverlay');
+                var countdownNumber = document.getElementById('summaryCountdownNumber');
+                
+                if (!countdownOverlay || !countdownNumber) {
+                    console.log('倒计时元素不存在，跳过');
+                    this._executeSummaryStep();
+                    return;
+                }
+                
+                // 隐藏点评区域
+                document.getElementById('annotationDisplay').classList.remove('active');
+                
+                // 显示倒计时遮罩
+                countdownOverlay.classList.add('active');
+                
+                var count = 5;
+                countdownNumber.textContent = count;
+                
+                // 重新触发动画
+                countdownNumber.style.animation = 'none';
+                countdownNumber.offsetHeight; // 强制重绘
+                countdownNumber.style.animation = 'countdownPulse 1s ease-in-out';
+                
+                var countdownInterval = setInterval(function() {
+                    count--;
+                    if (count > 0) {
+                        countdownNumber.textContent = count;
+                        // 重新触发动画
+                        countdownNumber.style.animation = 'none';
+                        countdownNumber.offsetHeight; // 强制重绘
+                        countdownNumber.style.animation = 'countdownPulse 1s ease-in-out';
+                    } else {
+                        clearInterval(countdownInterval);
+                        // 隐藏倒计时遮罩
+                        countdownOverlay.classList.remove('active');
+                        // 进入下一步
+                        self._executeSummaryStep();
+                    }
+                }, 1000);
+                
+                // 记录定时器以便清理
+                this._safeSetTimeout(function() {
+                    clearInterval(countdownInterval);
+                }, 6000);
+            },
+            
+            // 步骤3：播放小结内容（逐字显示+同步语音）
+            _playSummaryContent: function() {
+                var self = this;
+                var seg = this._currentSummarySeg;
+                
+                if (!seg.audio_path) {
+                    console.log('小结无音频路径，跳过内容播放');
+                    this._executeSummaryStep();
+                    return;
+                }
+                
+                var commentText = seg.comment || '';
+                var audioDuration = seg.audio_duration || 1;
+                var commentChars = [];
+                
+                // 准备逐字显示的span元素
+                var commentEl = document.getElementById('annotationComment');
+                if (commentEl) {
+                    commentEl.innerHTML = '';
+                    var chars = commentText.split('');
+                    for (var i = 0; i < chars.length; i++) {
+                        var span = document.createElement('span');
+                        span.className = 'comment-char';
+                        span.textContent = chars[i];
+                        commentEl.appendChild(span);
+                        commentChars.push(span);
+                    }
+                }
+                
+                // 激活点评显示区域
+                document.getElementById('annotationDisplay').classList.add('active');
+                
+                var charCount = commentChars.length;
+                
+                // 加载并播放小结音频
                 this._annotationAudio.src = seg.audio_path;
                 this._annotationAudio.load();
                 
@@ -3373,21 +3598,119 @@
                         self.isPlaying = true;
                         state.isPlaying = true;
                     }).catch(function(e) {
-                        console.log('小结播放失败:', e);
-                        self._finishInsertPoint();
+                        console.log('小结内容播放失败:', e);
+                        self._executeSummaryStep();
                     });
                 };
                 
                 var endedHandler = function() {
                     self._annotationAudio.removeEventListener('ended', endedHandler);
-                    self._finishInsertPoint();
+                    self._annotationAudio.removeEventListener('timeupdate', timeUpdateHandler);
+                    // 确保显示完整文字
+                    for (var i = 0; i < commentChars.length; i++) {
+                        commentChars[i].classList.add('visible');
+                    }
+                    // 进入下一步
+                    self._executeSummaryStep();
+                };
+                
+                // 追踪上一次显示的字符位置
+                var lastCharIdx = 0;
+                
+                // 逐字显示更新函数（使用 ontimeupdate 事件同步）
+                var timeUpdateHandler = function() {
+                    if (audioDuration > 0 && charCount > 0) {
+                        var currentTime = self._annotationAudio.currentTime;
+                        var progress = currentTime / audioDuration;
+                        var currentCharIdx = Math.floor(progress * charCount);
+                        currentCharIdx = Math.min(currentCharIdx, charCount);
+                        for (var i = lastCharIdx; i < currentCharIdx; i++) {
+                            if (commentChars[i]) {
+                                commentChars[i].classList.add('visible');
+                            }
+                        }
+                        lastCharIdx = currentCharIdx;
+                    }
                 };
                 
                 this._annotationAudio.addEventListener('canplay', canPlayHandler);
                 this._annotationAudio.addEventListener('ended', endedHandler);
+                this._annotationAudio.addEventListener('timeupdate', timeUpdateHandler);
                 
-                // 移除 setTimeout，避免与 endedHandler 重复调用 _finishInsertPoint
-                // 超时保护由 _finishInsertPoint 的防重复调用机制处理
+                // 超时保护
+                this._safeSetTimeout(function() {
+                    if (self._summaryStep === 3 && !self._isFinishing) {
+                        self._annotationAudio.removeEventListener('timeupdate', timeUpdateHandler);
+                        self._executeSummaryStep();
+                    }
+                }, Math.max(audioDuration * 1000 + 5000, 60000));
+            },
+            
+            // 步骤4：2秒停顿
+            _playSummaryPause: function() {
+                var self = this;
+                
+                // 使用 setTimeout 实现2秒停顿
+                this._safeSetTimeout(function() {
+                    self._executeSummaryStep();
+                }, 2000);
+            },
+            
+            // 步骤5：播放结束语
+            _playSummaryClosing: function() {
+                var self = this;
+                
+                // 更新显示文字
+                var commentEl = document.getElementById('annotationComment');
+                if (commentEl) {
+                    commentEl.textContent = '小结之外有其他思考，请添加到右上角。';
+                }
+                document.getElementById('annotationDisplay').classList.add('active');
+                
+                this._annotationAudio.src = '/api/audio/summary_closing.mp3';
+                this._annotationAudio.load();
+                
+                var canPlayHandler = function() {
+                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.play().then(function() {
+                        self.isPlaying = true;
+                        state.isPlaying = true;
+                    }).catch(function(e) {
+                        console.log('小结结束语播放失败:', e);
+                        self._finishSummaryPlayback();
+                    });
+                };
+                
+                var endedHandler = function() {
+                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    // 完成所有步骤
+                    self._finishSummaryPlayback();
+                };
+                
+                this._annotationAudio.addEventListener('canplay', canPlayHandler);
+                this._annotationAudio.addEventListener('ended', endedHandler);
+            },
+            
+            // 完成小结播放
+            _finishSummaryPlayback: function() {
+                // 防重复调用保护
+                if (this._isFinishing) {
+                    return;
+                }
+                this._isFinishing = true;
+                
+                // 清理资源
+                this._currentSummarySeg = null;
+                this._summaryStep = 0;
+                
+                // 隐藏倒计时遮罩（如果还在显示）
+                var countdownOverlay = document.getElementById('summaryCountdownOverlay');
+                if (countdownOverlay) {
+                    countdownOverlay.classList.remove('active');
+                }
+                
+                // 调用原有的结束处理
+                this._finishInsertPoint();
             },
             
             // 开始评论文字逐字动画
