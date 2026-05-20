@@ -1099,7 +1099,7 @@ def generate_section_audio_v2(section_id, speed=5, person=3):
         create_text_segments, create_insert_points,
         get_text_segments, get_insert_points_by_segment,
         update_text_segment_audio, update_insert_point_audio,
-        update_insert_point_quote_timing
+        update_insert_point_quote_audio
     )
 
     # 0. 生成固定音频文件
