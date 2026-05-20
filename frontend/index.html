@@ -1786,14 +1786,9 @@
                     analysisManager.init();
                     if (section.annotations) {
                         section.annotations.forEach(function(ann) {
-                            analysisManager.addAnnotationTab(ann);
+                            analysisManager.addAnnotationTab(ann, true);  // true = 已播放，完整显示
                         });
                     }
-                    // 已读节：所有点评内容直接显示为可见
-                    setTimeout(function() {
-                        var chars = document.querySelectorAll('.analysis-area .content .comment-char');
-                        chars.forEach(function(c) { c.classList.add('visible'); });
-                    }, 50);
                     if (section.summary) {
                         analysisManager.addSummaryTab(section.summary);
                     }
@@ -2370,7 +2365,7 @@
             },
 
             // 添加点评标签
-            addAnnotationTab: function(annotation) {
+            addAnnotationTab: function(annotation, isPlayed) {
                 var tabId = 'annotation_' + annotation.id;
                 var tabLabel = getCircledNumber(annotation.annotation_index);  // 只显示序号
                 
@@ -2378,21 +2373,35 @@
                 var exists = this.tabs.some(function(t) { return t.id === tabId; });
                 if (exists) return;
 
-                // 点评内容：创建逐字的 span 元素用于逐字显示
-                var chars = annotation.comment.split('').map(function(c) {
-                    // 转义 HTML 特殊字符
-                    var escaped = c.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    return '<span class="comment-char">' + escaped + '</span>';
-                }).join('');
-                var contentHtml = '<div class="comment-text">' + chars + '</div>';
-
-                this.tabs.push({
-                    id: tabId,
-                    label: tabLabel,
-                    content: contentHtml,
-                    annotationId: annotation.id,
-                    isHtml: true
-                });
+                var contentHtml, content;
+                if (isPlayed) {
+                    // 已读节/已播放：直接显示完整文本
+                    content = annotation.comment;
+                    this.tabs.push({
+                        id: tabId,
+                        label: tabLabel,
+                        content: content,
+                        annotationId: annotation.id,
+                        isHtml: false,
+                        _played: true,
+                        _commentText: annotation.comment
+                    });
+                } else {
+                    // 阅读中：创建逐字的 span 元素用于逐字显示动画
+                    var chars = annotation.comment.split('').map(function(c) {
+                        // 转义 HTML 特殊字符
+                        var escaped = c.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        return '<span class="comment-char">' + escaped + '</span>';
+                    }).join('');
+                    contentHtml = '<div class="comment-text">' + chars + '</div>';
+                    this.tabs.push({
+                        id: tabId,
+                        label: tabLabel,
+                        content: contentHtml,
+                        annotationId: annotation.id,
+                        isHtml: true
+                    });
+                }
 
                 // 添加点评时暂停轮巡
                 this.stopRotation();
