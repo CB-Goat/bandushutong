@@ -578,6 +578,17 @@
             opacity: 1;
         }
 
+        /* 点评内容中的逐字显示样式 */
+        .chalkboard .analysis-area .content .comment-text .comment-char {
+            display: inline;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .chalkboard .analysis-area .content .comment-text .comment-char.visible {
+            opacity: 1;
+        }
+
         /* 粉笔灰效果 */
         .chalkboard::after {
             content: '';
@@ -2018,13 +2029,29 @@
             // 逐字高亮到指定位置（用于引用音频同步）
             // startChar: 起始字符位置
             // endIdx: 当前需要高亮到的字符索引（不含）
+            // 修复：追踪上一次高亮位置，避免重复处理
+            _lastHighlightEnd: 0,
             _highlightCharsUpTo: function(startChar, endIdx) {
                 if (!this._allChars) return;
                 // 确保不超过 _allChars 范围
                 var maxIdx = Math.min(endIdx, this._allChars.length);
-                for (var i = startChar; i < maxIdx; i++) {
+                // 只高亮新增的字符（从上一次高亮结束位置到当前结束位置）
+                var fromIdx = Math.max(this._lastHighlightEnd, startChar);
+                for (var i = fromIdx; i < maxIdx; i++) {
                     this._allChars[i].classList.add('annotated');
                 }
+                // 更新上一次高亮结束位置
+                this._lastHighlightEnd = maxIdx;
+            },
+            // 清除引用高亮（在引用开始时调用）
+            _clearQuoteHighlight: function() {
+                if (!this._allChars) return;
+                // 移除所有 annotated 类
+                for (var i = 0; i < this._allChars.length; i++) {
+                    this._allChars[i].classList.remove('annotated');
+                }
+                // 重置上一次高亮结束位置
+                this._lastHighlightEnd = 0;
             },
 
             // 将 content 字符位置（含\n）转换为 _allChars 索引（不含\n）
@@ -2310,8 +2337,13 @@
                 var exists = this.tabs.some(function(t) { return t.id === tabId; });
                 if (exists) return;
 
-                // 点评内容：只显示评论（去掉引用原文）
-                var contentHtml = '<div class="comment-text">' + annotation.comment + '</div>';
+                // 点评内容：创建逐字的 span 元素用于逐字显示
+                var chars = annotation.comment.split('').map(function(c) {
+                    // 转义 HTML 特殊字符
+                    var escaped = c.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    return '<span class="comment-char">' + escaped + '</span>';
+                }).join('');
+                var contentHtml = '<div class="comment-text">' + chars + '</div>';
 
                 this.tabs.push({
                     id: tabId,
@@ -2963,6 +2995,11 @@
                     return;
                 }
                 
+                // 清除之前的高亮
+                if (typeof reader !== 'undefined' && reader._clearQuoteHighlight) {
+                    reader._clearQuoteHighlight();
+                }
+                
                 this._annotationAudio.src = seg.quote_audio_path;
                 this._annotationAudio.load();
                 
@@ -3034,6 +3071,15 @@
                     return;
                 }
                 
+                // 找到当前 tab 的 .comment-char 元素（通过 analysisContent）
+                var analysisContent = document.getElementById('analysisContent');
+                var commentChars = analysisContent ? analysisContent.querySelectorAll('.comment-char') : [];
+                
+                // 清除之前的 .visible 类
+                for (var i = 0; i < commentChars.length; i++) {
+                    commentChars[i].classList.remove('visible');
+                }
+                
                 // 显示评论区域并激活点评显示区域
                 var commentEl = document.getElementById('annotationComment');
                 if (commentEl) {
@@ -3043,7 +3089,6 @@
                 
                 var commentText = seg.comment || '';
                 var audioDuration = seg.audio_duration || 1;  // 避免除以0
-                var commentChars = commentText.split('');
                 var charCount = commentChars.length;
                 
                 // 使用独立的评论音频文件
@@ -3064,24 +3109,32 @@
                 var endedHandler = function() {
                     self._annotationAudio.removeEventListener('ended', endedHandler);
                     // 确保显示完整评论
-                    if (commentEl) {
-                        commentEl.textContent = commentText;
+                    for (var i = 0; i < commentChars.length; i++) {
+                        commentChars[i].classList.add('visible');
                     }
                     self._insertPointStep = 5;
                     self._executeInsertPointStep();
                 };
                 
+                // 追踪上一次显示的字符位置
+                var lastCharIdx = 0;
+                
                 // 逐字显示更新函数（使用 ontimeupdate 事件同步）
                 var commentTimeUpdateHandler = function() {
-                    if (audioDuration > 0 && charCount > 0 && commentEl) {
+                    if (audioDuration > 0 && charCount > 0 && analysisContent) {
                         var currentTime = self._annotationAudio.currentTime;
                         var progress = currentTime / audioDuration;
                         // 计算当前进度对应的字符索引
                         var currentCharIdx = Math.floor(progress * charCount);
                         // 确保不超过范围
                         currentCharIdx = Math.min(currentCharIdx, charCount);
-                        // 显示到对应位置
-                        commentEl.textContent = commentText.substring(0, currentCharIdx);
+                        // 只显示新增的字符
+                        for (var i = lastCharIdx; i < currentCharIdx; i++) {
+                            if (commentChars[i]) {
+                                commentChars[i].classList.add('visible');
+                            }
+                        }
+                        lastCharIdx = currentCharIdx;
                     }
                 };
                 
@@ -3170,6 +3223,11 @@
                 if (this._commentTextAnimationTimer) {
                     clearInterval(this._commentTextAnimationTimer);
                     this._commentTextAnimationTimer = null;
+                }
+                
+                // 清除引用高亮
+                if (typeof reader !== 'undefined' && reader._clearQuoteHighlight) {
+                    reader._clearQuoteHighlight();
                 }
                 
                 // 停止并清理点评音频
