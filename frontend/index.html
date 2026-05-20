@@ -2780,6 +2780,14 @@
                 }, 3000);
             },
             
+            // 播放点评/小结 insert_point 段
+            // 播放流程：
+            // 1. 开场白（固定音频）
+            // 2. 引用音频（quote_audio_path）+ 高亮引用文字
+            // 3. 停顿1秒
+            // 4. 评论音频（audio_path）+ 逐字显示评论
+            // 5. 停顿2秒
+            // 6. 结束语（固定音频，如非结尾）
             _playInsertPoint: function(seg) {
                 var self = this;
                 
@@ -2855,7 +2863,7 @@
                         this._playOpeningAudio();
                         break;
                     case 2:
-                        // 步骤2：加载段音频，跳到引用开始位置播放
+                        // 步骤2：播放引用音频（quote_audio_path）
                         this._playQuoteAudio();
                         break;
                     case 3:
@@ -2921,82 +2929,56 @@
                 }, 5000);
             },
             
-            // 步骤2：加载段音频并播放引用部分
+            // 步骤2：播放引用音频
             _playQuoteAudio: function() {
                 var self = this;
                 var seg = this._currentInsertPoint;
-                console.log('步骤2：播放引用音频, segment_id=' + seg.segment_id + ', quote_start_time=' + seg.quote_start_time + ', quote_end_time=' + seg.quote_end_time);
+                console.log('步骤2：播放引用音频, quote_audio_path=' + seg.quote_audio_path);
                 
-                // 找到对应的 text_segment 获取音频路径
-                var segmentAudioPath = null;
-                for (var i = 0; i < this.audioSegments.length; i++) {
-                    if (this.audioSegments[i].type === 'text_segment' && this.audioSegments[i].id === seg.segment_id) {
-                        segmentAudioPath = this.audioSegments[i].audio_path;
-                        break;
-                    }
-                }
-                
-                if (!segmentAudioPath) {
-                    console.log('未找到段音频，跳过引用播放');
+                if (!seg.quote_audio_path) {
+                    console.log('引用无独立音频，跳过引用播放');
                     self._insertPointStep = 3;
                     self._executeInsertPointStep();
                     return;
                 }
                 
-                this._annotationAudio.src = segmentAudioPath;
+                this._annotationAudio.src = seg.quote_audio_path;
                 this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
                     self._annotationAudio.removeEventListener('canplay', canPlayHandler);
-                    // 确保音频已加载后再跳转
-                    if (self._annotationAudio.readyState >= 2) {
-                        // 跳到引用开始位置
-                        var startTime = seg.quote_start_time || 0;
-                        self._annotationAudio.currentTime = startTime;
-                        console.log('引用音频跳转至:', startTime);
-                    }
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
-                        
-                        // 设置定时器在引用结束时停止
-                        var quoteDuration = (seg.quote_end_time - seg.quote_start_time) * 1000;
-                        console.log('引用播放时长:', quoteDuration, 'ms');
-                        if (quoteDuration > 0) {
-                            setTimeout(function() {
-                                if (self._insertPointStep === 2) {
-                                    console.log('引用播放结束，进入步骤3');
-                                    self._annotationAudio.pause();
-                                    self._insertPointStep = 3;
-                                    self._executeInsertPointStep();
-                                }
-                            }, quoteDuration);
-                        } else {
-                            // 如果时间计算错误，直接跳到下一步
-                            console.log('引用时间计算错误，跳过引用播放');
-                            self._insertPointStep = 3;
-                            self._executeInsertPointStep();
-                        }
                     }).catch(function(e) {
                         console.log('引用音频播放失败:', e);
                         self._finishInsertPoint();
                     });
                 };
                 
-                this._annotationAudio.addEventListener('canplay', canPlayHandler);
+                var endedHandler = function() {
+                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    console.log('引用音频播放结束，进入步骤3');
+                    self._insertPointStep = 3;
+                    self._executeInsertPointStep();
+                };
                 
+                this._annotationAudio.addEventListener('canplay', canPlayHandler);
+                this._annotationAudio.addEventListener('ended', endedHandler);
+                
+                // 超时保护：引用音频最长30秒
                 setTimeout(function() {
                     if (self._insertPointStep === 2) {
                         self._finishInsertPoint();
                     }
-                }, 10000);
+                }, 30000);
             },
             
-            // 步骤4：播放评论音频并逐字显示评论文字
+            // 步骤4：播放评论音频（audio_path）并逐字显示评论文字
             _playCommentAudio: function() {
                 var self = this;
                 var seg = this._currentInsertPoint;
-                console.log('步骤4：播放评论音频');
+                console.log('步骤4：播放评论音频, audio_path=' + seg.audio_path);
                 
                 if (!seg.audio_path) {
                     console.log('评论无音频，跳过');
@@ -3008,6 +2990,7 @@
                 // 显示评论区域并开始逐字显示
                 this._startCommentTextAnimation(seg.comment);
                 
+                // 使用独立的评论音频文件
                 this._annotationAudio.src = seg.audio_path;
                 this._annotationAudio.load();
                 

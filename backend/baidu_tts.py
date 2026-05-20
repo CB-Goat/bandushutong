@@ -1056,29 +1056,42 @@ def get_fixed_audio_path(filename):
         return f'/api/audio/{filename}'
     return None
 
-def generate_insert_point_audio(text, insert_point_id, speed=5, person=3):
-    """为单个 insert_point 生成音频（仅评论内容）"""
+def generate_insert_point_audio(quote_text, comment_text, insert_point_id, speed=5, person=3):
+    """为单个 insert_point 生成两个音频：引用音频 + 评论音频"""
     token = get_access_token()
     if not token:
         return None
 
-    if not text or len(text.strip()) == 0:
-        return None
-
-    result = call_baidu_tts(text, token, speed=speed, person=person)
-    if not result:
-        return None
-
-    audio_path = os.path.join(AUDIO_DIR, f'insert_point_{insert_point_id}.mp3')
-    with open(audio_path, 'wb') as f:
-        f.write(result)
-
-    audio_duration, _ = get_audio_duration_and_timeline(audio_path, text)
-
-    return {
-        'audio_path': f'/api/audio/insert_point_{insert_point_id}.mp3',
-        'audio_duration': audio_duration
+    result = {
+        'quote_audio_path': None,
+        'quote_audio_duration': 0,
+        'comment_audio_path': None,
+        'comment_audio_duration': 0
     }
+
+    # 1. 生成引用音频
+    if quote_text and len(quote_text.strip()) > 0:
+        quote_result = call_baidu_tts(quote_text, token, speed=speed, person=person)
+        if quote_result:
+            quote_audio_path = os.path.join(AUDIO_DIR, f'insert_point_{insert_point_id}_quote.mp3')
+            with open(quote_audio_path, 'wb') as f:
+                f.write(quote_result)
+            result['quote_audio_duration'], _ = get_audio_duration_and_timeline(quote_audio_path, quote_text)
+            result['quote_audio_path'] = f'/api/audio/insert_point_{insert_point_id}_quote.mp3'
+            print(f"[TTS] 点评 {insert_point_id} 引用音频完成: {result['quote_audio_duration']:.1f}s")
+
+    # 2. 生成评论音频
+    if comment_text and len(comment_text.strip()) > 0:
+        comment_result = call_baidu_tts(comment_text, token, speed=speed, person=person)
+        if comment_result:
+            comment_audio_path = os.path.join(AUDIO_DIR, f'insert_point_{insert_point_id}_comment.mp3')
+            with open(comment_audio_path, 'wb') as f:
+                f.write(comment_result)
+            result['comment_audio_duration'], _ = get_audio_duration_and_timeline(comment_audio_path, comment_text)
+            result['comment_audio_path'] = f'/api/audio/insert_point_{insert_point_id}_comment.mp3'
+            print(f"[TTS] 点评 {insert_point_id} 评论音频完成: {result['comment_audio_duration']:.1f}s")
+
+    return result
 
 def generate_section_audio_v2(section_id, speed=5, person=3):
     """新版整节音频生成：基于 text_segments 和 insert_points"""
@@ -1117,39 +1130,29 @@ def generate_section_audio_v2(section_id, speed=5, person=3):
         else:
             print(f"[TTS v2] 段 {seg['id']} 生成失败")
 
-    # 4. 逐个生成插入点音频，并计算引用时间
+    # 4. 逐个生成插入点音频（引用音频 + 评论音频）
     for seg in segments:
         insert_points = get_insert_points_by_segment(seg['id'])
-        # 获取段音频的 char_timeline 用于计算引用时间
-        seg_char_timeline = None
-        if seg.get('char_timeline'):
-            try:
-                seg_char_timeline = json.loads(seg['char_timeline'])
-            except:
-                pass
         
         for ip in insert_points:
             if ip['point_type'] == 'annotation':
                 print(f"[TTS v2] 生成点评 {ip['id']} 音频")
-                result = generate_insert_point_audio(ip['comment'], ip['id'], speed, person)
+                result = generate_insert_point_audio(ip['quote_text'], ip['comment'], ip['id'], speed, person)
                 if result:
-                    update_insert_point_audio(ip['id'], result['audio_path'], result['audio_duration'])
-                    # 计算引用时间（从段音频中截取）
-                    if seg_char_timeline and ip.get('quote_start_char') is not None and ip.get('quote_end_char') is not None:
-                        quote_start_idx = ip['quote_start_char'] - seg['start_char']  # 引用在段内的起始索引
-                        quote_end_idx = ip['quote_end_char'] - seg['start_char'] - 1  # 引用在段内的结束索引（不包含）
-                        if 0 <= quote_start_idx < len(seg_char_timeline) and 0 <= quote_end_idx < len(seg_char_timeline):
-                            quote_start_time = seg_char_timeline[quote_start_idx]
-                            quote_end_time = seg_char_timeline[quote_end_idx] if quote_end_idx < len(seg_char_timeline) else seg['audio_duration']
-                            update_insert_point_quote_timing(ip['id'], quote_start_time, quote_end_time)
-                            print(f"[TTS v2] 点评 {ip['id']} 引用时间: {quote_start_time:.2f}s - {quote_end_time:.2f}s")
-                    print(f"[TTS v2] 点评 {ip['id']} 完成: {result['audio_duration']:.1f}s")
+                    # 更新引用音频
+                    if result['quote_audio_path']:
+                        update_insert_point_quote_audio(ip['id'], result['quote_audio_path'], result['quote_audio_duration'])
+                    # 更新评论音频
+                    if result['comment_audio_path']:
+                        update_insert_point_audio(ip['id'], result['comment_audio_path'], result['comment_audio_duration'])
+                    print(f"[TTS v2] 点评 {ip['id']} 完成: 引用{result['quote_audio_duration']:.1f}s + 评论{result['comment_audio_duration']:.1f}s")
             elif ip['point_type'] == 'summary':
                 print(f"[TTS v2] 生成小结 {ip['id']} 音频")
-                result = generate_insert_point_audio(ip['comment'], ip['id'], speed, person)
-                if result:
-                    update_insert_point_audio(ip['id'], result['audio_path'], result['audio_duration'])
-                    print(f"[TTS v2] 小结 {ip['id']} 完成: {result['audio_duration']:.1f}s")
+                # 小结只有评论音频
+                result = generate_insert_point_audio(None, ip['comment'], ip['id'], speed, person)
+                if result and result['comment_audio_path']:
+                    update_insert_point_audio(ip['id'], result['comment_audio_path'], result['comment_audio_duration'])
+                    print(f"[TTS v2] 小结 {ip['id']} 完成: {result['comment_audio_duration']:.1f}s")
 
     return True
 

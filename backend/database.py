@@ -353,13 +353,13 @@ def init_db():
     except:
         pass
     
-    # insert_points 新增引用时间字段（用于从段音频中截取引用部分）
+    # insert_points 新增引用音频字段（独立音频文件，不从主线截取）
     try:
-        cursor.execute('ALTER TABLE insert_points ADD COLUMN quote_start_time REAL DEFAULT 0')
+        cursor.execute('ALTER TABLE insert_points ADD COLUMN quote_audio_path TEXT')
     except:
         pass
     try:
-        cursor.execute('ALTER TABLE insert_points ADD COLUMN quote_end_time REAL DEFAULT 0')
+        cursor.execute('ALTER TABLE insert_points ADD COLUMN quote_audio_duration REAL DEFAULT 0')
     except:
         pass
 
@@ -1694,13 +1694,13 @@ def update_insert_point_audio(insert_point_id, audio_path, audio_duration):
     conn.commit()
     conn.close()
 
-def update_insert_point_quote_timing(insert_point_id, quote_start_time, quote_end_time):
-    """更新插入点的引用时间信息（从段音频中截取引用部分的时间点）"""
+def update_insert_point_quote_audio(insert_point_id, quote_audio_path, quote_audio_duration):
+    """更新插入点的引用音频信息"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE insert_points SET quote_start_time = ?, quote_end_time = ? WHERE id = ?',
-        (quote_start_time, quote_end_time, insert_point_id)
+        'UPDATE insert_points SET quote_audio_path = ?, quote_audio_duration = ? WHERE id = ?',
+        (quote_audio_path, quote_audio_duration, insert_point_id)
     )
     conn.commit()
     conn.close()
@@ -1769,8 +1769,8 @@ def get_section_playback_plan(section_id):
                     'quote_text': ip.get('quote_text'),
                     'quote_start_char': ip.get('quote_start_char'),
                     'quote_end_char': ip.get('quote_end_char'),
-                    'quote_start_time': ip.get('quote_start_time'),
-                    'quote_end_time': ip.get('quote_end_time'),
+                    'quote_audio_path': ip.get('quote_audio_path'),
+                    'quote_audio_duration': ip.get('quote_audio_duration') or 0,
                     'comment': ip['comment'],
                     'audio_path': ip['audio_path'],
                     'audio_duration': ip['audio_duration'] or 0,
