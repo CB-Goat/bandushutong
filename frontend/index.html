@@ -3010,7 +3010,9 @@
                 if (typeof reader !== 'undefined') {
                     reader._currentPosition = displayIndex;
                 }
-                var displayChar = Math.min(reader._allChars ? reader._allChars.length : 0, displayIndex + this.TEXT_AHEAD_OFFSET);
+                // 预显示限制在当前段范围内，不能越界到下一段
+                var maxDisplay = seg.end_char; // end_char 是不包含的边界
+                var displayChar = Math.min(maxDisplay, displayIndex + this.TEXT_AHEAD_OFFSET);
                 if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                     reader.revealCharsUpTo(displayChar);
                 }
