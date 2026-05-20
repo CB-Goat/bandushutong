@@ -2316,6 +2316,13 @@
                                     // 显示在赏析区
                                     if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
                                         analysisManager.addAnnotationTab(ann);
+                                        // 标记为已播放，完整显示内容（不是逐字动画）
+                                        var tabId = 'annotation_' + ann.id;
+                                        var tab = analysisManager.tabs.find(function(t) { return t.id === tabId; });
+                                        if (tab) {
+                                            tab._played = true;
+                                            tab._commentText = ann.comment;
+                                        }
                                     }
                                     // 显示序号标记
                                     if (typeof reader !== 'undefined' && reader._showAnnotationMarker) {
@@ -2329,6 +2336,13 @@
                                     ann._triggered = true;
                                 }
                             });
+                        }
+                        
+                        // 断点恢复时，已播放的小结也应完整显示
+                        if (section && section.summary) {
+                            if (typeof analysisManager !== 'undefined') {
+                                analysisManager.addSummaryTab(section.summary);
+                            }
                         }
                         
                         // 不在这里设置 audio.currentTime，由 play() 中的断点恢复处理
