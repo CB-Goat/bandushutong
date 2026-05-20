@@ -1769,6 +1769,8 @@ def get_section_playback_plan(section_id):
                     'quote_text': ip.get('quote_text'),
                     'quote_start_char': ip.get('quote_start_char'),
                     'quote_end_char': ip.get('quote_end_char'),
+                    'quote_start_time': ip.get('quote_start_time'),
+                    'quote_end_time': ip.get('quote_end_time'),
                     'comment': ip['comment'],
                     'audio_path': ip['audio_path'],
                     'audio_duration': ip['audio_duration'] or 0,
