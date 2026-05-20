@@ -2015,6 +2015,18 @@
                 }
             },
 
+            // 逐字高亮到指定位置（用于引用音频同步）
+            // startChar: 起始字符位置
+            // endIdx: 当前需要高亮到的字符索引（不含）
+            _highlightCharsUpTo: function(startChar, endIdx) {
+                if (!this._allChars) return;
+                // 确保不超过 _allChars 范围
+                var maxIdx = Math.min(endIdx, this._allChars.length);
+                for (var i = startChar; i < maxIdx; i++) {
+                    this._allChars[i].classList.add('annotated');
+                }
+            },
+
             // 将 content 字符位置（含\n）转换为 _allChars 索引（不含\n）
             _contentCharToDisplayChar: function(contentCharIdx) {
                 if (!this._content) return contentCharIdx;
@@ -2954,6 +2966,11 @@
                 this._annotationAudio.src = seg.quote_audio_path;
                 this._annotationAudio.load();
                 
+                var quoteStartChar = seg.quote_start_char || 0;
+                var quoteEndChar = seg.quote_end_char || 0;
+                var quoteAudioDuration = seg.quote_audio_duration || 0;
+                var charCount = quoteEndChar - quoteStartChar;
+                
                 var canPlayHandler = function() {
                     self._annotationAudio.removeEventListener('canplay', canPlayHandler);
                     self._annotationAudio.play().then(function() {
@@ -2967,13 +2984,34 @@
                 
                 var endedHandler = function() {
                     self._annotationAudio.removeEventListener('ended', endedHandler);
+                    // 确保高亮到结尾
+                    if (typeof reader !== 'undefined' && reader._highlightCharsUpTo) {
+                        reader._highlightCharsUpTo(quoteStartChar, quoteEndChar);
+                    }
                     console.log('引用音频播放结束，进入步骤3');
                     self._insertPointStep = 3;
                     self._executeInsertPointStep();
                 };
                 
+                // 逐字高亮更新函数
+                var quoteTimeUpdateHandler = function() {
+                    if (quoteAudioDuration > 0 && charCount > 0) {
+                        var currentTime = self._annotationAudio.currentTime;
+                        var progress = currentTime / quoteAudioDuration;
+                        // 计算当前进度对应的字符索引
+                        var currentCharIdx = Math.floor(progress * charCount);
+                        // 确保不超过范围
+                        currentCharIdx = Math.min(currentCharIdx, charCount);
+                        // 调用逐字高亮方法
+                        if (typeof reader !== 'undefined' && reader._highlightCharsUpTo) {
+                            reader._highlightCharsUpTo(quoteStartChar, quoteStartChar + currentCharIdx);
+                        }
+                    }
+                };
+                
                 this._annotationAudio.addEventListener('canplay', canPlayHandler);
                 this._annotationAudio.addEventListener('ended', endedHandler);
+                this._annotationAudio.addEventListener('timeupdate', quoteTimeUpdateHandler);
                 
                 // 超时保护：引用音频最长30秒，使用防重复调用机制
                 this._safeSetTimeout(function() {
@@ -2996,8 +3034,17 @@
                     return;
                 }
                 
-                // 显示评论区域并开始逐字显示
-                this._startCommentTextAnimation(seg.comment);
+                // 显示评论区域并激活点评显示区域
+                var commentEl = document.getElementById('annotationComment');
+                if (commentEl) {
+                    commentEl.textContent = '';
+                }
+                document.getElementById('annotationDisplay').classList.add('active');
+                
+                var commentText = seg.comment || '';
+                var audioDuration = seg.audio_duration || 1;  // 避免除以0
+                var commentChars = commentText.split('');
+                var charCount = commentChars.length;
                 
                 // 使用独立的评论音频文件
                 this._annotationAudio.src = seg.audio_path;
@@ -3016,13 +3063,31 @@
                 
                 var endedHandler = function() {
                     self._annotationAudio.removeEventListener('ended', endedHandler);
-                    self._stopCommentTextAnimation();
+                    // 确保显示完整评论
+                    if (commentEl) {
+                        commentEl.textContent = commentText;
+                    }
                     self._insertPointStep = 5;
                     self._executeInsertPointStep();
                 };
                 
+                // 逐字显示更新函数（使用 ontimeupdate 事件同步）
+                var commentTimeUpdateHandler = function() {
+                    if (audioDuration > 0 && charCount > 0 && commentEl) {
+                        var currentTime = self._annotationAudio.currentTime;
+                        var progress = currentTime / audioDuration;
+                        // 计算当前进度对应的字符索引
+                        var currentCharIdx = Math.floor(progress * charCount);
+                        // 确保不超过范围
+                        currentCharIdx = Math.min(currentCharIdx, charCount);
+                        // 显示到对应位置
+                        commentEl.textContent = commentText.substring(0, currentCharIdx);
+                    }
+                };
+                
                 this._annotationAudio.addEventListener('canplay', canPlayHandler);
                 this._annotationAudio.addEventListener('ended', endedHandler);
+                this._annotationAudio.addEventListener('timeupdate', commentTimeUpdateHandler);
                 
                 // 超时保护：评论音频最长60秒，使用防重复调用机制
                 this._safeSetTimeout(function() {
