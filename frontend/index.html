@@ -2676,7 +2676,7 @@
                 this.audio.load();
                 
                 // 预显示：从 start_char 开始，显示 TEXT_AHEAD_OFFSET 个字
-                var displayChar = seg.start_char + this.TEXT_AHEAD_OFFSET - 1;
+                var displayChar = seg.start_char + this.TEXT_AHEAD_OFFSET;
                 console.log('文本段: 预显示到 displayChar=' + displayChar + ' (start_char=' + seg.start_char + ')');
                 reader.revealCharsUpTo(displayChar);
                 
@@ -2926,7 +2926,7 @@
                     var nextIdx = this._playlistIndex + 1;
                     if (nextIdx < this.audioSegments.length && this.audioSegments[nextIdx].type === 'text_segment') {
                         var nextSeg = this.audioSegments[nextIdx];
-                        var displayChar = nextSeg.start_char + this.TEXT_AHEAD_OFFSET - 1;
+                        var displayChar = nextSeg.start_char + this.TEXT_AHEAD_OFFSET;
                         if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                             reader.revealCharsUpTo(displayChar);
                         }
@@ -3010,7 +3010,7 @@
                 if (typeof reader !== 'undefined') {
                     reader._currentPosition = displayIndex;
                 }
-                var displayChar = Math.min(reader._allChars ? reader._allChars.length : 0, displayIndex + this.TEXT_AHEAD_OFFSET - 1);
+                var displayChar = Math.min(reader._allChars ? reader._allChars.length : 0, displayIndex + this.TEXT_AHEAD_OFFSET);
                 if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                     reader.revealCharsUpTo(displayChar);
                 }
