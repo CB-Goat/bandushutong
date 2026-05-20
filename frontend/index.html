@@ -1804,9 +1804,19 @@
                     document.getElementById('annotationDisplay').classList.remove('active');
                 }
 
-                // 只有已读节才显示点评编号标记
+                // 功能2：已读节加载时显示所有点评标记（序号+高亮）
                 if (sectionStatus === 'read') {
+                    // 显示所有点评序号标记
                     this._renderAnnotationMarkers();
+                    // 高亮所有点评的引用文字
+                    if (state.currentAnnotations && state.currentAnnotations.length > 0) {
+                        console.log('已读节：高亮所有点评引用文字，共', state.currentAnnotations.length, '个');
+                        state.currentAnnotations.forEach(function(ann) {
+                            if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
+                                reader._highlightAnnotation(ann);
+                            }
+                        });
+                    }
                 }
 
                 // 加载用户思考
@@ -2292,15 +2302,27 @@
                         document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
                         console.log('恢复阅读位置:', savedPosition, '/', self._totalChars);
                         
+                        // 功能3：断点恢复时显示已播放的点评标记
                         // 恢复已触发的点评显示（根据savedPosition判断）
                         var section = state.currentSections[state.currentSectionIndex];
                         if (section && section.annotations) {
                             section.annotations.forEach(function(ann) {
                                 if (savedPosition >= ann.end_char) {
-                                    // 该点评已触发过，显示在赏析区
+                                    // 该点评已触发过
+                                    // 显示在赏析区
                                     if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
                                         analysisManager.addAnnotationTab(ann);
                                     }
+                                    // 显示序号标记
+                                    if (typeof reader !== 'undefined' && reader._showAnnotationMarker) {
+                                        reader._showAnnotationMarker(ann);
+                                    }
+                                    // 高亮引用文字
+                                    if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
+                                        reader._highlightAnnotation(ann);
+                                    }
+                                    // 标记为已触发，避免重复播放
+                                    ann._triggered = true;
                                 }
                             });
                         }
@@ -3208,6 +3230,35 @@
                 
                 // 标记为正在完成，防止重复调用
                 this._isFinishing = true;
+                
+                // 功能1：如果是 annotation 类型且播放完成，显示带圈序号
+                var seg = this._currentInsertPoint;
+                if (seg && seg.point_type === 'annotation' && seg.annotation_id) {
+                    // 查找对应的 annotation 对象
+                    var annotation = null;
+                    if (state.currentAnnotations) {
+                        for (var i = 0; i < state.currentAnnotations.length; i++) {
+                            if (state.currentAnnotations[i].id === seg.annotation_id) {
+                                annotation = state.currentAnnotations[i];
+                                break;
+                            }
+                        }
+                    }
+                    // 如果没找到，从 segment 的信息构建 annotation 对象
+                    if (!annotation && seg.quote_end_char) {
+                        annotation = {
+                            id: seg.annotation_id,
+                            annotation_index: seg.annotation_index || 1,
+                            end_char: seg.quote_end_char,
+                            comment: seg.comment || ''
+                        };
+                    }
+                    // 显示序号标记
+                    if (annotation && typeof reader !== 'undefined' && reader._showAnnotationMarker) {
+                        console.log('_finishInsertPoint: 显示点评序号', annotation.annotation_index);
+                        reader._showAnnotationMarker(annotation);
+                    }
+                }
                 
                 // 清理所有定时器
                 this._clearAllTimers();
