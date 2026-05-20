@@ -1886,8 +1886,8 @@
                 for (var i = 0; i < annotations.length; i++) {
                     var ann = annotations[i];
                     // 显示所有点评标记（不只是已触发的）
-                    // end_char 是包含的最后一个字符索引
-                    var endIdx = ann.end_char;
+                    // end_char 是不包含的边界（Python切片风格 [start, end)）
+                    var endIdx = ann.end_char - 1;
                     // start_char/end_char 已经是显示索引，直接使用
                     var markerChar = this._allChars[endIdx] ? this._allChars[endIdx].textContent : 'N/A';
                     console.log('Annotation', ann.annotation_index, 'end_char:', ann.end_char, '-> endIdx:', endIdx, 'char:"' + markerChar + '"');
@@ -1906,8 +1906,8 @@
 
             // 显示单个点评点序号（在触发后调用）
             _showAnnotationMarker: function(annotation) {
-                // end_char 是包含的最后一个字符索引
-                var endIdx = annotation.end_char;
+                // end_char 是不包含的边界
+                var endIdx = annotation.end_char - 1;
                 if (endIdx >= 0 && endIdx < this._allChars.length) {
                     var endCharSpan = this._allChars[endIdx];
                     var sup = document.createElement('span');
@@ -1994,12 +1994,12 @@
                     end_char: annotation.end_char,
                     original_text: annotation.original_text
                 }));
-                // start_char/end_char 已经是显示索引，直接使用
+                // start_char/end_char 是不包含的边界 [start, end)
                 var startIdx = annotation.start_char;
-                var endIdx = annotation.end_char;
+                var endIdx = annotation.end_char - 1;
                 console.log('Highlight range:', startIdx, '->', endIdx, 'allChars length:', this._allChars.length);
                 console.log('_allChars[' + startIdx + ']:', this._allChars[startIdx] ? this._allChars[startIdx].textContent : 'N/A');
-                console.log('_allChars[' + (endIdx-1) + ']:', this._allChars[endIdx-1] ? this._allChars[endIdx-1].textContent : 'N/A');
+                console.log('_allChars[' + endIdx + ']:', this._allChars[endIdx] ? this._allChars[endIdx].textContent : 'N/A');
                 for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
                     this._allChars[i].classList.add('annotated');
                 }
@@ -2009,7 +2009,7 @@
             _clearAnnotationHighlight: function(annotation) {
                 if (!annotation) return;
                 var startIdx = annotation.start_char;
-                var endIdx = annotation.end_char;
+                var endIdx = annotation.end_char - 1;
                 for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
                     this._allChars[i].classList.remove('annotated');
                 }
@@ -2917,8 +2917,8 @@
                     var seg = this._currentSegment;
                     console.log('_onSegmentEnd: 文本段结束, start_char=' + seg.start_char + ', end_char=' + seg.end_char);
                     // 确保该段所有文字都已显示（包括最后一个字符）
-                    // end_char 是包含的，所以需要显示到 end_char + 1
-                    var revealTo = seg.end_char + 1;
+                    // end_char 是不包含的边界，所以需要显示到 end_char
+                    var revealTo = seg.end_char;
                     if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                         reader.revealCharsUpTo(revealTo);
                     }

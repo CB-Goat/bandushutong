@@ -1532,9 +1532,9 @@ def create_text_segments(section_id):
     cursor.execute('SELECT id, start_char, end_char FROM annotations WHERE section_id = ? ORDER BY start_char', (section_id,))
     annotations = [dict(r) for r in cursor.fetchall()]
     
-    # 确定分割点：在点评的 end_char + 1 处切割
-    # 因为点评 end_char 是包含的，段要包含到该字符，所以分割点是 end_char + 1
-    split_points = sorted(set([0] + [ann['end_char'] + 1 for ann in annotations] + [text_len]))
+    # 确定分割点：在点评的 end_char 处切割
+    # end_char 是不包含的边界（Python切片风格 [start, end)）
+    split_points = sorted(set([0] + [ann['end_char'] for ann in annotations] + [text_len]))
     
     # 删除旧的 text_segments
     cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
@@ -1547,10 +1547,10 @@ def create_text_segments(section_id):
             continue
         seg_content = text[start:end]  # 内容从 start 到 end-1
         word_count = len(seg_content)
-        # end_char 存储为 end-1（实际最后一个字符的索引）
+        # end_char 存储为 end（不包含的边界，与 annotation end_char 语义一致）
         cursor.execute(
             'INSERT INTO text_segments (section_id, segment_number, content, start_char, end_char, word_count) VALUES (?, ?, ?, ?, ?, ?)',
-            (section_id, i, seg_content, start, end - 1, word_count)
+            (section_id, i, seg_content, start, end, word_count)
         )
     
     conn.commit()
