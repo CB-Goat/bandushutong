@@ -43,12 +43,21 @@ if __name__ == '__main__':
     if not os.path.exists('audio_files'):
         os.makedirs('audio_files')
     
+    # 检查并生成固定音频文件
+    try:
+        from baidu_tts import is_configured, generate_fixed_audio_files
+        if is_configured():
+            print("[TTS] 检查固定音频文件...")
+            generate_fixed_audio_files()
+    except Exception as e:
+        print(f"[TTS] 生成固定音频失败: {e}")
+    
     # 从环境变量获取端口，默认5000
     port = int(os.environ.get('PORT', 5000))
     
     print("=" * 50)
     print("伴读书童后端服务启动")
-    print("更新版本: #43")
+    print("更新版本: #44")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
