@@ -3048,6 +3048,8 @@
                 this.audio.pause();
                 this.audio.onended = null;
                 this.audio.currentTime = 0;
+                // 清除所有定时器
+                this._clearAllTimers();
                 // 停止并清理点评音频
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
