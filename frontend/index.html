@@ -876,22 +876,21 @@
     /* 灯笼容器 - 悬挂在+思考按钮上方 */
     .thought-lanterns-container {
         position: absolute;
-        bottom: 100%;
+        bottom: calc(100% + 5px);
         left: 50%;
         transform: translateX(-50%);
         display: flex;
         flex-direction: column;
         align-items: center;
         pointer-events: none;
-        z-index: 100;
-        padding-bottom: 5px;
+        z-index: 1000;
     }
     
-    /* 悬挂绳 */
+    /* 悬挂绳 - 从按钮上方连接到灯笼 */
     .thought-lanterns-container::before {
         content: '';
         position: absolute;
-        top: -15px;
+        bottom: 100%;
         left: 50%;
         transform: translateX(-50%);
         width: 2px;
@@ -4682,7 +4681,10 @@
             // 获取灯笼容器，如果不存在则创建
             _getLanternContainer: function() {
                 var btn = document.getElementById('editAnnotationBtn');
-                if (!btn) return null;
+                if (!btn) {
+                    console.log('_getLanternContainer: 找不到 editAnnotationBtn');
+                    return null;
+                }
                 
                 var container = document.getElementById('thoughtLanternsContainer');
                 if (!container) {
@@ -4692,6 +4694,7 @@
                     // 设置按钮为相对定位，以便灯笼绝对定位
                     btn.style.position = 'relative';
                     btn.appendChild(container);
+                    console.log('_getLanternContainer: 创建灯笼容器，添加到按钮:', btn.id, btn.className);
                 }
                 return container;
             },
