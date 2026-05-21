@@ -4722,9 +4722,13 @@
                 
                 console.log('_updateLanternContainerPosition: btn id=' + btn.id + ' text=' + btn.textContent);
                 console.log('_updateLanternContainerPosition: btn rect=', rect.left, rect.top, rect.width, rect.height);
+                console.log('_updateLanternContainerPosition: window width=', window.innerWidth);
                 if (headerRect) {
                     console.log('_updateLanternContainerPosition: header rect=', headerRect.left, headerRect.top, headerRect.width, headerRect.height);
                 }
+                
+                // 高亮按钮以便确认位置
+                btn.style.outline = '2px solid red';
                 
                 // 如果按钮在header内，使用相对于header的位置
                 if (headerRect && rect.top >= headerRect.top && rect.top <= headerRect.bottom) {
