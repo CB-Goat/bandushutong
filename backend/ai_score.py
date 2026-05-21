@@ -58,9 +58,10 @@ def _rule_based_evaluation(original_text, thought_content, section_content):
     
     # 检查是否包含思考关键词
     thinking_keywords = [
-        '我', '觉得', '认为', '想象', '感受', '如果', '可能', '也许',
-        '为什么', '怎么', '什么', '是否', '可是', '但是', '然而',
-        '因为', '所以', '虽然', '然而', '于是', '然后'
+        '觉得', '认为', '想象', '感受', '如果', '可能', '也许',
+        '为什么', '怎么', '是否', '可是', '但是', '然而',
+        '因为', '所以', '虽然', '于是', '让我', '说明',
+        '看出', '想到', '体会到', '发现', '推测'
     ]
     
     thinking_count = sum(1 for kw in thinking_keywords if kw in thought_lower)
@@ -80,9 +81,9 @@ def _rule_based_evaluation(original_text, thought_content, section_content):
     depth_count = sum(1 for kw in depth_keywords if kw in thought_lower)
     
     # 评分逻辑
-    if thinking_count >= 2 and depth_count >= 1:
+    if thinking_count >= 3 and depth_count >= 2:
         return 3, "思考深刻，有独到见解"
-    elif thinking_count >= 1 and depth_count >= 1:
+    elif thinking_count >= 2 and depth_count >= 1:
         return 2, "思考正确，有一定深度"
     elif thinking_count >= 1:
         return 1, "思考基本正确"
