@@ -3029,6 +3029,10 @@
 
             pause: function() {
                 this.audio.pause();
+                // 同时暂停点评音频
+                if (this._annotationAudio) {
+                    this._annotationAudio.pause();
+                }
                 this.isPlaying = false;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
