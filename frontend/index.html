@@ -4706,13 +4706,33 @@
                 var container = document.getElementById('thoughtLanternsContainer');
                 if (!btn || !container) return;
                 
+                // 确保按钮可见且在阅读页内
+                var readerPage = document.getElementById('readerPage');
+                if (!readerPage || readerPage.style.display === 'none') {
+                    console.log('_updateLanternContainerPosition: 阅读页未显示');
+                    return;
+                }
+                
                 var rect = btn.getBoundingClientRect();
                 var lanternHeight = container.offsetHeight || 60;
-                // 设置 left 为按钮中心，CSS transform: translateX(-50%) 会让容器居中
-                container.style.left = (rect.left + rect.width / 2) + 'px';
-                container.style.top = (rect.top - lanternHeight - 5) + 'px';
-                console.log('_updateLanternContainerPosition: btn id=' + btn.id + ' class=' + btn.className + ' text=' + btn.textContent);
+                
+                // 检查按钮是否在阅读页头部区域内
+                var header = document.querySelector('.reader-header');
+                var headerRect = header ? header.getBoundingClientRect() : null;
+                
+                console.log('_updateLanternContainerPosition: btn id=' + btn.id + ' text=' + btn.textContent);
                 console.log('_updateLanternContainerPosition: btn rect=', rect.left, rect.top, rect.width, rect.height);
+                if (headerRect) {
+                    console.log('_updateLanternContainerPosition: header rect=', headerRect.left, headerRect.top, headerRect.width, headerRect.height);
+                }
+                
+                // 如果按钮在header内，使用相对于header的位置
+                if (headerRect && rect.top >= headerRect.top && rect.top <= headerRect.bottom) {
+                    container.style.left = (rect.left + rect.width / 2) + 'px';
+                    container.style.top = (rect.top - lanternHeight - 5) + 'px';
+                } else {
+                    console.log('_updateLanternContainerPosition: 按钮不在header内，可能找错按钮了');
+                }
             },
 
             // 检查当前是否可以点击查看思考（非播放状态且已读或阅读完）
