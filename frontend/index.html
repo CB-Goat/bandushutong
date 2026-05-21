@@ -876,25 +876,26 @@
     /* 灯笼容器 - 悬挂在+思考按钮上方 */
     .thought-lanterns-container {
         position: absolute;
-        top: -70px;
+        bottom: 100%;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
         flex-direction: column;
         align-items: center;
         pointer-events: none;
-        z-index: 10;
+        z-index: 100;
+        padding-bottom: 5px;
     }
     
     /* 悬挂绳 */
     .thought-lanterns-container::before {
         content: '';
         position: absolute;
-        top: 0;
+        top: -15px;
         left: 50%;
         transform: translateX(-50%);
         width: 2px;
-        height: 20px;
+        height: 15px;
         background: linear-gradient(to bottom, #8B7355, #A08060);
     }
     
@@ -920,7 +921,7 @@
     
     /* 第一个灯笼上方连接绳 */
     .thought-lantern:first-child {
-        margin-top: 20px;
+        margin-top: 0;
     }
     
     /* 灯笼之间的连接线 */
