@@ -4680,10 +4680,7 @@
             // 获取灯笼容器，如果不存在则创建
             _getLanternContainer: function() {
                 var btn = document.getElementById('editAnnotationBtn');
-                if (!btn) {
-                    console.log('_getLanternContainer: 找不到 editAnnotationBtn');
-                    return null;
-                }
+                if (!btn) return null;
                 
                 var container = document.getElementById('thoughtLanternsContainer');
                 if (!container) {
@@ -4691,7 +4688,6 @@
                     container.id = 'thoughtLanternsContainer';
                     container.className = 'thought-lanterns-container';
                     document.body.appendChild(container);
-                    console.log('_getLanternContainer: 创建灯笼容器');
                 }
                 
                 // 更新容器位置到按钮上方
@@ -4706,48 +4702,16 @@
                 var container = document.getElementById('thoughtLanternsContainer');
                 if (!btn || !container) return;
                 
-                // 确保按钮可见且在阅读页内
+                // 确保在阅读页
                 var readerPage = document.getElementById('readerPage');
-                if (!readerPage || readerPage.style.display === 'none') {
-                    console.log('_updateLanternContainerPosition: 阅读页未显示');
-                    return;
-                }
+                if (!readerPage || readerPage.style.display === 'none') return;
                 
                 var rect = btn.getBoundingClientRect();
                 var lanternHeight = container.offsetHeight || 60;
                 
-                // 检查按钮是否在阅读页头部区域内
-                var header = document.querySelector('.reader-header');
-                var headerRect = header ? header.getBoundingClientRect() : null;
-                
-                console.log('_updateLanternContainerPosition: btn id=' + btn.id + ' text=' + btn.textContent);
-                console.log('_updateLanternContainerPosition: btn rect=', rect.left, rect.top, rect.width, rect.height);
-                console.log('_updateLanternContainerPosition: window width=', window.innerWidth);
-                if (headerRect) {
-                    console.log('_updateLanternContainerPosition: header rect=', headerRect.left, headerRect.top, headerRect.width, headerRect.height);
-                }
-                
-                // 高亮按钮以便确认位置
-                btn.style.outline = '2px solid red';
-                
-                // 在按钮中心位置添加一个标记点
-                var marker = document.getElementById('lanternPositionMarker');
-                if (!marker) {
-                    marker = document.createElement('div');
-                    marker.id = 'lanternPositionMarker';
-                    marker.style.cssText = 'position:fixed;width:10px;height:10px;background:blue;border-radius:50%;z-index:99999;pointer-events:none;';
-                    document.body.appendChild(marker);
-                }
-                marker.style.left = (rect.left + rect.width / 2 - 5) + 'px';
-                marker.style.top = (rect.top - 5) + 'px';
-                
-                // 如果按钮在header内，使用相对于header的位置
-                if (headerRect && rect.top >= headerRect.top && rect.top <= headerRect.bottom) {
-                    container.style.left = (rect.left + rect.width / 2) + 'px';
-                    container.style.top = (rect.top - lanternHeight - 5) + 'px';
-                } else {
-                    console.log('_updateLanternContainerPosition: 按钮不在header内，可能找错按钮了');
-                }
+                // 设置灯笼容器位置到按钮上方
+                container.style.left = (rect.left + rect.width / 2) + 'px';
+                container.style.top = (rect.top - lanternHeight - 5) + 'px';
             },
 
             // 检查当前是否可以点击查看思考（非播放状态且已读或阅读完）
