@@ -3808,6 +3808,9 @@
                     this._annotationAudio = newAudio;
                 }
                 
+                // 重置 _isFinishing，让 _finishInsertPoint 能正常执行
+                this._isFinishing = false;
+                
                 // 调用原有的结束处理
                 this._finishInsertPoint();
             },
