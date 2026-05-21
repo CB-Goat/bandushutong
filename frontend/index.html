@@ -4690,8 +4690,7 @@
                     container.className = 'thought-lanterns-container';
                     // 设置按钮为相对定位，以便灯笼绝对定位
                     btn.style.position = 'relative';
-                    btn.parentNode.style.position = 'relative';
-                    btn.parentNode.appendChild(container);
+                    btn.appendChild(container);
                 }
                 return container;
             },
