@@ -4647,7 +4647,8 @@
                         // 显示 AI 评分
                         var aiScore = data.ai_score || 0;
                         var scoreText = aiScore === 0 ? '❌' : (aiScore === 1 ? '✓' : (aiScore === 2 ? '✓✓' : '✓✓✓'));
-                        alert('思考已保存\n\nAI 评分：' + scoreText + ' (' + aiScore + '分)');
+                        var scoreReason = data.score_reason || '';
+                        alert('思考已保存\n\nAI 评分：' + scoreText + ' (' + aiScore + '分)\n' + scoreReason);
                         // 保存退出编辑模式前的播放状态
                         var shouldResume = self._wasPlayingBeforeEdit;
                         thoughtEditor.exitEditMode();
