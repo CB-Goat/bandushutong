@@ -873,7 +873,7 @@
     </style>
     <!-- 思考灯笼CSS -->
     <style>
-    /* 灯笼容器 - 固定在+思考按钮上方 */
+    /* 灯笼容器 - 从+思考按钮底部垂下 */
     .thought-lanterns-container {
         position: fixed;
         display: flex;
@@ -885,15 +885,15 @@
         transform: translateX(-50%);
     }
     
-    /* 悬挂绳 - 从按钮上方垂下 */
+    /* 悬挂绳 - 从按钮底部向下 */
     .thought-lanterns-container::before {
         content: '';
         position: absolute;
-        top: -15px;
+        top: -10px;
         left: 50%;
         transform: translateX(-50%);
         width: 2px;
-        height: 15px;
+        height: 10px;
         background: linear-gradient(to bottom, #8B7355, #A08060);
     }
     
@@ -4696,7 +4696,7 @@
                 return container;
             },
             
-            // 更新灯笼容器位置到+思考按钮上方
+            // 更新灯笼容器位置到+思考按钮下方（灯笼从按钮底部垂下）
             _updateLanternContainerPosition: function() {
                 var btn = document.getElementById('editAnnotationBtn');
                 var container = document.getElementById('thoughtLanternsContainer');
@@ -4707,11 +4707,10 @@
                 if (!readerPage || readerPage.style.display === 'none') return;
                 
                 var rect = btn.getBoundingClientRect();
-                var lanternHeight = container.offsetHeight || 60;
                 
-                // 设置灯笼容器位置到按钮上方
+                // 设置灯笼容器位置到按钮底部（灯笼向下垂）
                 container.style.left = (rect.left + rect.width / 2) + 'px';
-                container.style.top = (rect.top - lanternHeight - 5) + 'px';
+                container.style.top = (rect.bottom + 10) + 'px';
             },
 
             // 检查当前是否可以点击查看思考（非播放状态且已读或阅读完）
