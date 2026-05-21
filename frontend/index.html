@@ -881,6 +881,8 @@
         align-items: center;
         pointer-events: none;
         z-index: 10000;
+        /* 通过 transform 让容器中心对准目标点 */
+        transform: translateX(-50%);
     }
     
     /* 悬挂绳 - 从按钮上方垂下 */
@@ -4706,8 +4708,10 @@
                 
                 var rect = btn.getBoundingClientRect();
                 var lanternHeight = container.offsetHeight || 60;
+                // 设置 left 为按钮中心，CSS transform: translateX(-50%) 会让容器居中
                 container.style.left = (rect.left + rect.width / 2) + 'px';
                 container.style.top = (rect.top - lanternHeight - 5) + 'px';
+                console.log('_updateLanternContainerPosition: btn rect=', rect, 'lanternHeight=', lanternHeight);
             },
 
             // 检查当前是否可以点击查看思考（非播放状态且已读或阅读完）
