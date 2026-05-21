@@ -185,6 +185,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            position: relative;
         }
 
         .reader-header .mini-progress {
@@ -870,18 +871,146 @@
         .modal-box .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
         .modal-box .modal-actions .btn { padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; border: none; font-family: inherit; }
     </style>
-    <!-- 思考气泡CSS -->
+    <!-- 思考灯笼CSS -->
     <style>
-    .thought-bubble {
-        display: inline-block;
-        cursor: pointer;
-        font-size: 14px;
-        margin-left: 2px;
-        vertical-align: super;
-        transition: transform 0.2s;
+    /* 灯笼容器 - 悬挂在+思考按钮上 */
+    .thought-lanterns-container {
+        position: absolute;
+        top: -8px;
+        right: 0;
+        display: flex;
+        gap: 4px;
+        pointer-events: none;
+        z-index: 10;
     }
-    .thought-bubble:hover { transform: scale(1.3); }
+    
+    /* 小灯笼样式 */
+    .thought-lantern {
+        width: 20px;
+        height: 24px;
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+        border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: bold;
+        color: #8B4513;
+        cursor: pointer;
+        pointer-events: auto;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3), inset 0 -2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+    }
+    
+    /* 灯笼悬挂线 */
+    .thought-lantern::before {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 6px;
+        background: #8B7355;
+    }
+    
+    /* 灯笼顶部装饰 */
+    .thought-lantern::after {
+        content: '';
+        position: absolute;
+        top: -3px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 8px;
+        height: 3px;
+        background: #8B4513;
+        border-radius: 2px;
+    }
+    
+    /* 播放中时灯笼不可点击 */
+    .thought-lantern.playing {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+    
+    /* 可点击状态的灯笼悬停效果 */
+    .thought-lantern:not(.playing):hover {
+        transform: scale(1.15);
+        box-shadow: 0 3px 10px rgba(255, 215, 0, 0.5), inset 0 -2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* 选中思考时的引用文字高亮 - 淡黄底色 */
+    .chalk-char.thought-quote-highlight {
+        background: rgba(255, 235, 150, 0.4) !important;
+        border-radius: 2px;
+    }
+    
     .chalk-char.thought-selected { background: rgba(255, 152, 0, 0.3); border-radius: 2px; }
+    
+    /* 思考详情弹窗 */
+    #thoughtDetailModal .modal-content {
+        max-width: 500px;
+    }
+    
+    #thoughtDetailModal .quote-section {
+        background: rgba(255, 235, 150, 0.15);
+        border-left: 3px solid #FFD700;
+        padding: 12px;
+        margin-bottom: 16px;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    #thoughtDetailModal .quote-label {
+        font-size: 12px;
+        color: #999;
+        margin-bottom: 4px;
+    }
+    
+    #thoughtDetailModal .quote-text {
+        font-size: 14px;
+        color: #333;
+        line-height: 1.6;
+        font-style: italic;
+    }
+    
+    #thoughtDetailModal .thought-section {
+        margin-bottom: 16px;
+    }
+    
+    #thoughtDetailModal .thought-label {
+        font-size: 12px;
+        color: #999;
+        margin-bottom: 4px;
+    }
+    
+    #thoughtDetailModal .thought-text {
+        font-size: 15px;
+        color: #333;
+        line-height: 1.8;
+        padding: 12px;
+        background: #f9f9f9;
+        border-radius: 8px;
+    }
+    
+    #thoughtDetailModal .score-section {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 12px;
+        border-top: 1px solid #eee;
+    }
+    
+    #thoughtDetailModal .score-label {
+        font-size: 13px;
+        color: #666;
+    }
+    
+    #thoughtDetailModal .score-value {
+        font-size: 14px;
+        color: #999;
+        font-style: italic;
+    }
     </style>
     <!-- 小结倒计时CSS -->
     <style>
@@ -1178,6 +1307,28 @@
                 <div style="display:flex;gap:8px;justify-content:flex-end;">
                     <button class="btn" onclick="thoughtEditor._closeModal()">取消</button>
                     <button class="btn btn-primary" onclick="thoughtEditor.saveThought()">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 思考详情查看弹窗 -->
+        <div id="thoughtDetailModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;" onclick="thoughtEditor.closeDetailModal()">
+            <div class="modal-content" style="background:white;border-radius:12px;padding:24px;width:90%;max-width:500px;" onclick="event.stopPropagation()">
+                <h3 style="margin:0 0 16px;color:#333;">🏮 我的思考</h3>
+                <div class="quote-section">
+                    <div class="quote-label">引用原文：</div>
+                    <div class="quote-text" id="thoughtDetailQuote"></div>
+                </div>
+                <div class="thought-section">
+                    <div class="thought-label">思考内容：</div>
+                    <div class="thought-text" id="thoughtDetailContent"></div>
+                </div>
+                <div class="score-section">
+                    <span class="score-label">AI 评分：</span>
+                    <span class="score-value">-</span>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+                    <button class="btn" onclick="thoughtEditor.closeDetailModal()" style="padding:8px 24px;background:#2d5016;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">关闭</button>
                 </div>
             </div>
         </div>
@@ -2745,6 +2896,10 @@
                             self.isPlaying = true;
                             state.isPlaying = true;
                             document.getElementById('playBtn').textContent = '\u23F8';
+                            // 更新灯笼状态为播放中（不可点击）
+                            if (typeof thoughtEditor !== 'undefined' && thoughtEditor.updateAllLanternsState) {
+                                thoughtEditor.updateAllLanternsState();
+                            }
                         }).catch(function(e) {
                             console.log('播放失败:', e);
                         });
@@ -2790,6 +2945,10 @@
                     state.isPlaying = true;
                     document.getElementById('playBtn').textContent = '\u23F8';
                     console.log('播放成功');
+                    // 更新灯笼状态为播放中（不可点击）
+                    if (typeof thoughtEditor !== 'undefined' && thoughtEditor.updateAllLanternsState) {
+                        thoughtEditor.updateAllLanternsState();
+                    }
                 }).catch(function(e) {
                     console.log('播放失败:', e);
                 });
@@ -2800,6 +2959,10 @@
                 this.isPlaying = false;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
+                // 更新灯笼状态为可点击
+                if (typeof thoughtEditor !== 'undefined' && thoughtEditor.updateAllLanternsState) {
+                    thoughtEditor.updateAllLanternsState();
+                }
             },
 
             stop: function() {
@@ -2824,6 +2987,10 @@
                 this._currentInsertPoint = null;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
+                // 更新灯笼状态为可点击
+                if (typeof thoughtEditor !== 'undefined' && thoughtEditor.updateAllLanternsState) {
+                    thoughtEditor.updateAllLanternsState();
+                }
             },
             
             _playNext: function() {
@@ -4017,6 +4184,11 @@
                         body: JSON.stringify({book_id: state.currentBook.id, status: 'read', user_id: state.currentUser.id})
                     }).catch(function() {});
                 }
+                
+                // 播放结束，更新灯笼状态为可点击
+                if (typeof thoughtEditor !== 'undefined' && thoughtEditor.updateAllLanternsState) {
+                    thoughtEditor.updateAllLanternsState();
+                }
             },
 
             _getCharIndexFromTime: function(time) {
@@ -4326,6 +4498,7 @@
             isEditMode: false,
             _startChar: -1,
             _endChar: -1,
+            _wasPlayingBeforeEdit: false,  // 记录进入编辑模式前是否在播放
 
             toggleEditMode: function() {
                 if (this.isEditMode) {
@@ -4337,7 +4510,11 @@
 
             enterEditMode: function() {
                 this.isEditMode = true;
-                player.pause();
+                // 记录进入编辑模式前是否在播放
+                this._wasPlayingBeforeEdit = state.isPlaying || player.isPlaying;
+                if (this._wasPlayingBeforeEdit) {
+                    player.pause();
+                }
                 var btn = document.getElementById('editAnnotationBtn');
                 if (btn) btn.textContent = '✓ 完成思考';
                 // 让已显示的文字可点击
@@ -4352,8 +4529,9 @@
                 this.isEditMode = false;
                 this._startChar = -1;
                 this._endChar = -1;
+                this._wasPlayingBeforeEdit = false;  // 重置状态
                 var btn = document.getElementById('editAnnotationBtn');
-                if (btn) btn.textContent = '💡 添加思考';
+                if (btn) btn.textContent = '+思考';
                 var chars = document.querySelectorAll('.chalk-char.selectable');
                 chars.forEach(function(c) {
                     c.classList.remove('selectable', 'selected');
@@ -4407,6 +4585,7 @@
                 var startChar = parseInt(document.getElementById('thoughtStartChar').value);
                 var endChar = parseInt(document.getElementById('thoughtEndChar').value);
                 var originalText = document.getElementById('thoughtOriginalText').textContent;
+                var self = this;
                 fetch(API_BASE + '/sections/' + section.id + '/thoughts', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -4417,9 +4596,15 @@
                 }).then(function(r) { return r.json(); }).then(function(data) {
                     if (data.thought_id) {
                         alert('思考已保存');
+                        // 保存退出编辑模式前的播放状态
+                        var shouldResume = self._wasPlayingBeforeEdit;
                         thoughtEditor.exitEditMode();
                         thoughtEditor._closeModal();
                         thoughtEditor.loadThoughts();
+                        // 如果之前在播放，恢复播放
+                        if (shouldResume) {
+                            player.play();
+                        }
                     } else {
                         alert(data.error || '保存失败');
                     }
@@ -4440,34 +4625,135 @@
                 if (!section || !state.currentUser) return;
                 var url = API_BASE + '/sections/' + section.id + '/thoughts?user_id=' + state.currentUser.id;
                 fetch(url).then(function(r) { return r.json(); }).then(function(data) {
-                    // 清除旧的气泡
-                    document.querySelectorAll('.thought-bubble').forEach(function(b) { b.remove(); });
-                    (data.thoughts || []).forEach(function(t) {
-                        thoughtEditor._addBubble(t);
+                    // 清除旧的灯笼
+                    thoughtEditor._clearLanterns();
+                    // 按序号排序思考
+                    var thoughts = (data.thoughts || []).sort(function(a, b) {
+                        return (a.thought_index || a.id) - (b.thought_index || b.id);
+                    });
+                    thoughts.forEach(function(t, index) {
+                        t.displayIndex = index + 1;  // 添加显示序号
+                        thoughtEditor._addLantern(t);
                     });
                 });
             },
 
-            _addBubble: function(thought) {
-                var endIdx = thought.end_char;
-                if (endIdx < 0 || endIdx >= reader._allChars.length) return;
-                var endCharSpan = reader._allChars[endIdx];
-                var bubble = document.createElement('span');
-                bubble.className = 'thought-bubble';
-                bubble.textContent = '💭';
-                bubble.title = thought.content;
-                bubble.dataset.thoughtId = thought.id;
-                bubble.onclick = function(e) {
+            // 清除所有灯笼
+            _clearLanterns: function() {
+                var container = document.getElementById('thoughtLanternsContainer');
+                if (container) {
+                    container.innerHTML = '';
+                }
+            },
+
+            // 获取灯笼容器，如果不存在则创建
+            _getLanternContainer: function() {
+                var btn = document.getElementById('editAnnotationBtn');
+                if (!btn) return null;
+                
+                var container = document.getElementById('thoughtLanternsContainer');
+                if (!container) {
+                    container = document.createElement('div');
+                    container.id = 'thoughtLanternsContainer';
+                    container.className = 'thought-lanterns-container';
+                    // 设置按钮为相对定位，以便灯笼绝对定位
+                    btn.style.position = 'relative';
+                    btn.parentNode.style.position = 'relative';
+                    btn.parentNode.appendChild(container);
+                }
+                return container;
+            },
+
+            // 检查当前是否可以点击查看思考（非播放状态且已读或阅读完）
+            _canViewThought: function() {
+                // 播放中不能查看
+                if (state.isPlaying || player.isPlaying) {
+                    return false;
+                }
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return false;
+                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                // 已读或阅读完可以查看
+                return sectionStatus === 'read';
+            },
+
+            _addLantern: function(thought) {
+                var container = this._getLanternContainer();
+                if (!container) return;
+                
+                var lantern = document.createElement('span');
+                lantern.className = 'thought-lantern';
+                lantern.textContent = thought.displayIndex;
+                lantern.dataset.thoughtId = thought.id;
+                lantern.dataset.startChar = thought.start_char;
+                lantern.dataset.endChar = thought.end_char;
+                
+                // 根据播放状态设置样式
+                this._updateLanternState(lantern);
+                
+                lantern.onclick = function(e) {
                     e.stopPropagation();
+                    // 播放中时无效果
+                    if (state.isPlaying || player.isPlaying) {
+                        return;
+                    }
                     thoughtEditor._showDetail(thought);
                 };
-                endCharSpan.parentNode.insertBefore(bubble, endCharSpan.nextSibling);
+                
+                container.appendChild(lantern);
+            },
+
+            // 更新灯笼状态（播放中/可点击）
+            _updateLanternState: function(lantern) {
+                var isPlaying = state.isPlaying || player.isPlaying;
+                if (isPlaying) {
+                    lantern.classList.add('playing');
+                } else {
+                    lantern.classList.remove('playing');
+                }
+            },
+
+            // 更新所有灯笼状态（在播放状态变化时调用）
+            updateAllLanternsState: function() {
+                var lanterns = document.querySelectorAll('.thought-lantern');
+                lanterns.forEach(function(lantern) {
+                    thoughtEditor._updateLanternState(lantern);
+                });
+            },
+
+            // 高亮引用文字
+            _highlightQuote: function(start, end) {
+                // 先清除之前的高亮
+                this._clearQuoteHighlight();
+                // 高亮新的引用范围
+                for (var i = start; i <= end && i < reader._allChars.length; i++) {
+                    reader._allChars[i].classList.add('thought-quote-highlight');
+                }
+            },
+
+            // 清除引用文字高亮
+            _clearQuoteHighlight: function() {
+                document.querySelectorAll('.chalk-char.thought-quote-highlight').forEach(function(c) {
+                    c.classList.remove('thought-quote-highlight');
+                });
             },
 
             _showDetail: function(thought) {
-                var content = thought.content || '';
-                var original = thought.original_text || '';
-                alert('【我的思考】\n原文：' + original + '\n\n思考：' + content);
+                // 高亮引用文字
+                this._highlightQuote(thought.start_char, thought.end_char);
+                
+                // 显示弹窗
+                var modal = document.getElementById('thoughtDetailModal');
+                document.getElementById('thoughtDetailQuote').textContent = thought.original_text || '';
+                document.getElementById('thoughtDetailContent').textContent = thought.content || '';
+                modal.style.display = 'flex';
+            },
+
+            // 关闭详情弹窗
+            closeDetailModal: function() {
+                var modal = document.getElementById('thoughtDetailModal');
+                if (modal) modal.style.display = 'none';
+                this._clearQuoteHighlight();
             }
         };
 
