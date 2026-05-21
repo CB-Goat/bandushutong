@@ -240,6 +240,7 @@ def init_db():
             end_char INTEGER NOT NULL,
             original_text TEXT NOT NULL,
             content TEXT NOT NULL,
+            ai_score INTEGER DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (section_id) REFERENCES sections(id)
@@ -297,6 +298,10 @@ def init_db():
         pass
     try:
         cursor.execute('ALTER TABLE books ADD COLUMN subscription_price REAL DEFAULT 0')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE thoughts ADD COLUMN ai_score INTEGER DEFAULT NULL')
     except:
         pass
 
@@ -727,18 +732,26 @@ def reject_subscription_request(request_id):
 
 # ===== 思考（用户个人点评）=====
 
-def add_thought(user_id, section_id, start_char, end_char, original_text, content):
+def add_thought(user_id, section_id, start_char, end_char, original_text, content, ai_score=None):
     """添加思考"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT INTO thoughts (user_id, section_id, start_char, end_char, original_text, content) VALUES (?, ?, ?, ?, ?, ?)',
-        (user_id, section_id, start_char, end_char, original_text, content)
+        'INSERT INTO thoughts (user_id, section_id, start_char, end_char, original_text, content, ai_score) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        (user_id, section_id, start_char, end_char, original_text, content, ai_score)
     )
     thought_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return thought_id
+
+def update_thought_ai_score(thought_id, ai_score):
+    """更新思考的AI评分"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE thoughts SET ai_score = ? WHERE id = ?', (ai_score, thought_id))
+    conn.commit()
+    conn.close()
 
 def get_thoughts_by_section(section_id, user_id=None):
     """获取某节的思考（可按用户过滤）"""

@@ -1367,7 +1367,7 @@
                 </div>
                 <div class="score-section">
                     <span class="score-label">AI 评分：</span>
-                    <span class="score-value">-</span>
+                    <span class="score-value" id="thoughtDetailScore" style="display:none;">-</span>
                 </div>
                 <div style="display:flex;justify-content:flex-end;margin-top:20px;">
                     <button class="btn" onclick="thoughtEditor.closeDetailModal()" style="padding:8px 24px;background:#2d5016;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">关闭</button>
@@ -4644,7 +4644,10 @@
                     })
                 }).then(function(r) { return r.json(); }).then(function(data) {
                     if (data.thought_id) {
-                        alert('思考已保存');
+                        // 显示 AI 评分
+                        var aiScore = data.ai_score || 0;
+                        var scoreText = aiScore === 0 ? '❌' : (aiScore === 1 ? '✓' : (aiScore === 2 ? '✓✓' : '✓✓✓'));
+                        alert('思考已保存\n\nAI 评分：' + scoreText + ' (' + aiScore + '分)');
                         // 保存退出编辑模式前的播放状态
                         var shouldResume = self._wasPlayingBeforeEdit;
                         thoughtEditor.exitEditMode();
@@ -4823,6 +4826,18 @@
                 var modal = document.getElementById('thoughtDetailModal');
                 document.getElementById('thoughtDetailQuote').textContent = thought.original_text || '';
                 document.getElementById('thoughtDetailContent').textContent = thought.content || '';
+                
+                // 显示 AI 评分
+                var aiScore = thought.ai_score;
+                var scoreEl = document.getElementById('thoughtDetailScore');
+                if (aiScore !== null && aiScore !== undefined) {
+                    var scoreText = aiScore === 0 ? '❌ 不正确' : (aiScore === 1 ? '✓ 基本正确' : (aiScore === 2 ? '✓✓ 有深度' : '✓✓✓ 很深刻'));
+                    scoreEl.textContent = scoreText;
+                    scoreEl.style.display = 'block';
+                } else {
+                    scoreEl.style.display = 'none';
+                }
+                
                 modal.style.display = 'flex';
             },
 

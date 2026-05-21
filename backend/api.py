@@ -39,6 +39,7 @@ from backend.database import (
 )
 from backend.text_parser import parse_file, get_book_title
 from backend.tts_service import generate_audio
+from backend.ai_score import rate_thought
 import hashlib
 import xml.etree.ElementTree as ET
 
@@ -1440,20 +1441,34 @@ def list_thoughts(section_id):
 
 @api_bp.route('/sections/<int:section_id>/thoughts', methods=['POST'])
 def create_thought(section_id):
-    """创建思考"""
+    """创建思考（带 AI 评分）"""
     data = request.json
     user_id = data.get('user_id')
     if not user_id:
         return jsonify({'error': '未登录'}), 401
+    
+    original_text = data.get('original_text', '')
+    thought_content = data.get('content', '')
+    
+    # AI 评分
+    ai_score, score_reason = rate_thought(original_text, thought_content)
+    print(f"[思考评分] 用户 {user_id} 的思考评分: {ai_score} - {score_reason}")
+    
     thought_id = add_thought(
         user_id=int(user_id),
         section_id=section_id,
         start_char=data.get('start_char', 0),
         end_char=data.get('end_char', 0),
-        original_text=data.get('original_text', ''),
-        content=data.get('content', '')
+        original_text=original_text,
+        content=thought_content,
+        ai_score=ai_score
     )
-    return jsonify({'thought_id': thought_id, 'message': '思考已保存'})
+    return jsonify({
+        'thought_id': thought_id,
+        'ai_score': ai_score,
+        'score_reason': score_reason,
+        'message': '思考已保存'
+    })
 
 @api_bp.route('/thoughts/<int:thought_id>', methods=['DELETE'])
 def remove_thought(thought_id):
