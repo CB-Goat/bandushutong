@@ -873,24 +873,21 @@
     </style>
     <!-- 思考灯笼CSS -->
     <style>
-    /* 灯笼容器 - 悬挂在+思考按钮上方 */
+    /* 灯笼容器 - 固定在+思考按钮上方 */
     .thought-lanterns-container {
-        position: absolute;
-        bottom: calc(100% + 5px);
-        left: 50%;
-        transform: translateX(-50%);
+        position: fixed;
         display: flex;
         flex-direction: column;
         align-items: center;
         pointer-events: none;
-        z-index: 1000;
+        z-index: 10000;
     }
     
-    /* 悬挂绳 - 从按钮上方连接到灯笼 */
+    /* 悬挂绳 - 从按钮上方垂下 */
     .thought-lanterns-container::before {
         content: '';
         position: absolute;
-        bottom: 100%;
+        top: -15px;
         left: 50%;
         transform: translateX(-50%);
         width: 2px;
@@ -4691,12 +4688,26 @@
                     container = document.createElement('div');
                     container.id = 'thoughtLanternsContainer';
                     container.className = 'thought-lanterns-container';
-                    // 设置按钮为相对定位，以便灯笼绝对定位
-                    btn.style.position = 'relative';
-                    btn.appendChild(container);
-                    console.log('_getLanternContainer: 创建灯笼容器，添加到按钮:', btn.id, btn.className);
+                    document.body.appendChild(container);
+                    console.log('_getLanternContainer: 创建灯笼容器');
                 }
+                
+                // 更新容器位置到按钮上方
+                this._updateLanternContainerPosition();
+                
                 return container;
+            },
+            
+            // 更新灯笼容器位置到+思考按钮上方
+            _updateLanternContainerPosition: function() {
+                var btn = document.getElementById('editAnnotationBtn');
+                var container = document.getElementById('thoughtLanternsContainer');
+                if (!btn || !container) return;
+                
+                var rect = btn.getBoundingClientRect();
+                var lanternHeight = container.offsetHeight || 60;
+                container.style.left = (rect.left + rect.width / 2) + 'px';
+                container.style.top = (rect.top - lanternHeight - 5) + 'px';
             },
 
             // 检查当前是否可以点击查看思考（非播放状态且已读或阅读完）
@@ -6262,6 +6273,13 @@
                         navigator.sendBeacon(API_BASE + '/progress', new Blob([payload], {type: 'application/json'}));
                     }
                 }
+            }
+        });
+        
+        // 窗口大小变化时更新灯笼位置
+        window.addEventListener('resize', function() {
+            if (typeof thoughtEditor !== 'undefined' && thoughtEditor._updateLanternContainerPosition) {
+                thoughtEditor._updateLanternContainerPosition();
             }
         });
     </script>
