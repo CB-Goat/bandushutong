@@ -3033,6 +3033,8 @@
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                 }
+                // 清除所有定时器，防止自动恢复播放
+                this._clearAllTimers();
                 this.isPlaying = false;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
@@ -3119,9 +3121,10 @@
                         });
                     };
                     this.audio.addEventListener('canplay', canPlayHandler);
-                    setTimeout(function() {
+                    var timerId = setTimeout(function() {
                         if (!self.isPlaying) self.audio.play().catch(function() {});
                     }, 5000);
+                    self._allTimers.push(timerId);
                     return;
                 }
                 
@@ -3136,9 +3139,10 @@
                     });
                 };
                 this.audio.addEventListener('canplay', canPlayHandler);
-                setTimeout(function() {
+                var timerId2 = setTimeout(function() {
                     if (!self.isPlaying) self.audio.play().catch(function() {});
                 }, 5000);
+                self._allTimers.push(timerId2);
             },
             
             _playOriginalSegment: function(seg) {
