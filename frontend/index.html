@@ -2932,6 +2932,9 @@
                                 console.log('断点恢复: 跳到段', targetSegIdx, 'segment_id=', progressV2.current_segment_id, '段内时间', this._resumeTimeInSegment, '秒');
                             }
                         }
+                        // 先设置播放状态，再更新灯笼
+                        self.isPlaying = true;
+                        state.isPlaying = true;
                         this._playNext();
                         // 更新灯笼状态为播放中
                         if (typeof thoughtEditor !== 'undefined' && thoughtEditor.updateAllLanternsState) {
