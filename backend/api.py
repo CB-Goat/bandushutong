@@ -1428,15 +1428,12 @@ def admin_reject_sub(request_id):
 
 @api_bp.route('/sections/<int:section_id>/thoughts', methods=['GET'])
 def list_thoughts(section_id):
-    """获取节的思考"""
+    """获取节的思考（仅自己可见）"""
     user_id = request.args.get('user_id')
-    user = get_user(int(user_id)) if user_id else None
-    if user and user['role'] == 'admin':
-        thoughts = get_all_thoughts_by_section(section_id)
-    elif user_id:
-        thoughts = get_thoughts_by_section(section_id, int(user_id))
-    else:
-        thoughts = []
+    if not user_id:
+        return jsonify({'thoughts': []})
+    # 只返回当前用户自己的思考
+    thoughts = get_thoughts_by_section(section_id, int(user_id))
     return jsonify({'thoughts': thoughts})
 
 @api_bp.route('/sections/<int:section_id>/thoughts', methods=['POST'])
