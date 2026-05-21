@@ -4644,11 +4644,14 @@
                     })
                 }).then(function(r) { return r.json(); }).then(function(data) {
                     if (data.thought_id) {
-                        // 显示 AI 评分
+                        // 显示 AI 评分（星级）
                         var aiScore = data.ai_score || 0;
-                        var scoreText = aiScore === 0 ? '❌' : (aiScore === 1 ? '✓' : (aiScore === 2 ? '✓✓' : '✓✓✓'));
+                        var stars = '';
+                        for (var i = 0; i < 3; i++) {
+                            stars += (i < aiScore) ? '⭐' : '☆';
+                        }
                         var scoreReason = data.score_reason || '';
-                        alert('思考已保存\n\nAI 评分：' + scoreText + ' (' + aiScore + '分)\n' + scoreReason);
+                        alert('思考已保存\n\nAI 评分：' + stars + '（' + aiScore + '星）\n' + scoreReason);
                         // 保存退出编辑模式前的播放状态
                         var shouldResume = self._wasPlayingBeforeEdit;
                         thoughtEditor.exitEditMode();
@@ -4828,12 +4831,15 @@
                 document.getElementById('thoughtDetailQuote').textContent = thought.original_text || '';
                 document.getElementById('thoughtDetailContent').textContent = thought.content || '';
                 
-                // 显示 AI 评分
+                // 显示 AI 评分（星级）
                 var aiScore = thought.ai_score;
                 var scoreEl = document.getElementById('thoughtDetailScore');
                 if (aiScore !== null && aiScore !== undefined) {
-                    var scoreText = aiScore === 0 ? '❌ 不正确' : (aiScore === 1 ? '✓ 基本正确' : (aiScore === 2 ? '✓✓ 有深度' : '✓✓✓ 很深刻'));
-                    scoreEl.textContent = scoreText;
+                    var stars = '';
+                    for (var i = 0; i < 3; i++) {
+                        stars += (i < aiScore) ? '⭐' : '☆';
+                    }
+                    scoreEl.textContent = stars + '（' + aiScore + '星）';
                     scoreEl.style.display = 'block';
                 } else {
                     scoreEl.style.display = 'none';
