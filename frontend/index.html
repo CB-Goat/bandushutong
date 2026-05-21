@@ -4788,19 +4788,13 @@
             // 更新所有灯笼状态（在播放状态变化时调用）
             updateAllLanternsState: function() {
                 var container = document.getElementById('thoughtLanternsContainer');
-                if (!container) {
-                    console.log('updateAllLanternsState: 找不到容器');
-                    return;
-                }
+                if (!container) return;
                 
                 var isPlaying = state.isPlaying || player.isPlaying;
-                console.log('updateAllLanternsState: isPlaying=' + isPlaying);
                 if (isPlaying) {
                     container.classList.add('playing');
-                    console.log('updateAllLanternsState: 添加 playing 类');
                 } else {
                     container.classList.remove('playing');
-                    console.log('updateAllLanternsState: 移除 playing 类');
                 }
             },
 
