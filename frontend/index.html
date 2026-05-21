@@ -976,6 +976,30 @@
         cursor: not-allowed;
     }
     
+    /* 1星灯笼 - 橙红色 */
+    .thought-lantern.lantern-orange {
+        background: radial-gradient(ellipse at center, #FF6B35 0%, #E85D26 60%, #CC4E1A 100%);
+    }
+    .thought-lantern.lantern-orange .tassel {
+        background: #FF6B35;
+    }
+    
+    /* 2星灯笼 - 粉红色 */
+    .thought-lantern.lantern-pink {
+        background: radial-gradient(ellipse at center, #FF69B4 0%, #FF1493 60%, #DB1077 100%);
+    }
+    .thought-lantern.lantern-pink .tassel {
+        background: #FF69B4;
+    }
+    
+    /* 3星灯笼 - 鲜红色 */
+    .thought-lantern.lantern-red {
+        background: radial-gradient(ellipse at center, #FF2D2D 0%, #E60000 60%, #CC0000 100%);
+    }
+    .thought-lantern.lantern-red .tassel {
+        background: #FF2D2D;
+    }
+    
     /* 可点击状态的灯笼悬停效果 */
     .thought-lantern:not(.playing):hover {
         transform: scale(1.15);
@@ -4761,6 +4785,17 @@
                 lantern.dataset.thoughtId = thought.id;
                 lantern.dataset.startChar = thought.start_char;
                 lantern.dataset.endChar = thought.end_char;
+                
+                // 根据AI评分设置灯笼颜色
+                var score = thought.ai_score;
+                if (score === 1) {
+                    lantern.classList.add('lantern-orange');
+                } else if (score === 2) {
+                    lantern.classList.add('lantern-pink');
+                } else if (score === 3) {
+                    lantern.classList.add('lantern-red');
+                }
+                // 0分或无评分保持默认黄色
                 
                 // 添加流苏
                 var tassel = document.createElement('span');
