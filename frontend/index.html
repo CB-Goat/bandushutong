@@ -2933,6 +2933,10 @@
                             }
                         }
                         this._playNext();
+                        // 更新灯笼状态为播放中
+                        if (typeof thoughtEditor !== 'undefined' && thoughtEditor.updateAllLanternsState) {
+                            thoughtEditor.updateAllLanternsState();
+                        }
                     } else {
                         this.audio.play().then(function() {
                             self.isPlaying = true;
