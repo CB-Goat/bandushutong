@@ -4730,6 +4730,17 @@
                 // 高亮按钮以便确认位置
                 btn.style.outline = '2px solid red';
                 
+                // 在按钮中心位置添加一个标记点
+                var marker = document.getElementById('lanternPositionMarker');
+                if (!marker) {
+                    marker = document.createElement('div');
+                    marker.id = 'lanternPositionMarker';
+                    marker.style.cssText = 'position:fixed;width:10px;height:10px;background:blue;border-radius:50%;z-index:99999;pointer-events:none;';
+                    document.body.appendChild(marker);
+                }
+                marker.style.left = (rect.left + rect.width / 2 - 5) + 'px';
+                marker.style.top = (rect.top - 5) + 'px';
+                
                 // 如果按钮在header内，使用相对于header的位置
                 if (headerRect && rect.top >= headerRect.top && rect.top <= headerRect.bottom) {
                     container.style.left = (rect.left + rect.width / 2) + 'px';
