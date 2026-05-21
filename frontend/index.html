@@ -873,21 +873,35 @@
     </style>
     <!-- 思考灯笼CSS -->
     <style>
-    /* 灯笼容器 - 悬挂在+思考按钮上 */
+    /* 灯笼容器 - 悬挂在+思考按钮上方 */
     .thought-lanterns-container {
         position: absolute;
-        top: -8px;
-        right: 0;
+        top: -70px;
+        left: 50%;
+        transform: translateX(-50%);
         display: flex;
-        gap: 4px;
+        flex-direction: column;
+        align-items: center;
         pointer-events: none;
         z-index: 10;
     }
     
-    /* 小灯笼样式 */
+    /* 悬挂绳 */
+    .thought-lanterns-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 20px;
+        background: linear-gradient(to bottom, #8B7355, #A08060);
+    }
+    
+    /* 小灯笼样式 - 串在绳子上 */
     .thought-lantern {
-        width: 20px;
-        height: 24px;
+        width: 22px;
+        height: 26px;
         background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
         border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
         display: flex;
@@ -901,31 +915,49 @@
         box-shadow: 0 2px 6px rgba(0,0,0,0.3), inset 0 -2px 4px rgba(0,0,0,0.1);
         transition: transform 0.2s, box-shadow 0.2s;
         position: relative;
+        margin-top: 4px;
     }
     
-    /* 灯笼悬挂线 */
+    /* 第一个灯笼上方连接绳 */
+    .thought-lantern:first-child {
+        margin-top: 20px;
+    }
+    
+    /* 灯笼之间的连接线 */
     .thought-lantern::before {
         content: '';
         position: absolute;
-        top: -6px;
+        top: -4px;
         left: 50%;
         transform: translateX(-50%);
         width: 2px;
-        height: 6px;
+        height: 4px;
         background: #8B7355;
     }
     
-    /* 灯笼顶部装饰 */
+    /* 灯笼顶部装饰环 */
     .thought-lantern::after {
         content: '';
         position: absolute;
-        top: -3px;
+        top: -2px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 10px;
+        height: 4px;
+        background: linear-gradient(to bottom, #CD853F, #8B4513);
+        border-radius: 2px;
+    }
+    
+    /* 灯笼底部流苏 */
+    .thought-lantern .tassel {
+        position: absolute;
+        bottom: -6px;
         left: 50%;
         transform: translateX(-50%);
         width: 8px;
-        height: 3px;
-        background: #8B4513;
-        border-radius: 2px;
+        height: 6px;
+        background: #FFD700;
+        border-radius: 0 0 50% 50%;
     }
     
     /* 播放中时灯笼不可点击 */
@@ -4687,6 +4719,11 @@
                 lantern.dataset.thoughtId = thought.id;
                 lantern.dataset.startChar = thought.start_char;
                 lantern.dataset.endChar = thought.end_char;
+                
+                // 添加流苏
+                var tassel = document.createElement('span');
+                tassel.className = 'tassel';
+                lantern.appendChild(tassel);
                 
                 // 根据播放状态设置样式
                 this._updateLanternState(lantern);
