@@ -3704,6 +3704,7 @@
             _playSummaryClosing: function() {
                 var self = this;
                 var stepCompleted = false;
+                var audioStarted = false;  // 标记音频是否已开始播放
                 
                 // 不在 annotationComment 里显示文字，小结内容通过 tab 显示
                 // 隐藏点评区域
@@ -3718,8 +3719,15 @@
                     self._annotationAudio.removeEventListener('canplay', canPlayHandler);
                     self._annotationAudio.removeEventListener('error', errorHandler);
                     self._annotationAudio.removeEventListener('ended', endedHandler);
+                    self._annotationAudio.removeEventListener('playing', playingHandler);
                     // 完成所有步骤
                     self._finishSummaryPlayback();
+                };
+                
+                var playingHandler = function() {
+                    // 音频开始播放，标记为已开始
+                    audioStarted = true;
+                    self._annotationAudio.removeEventListener('playing', playingHandler);
                 };
                 
                 var canPlayHandler = function() {
@@ -3745,14 +3753,16 @@
                 this._annotationAudio.addEventListener('canplay', canPlayHandler);
                 this._annotationAudio.addEventListener('ended', endedHandler);
                 this._annotationAudio.addEventListener('error', errorHandler);
+                this._annotationAudio.addEventListener('playing', playingHandler);
                 
-                // 3秒超时保护：如果音频无法加载，直接完成
+                // 5秒超时保护：仅用于音频无法加载的情况
+                // 一旦音频开始播放，就依赖 ended 事件
                 this._safeSetTimeout(function() {
-                    if (!stepCompleted) {
-                        console.log('小结结束语超时(3秒)，跳过');
+                    if (!stepCompleted && !audioStarted) {
+                        console.log('小结结束语加载超时(5秒)，跳过');
                         completeStep();
                     }
-                }, 3000);
+                }, 5000);
             },
             
             // 完成小结播放
