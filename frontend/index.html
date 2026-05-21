@@ -5902,6 +5902,12 @@
             document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById(pageId).classList.add('active');
 
+            // 离开阅读页时隐藏灯笼
+            if (pageId !== 'readerPage') {
+                var container = document.getElementById('thoughtLanternsContainer');
+                if (container) container.style.display = 'none';
+            }
+
             // 阅读页面：隐藏管理按钮和用户按钮，设置标题
             if (pageId === 'readerPage') {
                 // 阅读页隐藏管理按钮和用户按钮
@@ -5909,6 +5915,15 @@
                 document.getElementById('userBtn').style.display = 'none';
                 // 显示返回按钮
                 document.getElementById('backBtn').style.display = 'block';
+                // 显示灯笼容器（如果有的话）
+                var container = document.getElementById('thoughtLanternsContainer');
+                if (container) {
+                    container.style.display = 'flex';
+                    // 更新位置
+                    if (thoughtEditor._updateLanternContainerPosition) {
+                        thoughtEditor._updateLanternContainerPosition();
+                    }
+                }
                 // 标题已在 openBook 中设置
             } else if (pageId === 'catalogPage') {
                 // 目录页显示返回按钮，隐藏管理按钮和用户按钮
