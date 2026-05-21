@@ -2828,7 +2828,6 @@
             
             _playNext: function() {
                 this._playlistIndex++;
-                console.log('_playNext: _playlistIndex=' + this._playlistIndex + ', audioSegments.length=' + this.audioSegments.length);
                 if (this._playlistIndex >= this.audioSegments.length) {
                     console.log('播放队列已结束');
                     this._onAllSegmentsEnd();
@@ -3324,8 +3323,6 @@
                 
                 // 标记为正在完成，防止重复调用
                 this._isFinishing = true;
-                
-                console.log('_finishInsertPoint: 开始, _playlistIndex=' + this._playlistIndex + ', audioSegments.length=' + this.audioSegments.length);
                 
                 // 功能1：如果是 annotation 类型且播放完成，显示带圈序号
                 var seg = this._currentInsertPoint;
@@ -3950,7 +3947,6 @@
             },
             
             _onSegmentEnd: function() {
-                console.log('_onSegmentEnd: _playlistIndex=' + this._playlistIndex + ', audioSegments.length=' + this.audioSegments.length);
                 this.isPlaying = false;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
@@ -4006,9 +4002,8 @@
             },
             
             _onAllSegmentsEnd: function() {
-                console.log('_onAllSegmentsEnd: 所有段播放完毕');
+                console.log('所有段播放完毕');
                 var section = state.currentSections[state.currentSectionIndex];
-                console.log('_onAllSegmentsEnd: section=' + (section ? section.id : 'null') + ', book=' + (state.currentBook ? state.currentBook.id : 'null') + ', user=' + (state.currentUser ? state.currentUser.id : 'null'));
                 
                 if (typeof reader !== 'undefined' && reader.revealAll) {
                     reader.revealAll();
@@ -4016,21 +4011,11 @@
                 document.getElementById('progressFill').style.width = '100%';
                 
                 if (section && state.currentBook && state.currentUser) {
-                    console.log('_onAllSegmentsEnd: 发送节状态更新请求, section_id=' + section.id + ', status=read');
                     fetch(API_BASE + '/sections/' + section.id + '/status', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({book_id: state.currentBook.id, status: 'read', user_id: state.currentUser.id})
-                    }).then(function(res) {
-                        console.log('_onAllSegmentsEnd: 状态更新响应', res.status);
-                        return res.json();
-                    }).then(function(data) {
-                        console.log('_onAllSegmentsEnd: 状态更新结果', JSON.stringify(data));
-                    }).catch(function(e) {
-                        console.log('_onAllSegmentsEnd: 状态更新失败', e);
-                    });
-                } else {
-                    console.log('_onAllSegmentsEnd: 缺少必要数据，无法更新状态');
+                    }).catch(function() {});
                 }
             },
 
