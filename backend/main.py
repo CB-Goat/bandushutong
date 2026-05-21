@@ -57,7 +57,7 @@ if __name__ == '__main__':
     
     print("=" * 50)
     print("伴读书童后端服务启动")
-    print("更新版本: #66")
+    print("更新版本: #67")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)

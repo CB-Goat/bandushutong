@@ -965,10 +965,15 @@
         border-radius: 0 0 50% 50%;
     }
     
-    /* 播放中时灯笼不可点击 */
-    .thought-lantern.playing {
+    /* 播放中时整串灯笼淡化 */
+    .thought-lanterns-container.playing {
+        opacity: 0.3;
+        filter: grayscale(0.5);
+    }
+    
+    /* 播放中时单个灯笼不可点击 */
+    .thought-lanterns-container.playing .thought-lantern {
         cursor: not-allowed;
-        opacity: 0.6;
     }
     
     /* 可点击状态的灯笼悬停效果 */
@@ -4775,10 +4780,15 @@
 
             // 更新所有灯笼状态（在播放状态变化时调用）
             updateAllLanternsState: function() {
-                var lanterns = document.querySelectorAll('.thought-lantern');
-                lanterns.forEach(function(lantern) {
-                    thoughtEditor._updateLanternState(lantern);
-                });
+                var container = document.getElementById('thoughtLanternsContainer');
+                if (!container) return;
+                
+                var isPlaying = state.isPlaying || player.isPlaying;
+                if (isPlaying) {
+                    container.classList.add('playing');
+                } else {
+                    container.classList.remove('playing');
+                }
             },
 
             // 高亮引用文字
