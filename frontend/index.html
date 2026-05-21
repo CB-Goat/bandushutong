@@ -3804,10 +3804,13 @@
                 // 停止并清理点评音频，移除所有事件监听
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
-                    // 通过替换 src 来移除所有事件监听（cloneNode 替代方案）
+                    // 通过移除所有事件监听器来清理（cloneNode 替代方案）
                     var oldAudio = this._annotationAudio;
+                    // 克隆新元素替换旧元素
                     var newAudio = oldAudio.cloneNode(true);
-                    oldAudio.parentNode.replaceChild(newAudio, oldAudio);
+                    if (oldAudio.parentNode) {
+                        oldAudio.parentNode.replaceChild(newAudio, oldAudio);
+                    }
                     this._annotationAudio = newAudio;
                 }
                 
