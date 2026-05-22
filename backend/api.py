@@ -35,7 +35,9 @@ from backend.database import (
     # 管理员统计
     get_users_with_stats, get_books_with_stats, update_book_price, get_book_catalog_stats,
     get_user_subscription_stats, admin_add_subscription, admin_remove_subscription,
-    get_user_by_phone as _get_user_by_phone
+    get_user_by_phone as _get_user_by_phone,
+    # 军衔等级系统
+    get_user_military_rank,
 )
 from backend.text_parser import parse_file, get_book_title
 from backend.tts_service import generate_audio
@@ -746,7 +748,17 @@ def set_status(section_id):
     if status not in ('unread', 'reading', 'read'):
         return jsonify({'error': '无效的状态值'}), 400
     set_section_status(user_id, book_id, section_id, status)
-    return jsonify({'message': '状态更新成功'})
+
+    # 当状态变为 'read' 时，自动重新计算军衔并返回
+    result = {'message': '状态更新成功'}
+    if status == 'read' and user_id:
+        try:
+            rank_info = get_user_military_rank(user_id)
+            result['military_rank'] = rank_info
+        except Exception as e:
+            print(f"[军衔] 计算军衔失败: {e}")
+
+    return jsonify(result)
 
 @api_bp.route('/books/<int:book_id>/reading-status', methods=['GET'])
 def get_reading_status(book_id):
@@ -938,6 +950,17 @@ def generate_transfer_code(user_id):
         'message': '换机校验码已生成，1分钟内有效',
         'valid_seconds': 60
     })
+
+# ===== 军衔等级 API =====
+
+@api_bp.route('/users/<int:user_id>/military-rank', methods=['GET'])
+def get_military_rank(user_id):
+    """获取用户军衔等级信息"""
+    user = get_user(user_id)
+    if not user:
+        return jsonify({'error': '用户不存在'}), 404
+    rank_info = get_user_military_rank(user_id)
+    return jsonify(rank_info)
 
 # ===== 留言 API =====
 

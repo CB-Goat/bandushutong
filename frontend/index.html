@@ -1253,6 +1253,28 @@
                     <button onclick="saveProfile()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">保存个人信息</button>
                 </div>
                 
+                <!-- 军衔等级 -->
+                <div id="militaryRankCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                        <h3 style="margin:0;color:#FFD700;font-size:16px;">🎖️ 我的军衔</h3>
+                        <span id="rankIcon" style="font-size:32px;">🪖</span>
+                    </div>
+                    <div style="text-align:center;margin-bottom:16px;">
+                        <div id="rankName" style="font-size:24px;font-weight:bold;color:#FFD700;">列兵</div>
+                        <div id="rankTitle" style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">阅读新兵</div>
+                    </div>
+                    <div style="margin-bottom:8px;">
+                        <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:4px;">
+                            <span>累计阅读 <span id="rankWords">0</span> 字</span>
+                            <span>下一级: <span id="nextRankName">上等兵</span> (<span id="nextRankWords">5,000</span>字)</span>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.15);border-radius:10px;height:12px;overflow:hidden;">
+                            <div id="rankProgress" style="height:100%;background:linear-gradient(90deg,#FFD700,#FFA500);border-radius:10px;width:0%;transition:width 0.5s ease;"></div>
+                        </div>
+                        <div style="text-align:right;font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;"><span id="rankPercent">0</span>%</div>
+                    </div>
+                </div>
+                
                 <!-- 修改密码 -->
                 <div id="passwordSection" style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);margin-bottom:20px;">
                     <h3 style="margin:0 0 20px;color:#333;">修改密码</h3>
@@ -1378,6 +1400,25 @@
         </div>
 
         <!-- 思考详情查看弹窗 -->
+        <!-- 军衔升级庆祝弹窗 -->
+        <div id="rankUpModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2000;justify-content:center;align-items:center;" onclick="closeRankUpModal()">
+            <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:16px;padding:32px;width:85%;max-width:360px;text-align:center;color:white;position:relative;animation:rankUpBounce 0.5s ease;" onclick="event.stopPropagation()">
+                <div style="font-size:48px;margin-bottom:8px;" id="rankUpIcon">🎖️</div>
+                <div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:4px;">军衔晋升！</div>
+                <div style="font-size:28px;font-weight:bold;color:#FFD700;margin-bottom:4px;" id="rankUpName">上等兵</div>
+                <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:20px;" id="rankUpTitle">阅读学徒</div>
+                <div style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:20px;">累计阅读 <span id="rankUpWords" style="color:#FFD700;">0</span> 字</div>
+                <button onclick="closeRankUpModal()" style="padding:10px 40px;background:linear-gradient(90deg,#FFD700,#FFA500);color:#1a1a2e;border:none;border-radius:20px;font-size:16px;font-weight:bold;cursor:pointer;">太棒了！</button>
+            </div>
+        </div>
+        <style>
+            @keyframes rankUpBounce {
+                0% { transform: scale(0.3); opacity: 0; }
+                50% { transform: scale(1.1); }
+                100% { transform: scale(1); opacity: 1; }
+            }
+        </style>
+
         <div id="thoughtDetailModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;" onclick="thoughtEditor.closeDetailModal()">
             <div class="modal-content" style="background:white;border-radius:12px;padding:24px;width:90%;max-width:500px;" onclick="event.stopPropagation()">
                 <h3 style="margin:0 0 16px;color:#333;">🏮 我的思考</h3>
@@ -4265,6 +4306,18 @@
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({book_id: state.currentBook.id, status: 'read', user_id: state.currentUser.id})
+                    }).then(function(r) { return r.json(); }).then(function(data) {
+                        // 检查是否升级
+                        if (data.military_rank && data.military_rank.rank_name) {
+                            var rank = data.military_rank;
+                            // 保存当前军衔用于对比
+                            var prevRank = state._lastRankName || '';
+                            state._lastRankName = rank.rank_name;
+                            if (prevRank && prevRank !== rank.rank_name) {
+                                // 军衔升级了！显示庆祝弹窗
+                                showRankUpCelebration(rank);
+                            }
+                        }
                     }).catch(function() {});
                 }
                 
@@ -5729,6 +5782,7 @@
         function showUserPage() {
             showPage('userPage');
             loadUserProfile();
+            loadMilitaryRank();
             loadUserMessages();
         }
 
@@ -5761,6 +5815,46 @@
             var deviceInfo = getDeviceInfo();
             document.getElementById('deviceName').textContent = getDeviceDisplayName();
             document.getElementById('deviceDetail').textContent = '设备ID: ' + deviceInfo.deviceId;
+        }
+
+        // 加载军衔信息
+        function loadMilitaryRank() {
+            if (!state.currentUser) return;
+            fetch(API_BASE + '/users/' + state.currentUser.id + '/military-rank')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.rank_name) {
+                        document.getElementById('rankIcon').textContent = data.icon || '🪖';
+                        document.getElementById('rankName').textContent = data.rank_name;
+                        document.getElementById('rankTitle').textContent = data.title || '';
+                        document.getElementById('rankWords').textContent = (data.total_words || 0).toLocaleString();
+                        document.getElementById('rankProgress').style.width = (data.progress_percent || 0) + '%';
+                        document.getElementById('rankPercent').textContent = Math.floor(data.progress_percent || 0);
+                        // 记录当前军衔
+                        state._lastRankName = data.rank_name;
+                        if (data.next_rank) {
+                            document.getElementById('nextRankName').textContent = data.next_rank.rank_name;
+                            document.getElementById('nextRankWords').textContent = (data.next_rank.min_words || 0).toLocaleString();
+                        } else {
+                            document.getElementById('nextRankName').textContent = '已满级';
+                            document.getElementById('nextRankWords').textContent = '--';
+                        }
+                    }
+                })
+                .catch(function(e) { console.log('加载军衔失败:', e); });
+        }
+
+        // 军衔升级庆祝弹窗
+        function showRankUpCelebration(rank) {
+            document.getElementById('rankUpIcon').textContent = rank.icon || '🎖️';
+            document.getElementById('rankUpName').textContent = rank.rank_name;
+            document.getElementById('rankUpTitle').textContent = rank.title || '';
+            document.getElementById('rankUpWords').textContent = (rank.total_words || 0).toLocaleString();
+            document.getElementById('rankUpModal').style.display = 'flex';
+        }
+
+        function closeRankUpModal() {
+            document.getElementById('rankUpModal').style.display = 'none';
         }
 
         function saveProfile() {

@@ -387,6 +387,48 @@ def init_db():
         except:
             pass
 
+    # ===== 军衔等级配置表 =====
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS military_ranks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rank_name TEXT NOT NULL,
+            rank_level INTEGER NOT NULL,
+            min_words INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            icon TEXT NOT NULL
+        )
+    ''')
+
+    # 插入20个军衔等级数据（仅在表为空时插入）
+    cursor.execute('SELECT COUNT(*) FROM military_ranks')
+    if cursor.fetchone()[0] == 0:
+        cursor.executemany('''
+            INSERT INTO military_ranks (rank_name, rank_level, min_words, title, icon)
+            VALUES (?, ?, ?, ?, ?)
+        ''', [
+            ('列兵', 1, 0, '阅读新兵', '🪖'),
+            ('上等兵', 2, 5000, '阅读学徒', '🎖️'),
+            ('下士', 3, 15000, '阅读战士', '🎖️'),
+            ('中士', 4, 30000, '阅读骨干', '🎖️'),
+            ('上士', 5, 50000, '阅读精兵', '🎖️'),
+            ('四级军士长', 6, 80000, '阅读能手', '🎖️'),
+            ('三级军士长', 7, 120000, '阅读达人', '🎖️'),
+            ('二级军士长', 8, 180000, '阅读专家', '🎖️'),
+            ('一级军士长', 9, 250000, '阅读大师', '🎖️'),
+            ('少尉', 10, 350000, '阅读军官', '⭐'),
+            ('中尉', 11, 500000, '阅读校官', '⭐'),
+            ('上尉', 12, 700000, '阅读将官', '⭐⭐'),
+            ('少校', 13, 950000, '阅读统帅', '⭐⭐'),
+            ('中校', 14, 1250000, '阅读传奇', '⭐⭐⭐'),
+            ('上校', 15, 1600000, '阅读神话', '⭐⭐⭐'),
+            ('大校', 16, 2000000, '阅读至尊', '⭐⭐⭐⭐'),
+            ('少将', 17, 2500000, '阅读战神', '🥇'),
+            ('中将', 18, 3200000, '阅读王者', '🥇'),
+            ('上将', 19, 4000000, '阅读帝皇', '🏅'),
+            ('元帅', 20, 5000000, '阅读之神', '🏆'),
+        ])
+        print("军衔等级数据初始化完成")
+
     conn.commit()
     conn.close()
     print("数据库初始化完成")
@@ -1846,6 +1888,93 @@ def check_section_audio_complete(section_id):
     
     conn.close()
     return seg_with_audio == seg_total and ip_with_audio == ip_total
+
+
+# ==================== 军衔等级系统 ====================
+
+def get_user_total_read_words(user_id):
+    """计算用户累计阅读字数（从 reading_status 中 status='read' 的 sections 统计 word_count）"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT COALESCE(SUM(sec.word_count), 0) as total_words
+        FROM section_reading_status srs
+        JOIN sections sec ON srs.section_id = sec.id
+        WHERE srs.user_id = ? AND srs.status = 'read'
+    ''', (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row['total_words'] if row else 0
+
+def calculate_military_rank(total_words):
+    """根据累计阅读字数返回对应的军衔等级信息"""
+    conn = get_db()
+    cursor = conn.cursor()
+    # 查找满足条件的最高等级（min_words <= total_words 的最大 rank_level）
+    cursor.execute('''
+        SELECT * FROM military_ranks
+        WHERE min_words <= ?
+        ORDER BY rank_level DESC
+        LIMIT 1
+    ''', (total_words,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    # 如果没有匹配（理论上不会，因为等级1的min_words=0），返回最低等级
+    return {'id': 1, 'rank_name': '列兵', 'rank_level': 1, 'min_words': 0, 'title': '阅读新兵', 'icon': '🪖'}
+
+def get_user_military_rank(user_id):
+    """返回用户当前军衔信息，包含进度详情"""
+    total_words = get_user_total_read_words(user_id)
+    current_rank = calculate_military_rank(total_words)
+
+    # 查找下一级军衔信息
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT * FROM military_ranks
+        WHERE rank_level = ?
+    ''', (current_rank['rank_level'] + 1,))
+    next_rank = cursor.fetchone()
+    conn.close()
+
+    # 计算进度百分比
+    if next_rank:
+        next_min_words = next_rank['min_words']
+        current_min_words = current_rank['min_words']
+        # 当前等级内的进度 = (当前字数 - 当前等级最低字数) / (下一等级最低字数 - 当前等级最低字数)
+        progress_range = next_min_words - current_min_words
+        if progress_range > 0:
+            progress = (total_words - current_min_words) / progress_range * 100
+        else:
+            progress = 100
+        progress = min(max(progress, 0), 100)  # 限制在0-100之间
+    else:
+        # 已是最高等级
+        next_min_words = None
+        progress = 100
+
+    return {
+        'user_id': user_id,
+        'total_words': total_words,
+        'current_rank': {
+            'rank_name': current_rank['rank_name'],
+            'rank_level': current_rank['rank_level'],
+            'title': current_rank['title'],
+            'icon': current_rank['icon'],
+            'min_words': current_rank['min_words'],
+        },
+        'next_rank': {
+            'rank_name': next_rank['rank_name'],
+            'rank_level': next_rank['rank_level'],
+            'title': next_rank['title'],
+            'icon': next_rank['icon'],
+            'min_words': next_rank['min_words'],
+        } if next_rank else None,
+        'next_rank_min_words': next_min_words,
+        'progress': round(progress, 1),
+    }
 
 
 if __name__ == '__main__':
