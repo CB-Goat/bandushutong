@@ -1262,7 +1262,7 @@
                         <h3 style="margin:0;color:#FFD700;font-size:16px;">🎖️ 我的军衔</h3>
                     </div>
                     <div style="text-align:center;margin-bottom:12px;">
-                        <div id="rankEpaulette" style="margin:0 auto 12px;"></div>
+                        <div id="rankEpaulette" style="margin:0 auto 12px;min-height:40px;max-width:140px;"></div>
                         <div id="rankName" style="font-size:24px;font-weight:bold;color:#FFD700;">列兵</div>
                         <div id="rankTitle" style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">阅读新兵</div>
                     </div>
@@ -5797,7 +5797,8 @@
             var cx = w / 2, cy = h / 2;
 
             if (icon === 'private') {
-                // 列兵：空肩章
+                // 列兵：空肩章 + 一个小圆点标识
+                svg += '<circle cx="' + cx + '" cy="' + cy + '" r="3" fill="#c8a84e" opacity="0.6"/>';
             } else if (icon === 'private_first') {
                 // 上等兵：一条折杠
                 svg += drawBar(cx, cy, 1);
