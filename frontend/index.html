@@ -5820,9 +5820,11 @@
         // 加载军衔信息
         function loadMilitaryRank() {
             if (!state.currentUser) return;
+            console.log('[军衔] 开始加载军衔信息');
             fetch(API_BASE + '/users/' + state.currentUser.id + '/military-rank')
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
+                    console.log('[军衔] 返回数据:', data);
                     if (data.rank_name) {
                         document.getElementById('rankIcon').textContent = data.icon || '🪖';
                         document.getElementById('rankName').textContent = data.rank_name;
