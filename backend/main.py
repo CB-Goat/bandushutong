@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-伴读书童 - 儿童课外阅读辅助工具
+悦读小将 - 儿童课外阅读辅助工具
 后端主入口
 """
 
@@ -56,8 +56,8 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     
     print("=" * 50)
-    print("伴读书童后端服务启动")
-    print("更新版本: #81")
+    print("悦读小将后端服务启动")
+    print("更新版本: #82")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)

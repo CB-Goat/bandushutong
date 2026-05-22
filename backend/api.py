@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-伴读书童 - API 路由
+悦读小将 - API 路由
 """
 
 from flask import Blueprint, request, jsonify, send_file
@@ -90,7 +90,7 @@ def wechat_handler():
                 if event == 'subscribe':
                     # 用户关注公众号
                     return _make_text_reply(to_user, from_user, 
-                        '欢迎关注伴读书童！\n\n点击下方菜单"开始阅读"即可进入系统。')
+                        '欢迎关注悦读小将！\n\n点击下方菜单"开始阅读"即可进入系统。')
                 elif event == 'CLICK':
                     # 菜单点击事件
                     event_key = root.find('EventKey').text
@@ -98,7 +98,7 @@ def wechat_handler():
                         # 返回带用户openid的链接
                         url = f"{request.host_url}?wechat_openid={from_user}"
                         return _make_text_reply(to_user, from_user, 
-                            f'点击链接进入伴读书童：\n{url}')
+                            f'点击链接进入悦读小将：\n{url}')
             
             # 默认回复
             return _make_text_reply(to_user, from_user, '收到消息，请使用菜单功能。')
