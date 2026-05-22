@@ -1260,9 +1260,9 @@
                 <div id="militaryRankCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                         <h3 style="margin:0;color:#FFD700;font-size:16px;">🎖️ 我的军衔</h3>
-                        <span id="rankIcon" style="font-size:32px;">🪖</span>
                     </div>
-                    <div style="text-align:center;margin-bottom:16px;">
+                    <div style="text-align:center;margin-bottom:12px;">
+                        <div id="rankEpaulette" style="margin:0 auto 12px;"></div>
                         <div id="rankName" style="font-size:24px;font-weight:bold;color:#FFD700;">列兵</div>
                         <div id="rankTitle" style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">阅读新兵</div>
                     </div>
@@ -1406,7 +1406,7 @@
         <!-- 军衔升级庆祝弹窗 -->
         <div id="rankUpModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2000;justify-content:center;align-items:center;" onclick="closeRankUpModal()">
             <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:16px;padding:32px;width:85%;max-width:360px;text-align:center;color:white;position:relative;animation:rankUpBounce 0.5s ease;" onclick="event.stopPropagation()">
-                <div style="font-size:48px;margin-bottom:8px;" id="rankUpIcon">🎖️</div>
+                <div id="rankUpEpaulette" style="margin:0 auto 8px;"></div>
                 <div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:4px;">军衔晋升！</div>
                 <div style="font-size:28px;font-weight:bold;color:#FFD700;margin-bottom:4px;" id="rankUpName">上等兵</div>
                 <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:20px;" id="rankUpTitle">阅读学徒</div>
@@ -5782,6 +5782,145 @@
         }
 
         // ===== 用户中心 =====
+        // ===== 军衔肩章 SVG 渲染 =====
+        function renderEpaulette(icon) {
+            // 肩章底板
+            var bg = '#2d5016';
+            var border = '#1a3a0a';
+            var w = 120, h = 36;
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;max-width:120px;">';
+            // 底板
+            svg += '<rect x="1" y="1" width="' + (w-2) + '" height="' + (h-2) + '" rx="4" fill="' + bg + '" stroke="' + border + '" stroke-width="1.5"/>';
+            // 金色边线
+            svg += '<rect x="4" y="4" width="' + (w-8) + '" height="' + (h-8) + '" rx="2" fill="none" stroke="#c8a84e" stroke-width="0.8" opacity="0.5"/>';
+
+            var cx = w / 2, cy = h / 2;
+
+            if (icon === 'private') {
+                // 列兵：空肩章
+            } else if (icon === 'private_first') {
+                // 上等兵：一条折杠
+                svg += drawBar(cx, cy, 1);
+            } else if (icon === 'sergeant_1') {
+                // 下士：一条细杠
+                svg += drawStripe(cx, cy, 1, '#c8a84e');
+            } else if (icon === 'sergeant_2') {
+                // 中士：两条细杠
+                svg += drawStripe(cx, cy, 2, '#c8a84e');
+            } else if (icon === 'sergeant_3') {
+                // 上士：三条细杠
+                svg += drawStripe(cx, cy, 3, '#c8a84e');
+            } else if (icon === 'sergeant_4') {
+                // 四级军士长：一条粗杠
+                svg += drawStripe(cx, cy, 1, '#c8a84e', 4);
+            } else if (icon === 'sergeant_5') {
+                // 三级军士长：一粗一细
+                svg += drawStripe(cx, cy, 1, '#c8a84e', 4);
+                svg += drawStripe(cx, cy + 6, 1, '#c8a84e', 2);
+            } else if (icon === 'sergeant_6') {
+                // 二级军士长：一粗两细
+                svg += drawStripe(cx, cy - 4, 1, '#c8a84e', 4);
+                svg += drawStripe(cx, cy + 2, 2, '#c8a84e', 2);
+            } else if (icon === 'sergeant_7') {
+                // 一级军士长：两粗一细
+                svg += drawStripe(cx, cy - 5, 1, '#c8a84e', 4);
+                svg += drawStripe(cx, cy + 1, 1, '#c8a84e', 4);
+                svg += drawStripe(cx, cy + 7, 1, '#c8a84e', 2);
+            } else if (icon === '2lt') {
+                // 少尉：一颗星
+                svg += drawStar(cx, cy, 6, '#c8a84e');
+            } else if (icon === '1lt') {
+                // 中尉：两颗星
+                svg += drawStar(cx - 10, cy, 5, '#c8a84e');
+                svg += drawStar(cx + 10, cy, 5, '#c8a84e');
+            } else if (icon === 'cpt') {
+                // 上尉：三颗星
+                svg += drawStar(cx - 16, cy, 4.5, '#c8a84e');
+                svg += drawStar(cx, cy, 4.5, '#c8a84e');
+                svg += drawStar(cx + 16, cy, 4.5, '#c8a84e');
+            } else if (icon === 'maj') {
+                // 少校：一颗大星
+                svg += drawStar(cx, cy, 8, '#c8a84e');
+            } else if (icon === 'ltc') {
+                // 中校：两颗大星
+                svg += drawStar(cx - 12, cy, 7, '#c8a84e');
+                svg += drawStar(cx + 12, cy, 7, '#c8a84e');
+            } else if (icon === 'col') {
+                // 上校：三颗大星
+                svg += drawStar(cx - 18, cy, 6, '#c8a84e');
+                svg += drawStar(cx, cy, 6, '#c8a84e');
+                svg += drawStar(cx + 18, cy, 6, '#c8a84e');
+            } else if (icon === 'sen_col') {
+                // 大校：四颗大星
+                svg += drawStar(cx - 22, cy, 5, '#c8a84e');
+                svg += drawStar(cx - 7, cy, 5, '#c8a84e');
+                svg += drawStar(cx + 7, cy, 5, '#c8a84e');
+                svg += drawStar(cx + 22, cy, 5, '#c8a84e');
+            } else if (icon === 'bg') {
+                // 少将：一颗金星（带光芒）
+                svg += drawStar(cx, cy, 10, '#FFD700', '#DAA520');
+            } else if (icon === 'mg') {
+                // 中将：两颗金星
+                svg += drawStar(cx - 14, cy, 8, '#FFD700', '#DAA520');
+                svg += drawStar(cx + 14, cy, 8, '#FFD700', '#DAA520');
+            } else if (icon === 'lg') {
+                // 上将：三颗金星
+                svg += drawStar(cx - 20, cy, 7, '#FFD700', '#DAA520');
+                svg += drawStar(cx, cy, 7, '#FFD700', '#DAA520');
+                svg += drawStar(cx + 20, cy, 7, '#FFD700', '#DAA520');
+            } else if (icon === 'marshal') {
+                // 元帅：大星+麦穗
+                svg += drawStar(cx, cy, 12, '#FFD700', '#DAA520');
+                svg += '<text x="' + cx + '" y="' + (cy + 3) + '" text-anchor="middle" font-size="6" fill="#FFD700" font-weight="bold">帅</text>';
+            }
+
+            svg += '</svg>';
+            return svg;
+        }
+
+        function drawBar(cx, cy, count) {
+            var s = '';
+            var bw = 40;
+            for (var i = 0; i < count; i++) {
+                var y = cy - 2 + i * 5;
+                s += '<rect x="' + (cx - bw/2) + '" y="' + y + '" width="' + bw + '" height="3" rx="1" fill="#8B7355"/>';
+            }
+            return s;
+        }
+
+        function drawStripe(cx, cy, count, color, thickness) {
+            thickness = thickness || 2.5;
+            var s = '';
+            var bw = 50;
+            var gap = thickness + 2;
+            var startY = cy - ((count - 1) * gap) / 2;
+            for (var i = 0; i < count; i++) {
+                var y = startY + i * gap - thickness / 2;
+                s += '<rect x="' + (cx - bw/2) + '" y="' + y + '" width="' + bw + '" height="' + thickness + '" rx="1" fill="' + color + '"/>';
+            }
+            return s;
+        }
+
+        function drawStar(cx, cy, r, fill, stroke) {
+            r = r || 6;
+            fill = fill || '#c8a84e';
+            var points = '';
+            for (var i = 0; i < 5; i++) {
+                var angle = -Math.PI / 2 + (i * 2 * Math.PI / 5);
+                var x = cx + r * Math.cos(angle);
+                var y = cy + r * Math.sin(angle);
+                points += x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+                angle += Math.PI / 5;
+                x = cx + (r * 0.4) * Math.cos(angle);
+                y = cy + (r * 0.4) * Math.sin(angle);
+                points += x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+            }
+            var s = '<polygon points="' + points.trim() + '" fill="' + fill + '"';
+            if (stroke) s += ' stroke="' + stroke + '" stroke-width="0.5"';
+            s += '/>';
+            return s;
+        }
+
         function showUserPage() {
             showPage('userPage');
             loadUserProfile();
@@ -5829,7 +5968,7 @@
                 .then(function(data) {
                     console.log('[军衔] 返回数据:', data);
                     if (data.rank_name) {
-                        document.getElementById('rankIcon').textContent = data.icon || '🪖';
+                        document.getElementById('rankEpaulette').innerHTML = renderEpaulette(data.icon || 'private');
                         document.getElementById('rankName').textContent = data.rank_name;
                         document.getElementById('rankTitle').textContent = data.title || '';
                         document.getElementById('rankWords').textContent = (data.total_words || 0).toLocaleString();
@@ -5851,7 +5990,7 @@
 
         // 军衔升级庆祝弹窗
         function showRankUpCelebration(rank) {
-            document.getElementById('rankUpIcon').textContent = rank.icon || '🎖️';
+            document.getElementById('rankUpEpaulette').innerHTML = renderEpaulette(rank.icon || 'private');
             document.getElementById('rankUpName').textContent = rank.rank_name;
             document.getElementById('rankUpTitle').textContent = rank.title || '';
             document.getElementById('rankUpWords').textContent = (rank.total_words || 0).toLocaleString();
