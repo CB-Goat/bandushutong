@@ -5969,7 +5969,11 @@
                 .then(function(data) {
                     console.log('[军衔] 返回数据:', data);
                     if (data.rank_name) {
-                        document.getElementById('rankEpaulette').innerHTML = renderEpaulette(data.icon || 'private');
+                        var svgHtml = renderEpaulette(data.icon || 'private');
+                        console.log('[军衔] SVG内容:', svgHtml.substring(0, 200));
+                        var el = document.getElementById('rankEpaulette');
+                        el.innerHTML = svgHtml;
+                        console.log('[军衔] 已插入元素, innerHTML长度:', el.innerHTML.length);
                         document.getElementById('rankName').textContent = data.rank_name;
                         document.getElementById('rankTitle').textContent = data.title || '';
                         document.getElementById('rankWords').textContent = (data.total_words || 0).toLocaleString();
