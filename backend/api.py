@@ -962,6 +962,16 @@ def get_military_rank(user_id):
     rank_info = get_user_military_rank(user_id)
     return jsonify(rank_info)
 
+@api_bp.route('/military-ranks', methods=['GET'])
+def list_military_ranks():
+    """获取所有军衔等级列表（管理用）"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM military_ranks ORDER BY rank_level')
+    ranks = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'ranks': ranks})
+
 # ===== 留言 API =====
 
 @api_bp.route('/messages', methods=['POST'])
