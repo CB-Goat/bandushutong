@@ -38,6 +38,7 @@ from backend.database import (
     get_user_by_phone as _get_user_by_phone,
     # 军衔等级系统
     get_user_military_rank,
+    get_db,
 )
 from backend.text_parser import parse_file, get_book_title
 from backend.tts_service import generate_audio
