@@ -1267,20 +1267,16 @@
                         </div>
                     </div>
                     <!-- 中间区域：肩章+头像 -->
-                    <div style="background:white;border-radius:8px;padding:10px 24px;margin-bottom:10px;position:relative;">
-                        <div style="display:flex;justify-content:center;gap:40px;height:80px;position:relative;">
-                            <!-- 左侧肩章（左旋）- 绝对定位到底部 -->
-                            <div style="flex:0 0 auto;position:relative;width:23px;height:80px;">
-                                <div id="rankEpauletteLeft" style="position:absolute;bottom:0;left:0;"></div>
-                            </div>
+                    <div style="background:white;border-radius:8px;padding:10px 24px;margin-bottom:10px;">
+                        <div style="display:flex;justify-content:center;align-items:center;gap:40px;">
+                            <!-- 左侧肩章（左旋）- 相对定位下移 -->
+                            <div id="rankEpauletteLeft" style="flex:0 0 auto;margin-top:40px;"></div>
                             <!-- 中间卡通头像 -->
-                            <div style="flex:0 0 auto;height:80px;">
+                            <div style="flex:0 0 auto;">
                                 <img src="ranks/avatar_military.png" style="width:80px;height:80px;display:block;object-fit:contain;" alt="军衔头像">
                             </div>
-                            <!-- 右侧肩章（右旋）- 绝对定位到底部 -->
-                            <div style="flex:0 0 auto;position:relative;width:23px;height:80px;">
-                                <div id="rankEpauletteRight" style="position:absolute;bottom:0;left:0;"></div>
-                            </div>
+                            <!-- 右侧肩章（右旋）- 相对定位下移 -->
+                            <div id="rankEpauletteRight" style="flex:0 0 auto;margin-top:40px;"></div>
                         </div>
                     </div>
                     <div style="margin-bottom:8px;">
