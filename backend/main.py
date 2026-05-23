@@ -31,13 +31,13 @@ def index():
 
 @app.route('/ranks/<path:filename>')
 def serve_ranks(filename):
-    """提供军衔肩章图片"""
+    """提供军衔肩章图片和头像"""
     ranks_dir = os.path.join(FRONTEND_DIR, 'ranks')
     return send_from_directory(ranks_dir, filename)
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '#95'})
+    return jsonify({'status': 'ok', 'version': '#96'})
 
 # 初始化数据库
 init_db()
