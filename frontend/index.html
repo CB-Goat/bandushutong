@@ -1269,18 +1269,14 @@
                     <!-- 中间区域：肩章+头像 -->
                     <div style="background:white;border-radius:8px;padding:10px 20px;margin-bottom:10px;">
                         <div style="display:flex;justify-content:center;align-items:flex-start;gap:20px;position:relative;">
-                            <!-- 左侧肩章（左旋）- 绝对定位底部 -->
-                            <div style="flex:0 0 auto;position:relative;width:23px;height:120px;">
-                                <div id="rankEpauletteLeft" style="position:absolute;bottom:0;left:0;"></div>
-                            </div>
+                            <!-- 左侧肩章（左旋-90度）- 底部对齐 -->
+                            <div id="rankEpauletteLeft" style="flex:0 0 auto;transform:rotate(-90deg);transform-origin:center;margin-top:50px;"></div>
                             <!-- 中间卡通头像 -->
                             <div style="flex:0 0 auto;">
                                 <img src="ranks/avatar_military.png" style="width:120px;height:120px;display:block;object-fit:contain;" alt="军衔头像">
                             </div>
-                            <!-- 右侧肩章（右旋）- 绝对定位底部 -->
-                            <div style="flex:0 0 auto;position:relative;width:23px;height:120px;">
-                                <div id="rankEpauletteRight" style="position:absolute;bottom:0;left:0;"></div>
-                            </div>
+                            <!-- 右侧肩章（右旋+90度）- 底部对齐 -->
+                            <div id="rankEpauletteRight" style="flex:0 0 auto;transform:rotate(90deg);transform-origin:center;margin-top:50px;"></div>
                         </div>
                     </div>
                     <div style="margin-bottom:8px;">
@@ -5874,12 +5870,10 @@
                     var rank = data.current_rank;
                     if (rank && rank.rank_name) {
                         var svgHtml = renderEpaulette(rank.icon || 'private');
-                        // 左侧肩章（左旋-90度，向下偏移30px对齐底部）
-                        var leftHtml = svgHtml.replace('<img', '<img style="transform:rotate(-90deg);width:23px;height:auto;margin-top:30px;"');
-                        document.getElementById('rankEpauletteLeft').innerHTML = leftHtml;
-                        // 右侧肩章（右旋+90度，向下偏移30px对齐底部）
-                        var rightHtml = svgHtml.replace('<img', '<img style="transform:rotate(90deg);width:23px;height:auto;margin-top:30px;"');
-                        document.getElementById('rankEpauletteRight').innerHTML = rightHtml;
+                        // 左侧肩章（容器旋转）
+                        document.getElementById('rankEpauletteLeft').innerHTML = svgHtml;
+                        // 右侧肩章（容器旋转）
+                        document.getElementById('rankEpauletteRight').innerHTML = svgHtml;
                         document.getElementById('rankName').textContent = rank.rank_name;
                         document.getElementById('rankTitle').textContent = rank.title || '';
                         document.getElementById('rankWords').textContent = (data.total_words || 0).toLocaleString();
