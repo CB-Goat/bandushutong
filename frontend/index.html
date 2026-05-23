@@ -5874,11 +5874,11 @@
                     var rank = data.current_rank;
                     if (rank && rank.rank_name) {
                         var svgHtml = renderEpaulette(rank.icon || 'private');
-                        // 左侧肩章（左旋-90度）
-                        var leftHtml = svgHtml.replace('<img', '<img style="transform:rotate(-90deg);width:23px;height:auto;"');
+                        // 左侧肩章（左旋-90度，向下偏移30px对齐底部）
+                        var leftHtml = svgHtml.replace('<img', '<img style="transform:rotate(-90deg);width:23px;height:auto;margin-top:30px;"');
                         document.getElementById('rankEpauletteLeft').innerHTML = leftHtml;
-                        // 右侧肩章（右旋+90度）
-                        var rightHtml = svgHtml.replace('<img', '<img style="transform:rotate(90deg);width:23px;height:auto;"');
+                        // 右侧肩章（右旋+90度，向下偏移30px对齐底部）
+                        var rightHtml = svgHtml.replace('<img', '<img style="transform:rotate(90deg);width:23px;height:auto;margin-top:30px;"');
                         document.getElementById('rankEpauletteRight').innerHTML = rightHtml;
                         document.getElementById('rankName').textContent = rank.rank_name;
                         document.getElementById('rankTitle').textContent = rank.title || '';
