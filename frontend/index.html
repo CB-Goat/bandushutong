@@ -1267,13 +1267,13 @@
                         </div>
                     </div>
                     <!-- 中间区域：肩章+头像 -->
-                    <div style="background:white;border-radius:8px;padding:8px 12px;margin-bottom:10px;">
-                        <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                    <div style="background:white;border-radius:8px;padding:10px 16px;margin-bottom:10px;">
+                        <div style="display:flex;align-items:flex-end;justify-content:center;gap:12px;">
                             <!-- 左侧肩章（左旋） -->
                             <div id="rankEpauletteLeft" style="flex:0 0 auto;"></div>
                             <!-- 中间卡通头像 -->
                             <div style="flex:0 0 auto;">
-                                <img src="ranks/avatar_military.svg" style="width:50px;height:50px;display:block;" alt="军衔头像">
+                                <img src="ranks/avatar_military.svg" style="width:100px;height:100px;display:block;" alt="军衔头像">
                             </div>
                             <!-- 右侧肩章（右旋） -->
                             <div id="rankEpauletteRight" style="flex:0 0 auto;"></div>
@@ -5871,10 +5871,10 @@
                     if (rank && rank.rank_name) {
                         var svgHtml = renderEpaulette(rank.icon || 'private');
                         // 左侧肩章（左旋-90度）
-                        var leftHtml = svgHtml.replace('<img', '<img style="transform:rotate(-90deg);width:17px;height:auto;"');
+                        var leftHtml = svgHtml.replace('<img', '<img style="transform:rotate(-90deg);width:34px;height:auto;"');
                         document.getElementById('rankEpauletteLeft').innerHTML = leftHtml;
                         // 右侧肩章（右旋+90度）
-                        var rightHtml = svgHtml.replace('<img', '<img style="transform:rotate(90deg);width:17px;height:auto;"');
+                        var rightHtml = svgHtml.replace('<img', '<img style="transform:rotate(90deg);width:34px;height:auto;"');
                         document.getElementById('rankEpauletteRight').innerHTML = rightHtml;
                         document.getElementById('rankName').textContent = rank.rank_name;
                         document.getElementById('rankTitle').textContent = rank.title || '';
