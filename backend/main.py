@@ -29,6 +29,12 @@ def index():
     """提供前端首页"""
     return send_from_directory(FRONTEND_DIR, 'index.html')
 
+@app.route('/ranks/<path:filename>')
+def serve_ranks(filename):
+    """提供军衔肩章图片"""
+    ranks_dir = os.path.join(FRONTEND_DIR, 'ranks')
+    return send_from_directory(ranks_dir, filename)
+
 @app.route('/health')
 def health():
     return jsonify({'status': 'ok'})
@@ -57,7 +63,7 @@ if __name__ == '__main__':
     
     print("=" * 50)
     print("悦读小将后端服务启动")
-    print("更新版本: #92")
+    print("更新版本: #93")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
