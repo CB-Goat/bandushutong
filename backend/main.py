@@ -37,7 +37,7 @@ def serve_ranks(filename):
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '#112'})
+    return jsonify({'status': 'ok', 'version': '#113'})
 
 # 初始化数据库
 init_db()
