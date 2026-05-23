@@ -1,27 +1,88 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <!-- 脸部 -->
-  <circle cx="50" cy="55" r="28" fill="#FFE0BD"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="face" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" style="stop-color:#FFE8CC"/>
+      <stop offset="100%" style="stop-color:#FFDAB0"/>
+    </radialGradient>
+    <linearGradient id="hat" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#3a6b24"/>
+      <stop offset="100%" style="stop-color:#1a3a0a"/>
+    </linearGradient>
+    <linearGradient id="hatDark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2d5016"/>
+      <stop offset="100%" style="stop-color:#0f2a0f"/>
+    </linearGradient>
+    <radialGradient id="blush" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#FFB6C1;stop-opacity:0.6"/>
+      <stop offset="100%" style="stop-color:#FFB6C1;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 脖子 -->
+  <rect x="85" y="148" width="30" height="20" rx="8" fill="#FFDAB0"/>
+
+  <!-- 衣领（军绿色） -->
+  <path d="M60 165 Q100 155 140 165 L150 200 L50 200 Z" fill="url(#hat)"/>
+  <path d="M70 165 Q100 158 130 165" fill="none" stroke="#c8a84e" stroke-width="2"/>
+
   <!-- 耳朵 -->
-  <circle cx="22" cy="55" r="6" fill="#FFE0BD"/>
-  <circle cx="78" cy="55" r="6" fill="#FFE0BD"/>
+  <ellipse cx="52" cy="108" rx="12" ry="16" fill="#FFDAB0"/>
+  <ellipse cx="52" cy="108" rx="7" ry="10" fill="#FFCAA8"/>
+  <ellipse cx="148" cy="108" rx="12" ry="16" fill="#FFDAB0"/>
+  <ellipse cx="148" cy="108" rx="7" ry="10" fill="#FFCAA8"/>
+
+  <!-- 脸部 -->
+  <ellipse cx="100" cy="110" rx="52" ry="56" fill="url(#face)"/>
+
+  <!-- 头发（两侧露出） -->
+  <path d="M50 90 Q48 70 60 60 Q55 85 58 100" fill="#4a3728"/>
+  <path d="M150 90 Q152 70 140 60 Q145 85 142 100" fill="#4a3728"/>
+
   <!-- 眼睛 -->
-  <ellipse cx="40" cy="52" rx="4" ry="5" fill="#333"/>
-  <ellipse cx="60" cy="52" rx="4" ry="5" fill="#333"/>
-  <circle cx="41.5" cy="50.5" r="1.5" fill="white"/>
-  <circle cx="61.5" cy="50.5" r="1.5" fill="white"/>
+  <ellipse cx="80" cy="105" rx="10" ry="12" fill="white"/>
+  <ellipse cx="120" cy="105" rx="10" ry="12" fill="white"/>
+  <ellipse cx="82" cy="107" rx="7" ry="8" fill="#2c1810"/>
+  <ellipse cx="122" cy="107" rx="7" ry="8" fill="#2c1810"/>
+  <!-- 眼睛高光 -->
+  <circle cx="85" cy="103" r="3" fill="white"/>
+  <circle cx="125" cy="103" r="3" fill="white"/>
+  <circle cx="80" cy="109" r="1.5" fill="white"/>
+  <circle cx="120" cy="109" r="1.5" fill="white"/>
+
+  <!-- 眉毛 -->
+  <path d="M70 92 Q80 87 90 92" fill="none" stroke="#4a3728" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M110 92 Q120 87 130 92" fill="none" stroke="#4a3728" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- 鼻子 -->
+  <ellipse cx="100" cy="118" rx="3" ry="2" fill="#F0C0A0"/>
+
   <!-- 嘴巴 -->
-  <path d="M43 64 Q50 70 57 64" fill="none" stroke="#e07060" stroke-width="2" stroke-linecap="round"/>
+  <path d="M88 130 Q100 140 112 130" fill="none" stroke="#e07060" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M92 131 Q100 137 108 131" fill="#FFB6B6" opacity="0.5"/>
+
   <!-- 腮红 -->
-  <ellipse cx="33" cy="60" rx="5" ry="3" fill="#FFB6C1" opacity="0.5"/>
-  <ellipse cx="67" cy="60" rx="5" ry="3" fill="#FFB6C1" opacity="0.5"/>
-  <!-- 军帽（下移贴合头部） -->
-  <ellipse cx="50" cy="32" rx="32" ry="8" fill="#2d5016"/>
-  <rect x="18" y="19" width="64" height="14" rx="4" fill="#2d5016"/>
-  <rect x="18" y="27" width="64" height="6" rx="2" fill="#1a3a0a"/>
+  <ellipse cx="65" cy="122" rx="12" ry="8" fill="url(#blush)"/>
+  <ellipse cx="135" cy="122" rx="12" ry="8" fill="url(#blush)"/>
+
+  <!-- 军帽主体 -->
+  <path d="M45 80 Q50 40 100 35 Q150 40 155 80 L155 85 Q100 78 45 85 Z" fill="url(#hat)"/>
+  <!-- 帽子暗部 -->
+  <path d="M45 80 Q50 45 100 40 Q150 45 155 80 L155 85 Q100 78 45 85 Z" fill="url(#hatDark)" opacity="0.3"/>
+
+  <!-- 帽墙 -->
+  <rect x="42" y="76" width="116" height="14" rx="3" fill="url(#hatDark)"/>
+
   <!-- 帽檐 -->
-  <ellipse cx="50" cy="33" rx="35" ry="5" fill="#1a3a0a"/>
+  <ellipse cx="100" cy="90" rx="62" ry="8" fill="#1a3a0a"/>
+  <ellipse cx="100" cy="89" rx="60" ry="6" fill="#2d5016"/>
+
+  <!-- 帽带（金色） -->
+  <rect x="44" y="82" width="112" height="4" rx="1" fill="#DAA520"/>
+  <rect x="44" y="82" width="112" height="2" rx="1" fill="#FFD700" opacity="0.5"/>
+
   <!-- 帽徽（红五星） -->
-  <polygon points="50,15 52,21 58,21 53,25 55,31 50,27 45,31 47,25 42,21 48,21" fill="#FF4444"/>
-  <!-- 帽带 -->
-  <rect x="20" y="29" width="60" height="3" rx="1" fill="#c8a84e"/>
+  <polygon points="100,48 103,58 113,58 105,64 108,74 100,68 92,74 95,64 87,58 97,58" fill="#FF3333"/>
+  <polygon points="100,50 102,57 109,57 103,62 105,70 100,66 95,70 97,62 91,57 98,57" fill="#FF5555"/>
+  <!-- 星星高光 -->
+  <circle cx="98" cy="58" r="2" fill="#FF8888" opacity="0.6"/>
 </svg>
