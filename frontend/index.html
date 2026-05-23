@@ -1257,14 +1257,27 @@
                 </div>
                 
                 <!-- 军衔等级 -->
-                <div id="militaryRankCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
+                <div id="militaryRankCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
+                    <!-- 标题行 -->
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                         <h3 style="margin:0;color:#FFD700;font-size:16px;">🎖️ 我的军衔</h3>
+                        <div style="text-align:right;">
+                            <div id="rankName" style="font-size:18px;font-weight:bold;color:#FFD700;">列兵</div>
+                            <div id="rankTitle" style="font-size:12px;color:rgba(255,255,255,0.7);">阅读新兵</div>
+                        </div>
                     </div>
-                    <div style="text-align:center;margin-bottom:12px;">
-                        <div id="rankEpaulette" style="margin:0 auto 12px;min-height:40px;max-width:140px;"></div>
-                        <div id="rankName" style="font-size:24px;font-weight:bold;color:#FFD700;">列兵</div>
-                        <div id="rankTitle" style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px;">阅读新兵</div>
+                    <!-- 中间区域：肩章+头像 -->
+                    <div style="background:white;border-radius:10px;padding:15px;margin-bottom:15px;">
+                        <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
+                            <!-- 左侧肩章（左旋） -->
+                            <div id="rankEpauletteLeft" style="flex:0 0 auto;"></div>
+                            <!-- 中间卡通头像 -->
+                            <div style="flex:0 0 auto;text-align:center;">
+                                <div style="width:80px;height:80px;background:linear-gradient(135deg,#4a7c59,#2d5016);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;">🪖</div>
+                            </div>
+                            <!-- 右侧肩章（右旋） -->
+                            <div id="rankEpauletteRight" style="flex:0 0 auto;"></div>
+                        </div>
                     </div>
                     <div style="margin-bottom:8px;">
                         <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:4px;">
@@ -5857,10 +5870,12 @@
                     var rank = data.current_rank;
                     if (rank && rank.rank_name) {
                         var svgHtml = renderEpaulette(rank.icon || 'private');
-                        console.log('[军衔] SVG内容:', svgHtml.substring(0, 200));
-                        var el = document.getElementById('rankEpaulette');
-                        el.innerHTML = svgHtml;
-                        console.log('[军衔] 已插入元素, innerHTML长度:', el.innerHTML.length);
+                        // 左侧肩章（左旋-90度）
+                        var leftHtml = svgHtml.replace('<img', '<img style="transform:rotate(-90deg);width:50px;height:auto;"');
+                        document.getElementById('rankEpauletteLeft').innerHTML = leftHtml;
+                        // 右侧肩章（右旋+90度）
+                        var rightHtml = svgHtml.replace('<img', '<img style="transform:rotate(90deg);width:50px;height:auto;"');
+                        document.getElementById('rankEpauletteRight').innerHTML = rightHtml;
                         document.getElementById('rankName').textContent = rank.rank_name;
                         document.getElementById('rankTitle').textContent = rank.title || '';
                         document.getElementById('rankWords').textContent = (data.total_words || 0).toLocaleString();
