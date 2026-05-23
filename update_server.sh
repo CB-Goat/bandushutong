@@ -30,11 +30,16 @@ echo "[4/4] 重启服务..."
 fuser -k 8080/tcp 2>/dev/null
 sleep 2
 PORT=8080 nohup python3 backend/main.py > backend.log 2>&1 &
-sleep 2
+sleep 3
 
 # 检查服务是否启动
-if curl -s http://localhost:8080/health > /dev/null; then
-    VERSION=$(curl -s http://localhost:8080/health | grep -o '"version": "#[0-9]*"' | grep -o '#[0-9]*')
+echo ""
+echo "检查服务状态..."
+HEALTH_RESPONSE=$(curl -s http://localhost:8080/health 2>&1)
+echo "Health API 返回: $HEALTH_RESPONSE"
+
+if echo "$HEALTH_RESPONSE" | grep -q "version"; then
+    VERSION=$(echo "$HEALTH_RESPONSE" | grep -o '"version": *"#[0-9]*"' | grep -o '#[0-9]*')
     echo ""
     echo "=========================================="
     echo "✅ 更新成功！"
@@ -43,6 +48,7 @@ if curl -s http://localhost:8080/health > /dev/null; then
 else
     echo ""
     echo "=========================================="
-    echo "❌ 服务启动失败，请检查日志"
+    echo "⚠️ 服务可能未完全启动，请稍后手动检查"
+    echo "命令: curl http://localhost:8080/health"
     echo "=========================================="
 fi
