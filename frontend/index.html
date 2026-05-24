@@ -1784,7 +1784,7 @@
                     if (state.currentBook) {
                         var book = state.currentBook;
                         var iconHtml = book.icon_path 
-                            ? '<img src="' + book.icon_path + '" style="width:20px;height:26px;border-radius:3px;object-fit:cover;margin-right:6px;">'
+                            ? '<img src="' + book.icon_path + '" style="width:20px;height:26px;border-radius:3px;object-fit:contain;margin-right:6px;">'
                             : '';
                         document.getElementById('navbarTitle').innerHTML = iconHtml + '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
                             (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
@@ -1842,7 +1842,7 @@
 
                 // 设置导航栏标题
                 var iconHtml = book.icon_path 
-                    ? '<img src="' + book.icon_path + '" style="width:20px;height:26px;border-radius:3px;object-fit:cover;margin-right:6px;">'
+                    ? '<img src="' + book.icon_path + '" style="width:20px;height:26px;border-radius:3px;object-fit:contain;margin-right:6px;">'
                     : '';
                 document.getElementById('navbarTitle').innerHTML = iconHtml + '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
                     (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
@@ -2025,7 +2025,7 @@
                     var totalAnno = book.total_annotations || 0;
                     var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
                     var coverHtml = book.icon_path 
-                        ? '<img src="' + book.icon_path + '" style="width:42px;height:56px;border-radius:4px;object-fit:cover;">'
+                        ? '<img src="' + book.icon_path + '" style="width:42px;height:56px;border-radius:4px;object-fit:contain;">'
                         : '📚';
                     return '<div class="book-card" onclick="promptLogin()" style="position:relative;">' +
                         '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
@@ -2095,7 +2095,7 @@
                     accessLabel = '<span style="color:#FF9800;font-size:11px;">免费</span>';
                 }
                 var coverHtml = book.icon_path 
-                    ? '<img src="' + book.icon_path + '" style="width:42px;height:56px;border-radius:4px;object-fit:cover;">'
+                    ? '<img src="' + book.icon_path + '" style="width:42px;height:56px;border-radius:4px;object-fit:contain;">'
                     : '📚';
                 return '<div class="book-card" onclick="showBookCatalog(' + book.id + ')" style="position:relative;">' +
                     '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
