@@ -212,7 +212,7 @@ def upload_book():
     filepath = os.path.join(UPLOAD_DIR, filename)
     file.save(filepath)
     
-    # 解析文件（提取元信息 + 章节 + 节）
+    # 解析文件（提取章节 + 节）
     try:
         # 优先使用 Word 结构解析器
         if filepath.endswith('.docx'):
@@ -221,22 +221,17 @@ def upload_book():
         else:
             result = parse_file(filepath)
         
-        title = result.get('title', get_book_title(filepath))
-        author = result.get('author', '')
-        author_nationality = result.get('author_nationality', '')
-        version = result.get('version', '')
         chapters = result.get('chapters', [])
         sections = result.get('sections', [])
         
-        print(f"[UPLOAD] 解析结果: 标题={title}, 作者={author}, 国籍={author_nationality}, 版本={version}")
+        # 支持传入 book_id，直接导入到指定书籍
+        book_id = request.form.get('book_id', type=int)
         
-        # 检查是否已存在相同书名+作者+版本的书籍
-        existing_book = get_book_by_title_author_version(title, author, version)
-        is_update = False
-        
-        if existing_book:
-            # 更新现有书籍
-            book_id = existing_book['id']
+        if book_id:
+            # 导入到已有书籍
+            book = get_book(book_id)
+            if not book:
+                return jsonify({'error': '指定的书籍不存在'}), 404
             is_update = True
             # 更新文件路径
             from backend.database import get_db
@@ -246,10 +241,6 @@ def upload_book():
             conn.commit()
             conn.close()
             # 删除旧的章节、节、点评，重新导入
-            old_chapters = get_chapters_by_book(book_id)
-            for ch in old_chapters:
-                delete_chapter(ch['id'])
-            # 直接删除所有旧的节（防止无章节时残留）
             from backend.database import get_db as _get_db
             _conn = _get_db()
             _c = _conn.cursor()
@@ -259,13 +250,42 @@ def upload_book():
             _conn.commit()
             _conn.close()
         else:
-            # 添加新书籍到数据库
-            book_id = add_book(title=title, author=author, file_path=filepath)
-        
-        # 更新书籍元信息
-        if author_nationality or version:
-            update_book(book_id, title=title, author=author,
-                       author_nationality=author_nationality, version=version)
+            # 旧逻辑：从文件解析元信息并自动创建/更新书籍
+            title = result.get('title', get_book_title(filepath))
+            author = result.get('author', '')
+            author_nationality = result.get('author_nationality', '')
+            version = result.get('version', '')
+            
+            print(f"[UPLOAD] 解析结果: 标题={title}, 作者={author}, 国籍={author_nationality}, 版本={version}")
+            
+            existing_book = get_book_by_title_author_version(title, author, version)
+            is_update = False
+            
+            if existing_book:
+                book_id = existing_book['id']
+                is_update = True
+                from backend.database import get_db
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute('UPDATE books SET file_path = ? WHERE id = ?', (filepath, book_id))
+                conn.commit()
+                conn.close()
+                old_chapters = get_chapters_by_book(book_id)
+                for ch in old_chapters:
+                    delete_chapter(ch['id'])
+                from backend.database import get_db as _get_db
+                _conn = _get_db()
+                _c = _conn.cursor()
+                _c.execute('DELETE FROM annotations WHERE section_id IN (SELECT id FROM sections WHERE book_id=?)', (book_id,))
+                _c.execute('DELETE FROM sections WHERE book_id=?', (book_id,))
+                _c.execute('DELETE FROM chapters WHERE book_id=?', (book_id,))
+                _conn.commit()
+                _conn.close()
+            else:
+                book_id = add_book(title=title, author=author, file_path=filepath)
+                if author_nationality or version:
+                    update_book(book_id, title=title, author=author,
+                               author_nationality=author_nationality, version=version)
         
         # 保存章节到数据库
         chapter_id_map = {}  # chapter_number -> chapter_id
@@ -1119,6 +1139,21 @@ def admin_list_books():
     """获取书籍列表（含统计信息）"""
     books = get_books_with_stats()
     return jsonify({'books': books})
+
+@api_bp.route('/admin/books', methods=['POST'])
+def admin_create_book():
+    """创建新书籍（空白，仅基本信息）"""
+    data = request.json
+    title = data.get('title', '').strip()
+    if not title:
+        return jsonify({'error': '书名不能为空'}), 400
+    book_id = add_book(
+        title=title,
+        author=data.get('author', ''),
+        author_nationality=data.get('author_nationality', ''),
+        version=data.get('version', '')
+    )
+    return jsonify({'book_id': book_id, 'message': '创建成功'})
 
 @api_bp.route('/admin/books/<int:book_id>/price', methods=['PUT'])
 def admin_update_book_price(book_id):

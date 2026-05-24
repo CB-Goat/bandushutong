@@ -889,13 +889,13 @@ def update_thought(thought_id, user_id, content):
 
 # ==================== 书籍相关操作 ====================
 
-def add_book(title, author=None, file_path=None):
+def add_book(title, author=None, file_path=None, author_nationality=None, version=None):
     """添加书籍"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT INTO books (title, author, file_path) VALUES (?, ?, ?)',
-        (title, author, file_path)
+        'INSERT INTO books (title, author, file_path, author_nationality, version) VALUES (?, ?, ?, ?, ?)',
+        (title, author, file_path, author_nationality, version)
     )
     book_id = cursor.lastrowid
     conn.commit()

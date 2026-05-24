@@ -1543,15 +1543,6 @@
             
             <!-- Tab Content: Book Management -->
             <div id="adminTab_bookManage" class="admin-tab-content" style="display:none;">
-                <!-- Upload -->
-                <div class="admin-card">
-                    <h3>📤 上传书籍文件</h3>
-                    <div class="upload-area" id="uploadArea" style="margin:10px 0;">
-                        <div class="icon">📄</div>
-                        <p>点击上传 Word 书籍文件（.docx）</p>
-                        <input type="file" id="fileInput" accept=".docx" style="display:none">
-                    </div>
-                </div>
                 <!-- Book List -->
                 <div class="admin-card">
                     <h3>📚 书籍列表</h3>
@@ -1561,7 +1552,9 @@
                         <input type="text" id="adminBookAuthor" placeholder="作者">
                         <input type="number" id="adminBookPrice" placeholder="订阅金额" style="width:100px;flex:none;">
                         <button onclick="searchAdminBooks()">搜索</button>
+                        <button class="btn btn-primary" onclick="admin.newBook()" style="padding:6px 14px;font-size:13px;white-space:nowrap;">＋ 新增书籍</button>
                     </div>
+                    <input type="file" id="bookImportFileInput" accept=".docx" style="display:none">
                     <div id="adminBookList"></div>
                 </div>
                 <!-- Book Detail (hidden by default) -->
@@ -1781,9 +1774,6 @@
         }
 
         function setupEventListeners() {
-            document.getElementById('uploadArea').addEventListener('click', function() {
-                document.getElementById('fileInput').click();
-            });
             document.getElementById('fileInput').addEventListener('change', handleFileUpload);
             document.getElementById('backBtn').addEventListener('click', function() {
                 // 根据当前页面决定返回位置
@@ -5206,6 +5196,7 @@
                             '<td>' + (book.subscription_count || 0) + '</td>' +
                             '<td>' +
                             '<button class="admin-inline-btn" onclick="admin.editBook(' + book.id + ')">编辑</button> ' +
+                            '<button class="admin-inline-btn" onclick="admin.importBook(' + book.id + ')">' + (book.total_sections > 0 ? '重新导入' : '导入') + '</button> ' +
                             '<button class="admin-inline-btn danger" onclick="admin.deleteBookConfirm(' + book.id + ')">删除</button>' +
                             '</td>' +
                             '</tr>';
@@ -5213,6 +5204,63 @@
                     html += '</tbody></table>';
                     list.innerHTML = html;
                 }
+            },
+            
+            newBook: function() {
+                state.adminCurrentBookId = null;
+                document.getElementById('editBookTitle').value = '';
+                document.getElementById('editBookAuthor').value = '';
+                document.getElementById('editBookNationality').value = '';
+                document.getElementById('editBookVersion').value = '';
+                document.getElementById('editBookPrice').value = '';
+                document.getElementById('editBookIsPublic').checked = false;
+                var iconPreview = document.getElementById('editBookIconPreview');
+                var iconPlaceholder = document.getElementById('editBookIconPlaceholder');
+                iconPreview.style.display = 'none';
+                iconPreview.src = '';
+                iconPlaceholder.style.display = 'flex';
+                document.getElementById('adminDetailTitle').textContent = '新增书籍';
+                document.getElementById('adminBookDetail').style.display = 'block';
+                document.getElementById('adminChapterList').innerHTML = '';
+                document.getElementById('adminSectionCard').style.display = 'none';
+                document.getElementById('adminCatalogStats').innerHTML = '<div style="color:#999;padding:10px;">请先保存书籍基本信息，再导入内容</div>';
+            },
+            
+            importBook: function(bookId) {
+                state.adminImportBookId = bookId;
+                var fileInput = document.getElementById('bookImportFileInput');
+                fileInput.value = '';
+                fileInput.onchange = function(e) {
+                    var file = e.target.files[0];
+                    if (!file) return;
+                    admin._doImport(bookId, file);
+                };
+                fileInput.click();
+            },
+            
+            _doImport: function(bookId, file) {
+                var formData = new FormData();
+                formData.append('file', file);
+                formData.append('book_id', bookId);
+                showLoading('正在导入书籍内容...');
+                fetch(API_BASE + '/upload', { method: 'POST', body: formData })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        hideLoading();
+                        if (data.error) {
+                            alert('导入失败: ' + data.error);
+                        } else {
+                            alert('导入成功！共 ' + data.sections_count + ' 个小节');
+                            admin.loadBooks();
+                            if (state.adminCurrentBookId === bookId) {
+                                admin.editBook(bookId);
+                            }
+                        }
+                    })
+                    .catch(function(e) {
+                        hideLoading();
+                        alert('导入出错: ' + e.message);
+                    });
             },
             
             editBook: function(bookId) {
@@ -5411,45 +5459,62 @@
 
         function adminSaveBook() {
             var bookId = state.adminCurrentBookId;
-            fetch(API_BASE + '/admin/books/' + bookId, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    title: document.getElementById('editBookTitle').value,
-                    author: document.getElementById('editBookAuthor').value,
-                    author_nationality: document.getElementById('editBookNationality').value,
-                    version: document.getElementById('editBookVersion').value
-                })
-            }).then(function(r) { return r.json(); }).then(function() {
-                // Save price and public status separately
-                var price = document.getElementById('editBookPrice').value;
-                var isPublic = document.getElementById('editBookIsPublic').checked ? 1 : 0;
+            var title = document.getElementById('editBookTitle').value.trim();
+            var author = document.getElementById('editBookAuthor').value.trim();
+            var nationality = document.getElementById('editBookNationality').value.trim();
+            var version = document.getElementById('editBookVersion').value.trim();
+            var price = document.getElementById('editBookPrice').value;
+            var isPublic = document.getElementById('editBookIsPublic').checked ? 1 : 0;
+            
+            if (!title) { alert('请输入书名'); return; }
+            
+            var saveAndContinue = function(id) {
                 Promise.all([
-                    fetch(API_BASE + '/admin/books/' + bookId + '/price', {
+                    fetch(API_BASE + '/admin/books/' + id + '/price', {
                         method: 'PUT', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({subscription_price: price})
                     }),
-                    fetch(API_BASE + '/admin/books/' + bookId + '/public', {
+                    fetch(API_BASE + '/admin/books/' + id + '/public', {
                         method: 'PUT', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({is_public: isPublic})
                     })
                 ]).then(function() {
-                    // 上传图标（如果有选择）
                     var iconFile = document.getElementById('editBookIconFile');
                     if (iconFile.files && iconFile.files[0]) {
                         var formData = new FormData();
                         formData.append('file', iconFile.files[0]);
-                        return fetch(API_BASE + '/admin/books/' + bookId + '/icon', {
-                            method: 'POST',
-                            body: formData
+                        return fetch(API_BASE + '/admin/books/' + id + '/icon', {
+                            method: 'POST', body: formData
                         });
                     }
                     return Promise.resolve();
                 }).then(function() {
+                    state.adminCurrentBookId = id;
+                    document.getElementById('adminDetailTitle').textContent = '编辑：' + title;
                     alert('保存成功');
                     admin.loadBooks();
+                    admin.loadChapters(id);
+                    adminShowCatalogStats(id);
                 });
-            });
+            };
+            
+            if (bookId) {
+                // 编辑已有书籍
+                fetch(API_BASE + '/admin/books/' + bookId, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ title: title, author: author, author_nationality: nationality, version: version })
+                }).then(function(r) { return r.json(); }).then(function() { saveAndContinue(bookId); });
+            } else {
+                // 新建书籍
+                fetch(API_BASE + '/admin/books', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ title: title, author: author, author_nationality: nationality, version: version })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    saveAndContinue(data.book_id);
+                });
+            }
         }
 
         function adminDeleteBook() { admin.deleteBookConfirm(state.adminCurrentBookId); }
