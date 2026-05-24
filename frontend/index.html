@@ -3827,6 +3827,12 @@
                 
                 // 注意：不清除引用高亮，保持高亮状态在页面上
                 
+                // 恢复名言赏析内容
+                var analysisContent = document.getElementById('analysisContent');
+                if (analysisContent && state._quoteHtml) {
+                    analysisContent.innerHTML = state._quoteHtml;
+                }
+                
                 // 停止并清理点评音频
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
@@ -6590,7 +6596,7 @@
                     var content = document.getElementById('analysisContent');
                     var quotes = data.quotes || [];
                     if (quotes.length > 0) {
-                        var html = '<div style="padding:10px;font-size:14px;line-height:1.8;">';
+                        var html = '<div class="quote-area" style="padding:10px;font-size:20px;line-height:1.8;">';
                         quotes.forEach(function(q) {
                             html += '<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.1);">' +
                                 '<div>"' + q.content + '"</div>' +
@@ -6599,8 +6605,11 @@
                         });
                         html += '</div>';
                         content.innerHTML = html;
+                        // 保存名言HTML，点评结束后恢复
+                        state._quoteHtml = html;
                     } else {
                         content.innerHTML = '<div style="padding:10px;color:#999;text-align:center;">暂无名言</div>';
+                        state._quoteHtml = '';
                     }
                 });
         }
