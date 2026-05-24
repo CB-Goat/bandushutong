@@ -6462,16 +6462,39 @@
         function showImportQuotesModal() {
             document.getElementById('editModalTitle').textContent = '批量导入名言';
             document.getElementById('editModalContent').innerHTML = 
-                '<p style="font-size:13px;color:#666;margin-bottom:10px;">每行一条名言，格式：名言内容|作者|出处（作者和出处可选）</p>' +
-                '<textarea id="importQuotesText" rows="10" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;resize:vertical;font-size:13px;" placeholder="示例：&#10;读书破万卷，下笔如有神|杜甫|奉赠韦左丞丈二十二韵&#10;书籍是人类进步的阶梯|高尔基"></textarea>';
+                '<p style="font-size:13px;color:#666;margin-bottom:10px;">支持两种方式导入：</p>' +
+                '<div style="margin-bottom:10px;">' +
+                '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin-bottom:5px;">' +
+                '<input type="radio" name="importType" value="text" checked onchange="toggleImportType()"> 文本导入</label>' +
+                '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;">' +
+                '<input type="radio" name="importType" value="word" onchange="toggleImportType()"> Word文档导入</label>' +
+                '</div>' +
+                '<div id="textImportArea">' +
+                '<p style="font-size:12px;color:#999;margin-bottom:5px;">每行一条，格式：名言内容|作者|出处</p>' +
+                '<textarea id="importQuotesText" rows="8" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;resize:vertical;font-size:13px;" placeholder="示例：&#10;读书破万卷，下笔如有神|杜甫|奉赠韦左丞丈二十二韵&#10;书籍是人类进步的阶梯|高尔基"></textarea>' +
+                '</div>' +
+                '<div id="wordImportArea" style="display:none;">' +
+                '<p style="font-size:12px;color:#999;margin-bottom:5px;">格式：序号."名言"——「作者」《出处》</p>' +
+                '<input type="file" id="importWordFile" accept=".doc,.docx,.txt" style="margin-bottom:10px;">' +
+                '<textarea id="importWordPreview" rows="6" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;resize:vertical;font-size:13px;" placeholder="选择Word文件后，内容将显示在这里，可编辑后再导入"></textarea>' +
+                '</div>';
             document.getElementById('editModalSave').onclick = function() {
-                var text = document.getElementById('importQuotesText').value.trim();
-                if (!text) { alert('请输入名言内容'); return; }
-                var lines = text.split('\n').filter(function(l) { return l.trim(); });
-                var quotes = lines.map(function(line) {
-                    var parts = line.split('|');
-                    return { content: parts[0] || '', author: parts[1] || '', source: parts[2] || '' };
-                });
+                var importType = document.querySelector('input[name="importType"]:checked').value;
+                var quotes = [];
+                if (importType === 'text') {
+                    var text = document.getElementById('importQuotesText').value.trim();
+                    if (!text) { alert('请输入名言内容'); return; }
+                    var lines = text.split('\n').filter(function(l) { return l.trim(); });
+                    quotes = lines.map(function(line) {
+                        var parts = line.split('|');
+                        return { content: parts[0] || '', author: parts[1] || '', source: parts[2] || '' };
+                    });
+                } else {
+                    var text = document.getElementById('importWordPreview').value.trim();
+                    if (!text) { alert('请先选择Word文件'); return; }
+                    quotes = parseWordQuotes(text);
+                }
+                if (quotes.length === 0) { alert('未解析到有效名言'); return; }
                 fetch(API_BASE + '/admin/quotes/import', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -6482,7 +6505,69 @@
                     loadQuotes();
                 });
             };
+            // 绑定文件选择事件
+            setTimeout(function() {
+                var fileInput = document.getElementById('importWordFile');
+                if (fileInput) {
+                    fileInput.onchange = function(e) {
+                        var file = e.target.files[0];
+                        if (!file) return;
+                        var reader = new FileReader();
+                        reader.onload = function(evt) {
+                            document.getElementById('importWordPreview').value = evt.target.result;
+                        };
+                        reader.readAsText(file);
+                    };
+                }
+            }, 100);
             document.getElementById('editModal').classList.add('active');
+        }
+
+        function toggleImportType() {
+            var type = document.querySelector('input[name="importType"]:checked').value;
+            document.getElementById('textImportArea').style.display = type === 'text' ? 'block' : 'none';
+            document.getElementById('wordImportArea').style.display = type === 'word' ? 'block' : 'none';
+        }
+
+        function parseWordQuotes(text) {
+            // 解析格式：序号."名言"——「作者」《出处》
+            var quotes = [];
+            var lines = text.split('\n').filter(function(l) { return l.trim(); });
+            lines.forEach(function(line) {
+                // 去掉序号（数字. 开头）
+                line = line.replace(/^\d+\.\s*/, '');
+                // 匹配 "名言"——「作者」《出处》
+                var match = line.match(/["""]([^"""]+)["""]\s*——\s*「([^」]+)」\s*《([^》]+)》/);
+                if (match) {
+                    quotes.push({
+                        content: match[1].trim(),
+                        author: match[2].trim(),
+                        source: match[3].trim()
+                    });
+                } else {
+                    // 尝试简化匹配："内容"——作者
+                    var simpleMatch = line.match(/["""]([^"""]+)["""]\s*——\s*(.+)/);
+                    if (simpleMatch) {
+                        var authorPart = simpleMatch[2].trim();
+                        // 尝试提取「作者」《出处》
+                        var authorMatch = authorPart.match(/「([^」]+)」\s*《([^》]+)》/);
+                        if (authorMatch) {
+                            quotes.push({
+                                content: simpleMatch[1].trim(),
+                                author: authorMatch[1].trim(),
+                                source: authorMatch[2].trim()
+                            });
+                        } else {
+                            quotes.push({
+                                content: simpleMatch[1].trim(),
+                                author: authorPart,
+                                source: ''
+                            });
+                        }
+                    }
+                }
+            });
+            return quotes;
         }
 
         function loadRandomQuote(sectionId) {
