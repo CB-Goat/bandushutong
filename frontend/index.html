@@ -1134,7 +1134,7 @@
     <!-- 导航栏 -->
     <nav class="navbar" style="display:flex;justify-content:space-between;align-items:center;">
         <button class="back-btn" id="backBtn" style="display:none">&larr; 返回</button>
-        <h1 id="navbarTitle" style="flex:1;text-align:center;margin:0;">悦读小将</h1>
+        <h1 id="navbarTitle" style="flex:1;text-align:center;margin:0;display:flex;align-items:center;justify-content:center;gap:8px;"><img src="favicon.png" style="width:28px;height:28px;border-radius:4px;">悦读小将</h1>
         <div style="display:flex;gap:8px;align-items:center;">
             <button class="navbar-btn" id="adminBtn" onclick="showPage('adminPage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">⚙️ 管理</button>
             <button class="navbar-btn" id="userBtn" onclick="showUserPage()" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">👤 用户</button>
@@ -5377,7 +5377,7 @@
                 chapterArea.style.display = 'none';
                 browse.loadBooks();
                 // 重置导航栏标题
-                document.getElementById('navbarTitle').textContent = '悦读小将';
+                document.getElementById('navbarTitle').innerHTML = '<img src="favicon.png" style="width:28px;height:28px;border-radius:4px;">悦读小将';
             }
         }
 
@@ -6092,7 +6092,7 @@
                 // 其他页面隐藏返回按钮
                 document.getElementById('backBtn').style.display = 'none';
                 // 非阅读页恢复默认标题
-                document.getElementById('navbarTitle').innerHTML = '悦读小将';
+                document.getElementById('navbarTitle').innerHTML = '<img src="favicon.png" style="width:28px;height:28px;border-radius:4px;">悦读小将';
                 // 书架页显示管理按钮（系统用户）
                 if (pageId === 'homePage' && state.currentUser && state.currentUser.role === 'admin') {
                     document.getElementById('adminBtn').style.display = '';
