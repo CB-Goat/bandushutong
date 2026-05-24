@@ -305,6 +305,10 @@ def init_db():
     except:
         pass
     try:
+        cursor.execute('ALTER TABLE books ADD COLUMN icon_path TEXT')
+    except:
+        pass
+    try:
         cursor.execute('ALTER TABLE thoughts ADD COLUMN ai_score INTEGER DEFAULT NULL')
     except:
         pass

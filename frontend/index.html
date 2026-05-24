@@ -1574,6 +1574,20 @@
                             <div class="form-group"><label>订阅价格</label><input type="text" id="editBookPrice" placeholder="￥0.00"></div>
                             <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:28px;"><input type="checkbox" id="editBookIsPublic" style="width:18px;height:18px;"><label for="editBookIsPublic" style="margin:0;cursor:pointer;">公版书籍（无需登录即可浏览）</label></div>
                         </div>
+                        <div class="form-row" style="align-items:flex-start;">
+                            <div class="form-group">
+                                <label>书籍图标</label>
+                                <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+                                    <img id="editBookIconPreview" src="" style="width:64px;height:64px;border-radius:8px;background:#f5f5f5;display:none;">
+                                    <div id="editBookIconPlaceholder" style="width:64px;height:64px;border-radius:8px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:24px;color:#ccc;">📚</div>
+                                    <div>
+                                        <input type="file" id="editBookIconFile" accept="image/*" style="display:none;" onchange="previewBookIcon(this)">
+                                        <button class="btn btn-sm" onclick="document.getElementById('editBookIconFile').click()" style="padding:6px 12px;font-size:13px;">上传图标</button>
+                                        <p style="font-size:11px;color:#999;margin:4px 0 0;">建议正方形图片，自动压缩为64x64</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div style="text-align:right;margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
                             <button class="btn btn-danger" onclick="adminDeleteBook()">删除此书</button>
                             <button class="btn btn-primary" onclick="adminSaveBook()">保存修改</button>
@@ -1769,7 +1783,10 @@
                     // 恢复导航栏标题为书名+作者
                     if (state.currentBook) {
                         var book = state.currentBook;
-                        document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
+                        var iconHtml = book.icon_path 
+                            ? '<img src="' + book.icon_path + '" style="width:24px;height:24px;border-radius:4px;object-fit:cover;margin-right:6px;">'
+                            : '';
+                        document.getElementById('navbarTitle').innerHTML = iconHtml + '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
                             (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
                     }
                     showPage('catalogPage');
@@ -1824,7 +1841,10 @@
                 console.log('showCatalog: bookData.progress =', JSON.stringify(bookData.progress));
 
                 // 设置导航栏标题
-                document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
+                var iconHtml = book.icon_path 
+                    ? '<img src="' + book.icon_path + '" style="width:24px;height:24px;border-radius:4px;object-fit:cover;margin-right:6px;">'
+                    : '';
+                document.getElementById('navbarTitle').innerHTML = iconHtml + '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
                     (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
 
                 // 获取阅读状态和统计
@@ -2004,9 +2024,12 @@
                     var totalWords = book.total_words || 0;
                     var totalAnno = book.total_annotations || 0;
                     var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
+                    var coverHtml = book.icon_path 
+                        ? '<img src="' + book.icon_path + '" style="width:50px;height:50px;border-radius:6px;object-fit:cover;">'
+                        : '📚';
                     return '<div class="book-card" onclick="promptLogin()" style="position:relative;">' +
                         '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
-                        '<div class="cover">📚</div>' +
+                        '<div class="cover">' + coverHtml + '</div>' +
                         '<div class="info">' +
                         '<div class="title">' + safeTitle + '</div>' +
                         '<div class="meta">' + safeAuthor + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + (book.version ? ' · ' + book.version : '') + '</div>' +
@@ -2071,9 +2094,12 @@
                 if (state.currentUser && state.currentUser.role !== 'admin') {
                     accessLabel = '<span style="color:#FF9800;font-size:11px;">免费</span>';
                 }
+                var coverHtml = book.icon_path 
+                    ? '<img src="' + book.icon_path + '" style="width:50px;height:50px;border-radius:6px;object-fit:cover;">'
+                    : '📚';
                 return '<div class="book-card" onclick="showBookCatalog(' + book.id + ')" style="position:relative;">' +
                     '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
-                    '<div class="cover">📚</div>' +
+                    '<div class="cover">' + coverHtml + '</div>' +
                     '<div class="info">' +
                     '<div class="title">' + safeTitle + '</div>' +
                     '<div class="meta">' + safeAuthor + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + (book.version ? ' · ' + book.version : '') + '</div>' +
@@ -5136,6 +5162,17 @@
                     document.getElementById('editBookVersion').value = book.version || '';
                     document.getElementById('editBookPrice').value = book.subscription_price || '';
                     document.getElementById('editBookIsPublic').checked = book.is_public ? true : false;
+                    // 加载书籍图标
+                    var iconPreview = document.getElementById('editBookIconPreview');
+                    var iconPlaceholder = document.getElementById('editBookIconPlaceholder');
+                    if (book.icon_path) {
+                        iconPreview.src = book.icon_path + '?t=' + Date.now();
+                        iconPreview.style.display = 'block';
+                        iconPlaceholder.style.display = 'none';
+                    } else {
+                        iconPreview.style.display = 'none';
+                        iconPlaceholder.style.display = 'flex';
+                    }
                     document.getElementById('adminDetailTitle').textContent = '编辑：' + book.title;
                     document.getElementById('adminBookDetail').style.display = 'block';
                     admin.loadChapters(bookId);
@@ -5297,6 +5334,18 @@
             }
         };
 
+        function previewBookIcon(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('editBookIconPreview').src = e.target.result;
+                    document.getElementById('editBookIconPreview').style.display = 'block';
+                    document.getElementById('editBookIconPlaceholder').style.display = 'none';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
         function adminSaveBook() {
             var bookId = state.adminCurrentBookId;
             fetch(API_BASE + '/admin/books/' + bookId, {
@@ -5322,6 +5371,18 @@
                         body: JSON.stringify({is_public: isPublic})
                     })
                 ]).then(function() {
+                    // 上传图标（如果有选择）
+                    var iconFile = document.getElementById('editBookIconFile');
+                    if (iconFile.files && iconFile.files[0]) {
+                        var formData = new FormData();
+                        formData.append('file', iconFile.files[0]);
+                        return fetch(API_BASE + '/admin/books/' + bookId + '/icon', {
+                            method: 'POST',
+                            body: formData
+                        });
+                    }
+                    return Promise.resolve();
+                }).then(function() {
                     alert('保存成功');
                     admin.loadBooks();
                 });

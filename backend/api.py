@@ -1147,6 +1147,54 @@ def admin_update_book_public(book_id):
     conn.close()
     return jsonify({'message': '公版设置更新成功', 'is_public': is_public})
 
+@api_bp.route('/admin/books/<int:book_id>/icon', methods=['POST'])
+def admin_upload_book_icon(book_id):
+    """上传书籍图标"""
+    book = get_book(book_id)
+    if not book:
+        return jsonify({'error': '书籍不存在'}), 404
+    if 'file' not in request.files:
+        return jsonify({'error': '没有上传文件'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': '没有选择文件'}), 400
+    
+    # 保存并压缩图片
+    import os
+    from PIL import Image
+    import io
+    
+    icons_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', 'book_icons')
+    os.makedirs(icons_dir, exist_ok=True)
+    
+    icon_path = f'book_icons/book_{book_id}.png'
+    full_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', icon_path)
+    
+    # 打开并压缩图片
+    img = Image.open(file.stream)
+    if img.mode in ('RGBA', 'P'):
+        img = img.convert('RGBA')
+    img_resized = img.resize((64, 64), Image.Resampling.LANCZOS)
+    img_resized.save(full_path, 'PNG', optimize=True)
+    
+    # 更新数据库
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE books SET icon_path=? WHERE id=?', (icon_path, book_id))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'message': '图标上传成功', 'icon_path': icon_path})
+
+@api_bp.route('/book_icons/<path:filename>', methods=['GET'])
+def serve_book_icon(filename):
+    """提供书籍图标"""
+    from flask import send_from_directory
+    from backend.database import get_db
+    icons_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', 'book_icons')
+    return send_from_directory(icons_dir, filename)
+
 @api_bp.route('/admin/books/<int:book_id>/catalog-stats', methods=['GET'])
 def admin_book_catalog_stats(book_id):
     """获取书籍目录结构及统计"""
