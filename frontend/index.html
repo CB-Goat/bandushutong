@@ -1221,6 +1221,48 @@
                             <div id="userPhone" style="font-size:13px;color:#999;margin-top:4px;"></div>
                         </div>
                     </div>
+                    
+                    <!-- 军衔等级（嵌入个人信息卡片内） -->
+                    <div id="militaryRankCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
+                        <!-- 标题行 -->
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                            <h3 style="margin:0;color:#FFD700;font-size:15px;">🎖️ 我的军衔</h3>
+                            <div style="display:flex;align-items:baseline;gap:6px;">
+                                <span id="rankName" style="font-size:16px;font-weight:bold;color:#FFD700;">列兵</span>
+                                <span id="rankTitle" style="font-size:12px;color:rgba(255,255,255,0.7);">[阅读新兵]</span>
+                            </div>
+                        </div>
+                        <!-- 中间区域：肩章+头像 -->
+                        <div style="background:white;border-radius:8px;padding:10px 20px;margin-bottom:10px;">
+                            <div style="display:flex;justify-content:center;align-items:flex-start;gap:20px;">
+                                <!-- 左侧肩章容器 -->
+                                <div style="flex:0 0 auto;position:relative;width:23px;height:120px;">
+                                    <div id="rankEpauletteLeft" style="position:absolute;top:72px;left:0;"></div>
+                                </div>
+                                <!-- 中间卡通头像 -->
+                                <div style="flex:0 0 auto;">
+                                    <img src="ranks/avatar_military.png" style="width:120px;height:120px;display:block;object-fit:contain;" alt="军衔头像">
+                                </div>
+                                <!-- 右侧肩章容器 -->
+                                <div style="flex:0 0 auto;position:relative;width:23px;height:120px;">
+                                    <div id="rankEpauletteRight" style="position:absolute;top:72px;left:0;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-bottom:8px;">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:4px;">
+                                <span>累计阅读 <span id="rankWords">0</span> 字</span>
+                                <span>下一级: <span id="nextRankName">上等兵</span> (<span id="nextRankWords">5,000</span>字)</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div style="flex:1;background:rgba(255,255,255,0.15);border-radius:10px;height:12px;overflow:hidden;">
+                                    <div id="rankProgress" style="height:100%;background:linear-gradient(90deg,#FFD700,#FFA500);border-radius:10px;width:0%;transition:width 0.5s ease;"></div>
+                                </div>
+                                <span style="font-size:11px;color:rgba(255,255,255,0.5);"><span id="rankPercent">0</span>%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div style="margin-bottom:15px;">
                         <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">性别</label>
                         <select id="userGender" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
@@ -1254,47 +1296,6 @@
                         </select>
                     </div>
                     <button onclick="saveProfile()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">保存个人信息</button>
-                </div>
-                
-                <!-- 军衔等级 -->
-                <div id="militaryRankCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
-                    <!-- 标题行 -->
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                        <h3 style="margin:0;color:#FFD700;font-size:15px;">🎖️ 我的军衔</h3>
-                        <div style="display:flex;align-items:baseline;gap:6px;">
-                            <span id="rankName" style="font-size:16px;font-weight:bold;color:#FFD700;">列兵</span>
-                            <span id="rankTitle" style="font-size:12px;color:rgba(255,255,255,0.7);">[阅读新兵]</span>
-                        </div>
-                    </div>
-                    <!-- 中间区域：肩章+头像 -->
-                    <div style="background:white;border-radius:8px;padding:10px 20px;margin-bottom:10px;">
-                        <div style="display:flex;justify-content:center;align-items:flex-start;gap:20px;">
-                            <!-- 左侧肩章容器 -->
-                            <div style="flex:0 0 auto;position:relative;width:23px;height:120px;">
-                                <div id="rankEpauletteLeft" style="position:absolute;top:72px;left:0;"></div>
-                            </div>
-                            <!-- 中间卡通头像 -->
-                            <div style="flex:0 0 auto;">
-                                <img src="ranks/avatar_military.png" style="width:120px;height:120px;display:block;object-fit:contain;" alt="军衔头像">
-                            </div>
-                            <!-- 右侧肩章容器 -->
-                            <div style="flex:0 0 auto;position:relative;width:23px;height:120px;">
-                                <div id="rankEpauletteRight" style="position:absolute;top:72px;left:0;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="margin-bottom:8px;">
-                        <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:4px;">
-                            <span>累计阅读 <span id="rankWords">0</span> 字</span>
-                            <span>下一级: <span id="nextRankName">上等兵</span> (<span id="nextRankWords">5,000</span>字)</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <div style="flex:1;background:rgba(255,255,255,0.15);border-radius:10px;height:12px;overflow:hidden;">
-                                <div id="rankProgress" style="height:100%;background:linear-gradient(90deg,#FFD700,#FFA500);border-radius:10px;width:0%;transition:width 0.5s ease;"></div>
-                            </div>
-                            <span style="font-size:11px;color:rgba(255,255,255,0.5);"><span id="rankPercent">0</span>%</span>
-                        </div>
-                    </div>
                 </div>
                 
                 <!-- 修改密码 -->

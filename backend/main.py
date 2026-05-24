@@ -37,7 +37,7 @@ def serve_ranks(filename):
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '#122'})
+    return jsonify({'status': 'ok', 'version': '#123'})
 
 # 初始化数据库
 init_db()
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     
     print("=" * 50)
     print("悦读小将后端服务启动")
-    print("更新版本: #94")
+    print("更新版本: #123")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
