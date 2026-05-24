@@ -1563,7 +1563,7 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group"><label>订阅价格</label><input type="text" id="editBookPrice" placeholder="￥0.00"></div>
-                            <div class="form-group"></div>
+                            <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:28px;"><input type="checkbox" id="editBookIsPublic" style="width:18px;height:18px;"><label for="editBookIsPublic" style="margin:0;cursor:pointer;">公版书籍（无需登录即可浏览）</label></div>
                         </div>
                         <div style="text-align:right;margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
                             <button class="btn btn-danger" onclick="adminDeleteBook()">删除此书</button>
@@ -5119,6 +5119,7 @@
                     document.getElementById('editBookNationality').value = book.author_nationality || '';
                     document.getElementById('editBookVersion').value = book.version || '';
                     document.getElementById('editBookPrice').value = book.subscription_price || '';
+                    document.getElementById('editBookIsPublic').checked = book.is_public ? true : false;
                     document.getElementById('adminDetailTitle').textContent = '编辑：' + book.title;
                     document.getElementById('adminBookDetail').style.display = 'block';
                     admin.loadChapters(bookId);
@@ -5292,12 +5293,19 @@
                     version: document.getElementById('editBookVersion').value
                 })
             }).then(function(r) { return r.json(); }).then(function() {
-                // Save price separately
+                // Save price and public status separately
                 var price = document.getElementById('editBookPrice').value;
-                fetch(API_BASE + '/admin/books/' + bookId + '/price', {
-                    method: 'PUT', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({subscription_price: price})
-                }).then(function() {
+                var isPublic = document.getElementById('editBookIsPublic').checked ? 1 : 0;
+                Promise.all([
+                    fetch(API_BASE + '/admin/books/' + bookId + '/price', {
+                        method: 'PUT', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({subscription_price: price})
+                    }),
+                    fetch(API_BASE + '/admin/books/' + bookId + '/public', {
+                        method: 'PUT', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({is_public: isPublic})
+                    })
+                ]).then(function() {
                     alert('保存成功');
                     admin.loadBooks();
                 });
