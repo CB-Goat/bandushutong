@@ -1165,7 +1165,7 @@
                     </div>
                     <div style="margin-bottom:20px;">
                         <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">密码</label>
-                        <input type="password" id="loginPassword" placeholder="请输入密码" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                        <input type="password" id="loginPassword" placeholder="请输入密码" onkeypress="if(event.key==='Enter')doLogin()" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
                     </div>
                     <button onclick="doLogin()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">登录</button>
                     <button onclick="showRegister()" style="width:100%;padding:12px;background:white;color:#2d5016;border:1px solid #2d5016;border-radius:8px;font-size:16px;cursor:pointer;margin-top:10px;">注册新账号</button>
