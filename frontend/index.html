@@ -6505,18 +6505,28 @@
                     loadQuotes();
                 });
             };
-            // 绑定文件选择事件
+            // 绑定文件选择事件 - 上传Word文件到后端解析
             setTimeout(function() {
                 var fileInput = document.getElementById('importWordFile');
                 if (fileInput) {
                     fileInput.onchange = function(e) {
                         var file = e.target.files[0];
                         if (!file) return;
-                        var reader = new FileReader();
-                        reader.onload = function(evt) {
-                            document.getElementById('importWordPreview').value = evt.target.result;
-                        };
-                        reader.readAsText(file);
+                        // 上传文件到后端解析
+                        var formData = new FormData();
+                        formData.append('file', file);
+                        fetch(API_BASE + '/admin/quotes/parse-word', {
+                            method: 'POST',
+                            body: formData
+                        }).then(function(r) { return r.json(); }).then(function(data) {
+                            if (data.text) {
+                                document.getElementById('importWordPreview').value = data.text;
+                            } else if (data.error) {
+                                alert('解析失败：' + data.error);
+                            }
+                        }).catch(function(err) {
+                            alert('上传失败，请重试');
+                        });
                     };
                 }
             }, 100);

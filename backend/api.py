@@ -1340,6 +1340,44 @@ def get_random_quote():
     conn.close()
     return jsonify({'quote': result})
 
+@api_bp.route('/admin/quotes/parse-word', methods=['POST'])
+def admin_parse_word_quotes():
+    """解析Word文档中的名言"""
+    if 'file' not in request.files:
+        return jsonify({'error': '没有上传文件'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': '没有选择文件'}), 400
+    
+    filename = file.filename.lower()
+    text = ''
+    
+    try:
+        if filename.endswith('.txt'):
+            # 文本文件直接读取
+            text = file.read().decode('utf-8')
+        elif filename.endswith('.docx'):
+            # Word文档用python-docx解析
+            try:
+                from docx import Document
+                doc = Document(file.stream)
+                paragraphs = []
+                for para in doc.paragraphs:
+                    if para.text.strip():
+                        paragraphs.append(para.text.strip())
+                text = '\n'.join(paragraphs)
+            except ImportError:
+                return jsonify({'error': '服务器未安装python-docx，无法解析Word文档'}), 500
+        elif filename.endswith('.doc'):
+            # 旧版doc格式，尝试用antiword或其他工具
+            return jsonify({'error': '暂不支持.doc格式，请转换为.docx或.txt后上传'}), 400
+        else:
+            return jsonify({'error': '不支持的文件格式'}), 400
+        
+        return jsonify({'text': text})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @api_bp.route('/admin/books/<int:book_id>/catalog-stats', methods=['GET'])
 def admin_book_catalog_stats(book_id):
     """获取书籍目录结构及统计"""
