@@ -1162,17 +1162,18 @@ def admin_upload_book_icon(book_id):
     # 保存并压缩图片
     import os
     from PIL import Image
-    import io
     
-    icons_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', 'book_icons')
+    # api.py 在 backend/ 下，项目根目录是上一级
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    icons_dir = os.path.join(project_root, 'frontend', 'book_icons')
     os.makedirs(icons_dir, exist_ok=True)
     
     icon_path = f'book_icons/book_{book_id}.png'
-    full_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', icon_path)
+    full_path = os.path.join(project_root, 'frontend', icon_path)
     
     # 打开并压缩图片
     img = Image.open(file.stream)
-    if img.mode in ('RGBA', 'P'):
+    if img.mode not in ('RGBA', 'RGB'):
         img = img.convert('RGBA')
     img_resized = img.resize((64, 64), Image.Resampling.LANCZOS)
     img_resized.save(full_path, 'PNG', optimize=True)
