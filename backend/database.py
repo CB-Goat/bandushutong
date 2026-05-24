@@ -371,6 +371,7 @@ def init_db():
             point_order INTEGER NOT NULL,
             point_type TEXT NOT NULL,
             annotation_id INTEGER,
+            annotation_index INTEGER,
             quote_text TEXT,
             quote_start_char INTEGER,
             quote_end_char INTEGER,
@@ -400,6 +401,22 @@ def init_db():
         pass
     try:
         cursor.execute('ALTER TABLE insert_points ADD COLUMN quote_audio_duration REAL DEFAULT 0')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE insert_points ADD COLUMN annotation_index INTEGER')
+    except:
+        pass
+    
+    # 重建所有 insert_points 以填充 annotation_index
+    try:
+        cursor.execute('SELECT DISTINCT section_id FROM insert_points WHERE annotation_index IS NULL AND point_type = ? AND annotation_id IS NOT NULL', ('annotation',))
+        sections_to_rebuild = [r[0] for r in cursor.fetchall()]
+        for sec_id in sections_to_rebuild:
+            try:
+                create_insert_points(sec_id)
+            except:
+                pass
     except:
         pass
 
@@ -1701,8 +1718,8 @@ def create_insert_points(section_id):
     conn = get_db()
     cursor = conn.cursor()
     
-    # 获取点评
-    cursor.execute('SELECT id, start_char, end_char, original_text, comment, audio_path, audio_duration FROM annotations WHERE section_id = ? ORDER BY start_char', (section_id,))
+    # 获取点评（包含 annotation_index）
+    cursor.execute('SELECT id, annotation_index, start_char, end_char, original_text, comment, audio_path, audio_duration FROM annotations WHERE section_id = ? ORDER BY start_char', (section_id,))
     annotations = [dict(r) for r in cursor.fetchall()]
     
     # 获取小结
@@ -1732,9 +1749,9 @@ def create_insert_points(section_id):
             continue
         
         cursor.execute(
-            '''INSERT INTO insert_points (section_id, segment_id, point_order, point_type, annotation_id, quote_text, quote_start_char, quote_end_char, comment, audio_path, audio_duration)
-               VALUES (?, ?, ?, 'annotation', ?, ?, ?, ?, ?, ?, ?)''',
-            (section_id, target_segment_id, ann['start_char'], ann['id'], ann['original_text'], ann['start_char'], ann['end_char'], ann['comment'], ann.get('audio_path'), ann.get('audio_duration', 0))
+            '''INSERT INTO insert_points (section_id, segment_id, point_order, point_type, annotation_id, annotation_index, quote_text, quote_start_char, quote_end_char, comment, audio_path, audio_duration)
+               VALUES (?, ?, ?, 'annotation', ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (section_id, target_segment_id, ann['start_char'], ann['id'], ann.get('annotation_index'), ann['original_text'], ann['start_char'], ann['end_char'], ann['comment'], ann.get('audio_path'), ann.get('audio_duration', 0))
         )
     
     # 为 summary 创建 insert_point（绑定到最后一个段）
@@ -1856,6 +1873,7 @@ def get_section_playback_plan(section_id):
                     'point_type': ip['point_type'],
                     'segment_id': ip['segment_id'],
                     'annotation_id': ip.get('annotation_id'),
+                    'annotation_index': ip.get('annotation_index'),
                     'quote_text': ip.get('quote_text'),
                     'quote_start_char': ip.get('quote_start_char'),
                     'quote_end_char': ip.get('quote_end_char'),

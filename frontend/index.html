@@ -3423,17 +3423,20 @@
                     // 注意：不在触发时高亮原文，高亮在读引用时通过动画效果显示
                     // 添加点评标签
                     if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
-                        // 从当前节的 annotations 中获取 annotation_index
-                        var annIndex = 1;
-                        var section = state.currentSections[state.currentSectionIndex];
-                        if (section && section.annotations) {
-                            for (var i = 0; i < section.annotations.length; i++) {
-                                if (section.annotations[i].id === seg.annotation_id) {
-                                    annIndex = section.annotations[i].annotation_index || (i + 1);
-                                    break;
+                        // 优先用后端返回的 annotation_index
+                        var annIndex = seg.annotation_index;
+                        if (!annIndex) {
+                            var section = state.currentSections[state.currentSectionIndex];
+                            if (section && section.annotations) {
+                                for (var i = 0; i < section.annotations.length; i++) {
+                                    if (section.annotations[i].id === seg.annotation_id) {
+                                        annIndex = section.annotations[i].annotation_index || (i + 1);
+                                        break;
+                                    }
                                 }
                             }
                         }
+                        if (!annIndex) annIndex = 1;
                         analysisManager.addAnnotationTab({
                             id: seg.annotation_id,
                             annotation_index: annIndex,
@@ -3811,6 +3814,10 @@
                             comment: seg.comment || ''
                         };
                     }
+                    // 确保使用后端返回的 annotation_index
+                    if (annotation && seg.annotation_index) {
+                        annotation.annotation_index = seg.annotation_index;
+                    }
                     // 显示序号标记
                     if (annotation && typeof reader !== 'undefined' && reader._showAnnotationMarker) {
                         console.log('_finishInsertPoint: 显示点评序号', annotation.annotation_index);
@@ -4095,6 +4102,11 @@
                     // 确保显示完整文字
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
+                    }
+                    // 恢复名言赏析内容
+                    var ac = document.getElementById('analysisContent');
+                    if (ac && state._quoteHtml) {
+                        ac.innerHTML = state._quoteHtml;
                     }
                     // 更新 summary tab 的状态为已播放
                     if (typeof analysisManager !== 'undefined') {
