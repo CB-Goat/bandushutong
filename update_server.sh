@@ -10,23 +10,41 @@ echo "=========================================="
 cd /opt/bandushutong
 
 # 拉取最新代码
-echo "[1/4] 拉取最新代码..."
+echo "[1/3] 拉取最新代码..."
 git pull origin main
 if [ $? -ne 0 ]; then
     echo "错误: git pull 失败"
     exit 1
 fi
 
-# 初始化数据库
-echo "[2/4] 初始化数据库..."
-python3 init_db_with_user.py
-
-# 更新军衔数据
-echo "[3/4] 更新军衔数据..."
-python3 update_ranks.py
+# 检查是否需要初始化数据库（仅当表不存在时）
+echo "[2/3] 检查数据库..."
+python3 -c "
+import sqlite3
+import os
+db_path = 'backend/reading_companion.db'
+if not os.path.exists(db_path):
+    print('数据库不存在，需要初始化')
+    exit(1)
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
+cursor.execute(\"SELECT name FROM sqlite_master WHERE type='table' AND name='books'\")
+if not cursor.fetchone():
+    print('表不存在，需要初始化')
+    exit(1)
+conn.close()
+print('数据库已存在，跳过初始化')
+exit(0)
+" 2>/dev/null
+if [ $? -ne 0 ]; then
+    echo "初始化数据库..."
+    python3 init_db_with_user.py 2>&1 | grep -E "(创建|插入|已存在|完成)" || true
+else
+    echo "数据库已就绪"
+fi
 
 # 重启服务
-echo "[4/4] 重启服务..."
+echo "[3/3] 重启服务..."
 fuser -k 8080/tcp 2>/dev/null
 sleep 2
 PORT=8080 nohup python3 backend/main.py > backend.log 2>&1 &
