@@ -35,9 +35,14 @@ def serve_ranks(filename):
     ranks_dir = os.path.join(FRONTEND_DIR, 'ranks')
     return send_from_directory(ranks_dir, filename)
 
+@app.route('/favicon.png')
+def serve_favicon():
+    """提供网站图标"""
+    return send_from_directory(FRONTEND_DIR, 'favicon.png')
+
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '#124'})
+    return jsonify({'status': 'ok', 'version': '#125'})
 
 # 初始化数据库
 init_db()
@@ -63,7 +68,7 @@ if __name__ == '__main__':
     
     print("=" * 50)
     print("悦读小将后端服务启动")
-    print("更新版本: #124")
+    print("更新版本: #125")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
