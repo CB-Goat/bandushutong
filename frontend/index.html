@@ -1784,17 +1784,11 @@
                     // 恢复导航栏标题为书名+作者
                     if (state.currentBook) {
                         var book = state.currentBook;
-                        var navbarIcon = document.getElementById('navbarIcon');
-                        if (book.icon_path) {
-                            navbarIcon.src = book.icon_path;
-                            navbarIcon.style.display = 'block';
-                            navbarIcon.style.width = '28px';
-                            navbarIcon.style.height = '37px';
-                            navbarIcon.style.objectFit = 'fill';
-                        } else {
-                            navbarIcon.style.display = 'none';
-                        }
-                        document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
+                        document.getElementById('navbarIcon').style.display = 'none';
+                        var iconHtml = book.icon_path 
+                            ? '<img src="' + book.icon_path + '" style="width:20px;height:26px;border-radius:3px;object-fit:fill;margin-right:0.5em;vertical-align:middle;">'
+                            : '';
+                        document.getElementById('navbarTitle').innerHTML = iconHtml + '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
                             (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
                     }
                     showPage('catalogPage');
@@ -1836,17 +1830,11 @@
         // ===== 目录页 =====
         function openBookCatalog(bookId, title, iconPath) {
             // 先同步设置标题和图标，避免闪烁
-            var navbarIcon = document.getElementById('navbarIcon');
-            if (iconPath) {
-                navbarIcon.src = iconPath;
-                navbarIcon.style.display = 'block';
-                navbarIcon.style.width = '28px';
-                navbarIcon.style.height = '37px';
-                navbarIcon.style.objectFit = 'fill';
-            } else {
-                navbarIcon.style.display = 'none';
-            }
-            document.getElementById('navbarTitle').textContent = title;
+            document.getElementById('navbarIcon').style.display = 'none';
+            var iconHtml = iconPath 
+                ? '<img src="' + iconPath + '" style="width:20px;height:26px;border-radius:3px;object-fit:fill;margin-right:0.5em;vertical-align:middle;">'
+                : '';
+            document.getElementById('navbarTitle').innerHTML = iconHtml + title;
             showPage('catalogPage');
             showBookCatalog(bookId);
         }
@@ -1866,17 +1854,11 @@
                 console.log('showCatalog: bookData.progress =', JSON.stringify(bookData.progress));
 
                 // 设置导航栏标题和图标
-                var navbarIcon = document.getElementById('navbarIcon');
-                if (book.icon_path) {
-                    navbarIcon.src = book.icon_path;
-                    navbarIcon.style.display = 'block';
-                    navbarIcon.style.width = '28px';
-                    navbarIcon.style.height = '37px';
-                    navbarIcon.style.objectFit = 'fill';
-                } else {
-                    navbarIcon.style.display = 'none';
-                }
-                document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
+                document.getElementById('navbarIcon').style.display = 'none';
+                var iconHtml = book.icon_path 
+                    ? '<img src="' + book.icon_path + '" style="width:20px;height:26px;border-radius:3px;object-fit:fill;margin-right:0.5em;vertical-align:middle;">'
+                    : '';
+                document.getElementById('navbarTitle').innerHTML = iconHtml + '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
                     (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
 
                 // 获取阅读状态和统计
