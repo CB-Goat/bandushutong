@@ -1177,7 +1177,7 @@ def admin_upload_book_icon(book_id):
         img = Image.open(full_path)
         if img.mode not in ('RGBA', 'RGB'):
             img = img.convert('RGBA')
-        img_resized = img.resize((64, 64), Image.Resampling.LANCZOS)
+        img_resized = img.resize((64, 80), Image.Resampling.LANCZOS)
         img_resized.save(full_path, 'PNG', optimize=True)
     except Exception:
         pass  # Pillow 不可用时直接使用原图
