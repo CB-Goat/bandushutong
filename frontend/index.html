@@ -79,7 +79,7 @@
 
         /* 阅读页布局 - 全屏覆盖，有自己的header */
         #readerPage.active { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; z-index: 99; background: #f5f7fa; }
-        #catalogPage.active { height: 100vh; display: flex; flex-direction: column; }
+        #catalogPage.active { height: calc(100vh - 52px); display: flex; flex-direction: column; }
         #catalogPage.active > .catalog-page { flex: 1; overflow-y: auto; }
 
         /* ===== 首页 - 书架 ===== */
@@ -765,7 +765,7 @@
             .section-nav .edit-annotation-btn { padding: 6px 10px; font-size: 12px; }
         }
         /* ===== 管理页面样式 ===== */
-        .admin-page { padding: 15px; overflow-y: auto; max-height: 100vh; width: 100%; box-sizing: border-box; }
+        .admin-page { padding: 15px; overflow-y: auto; max-height: calc(100vh - 52px); width: 100%; box-sizing: border-box; }
         /* 管理页面突破container的600px限制 */
         .container:has(.admin-page.active) {
             max-width: 100% !important;
@@ -3836,10 +3836,20 @@
                 
                 // 注意：不清除引用高亮，保持高亮状态在页面上
                 
+                // 隐藏点评显示区域
+                var annotationDisplay = document.getElementById('annotationDisplay');
+                if (annotationDisplay) {
+                    annotationDisplay.classList.remove('active');
+                }
+                
                 // 恢复名言赏析内容
                 var analysisContent = document.getElementById('analysisContent');
                 if (analysisContent && state._quoteHtml) {
                     analysisContent.innerHTML = state._quoteHtml;
+                }
+                // 切换回名言赏析tab
+                if (typeof analysisManager !== 'undefined') {
+                    analysisManager.showTab('famous');
                 }
                 
                 // 停止并清理点评音频
@@ -4103,7 +4113,9 @@
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
                     }
-                    // 恢复名言赏析内容
+                    // 隐藏点评显示区域并恢复名言赏析内容
+                    var ad = document.getElementById('annotationDisplay');
+                    if (ad) ad.classList.remove('active');
                     var ac = document.getElementById('analysisContent');
                     if (ac && state._quoteHtml) {
                         ac.innerHTML = state._quoteHtml;
