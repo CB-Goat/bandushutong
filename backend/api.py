@@ -1159,24 +1159,28 @@ def admin_upload_book_icon(book_id):
     if file.filename == '':
         return jsonify({'error': '没有选择文件'}), 400
     
-    # 保存并压缩图片
     import os
-    from PIL import Image
     
     # api.py 在 backend/ 下，项目根目录是上一级
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     icons_dir = os.path.join(project_root, 'frontend', 'book_icons')
     os.makedirs(icons_dir, exist_ok=True)
     
+    # 保存原始文件
     icon_path = f'book_icons/book_{book_id}.png'
     full_path = os.path.join(project_root, 'frontend', icon_path)
+    file.save(full_path)
     
-    # 打开并压缩图片
-    img = Image.open(file.stream)
-    if img.mode not in ('RGBA', 'RGB'):
-        img = img.convert('RGBA')
-    img_resized = img.resize((64, 64), Image.Resampling.LANCZOS)
-    img_resized.save(full_path, 'PNG', optimize=True)
+    # 尝试用 Pillow 压缩，失败则忽略
+    try:
+        from PIL import Image
+        img = Image.open(full_path)
+        if img.mode not in ('RGBA', 'RGB'):
+            img = img.convert('RGBA')
+        img_resized = img.resize((64, 64), Image.Resampling.LANCZOS)
+        img_resized.save(full_path, 'PNG', optimize=True)
+    except Exception:
+        pass  # Pillow 不可用时直接使用原图
     
     # 更新数据库
     from backend.database import get_db
