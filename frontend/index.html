@@ -1360,9 +1360,6 @@
         <!-- 公开浏览页（登录前可见） -->
         <div class="page active" id="publicPage">
             <div style="max-width:500px;margin:20px auto;padding:20px;">
-                <div style="text-align:center;margin-bottom:20px;">
-                    <p style="font-size:14px;color:#666;">以下为公版书籍，登录后可阅读全部内容</p>
-                </div>
                 <div class="book-list" id="publicBookList"></div>
                 <div id="publicEmptyState" style="display:none;text-align:center;padding:40px 0;color:#999;">
                     <div style="font-size:48px;margin-bottom:10px;">📖</div>
@@ -1479,6 +1476,18 @@
                 </div>
                 <div style="display:flex;justify-content:flex-end;margin-top:20px;">
                     <button class="btn" onclick="thoughtEditor.closeDetailModal()" style="padding:8px 24px;background:#2d5016;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 登录提示弹窗 -->
+        <div id="loginPromptModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;justify-content:center;align-items:center;" onclick="closeLoginPrompt()">
+            <div style="background:white;border-radius:16px;padding:32px 24px;width:85%;max-width:320px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.15);" onclick="event.stopPropagation()">
+                <div style="font-size:48px;margin-bottom:16px;">😊</div>
+                <div style="font-size:17px;color:#333;margin-bottom:24px;line-height:1.6;">麻烦您请先登录再查看</div>
+                <div style="display:flex;gap:12px;justify-content:center;">
+                    <button onclick="closeLoginPrompt()" style="padding:10px 24px;background:#f5f5f5;color:#666;border:none;border-radius:8px;font-size:15px;cursor:pointer;">取消</button>
+                    <button onclick="goToLogin()" style="padding:10px 24px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;">去登录</button>
                 </div>
             </div>
         </div>
@@ -2010,9 +2019,14 @@
         }
 
         function promptLogin() {
-            if (confirm('登录后即可阅读书籍，是否前往登录？')) {
-                showPage('loginPage');
-            }
+            document.getElementById('loginPromptModal').style.display = 'flex';
+        }
+        function closeLoginPrompt() {
+            document.getElementById('loginPromptModal').style.display = 'none';
+        }
+        function goToLogin() {
+            closeLoginPrompt();
+            showPage('loginPage');
         }
 
         async function loadBooks() {
