@@ -1505,6 +1505,7 @@
             <div class="admin-tabs" style="display:flex;gap:0;margin-bottom:15px;border-bottom:2px solid #eee;">
                 <div class="admin-tab active" onclick="switchAdminTab('userManage')">用户管理</div>
                 <div class="admin-tab" onclick="switchAdminTab('bookManage')">书籍管理</div>
+                <div class="admin-tab" onclick="switchAdminTab('quoteManage')">名言管理</div>
                 <div class="admin-tab" onclick="switchAdminTab('subManage')">订阅管理</div>
                 <div class="admin-tab" onclick="switchAdminTab('commentManage')">评论管理</div>
                 <div class="admin-tab" onclick="switchAdminTab('msgManage')">留言管理</div>
@@ -1609,6 +1610,18 @@
                         <h3>📖 章节目录</h3>
                         <div id="adminCatalogStats"></div>
                     </div>
+                </div>
+            </div>
+            
+            <!-- Tab Content: Quote Management -->
+            <div id="adminTab_quoteManage" class="admin-tab-content" style="display:none;">
+                <div class="admin-card">
+                    <h3>💬 名言管理</h3>
+                    <div style="margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="showAddQuoteModal()">添加名言</button>
+                        <button class="btn" onclick="showImportQuotesModal()">批量导入</button>
+                    </div>
+                    <div id="quoteList" style="max-height:500px;overflow-y:auto;"></div>
                 </div>
             </div>
             
@@ -3068,6 +3081,8 @@
                             
                             // 构建播放队列（直接使用后端返回的 playlist）
                             self._buildPlaylist(data.playlist);
+                            // 加载随机名言
+                            loadRandomQuote(sectionId);
                         } else {
                             self.mode = 'generating';
                             self.audioUrl = null;
@@ -6360,8 +6375,132 @@
             // Load data for the tab
             if (tabName === 'userManage') searchAdminUsers();
             if (tabName === 'bookManage') admin.loadBooks();
+            if (tabName === 'quoteManage') loadQuotes();
             if (tabName === 'subManage') { /* don't auto-load, wait for search */ }
             if (tabName === 'rankManage') loadAdminRanks();
+        }
+
+        // Quote Management
+        function loadQuotes() {
+            fetch(API_BASE + '/admin/quotes').then(function(r) { return r.json(); }).then(function(quotes) {
+                var list = document.getElementById('quoteList');
+                if (quotes.length === 0) {
+                    list.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">暂无名言，点击"添加名言"或"批量导入"</p>';
+                    return;
+                }
+                list.innerHTML = quotes.map(function(q) {
+                    return '<div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px;">' +
+                        '<div style="font-size:15px;line-height:1.6;margin-bottom:8px;">"' + q.content + '"</div>' +
+                        '<div style="font-size:12px;color:#666;">—— ' + (q.author || '佚名') + (q.source ? '《' + q.source + '》' : '') + '</div>' +
+                        '<div style="margin-top:8px;text-align:right;">' +
+                        '<button class="btn btn-sm" onclick="editQuote(' + q.id + ')" style="padding:4px 10px;font-size:12px;">编辑</button> ' +
+                        '<button class="btn btn-sm btn-danger" onclick="deleteQuote(' + q.id + ')" style="padding:4px 10px;font-size:12px;">删除</button>' +
+                        '</div></div>';
+                }).join('');
+            });
+        }
+
+        function showAddQuoteModal() {
+            document.getElementById('editModalTitle').textContent = '添加名言';
+            document.getElementById('editModalContent').innerHTML = 
+                '<div class="form-group"><label>名言内容</label><textarea id="quoteContent" rows="3" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;resize:vertical;"></textarea></div>' +
+                '<div class="form-row"><div class="form-group"><label>作者</label><input type="text" id="quoteAuthor" style="width:100%;"></div>' +
+                '<div class="form-group"><label>出处</label><input type="text" id="quoteSource" style="width:100%;"></div></div>';
+            document.getElementById('editModalSave').onclick = function() {
+                var content = document.getElementById('quoteContent').value.trim();
+                if (!content) { alert('请输入名言内容'); return; }
+                fetch(API_BASE + '/admin/quotes', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        content: content,
+                        author: document.getElementById('quoteAuthor').value.trim(),
+                        source: document.getElementById('quoteSource').value.trim()
+                    })
+                }).then(function(r) { return r.json(); }).then(function() {
+                    closeEditModal();
+                    loadQuotes();
+                });
+            };
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function editQuote(id) {
+            fetch(API_BASE + '/admin/quotes').then(function(r) { return r.json(); }).then(function(quotes) {
+                var q = quotes.find(function(x) { return x.id === id; });
+                if (!q) return;
+                document.getElementById('editModalTitle').textContent = '编辑名言';
+                document.getElementById('editModalContent').innerHTML = 
+                    '<div class="form-group"><label>名言内容</label><textarea id="quoteContent" rows="3" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;resize:vertical;">' + q.content + '</textarea></div>' +
+                    '<div class="form-row"><div class="form-group"><label>作者</label><input type="text" id="quoteAuthor" value="' + (q.author || '') + '" style="width:100%;"></div>' +
+                    '<div class="form-group"><label>出处</label><input type="text" id="quoteSource" value="' + (q.source || '') + '" style="width:100%;"></div></div>';
+                document.getElementById('editModalSave').onclick = function() {
+                    var content = document.getElementById('quoteContent').value.trim();
+                    if (!content) { alert('请输入名言内容'); return; }
+                    fetch(API_BASE + '/admin/quotes/' + id, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            content: content,
+                            author: document.getElementById('quoteAuthor').value.trim(),
+                            source: document.getElementById('quoteSource').value.trim()
+                        })
+                    }).then(function(r) { return r.json(); }).then(function() {
+                        closeEditModal();
+                        loadQuotes();
+                    });
+                };
+                document.getElementById('editModal').classList.add('active');
+            });
+        }
+
+        function deleteQuote(id) {
+            if (!confirm('确定删除这条名言？')) return;
+            fetch(API_BASE + '/admin/quotes/' + id, { method: 'DELETE' }).then(function() { loadQuotes(); });
+        }
+
+        function showImportQuotesModal() {
+            document.getElementById('editModalTitle').textContent = '批量导入名言';
+            document.getElementById('editModalContent').innerHTML = 
+                '<p style="font-size:13px;color:#666;margin-bottom:10px;">每行一条名言，格式：名言内容|作者|出处（作者和出处可选）</p>' +
+                '<textarea id="importQuotesText" rows="10" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;resize:vertical;font-size:13px;" placeholder="示例：&#10;读书破万卷，下笔如有神|杜甫|奉赠韦左丞丈二十二韵&#10;书籍是人类进步的阶梯|高尔基"></textarea>';
+            document.getElementById('editModalSave').onclick = function() {
+                var text = document.getElementById('importQuotesText').value.trim();
+                if (!text) { alert('请输入名言内容'); return; }
+                var lines = text.split('\n').filter(function(l) { return l.trim(); });
+                var quotes = lines.map(function(line) {
+                    var parts = line.split('|');
+                    return { content: parts[0] || '', author: parts[1] || '', source: parts[2] || '' };
+                });
+                fetch(API_BASE + '/admin/quotes/import', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ quotes: quotes })
+                }).then(function(r) { return r.json(); }).then(function(res) {
+                    alert(res.message);
+                    closeEditModal();
+                    loadQuotes();
+                });
+            };
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function loadRandomQuote(sectionId) {
+            if (!state.currentBook || !state.currentUser) return;
+            fetch(API_BASE + '/quote/random?book_id=' + state.currentBook.id + '&section_id=' + sectionId + '&user_id=' + state.currentUser.id)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var content = document.getElementById('analysisContent');
+                    if (data.quote) {
+                        var q = data.quote;
+                        content.innerHTML = '<div style="padding:10px;font-size:14px;line-height:1.8;">' +
+                            '<div style="margin-bottom:8px;">"' + q.content + '"</div>' +
+                            '<div style="text-align:right;color:#888;font-size:12px;">—— ' + (q.author || '佚名') + (q.source ? '《' + q.source + '》' : '') + '</div>' +
+                            '</div>';
+                    } else {
+                        content.innerHTML = '<div style="padding:10px;color:#999;text-align:center;">暂无名言</div>';
+                    }
+                });
         }
 
         // User Management

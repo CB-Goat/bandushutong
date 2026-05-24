@@ -247,6 +247,33 @@ def init_db():
         )
     ''')
 
+    # 名言表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS quotes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content TEXT NOT NULL,
+            author TEXT,
+            source TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # 名言使用记录表（记录某节已用过哪些名言）
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS quote_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            quote_id INTEGER NOT NULL,
+            book_id INTEGER NOT NULL,
+            section_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (quote_id) REFERENCES quotes(id),
+            FOREIGN KEY (book_id) REFERENCES books(id),
+            FOREIGN KEY (section_id) REFERENCES sections(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+
     # 为已有表添加新字段
     try:
         cursor.execute('ALTER TABLE books ADD COLUMN author_nationality TEXT')

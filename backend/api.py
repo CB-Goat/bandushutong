@@ -1200,6 +1200,146 @@ def serve_book_icon(filename):
     icons_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', 'book_icons')
     return send_from_directory(icons_dir, filename)
 
+# ===== 名言管理 API =====
+@api_bp.route('/admin/quotes', methods=['GET'])
+def admin_get_quotes():
+    """获取名言列表"""
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, content, author, source, created_at FROM quotes ORDER BY id DESC')
+    quotes = cursor.fetchall()
+    conn.close()
+    return jsonify([{
+        'id': q[0], 'content': q[1], 'author': q[2], 'source': q[3], 'created_at': q[4]
+    } for q in quotes])
+
+@api_bp.route('/admin/quotes', methods=['POST'])
+def admin_add_quote():
+    """添加名言"""
+    data = request.json
+    content = data.get('content', '').strip()
+    if not content:
+        return jsonify({'error': '名言内容不能为空'}), 400
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO quotes (content, author, source) VALUES (?, ?, ?)',
+                   (content, data.get('author', ''), data.get('source', '')))
+    conn.commit()
+    quote_id = cursor.lastrowid
+    conn.close()
+    return jsonify({'id': quote_id, 'message': '添加成功'})
+
+@api_bp.route('/admin/quotes/<int:quote_id>', methods=['PUT'])
+def admin_update_quote(quote_id):
+    """更新名言"""
+    data = request.json
+    content = data.get('content', '').strip()
+    if not content:
+        return jsonify({'error': '名言内容不能为空'}), 400
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE quotes SET content=?, author=?, source=? WHERE id=?',
+                   (content, data.get('author', ''), data.get('source', ''), quote_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': '更新成功'})
+
+@api_bp.route('/admin/quotes/<int:quote_id>', methods=['DELETE'])
+def admin_delete_quote(quote_id):
+    """删除名言"""
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM quotes WHERE id=?', (quote_id,))
+    cursor.execute('DELETE FROM quote_usage WHERE quote_id=?', (quote_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': '删除成功'})
+
+@api_bp.route('/admin/quotes/import', methods=['POST'])
+def admin_import_quotes():
+    """批量导入名言"""
+    data = request.json
+    quotes = data.get('quotes', [])
+    if not quotes:
+        return jsonify({'error': '没有名言数据'}), 400
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    count = 0
+    for q in quotes:
+        content = q.get('content', '').strip()
+        if content:
+            cursor.execute('INSERT INTO quotes (content, author, source) VALUES (?, ?, ?)',
+                           (content, q.get('author', ''), q.get('source', '')))
+            count += 1
+    conn.commit()
+    conn.close()
+    return jsonify({'message': f'成功导入 {count} 条名言', 'count': count})
+
+@api_bp.route('/quote/random', methods=['GET'])
+def get_random_quote():
+    """获取随机名言（用于阅读页面）"""
+    book_id = request.args.get('book_id', type=int)
+    section_id = request.args.get('section_id', type=int)
+    user_id = request.args.get('user_id', type=int)
+    
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # 获取总数
+    cursor.execute('SELECT COUNT(*) FROM quotes')
+    total = cursor.fetchone()[0]
+    if total == 0:
+        conn.close()
+        return jsonify({'quote': None})
+    
+    # 获取该书该用户已用过的名言ID
+    if book_id and section_id and user_id:
+        cursor.execute('''
+            SELECT quote_id FROM quote_usage 
+            WHERE book_id=? AND user_id=?
+        ''', (book_id, user_id))
+        used_ids = [r[0] for r in cursor.fetchall()]
+    else:
+        used_ids = []
+    
+    # 优先选择未用过的名言
+    if used_ids and len(used_ids) < total:
+        placeholders = ','.join('?' * len(used_ids))
+        cursor.execute(f'''
+            SELECT id, content, author, source FROM quotes 
+            WHERE id NOT IN ({placeholders})
+            ORDER BY RANDOM() LIMIT 1
+        ''', used_ids)
+        quote = cursor.fetchone()
+    else:
+        # 全部用过了，随机选一个
+        cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT 1')
+        quote = cursor.fetchone()
+    
+    if not quote:
+        conn.close()
+        return jsonify({'quote': None})
+    
+    quote_id = quote[0]
+    result = {'id': quote_id, 'content': quote[1], 'author': quote[2], 'source': quote[3]}
+    
+    # 记录使用
+    if book_id and section_id and user_id:
+        cursor.execute('''
+            INSERT INTO quote_usage (quote_id, book_id, section_id, user_id)
+            VALUES (?, ?, ?, ?)
+        ''', (quote_id, book_id, section_id, user_id))
+        conn.commit()
+    
+    conn.close()
+    return jsonify({'quote': result})
+
 @api_bp.route('/admin/books/<int:book_id>/catalog-stats', methods=['GET'])
 def admin_book_catalog_stats(book_id):
     """获取书籍目录结构及统计"""
