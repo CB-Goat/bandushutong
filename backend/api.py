@@ -127,6 +127,26 @@ def init_database():
     init_db()
     return jsonify({'message': '数据库初始化成功'})
 
+@api_bp.route('/public/books', methods=['GET'])
+def list_public_books():
+    """获取公版书籍列表（无需登录）"""
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''SELECT id, title, author, author_nationality, version, total_sections, total_chapters, is_public
+                      FROM books WHERE is_public=1 ORDER BY id DESC''')
+    books = [dict(row) for row in cursor.fetchall()]
+    # 附加总字数和点评总数
+    for book in books:
+        bid = book['id']
+        cursor.execute('SELECT COALESCE(SUM(word_count),0) as total_words FROM sections WHERE book_id=?', (bid,))
+        book['total_words'] = cursor.fetchone()['total_words']
+        cursor.execute('''SELECT COUNT(*) as cnt FROM annotations a 
+                          JOIN sections s ON a.section_id = s.id WHERE s.book_id=?''', (bid,))
+        book['total_annotations'] = cursor.fetchone()['cnt']
+    conn.close()
+    return jsonify({'books': books})
+
 @api_bp.route('/books', methods=['GET'])
 def list_books():
     """获取书籍列表（含统计信息）"""
@@ -1110,6 +1130,22 @@ def admin_update_book_price(book_id):
     price = data.get('price', 0)
     update_book_price(book_id, price)
     return jsonify({'message': '价格更新成功'})
+
+@api_bp.route('/admin/books/<int:book_id>/public', methods=['PUT'])
+def admin_update_book_public(book_id):
+    """设置/取消公版书籍"""
+    book = get_book(book_id)
+    if not book:
+        return jsonify({'error': '书籍不存在'}), 404
+    data = request.json
+    is_public = 1 if data.get('is_public') else 0
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE books SET is_public=? WHERE id=?', (is_public, book_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': '公版设置更新成功', 'is_public': is_public})
 
 @api_bp.route('/admin/books/<int:book_id>/catalog-stats', methods=['GET'])
 def admin_book_catalog_stats(book_id):

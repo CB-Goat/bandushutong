@@ -301,6 +301,10 @@ def init_db():
     except:
         pass
     try:
+        cursor.execute('ALTER TABLE books ADD COLUMN is_public INTEGER DEFAULT 0')
+    except:
+        pass
+    try:
         cursor.execute('ALTER TABLE thoughts ADD COLUMN ai_score INTEGER DEFAULT NULL')
     except:
         pass

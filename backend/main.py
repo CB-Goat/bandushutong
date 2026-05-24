@@ -42,7 +42,7 @@ def serve_favicon():
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '#129'})
+    return jsonify({'status': 'ok', 'version': '#130'})
 
 # 初始化数据库
 init_db()
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     
     print("=" * 50)
     print("悦读小将后端服务启动")
-    print("更新版本: #129")
+    print("更新版本: #130")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
