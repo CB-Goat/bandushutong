@@ -1992,7 +1992,7 @@
                     return;
                 }
                 emptyState.style.display = 'none';
-                container.innerHTML = books.map(function(book) {
+                container.innerHTML = books.map(function(book, index) {
                     var safeTitle = (book.title || '').replace(/[<>"'&]/g, function(c) {
                         return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
                     });
@@ -2004,7 +2004,8 @@
                     var totalWords = book.total_words || 0;
                     var totalAnno = book.total_annotations || 0;
                     var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
-                    return '<div class="book-card" onclick="promptLogin()">' +
+                    return '<div class="book-card" onclick="promptLogin()" style="position:relative;">' +
+                        '<div style="position:absolute;top:8px;left:8px;background:#2d5016;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
                         '<div class="cover">📚</div>' +
                         '<div class="info">' +
                         '<div class="title">' + safeTitle + '</div>' +
@@ -2052,7 +2053,7 @@
                 container.innerHTML = '<div class="empty-state"><div class="icon">📖</div><p>还没有书籍，去管理页上传吧</p></div>';
                 return;
             }
-            container.innerHTML = state.books.map(function(book) {
+            container.innerHTML = state.books.map(function(book, index) {
                 var safeTitle = (book.title || '').replace(/[<>"'&]/g, function(c) {
                     return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
                 });
@@ -2070,7 +2071,8 @@
                 if (state.currentUser && state.currentUser.role !== 'admin') {
                     accessLabel = '<span style="color:#FF9800;font-size:11px;">免费</span>';
                 }
-                return '<div class="book-card" onclick="showBookCatalog(' + book.id + ')">' +
+                return '<div class="book-card" onclick="showBookCatalog(' + book.id + ')" style="position:relative;">' +
+                    '<div style="position:absolute;top:8px;left:8px;background:#2d5016;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
                     '<div class="cover">📚</div>' +
                     '<div class="info">' +
                     '<div class="title">' + safeTitle + '</div>' +
