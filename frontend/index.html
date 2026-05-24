@@ -1784,10 +1784,17 @@
                     // 恢复导航栏标题为书名+作者
                     if (state.currentBook) {
                         var book = state.currentBook;
-                        var iconHtml = book.icon_path 
-                            ? '<img src="' + book.icon_path + '" style="width:20px;height:26px;border-radius:3px;object-fit:cover;margin-right:6px;">'
-                            : '';
-                        document.getElementById('navbarTitle').innerHTML = iconHtml + '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
+                        var navbarIcon = document.getElementById('navbarIcon');
+                        if (book.icon_path) {
+                            navbarIcon.src = book.icon_path;
+                            navbarIcon.style.display = 'block';
+                            navbarIcon.style.width = '28px';
+                            navbarIcon.style.height = '37px';
+                            navbarIcon.style.objectFit = 'fill';
+                        } else {
+                            navbarIcon.style.display = 'none';
+                        }
+                        document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
                             (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
                     }
                     showPage('catalogPage');
@@ -1841,11 +1848,18 @@
                 state.currentProgressV2 = bookData.progress_v2 || null;
                 console.log('showCatalog: bookData.progress =', JSON.stringify(bookData.progress));
 
-                // 设置导航栏标题
-                var iconHtml = book.icon_path 
-                    ? '<img src="' + book.icon_path + '" style="width:20px;height:26px;border-radius:3px;object-fit:cover;margin-right:6px;">'
-                    : '';
-                document.getElementById('navbarTitle').innerHTML = iconHtml + '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
+                // 设置导航栏标题和图标
+                var navbarIcon = document.getElementById('navbarIcon');
+                if (book.icon_path) {
+                    navbarIcon.src = book.icon_path;
+                    navbarIcon.style.display = 'block';
+                    navbarIcon.style.width = '28px';
+                    navbarIcon.style.height = '37px';
+                    navbarIcon.style.objectFit = 'fill';
+                } else {
+                    navbarIcon.style.display = 'none';
+                }
+                document.getElementById('navbarTitle').innerHTML = '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
                     (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
 
                 // 获取阅读状态和统计
@@ -6263,6 +6277,13 @@
                 document.getElementById('backBtn').style.display = 'none';
                 // 非阅读页恢复默认标题
                 document.getElementById('navbarTitle').textContent = '悦读小将';
+                // 恢复项目图标
+                var navIcon = document.getElementById('navbarIcon');
+                navIcon.src = 'favicon.png';
+                navIcon.style.display = 'block';
+                navIcon.style.width = '28px';
+                navIcon.style.height = '28px';
+                navIcon.style.objectFit = '';
                 // 书架页显示管理按钮（系统用户）
                 if (pageId === 'homePage' && state.currentUser && state.currentUser.role === 'admin') {
                     document.getElementById('adminBtn').style.display = '';
