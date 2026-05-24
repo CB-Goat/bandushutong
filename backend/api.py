@@ -1308,8 +1308,8 @@ def get_random_quote():
     else:
         used_ids = []
     
-    # 优先选择未用过的名言，取3条
-    count = min(3, total)
+    # 优先选择未用过的名言，取2条
+    count = min(2, total)
     if used_ids and len(used_ids) < total:
         placeholders = ','.join('?' * len(used_ids))
         cursor.execute(f'''
