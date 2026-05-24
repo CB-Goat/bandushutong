@@ -1296,7 +1296,7 @@ def get_random_quote():
     total = cursor.fetchone()[0]
     if total == 0:
         conn.close()
-        return jsonify({'quote': None})
+        return jsonify({'quotes': []})
     
     # 获取该书该用户已用过的名言ID
     if book_id and section_id and user_id:
@@ -1308,37 +1308,33 @@ def get_random_quote():
     else:
         used_ids = []
     
-    # 优先选择未用过的名言
+    # 优先选择未用过的名言，取3条
+    count = min(3, total)
     if used_ids and len(used_ids) < total:
         placeholders = ','.join('?' * len(used_ids))
         cursor.execute(f'''
             SELECT id, content, author, source FROM quotes 
             WHERE id NOT IN ({placeholders})
-            ORDER BY RANDOM() LIMIT 1
-        ''', used_ids)
-        quote = cursor.fetchone()
+            ORDER BY RANDOM() LIMIT ?
+        ''', used_ids + [count])
     else:
-        # 全部用过了，随机选一个
-        cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT 1')
-        quote = cursor.fetchone()
+        cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT ?', (count,))
+    rows = cursor.fetchall()
     
-    if not quote:
-        conn.close()
-        return jsonify({'quote': None})
+    results = []
+    for row in rows:
+        results.append({'id': row[0], 'content': row[1], 'author': row[2], 'source': row[3]})
+        # 记录使用
+        if book_id and section_id and user_id:
+            cursor.execute('''
+                INSERT INTO quote_usage (quote_id, book_id, section_id, user_id)
+                VALUES (?, ?, ?, ?)
+            ''', (row[0], book_id, section_id, user_id))
     
-    quote_id = quote[0]
-    result = {'id': quote_id, 'content': quote[1], 'author': quote[2], 'source': quote[3]}
-    
-    # 记录使用
     if book_id and section_id and user_id:
-        cursor.execute('''
-            INSERT INTO quote_usage (quote_id, book_id, section_id, user_id)
-            VALUES (?, ?, ?, ?)
-        ''', (quote_id, book_id, section_id, user_id))
         conn.commit()
-    
     conn.close()
-    return jsonify({'quote': result})
+    return jsonify({'quotes': results})
 
 @api_bp.route('/admin/quotes/parse-word', methods=['POST'])
 def admin_parse_word_quotes():

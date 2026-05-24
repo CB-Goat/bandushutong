@@ -562,14 +562,14 @@
         }
 
         .chalkboard .analysis-area .annotation-display .annotation-original {
-            font-size: 14px;
+            font-size: 16px;
             color: rgba(240,232,208,0.6);
             margin-bottom: 6px;
             font-style: italic;
         }
 
         .chalkboard .analysis-area .annotation-display .annotation-comment {
-            font-size: 16px;
+            font-size: 18px;
             line-height: 1.8;
             color: #f0e8d0;
         }
@@ -6588,12 +6588,17 @@
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     var content = document.getElementById('analysisContent');
-                    if (data.quote) {
-                        var q = data.quote;
-                        content.innerHTML = '<div style="padding:10px;font-size:14px;line-height:1.8;">' +
-                            '<div style="margin-bottom:8px;">"' + q.content + '"</div>' +
-                            '<div style="text-align:right;color:#888;font-size:12px;">—— ' + (q.author || '佚名') + (q.source ? '《' + q.source + '》' : '') + '</div>' +
-                            '</div>';
+                    var quotes = data.quotes || [];
+                    if (quotes.length > 0) {
+                        var html = '<div style="padding:10px;font-size:14px;line-height:1.8;">';
+                        quotes.forEach(function(q) {
+                            html += '<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.1);">' +
+                                '<div>"' + q.content + '"</div>' +
+                                '<div style="text-align:right;color:#888;font-size:12px;margin-top:4px;">—— ' + (q.author || '佚名') + (q.source ? '《' + q.source + '》' : '') + '</div>' +
+                                '</div>';
+                        });
+                        html += '</div>';
+                        content.innerHTML = html;
                     } else {
                         content.innerHTML = '<div style="padding:10px;color:#999;text-align:center;">暂无名言</div>';
                     }
