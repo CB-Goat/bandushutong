@@ -28,7 +28,9 @@
         .navbar {
             background: linear-gradient(135deg, #2d5016 0%, #1a3a0a 100%);
             color: #e8e0c8;
-            padding: 15px 20px;
+            padding: 10px 20px;
+            height: 52px;
+            box-sizing: border-box;
             position: fixed;
             top: 0;
             left: 0;
@@ -66,7 +68,7 @@
         .container {
             max-width: 600px;
             margin: 0 auto;
-            padding: 0 15px 20px;
+            padding: 52px 15px 20px;
             height: 100vh;
             overflow: hidden;
         }
@@ -75,8 +77,8 @@
         .page { display: none; overflow-y: auto; flex: 1; }
         .page.active { display: flex; flex-direction: column; }
 
-        /* 阅读页布局 */
-        #readerPage.active { height: 100vh; display: flex; flex-direction: column; }
+        /* 阅读页布局 - 全屏覆盖，有自己的header */
+        #readerPage.active { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; z-index: 99; background: #f5f7fa; }
         #catalogPage.active { height: 100vh; display: flex; flex-direction: column; }
         #catalogPage.active > .catalog-page { flex: 1; overflow-y: auto; }
 
@@ -756,7 +758,7 @@
 
         /* 响应式 - 手机端优化 */
         @media (max-width: 480px) {
-            .container { padding: 0; }
+            .container { padding: 52px 0 0; }
             .section-nav { gap: 8px; }
             .section-nav button { padding: 6px 10px; font-size: 13px; }
             .section-nav .progress-area { max-width: 140px; }
@@ -6272,6 +6274,8 @@
 
             // 阅读页面：隐藏管理按钮和用户按钮，设置标题
             if (pageId === 'readerPage') {
+                // 阅读页隐藏整个导航栏（阅读页有自己的reader-header）
+                document.querySelector('.navbar').style.display = 'none';
                 // 阅读页隐藏管理按钮和用户按钮
                 document.getElementById('adminBtn').style.display = 'none';
                 document.getElementById('userBtn').style.display = 'none';
@@ -6288,6 +6292,8 @@
                 }
                 // 标题已在 openBook 中设置
             } else if (pageId === 'catalogPage') {
+                // 恢复导航栏显示
+                document.querySelector('.navbar').style.display = '';
                 // 目录页显示返回按钮，隐藏管理按钮和用户按钮
                 document.getElementById('backBtn').style.display = 'block';
                 document.getElementById('adminBtn').style.display = 'none';
@@ -6297,6 +6303,8 @@
             } else {
                 // 其他页面隐藏返回按钮
                 document.getElementById('backBtn').style.display = 'none';
+                // 恢复导航栏显示
+                document.querySelector('.navbar').style.display = '';
                 // 非阅读页恢复默认标题
                 document.getElementById('navbarTitle').textContent = '悦读小将';
                 // 恢复项目图标
