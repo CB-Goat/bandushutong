@@ -5214,6 +5214,9 @@
                 document.getElementById('editBookVersion').value = '';
                 document.getElementById('editBookPrice').value = '';
                 document.getElementById('editBookIsPublic').checked = false;
+                // 关键：清空文件输入框，避免误传上次编辑书籍的图标
+                var iconFile = document.getElementById('editBookIconFile');
+                if (iconFile) iconFile.value = '';
                 var iconPreview = document.getElementById('editBookIconPreview');
                 var iconPlaceholder = document.getElementById('editBookIconPlaceholder');
                 iconPreview.style.display = 'none';
