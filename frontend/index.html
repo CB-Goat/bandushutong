@@ -47,6 +47,9 @@
             font-weight: 600;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
             letter-spacing: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .navbar .back-btn {
@@ -1139,12 +1142,12 @@
 <body>
     <!-- 导航栏 -->
     <nav class="navbar" style="display:flex;justify-content:space-between;align-items:center;position:relative;">
-        <div style="display:flex;align-items:center;min-width:80px;">
-            <button class="back-btn" id="backBtn" style="display:none">&larr; 返回</button>
+        <div style="display:flex;align-items:center;">
+            <button class="back-btn" id="backBtn" style="display:none">返回</button>
             <img id="navbarIcon" src="favicon.png" style="width:28px;height:28px;border-radius:4px;margin-left:10px;">
         </div>
-        <h1 id="navbarTitle" style="flex:1;text-align:center;margin:0;">悦读小将</h1>
-        <div style="display:flex;gap:8px;align-items:center;min-width:80px;">
+        <h1 id="navbarTitle" style="flex:1;text-align:center;margin:0;padding:0 10px;">悦读小将</h1>
+        <div style="display:flex;gap:8px;align-items:center;">
             <button class="navbar-btn" id="adminBtn" onclick="showPage('adminPage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">⚙️ 管理</button>
             <button class="navbar-btn" id="userBtn" onclick="showUserPage()" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">👤 用户</button>
             <button class="navbar-btn" id="homeBtn" onclick="showPage('homePage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">🏠 返回书架</button>
