@@ -1404,6 +1404,7 @@
                 </div>
             </div>
             <div class="chalkboard" id="chalkboard">
+                <div class="bookmark-icon" id="bookmarkIcon" style="display:none;position:absolute;left:-25px;top:0;width:20px;height:30px;background:#FFD700;clip-path:polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%);z-index:10;box-shadow:2px 2px 4px rgba(0,0,0,0.3);"></div>
                 <div class="chalk-text" id="chalkText">
                     <div class="wait-hint">点击 &#9654; 开始朗读</div>
                 </div>
@@ -2637,6 +2638,12 @@
                     console.log('saveProgress: 无section，跳过');
                     return;
                 }
+                // 已读节不记录断点
+                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                if (sectionStatus === 'read') {
+                    console.log('saveProgress: 已读节，不记录断点');
+                    return;
+                }
                 var pos = position !== undefined ? position : this._currentPosition || 0;
                 
                 // 获取当前段的段内文字位置和音频位置
@@ -2814,6 +2821,9 @@
                         document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
                         console.log('恢复阅读位置:', savedPosition, '/', self._totalChars);
                         
+                        // 显示书签图标在断点位置
+                        self._showBookmarkAt(savedPosition);
+                        
                         // 功能3：断点恢复时显示已播放的点评标记
                         // 恢复已触发的点评显示（根据savedPosition判断）
                         var section = state.currentSections[state.currentSectionIndex];
@@ -2855,6 +2865,37 @@
                         
                         // 不在这里设置 audio.currentTime，由 play() 中的断点恢复处理
                     }, 100);
+                }
+            },
+
+            // 显示书签图标在指定字符位置
+            _showBookmarkAt: function(charIndex) {
+                var bookmark = document.getElementById('bookmarkIcon');
+                if (!bookmark || charIndex <= 0 || charIndex >= this._totalChars) {
+                    this._hideBookmark();
+                    return;
+                }
+                // 找到对应字符元素
+                var charEl = this._allChars[charIndex - 1];
+                if (!charEl) {
+                    this._hideBookmark();
+                    return;
+                }
+                // 计算位置
+                var container = document.getElementById('chalkboard');
+                var charRect = charEl.getBoundingClientRect();
+                var containerRect = container.getBoundingClientRect();
+                var top = charRect.top - containerRect.top + container.scrollTop;
+                bookmark.style.top = top + 'px';
+                bookmark.style.display = 'block';
+                console.log('显示书签在位置:', charIndex, 'top:', top);
+            },
+
+            // 隐藏书签图标
+            _hideBookmark: function() {
+                var bookmark = document.getElementById('bookmarkIcon');
+                if (bookmark) {
+                    bookmark.style.display = 'none';
                 }
             }
         };
@@ -3174,6 +3215,10 @@
                 var section = state.currentSections[state.currentSectionIndex];
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
                 console.log('play: section.id=', section ? section.id : 'N/A', 'sectionStatus=', sectionStatus);
+                // 点击播放后隐藏书签
+                if (typeof reader !== 'undefined' && reader._hideBookmark) {
+                    reader._hideBookmark();
+                }
                 if (sectionStatus === 'read') {
                     reader.hideAll();
                     if (typeof analysisManager !== 'undefined') {
