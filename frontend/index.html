@@ -1404,8 +1404,8 @@
                 </div>
             </div>
             <div class="chalkboard" id="chalkboard">
-                <div class="bookmark-icon" id="bookmarkIcon" style="display:none;position:absolute;left:10px;top:0;width:20px;height:30px;background:#FFD700;clip-path:polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%);z-index:10;box-shadow:2px 2px 4px rgba(0,0,0,0.3);"></div>
-                <div class="chalk-text" id="chalkText" style="padding-left:30px;">
+                <div class="bookmark-icon" id="bookmarkIcon" style="display:none;position:absolute;left:auto;right:10px;top:0;width:16px;height:24px;background:#FFD700;clip-path:polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);z-index:10;box-shadow:1px 1px 3px rgba(0,0,0,0.3);"></div>
+                <div class="chalk-text" id="chalkText">
                     <div class="wait-hint">点击 &#9654; 开始朗读</div>
                 </div>
                 <div class="analysis-area" id="analysisArea">
@@ -2887,14 +2887,18 @@
                 // 获取字符相对于视口的位置
                 var charRect = charEl.getBoundingClientRect();
                 var chalkboardRect = chalkboard.getBoundingClientRect();
-                // 计算书签相对于 chalkboard 的位置（减去 chalkboard 的 padding 和边框）
+                // 计算书签相对于 chalkboard 的 top 位置
                 var top = charRect.top - chalkboardRect.top + chalkboard.scrollTop;
+                // 计算书签相对于 chalkboard 的 left 位置（在字符右侧）
+                var left = charRect.right - chalkboardRect.left + 5; // 字符右边缘 + 5px 间距
                 // 确保书签在可视区域内
                 if (top < 0) top = 0;
-                if (top > chalkboard.clientHeight - 30) top = chalkboard.clientHeight - 30;
+                if (top > chalkboard.clientHeight - 24) top = chalkboard.clientHeight - 24;
                 bookmark.style.top = top + 'px';
+                bookmark.style.left = left + 'px';
+                bookmark.style.right = 'auto';
                 bookmark.style.display = 'block';
-                console.log('显示书签在位置:', charIndex, 'top:', top);
+                console.log('显示书签在位置:', charIndex, 'top:', top, 'left:', left);
             },
 
             // 隐藏书签图标
