@@ -1403,9 +1403,9 @@
                     <button class="add-thought-btn" id="editAnnotationBtn" onclick="thoughtEditor.toggleEditMode()">+思考</button>
                 </div>
             </div>
-            <div class="bookmark-icon" id="bookmarkIcon" style="display:none;position:absolute;left:0;top:0;width:24px;height:36px;background:#FFD700;clip-path:polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%);z-index:10;box-shadow:2px 2px 4px rgba(0,0,0,0.3);"></div>
             <div class="chalkboard" id="chalkboard">
-                <div class="chalk-text" id="chalkText">
+                <div class="bookmark-icon" id="bookmarkIcon" style="display:none;position:absolute;left:10px;top:0;width:20px;height:30px;background:#FFD700;clip-path:polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%);z-index:10;box-shadow:2px 2px 4px rgba(0,0,0,0.3);"></div>
+                <div class="chalk-text" id="chalkText" style="padding-left:30px;">
                     <div class="wait-hint">点击 &#9654; 开始朗读</div>
                 </div>
                 <div class="analysis-area" id="analysisArea">
@@ -2878,17 +2878,20 @@
                     this._hideBookmark();
                     return;
                 }
-                // 书签图标现在在 readerPage 内，需要计算相对于 readerPage 的位置
-                var readerPage = document.getElementById('readerPage');
+                // 书签图标在 chalkboard 内，计算相对于 chalkboard 的位置
                 var chalkboard = document.getElementById('chalkboard');
-                if (!readerPage || !chalkboard) {
+                if (!chalkboard) {
                     this._hideBookmark();
                     return;
                 }
-                var readerRect = readerPage.getBoundingClientRect();
+                // 获取字符相对于视口的位置
                 var charRect = charEl.getBoundingClientRect();
-                // 计算书签相对于 readerPage 的位置
-                var top = charRect.top - readerRect.top + chalkboard.scrollTop;
+                var chalkboardRect = chalkboard.getBoundingClientRect();
+                // 计算书签相对于 chalkboard 的位置（减去 chalkboard 的 padding 和边框）
+                var top = charRect.top - chalkboardRect.top + chalkboard.scrollTop;
+                // 确保书签在可视区域内
+                if (top < 0) top = 0;
+                if (top > chalkboard.clientHeight - 30) top = chalkboard.clientHeight - 30;
                 bookmark.style.top = top + 'px';
                 bookmark.style.display = 'block';
                 console.log('显示书签在位置:', charIndex, 'top:', top);
