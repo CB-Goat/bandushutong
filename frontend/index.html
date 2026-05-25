@@ -2292,6 +2292,10 @@
                     if (section.summary) {
                         analysisManager.addSummaryTab(section.summary);
                     }
+                    // 已读节：启动标签轮巡
+                    if (analysisManager.tabs.length > 1) {
+                        analysisManager.startRotation();
+                    }
                 } else if (sectionStatus === 'reading') {
                     // 在读节：按断点显示（由 player 控制显示进度）
                     analysisManager.init();
