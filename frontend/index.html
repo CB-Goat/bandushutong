@@ -2783,24 +2783,26 @@
                     var progressV2 = state.currentProgressV2;
                     // 使用 progressV2 的 segment_id 和 text_position 计算全局字符位置
                     var savedPosition = 0;
-                    if (progressV2.current_segment_id && progressV2.text_position !== undefined) {
+                    var segId = progressV2.current_segment_id;
+                    var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
+                    if (segId && textPos !== undefined && textPos > 0) {
                         // 找到对应的 text_segment，计算全局位置
                         // 先尝试从 audioSegments 中查找（如果已加载）
                         if (typeof player !== 'undefined' && player.audioSegments) {
                             for (var i = 0; i < player.audioSegments.length; i++) {
                                 var seg = player.audioSegments[i];
-                                if (seg.type === 'text_segment' && seg.id === progressV2.current_segment_id) {
-                                    savedPosition = seg.start_char + progressV2.text_position;
+                                if (seg.type === 'text_segment' && seg.id === segId) {
+                                    savedPosition = seg.start_char + textPos;
                                     break;
                                 }
                             }
                         }
-                        // 如果 audioSegments 未加载，用 text_position 作为近似值
-                        if (savedPosition === 0 && progressV2.text_position > 0) {
-                            savedPosition = progressV2.text_position;
+                        // 如果 audioSegments 未加载，用 textPos 作为近似值
+                        if (savedPosition === 0 && textPos > 0) {
+                            savedPosition = textPos;
                         }
                     }
-                    console.log('restorePosition: savedPosition=', savedPosition, '(segment_id=', progressV2.current_segment_id, ', text_position=', progressV2.text_position, ')');
+                    console.log('restorePosition: savedPosition=', savedPosition, '(segment_id=', segId, ', text_position=', textPos, ')');
                     if (savedPosition <= 0) {
                         console.log('restorePosition: 跳过 - 无有效位置');
                         return;
