@@ -3174,12 +3174,17 @@
                     reader.hideAll();
                     if (typeof analysisManager !== 'undefined') {
                         analysisManager.init();
+                        analysisManager.startRotationAlways();
                     }
                     document.getElementById('annotationDisplay').classList.remove('active');
                     if (this.audio) this.audio.currentTime = 0;
                     this._playlistIndex = -1;
                     this._currentSegment = null;
                     this._hasPlayed = false;
+                    // 重新加载名言
+                    if (section) {
+                        loadRandomQuote(section.id);
+                    }
                 }
                 
                 if (this._isSegmentMode && this.audioSegments.length > 0) {
