@@ -1588,6 +1588,7 @@
                             </div>
                         </div>
                         <div style="text-align:right;margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
+                            <button class="btn" onclick="admin.backToBookList()">返回列表</button>
                             <button class="btn btn-danger" onclick="adminDeleteBook()">删除此书</button>
                             <button class="btn btn-primary" onclick="adminSaveBook()">保存修改</button>
                         </div>
@@ -5494,6 +5495,12 @@
                         admin.editBook(state.adminCurrentBookId);
                     });
                 }
+            },
+
+            backToBookList: function() {
+                document.getElementById('adminBookDetail').style.display = 'none';
+                state.adminCurrentBookId = null;
+                admin.loadBooks();
             }
         };
 
