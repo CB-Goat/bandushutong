@@ -4508,6 +4508,16 @@
                 }
                 document.getElementById('progressFill').style.width = '100%';
                 
+                // 恢复名言赏析内容
+                var analysisContent = document.getElementById('analysisContent');
+                if (analysisContent && state._quoteHtml) {
+                    analysisContent.innerHTML = state._quoteHtml;
+                }
+                // 切换回名言赏析tab
+                if (typeof analysisManager !== 'undefined') {
+                    analysisManager.showTab('famous');
+                }
+                
                 if (section && state.currentBook && state.currentUser) {
                     fetch(API_BASE + '/sections/' + section.id + '/status', {
                         method: 'POST',
