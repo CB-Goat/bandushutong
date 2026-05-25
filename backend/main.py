@@ -46,9 +46,14 @@ def serve_book_icons(filename):
     icons_dir = os.path.join(FRONTEND_DIR, 'book_icons')
     return send_from_directory(icons_dir, filename)
 
+@app.route('/bookmark-icon.png')
+def serve_bookmark_icon():
+    """提供书签图标"""
+    return send_from_directory(FRONTEND_DIR, 'bookmark-icon.png')
+
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '#192'})
+    return jsonify({'status': 'ok', 'version': '#193'})
 
 # 初始化数据库
 init_db()
@@ -74,7 +79,7 @@ if __name__ == '__main__':
     
     print("=" * 50)
     print("悦读小将后端服务启动")
-    print("更新版本: #192")
+    print("更新版本: #193")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
