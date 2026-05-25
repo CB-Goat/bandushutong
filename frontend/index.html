@@ -6770,8 +6770,9 @@
                 .then(function(data) {
                     var content = document.getElementById('analysisContent');
                     var quotes = data.quotes || [];
+                    var html;
                     if (quotes.length > 0) {
-                        var html = '<div class="quote-area" style="padding:10px;font-size:20px;line-height:1.8;">';
+                        html = '<div class="quote-area" style="padding:10px;font-size:20px;line-height:1.8;">';
                         quotes.forEach(function(q) {
                             html += '<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.1);">' +
                                 '<div>"' + q.content + '"</div>' +
@@ -6779,13 +6780,21 @@
                                 '</div>';
                         });
                         html += '</div>';
-                        content.innerHTML = html;
-                        // 保存名言HTML，点评结束后恢复
-                        state._quoteHtml = html;
                     } else {
-                        content.innerHTML = '<div style="padding:10px;color:#999;text-align:center;">暂无名言</div>';
-                        state._quoteHtml = '';
+                        html = '<div style="padding:10px;color:#999;text-align:center;">暂无名言</div>';
                     }
+                    // 更新名言赏析标签的 content
+                    var famousTab = analysisManager.tabs.find(function(t) { return t.id === 'famous'; });
+                    if (famousTab) {
+                        famousTab.content = html;
+                        famousTab.isHtml = true;
+                    }
+                    // 如果当前显示的是名言赏析标签，更新内容
+                    if (analysisManager.currentTab === 'famous') {
+                        content.innerHTML = html;
+                    }
+                    // 保存名言HTML，点评结束后恢复
+                    state._quoteHtml = html;
                 });
         }
 
