@@ -2293,18 +2293,20 @@
                         analysisManager.addSummaryTab(section.summary);
                     }
                     // 已读节：启动标签轮巡
-                    if (analysisManager.tabs.length > 1) {
-                        analysisManager.startRotation();
-                    }
+                    analysisManager.startRotationAlways();
                 } else if (sectionStatus === 'reading') {
                     // 在读节：按断点显示（由 player 控制显示进度）
                     analysisManager.init();
                     // 不预显示点评和小结，由播放进度触发
                     document.getElementById('annotationDisplay').classList.remove('active');
+                    // 在读节：启动标签轮巡
+                    analysisManager.startRotationAlways();
                 } else {
                     // 未读节：不显示点评、小结和编号
                     analysisManager.init();
                     document.getElementById('annotationDisplay').classList.remove('active');
+                    // 未读节：启动标签轮巡
+                    analysisManager.startRotationAlways();
                 }
 
                 // 加载随机名言（无论音频状态如何都加载）
@@ -2972,6 +2974,12 @@
                 }, 10000); // 10秒切换
             },
 
+            // 启动轮巡（无条件启动，不管标签数量）
+            startRotationAlways: function() {
+                if (this.rotationTimer) return;
+                this.startRotationFrom(this.currentTab);
+            },
+
             // 显示指定标签内容
             showTab: function(tabId) {
                 this.currentTab = tabId;
@@ -3009,8 +3017,8 @@
 
             // 点评阅读完，继续原文时恢复轮巡
             resumeRotation: function() {
-                if (this.tabs.length > 1 && !this.isRotating) {
-                    this.startRotationFrom(this.currentTab);
+                if (!this.isRotating) {
+                    this.startRotationAlways();
                 }
             },
 
