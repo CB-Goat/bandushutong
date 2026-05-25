@@ -2785,20 +2785,22 @@
                     var savedPosition = 0;
                     var segId = progressV2.current_segment_id;
                     var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
-                    if (segId && textPos !== undefined && textPos > 0) {
-                        // 找到对应的 text_segment，计算全局位置
-                        // 先尝试从 audioSegments 中查找（如果已加载）
-                        if (typeof player !== 'undefined' && player.audioSegments) {
-                            for (var i = 0; i < player.audioSegments.length; i++) {
-                                var seg = player.audioSegments[i];
-                                if (seg.type === 'text_segment' && seg.id === segId) {
-                                    savedPosition = seg.start_char + textPos;
-                                    break;
+                    if (textPos !== undefined && textPos > 0) {
+                        if (segId) {
+                            // 找到对应的 text_segment，计算全局位置
+                            // 先尝试从 audioSegments 中查找（如果已加载）
+                            if (typeof player !== 'undefined' && player.audioSegments) {
+                                for (var i = 0; i < player.audioSegments.length; i++) {
+                                    var seg = player.audioSegments[i];
+                                    if (seg.type === 'text_segment' && seg.id === segId) {
+                                        savedPosition = seg.start_char + textPos;
+                                        break;
+                                    }
                                 }
                             }
                         }
-                        // 如果 audioSegments 未加载，用 textPos 作为近似值
-                        if (savedPosition === 0 && textPos > 0) {
+                        // 如果 audioSegments 未加载或没有 segment_id，直接用 textPos
+                        if (savedPosition === 0) {
                             savedPosition = textPos;
                         }
                     }
