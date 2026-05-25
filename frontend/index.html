@@ -2503,6 +2503,10 @@
                     if (!ann._triggered && currentCharIndex >= ann.end_char) {
                         console.log('触发点评', ann.id, 'currentCharIndex=' + currentCharIndex, 'end_char=' + ann.end_char);
                         ann._triggered = true;
+                        // 触发子过程时保存断点（断点在插入点位置）
+                        if (typeof reader !== 'undefined' && reader.saveProgress) {
+                            reader.saveProgress(currentCharIndex);
+                        }
                         // 立即暂停音频，防止继续朗读后续文字
                         if (player.audio) player.audio.pause();
                         // 立即设置标志，防止句子结束后继续朗读
@@ -2645,15 +2649,6 @@
                     return;
                 }
                 var pos = position !== undefined ? position : this._currentPosition || 0;
-                
-                // 如果当前位置为0但有之前的断点数据，使用之前的断点位置（避免点评播放中返回导致断点丢失）
-                if (pos === 0 && state.currentProgressV2) {
-                    var oldPos = state.currentProgressV2.text_position !== undefined ? state.currentProgressV2.text_position : state.currentProgressV2.current_position;
-                    if (oldPos && oldPos > 0 && parseInt(state.currentProgressV2.current_section_id) === parseInt(section.id)) {
-                        pos = oldPos;
-                        console.log('saveProgress: 当前位置为0，使用之前的断点位置', pos);
-                    }
-                }
                 
                 // 获取当前段的段内文字位置和音频位置
                 var segmentId = 0;
