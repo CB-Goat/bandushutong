@@ -1403,8 +1403,8 @@
                     <button class="add-thought-btn" id="editAnnotationBtn" onclick="thoughtEditor.toggleEditMode()">+思考</button>
                 </div>
             </div>
+            <div class="bookmark-icon" id="bookmarkIcon" style="display:none;position:absolute;left:0;top:0;width:24px;height:36px;background:#FFD700;clip-path:polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%);z-index:10;box-shadow:2px 2px 4px rgba(0,0,0,0.3);"></div>
             <div class="chalkboard" id="chalkboard">
-                <div class="bookmark-icon" id="bookmarkIcon" style="display:none;position:absolute;left:-25px;top:0;width:20px;height:30px;background:#FFD700;clip-path:polygon(0 0, 100% 0, 100% 75%, 50% 100%, 0 75%);z-index:10;box-shadow:2px 2px 4px rgba(0,0,0,0.3);"></div>
                 <div class="chalk-text" id="chalkText">
                     <div class="wait-hint">点击 &#9654; 开始朗读</div>
                 </div>
@@ -2860,13 +2860,6 @@
                             });
                         }
                         
-                        // 断点恢复时，已播放的小结也应完整显示
-                        if (section && section.summary) {
-                            if (typeof analysisManager !== 'undefined') {
-                                analysisManager.addSummaryTab(section.summary);
-                            }
-                        }
-                        
                         // 不在这里设置 audio.currentTime，由 play() 中的断点恢复处理
                     }, 100);
                 }
@@ -2885,11 +2878,17 @@
                     this._hideBookmark();
                     return;
                 }
-                // 计算位置
-                var container = document.getElementById('chalkboard');
+                // 书签图标现在在 readerPage 内，需要计算相对于 readerPage 的位置
+                var readerPage = document.getElementById('readerPage');
+                var chalkboard = document.getElementById('chalkboard');
+                if (!readerPage || !chalkboard) {
+                    this._hideBookmark();
+                    return;
+                }
+                var readerRect = readerPage.getBoundingClientRect();
                 var charRect = charEl.getBoundingClientRect();
-                var containerRect = container.getBoundingClientRect();
-                var top = charRect.top - containerRect.top + container.scrollTop;
+                // 计算书签相对于 readerPage 的位置
+                var top = charRect.top - readerRect.top + chalkboard.scrollTop;
                 bookmark.style.top = top + 'px';
                 bookmark.style.display = 'block';
                 console.log('显示书签在位置:', charIndex, 'top:', top);
