@@ -1791,7 +1791,6 @@
         }
 
         function setupEventListeners() {
-            document.getElementById('fileInput').addEventListener('change', handleFileUpload);
             document.getElementById('backBtn').addEventListener('click', function() {
                 // 根据当前页面决定返回位置
                 var readerPage = document.getElementById('readerPage');
@@ -1825,10 +1824,6 @@
                     showPage('homePage');
                 }
             });
-            var audio = document.getElementById('audioPlayer');
-            audio.addEventListener('timeupdate', player.onTimeUpdate);
-            audio.addEventListener('ended', player.onEnded);
-            audio.addEventListener('loadedmetadata', player.onLoadedMetadata);
         }
 
         async function handleFileUpload(e) {
