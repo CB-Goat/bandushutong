@@ -2281,12 +2281,13 @@
                 // 准备粉笔字
                 this._prepareChalkText(section.content);
 
-                // 如果该节已读，直接显示全部文字
+                // 如果该节已读或在读（但不是断点所在节），直接显示全部文字
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                if (sectionStatus === 'read') {
+                var isBreakpointSection = state.currentProgressV2 && parseInt(state.currentProgressV2.current_section_id) === parseInt(section.id);
+                if (sectionStatus === 'read' || (sectionStatus === 'reading' && !isBreakpointSection)) {
                     this.revealAll();
                     document.getElementById('progressFill').style.width = '100%';
-                    console.log('节已读，显示全部文字');
+                    console.log('节' + sectionStatus + (isBreakpointSection ? '' : '（非断点节）') + '，显示全部文字');
                     // 已读节：显示所有点评和小结
                     analysisManager.init();
                     if (section.annotations) {
@@ -2317,8 +2318,8 @@
                 // 加载随机名言（无论音频状态如何都加载）
                 loadRandomQuote(section.id);
 
-                // 功能2：已读节加载时显示所有点评标记（序号+高亮）
-                if (sectionStatus === 'read') {
+                // 功能2：已读节或非断点在读节加载时显示所有点评标记（序号+高亮）
+                if (sectionStatus === 'read' || (sectionStatus === 'reading' && !isBreakpointSection)) {
                     // 显示所有点评序号标记
                     this._renderAnnotationMarkers();
                     // 高亮所有点评的引用文字
