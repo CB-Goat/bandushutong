@@ -1898,9 +1898,32 @@ def get_section_playback_plan(section_id):
 # ==================== 新版断点 ====================
 
 def update_progress_v2(user_id, book_id, section_id, segment_id, text_position, audio_position):
-    """新版断点保存：包含 segment_id"""
+    """新版断点保存：包含 segment_id，断点移动时将旧节标记为已读"""
     conn = get_db()
     cursor = conn.cursor()
+    # 查询之前的断点节
+    cursor.execute(
+        'SELECT current_section_id FROM reading_progress WHERE user_id = ? AND book_id = ?',
+        (user_id, book_id)
+    )
+    old_row = cursor.fetchone()
+    if old_row and old_row['current_section_id'] and old_row['current_section_id'] != section_id:
+        # 断点移动到了新节，将旧节标记为已读
+        old_section_id = old_row['current_section_id']
+        cursor.execute(
+            '''INSERT OR REPLACE INTO section_reading_status
+               (user_id, book_id, section_id, status, updated_at)
+               VALUES (?, ?, ?, 'read', ?)''',
+            (user_id, book_id, old_section_id, datetime.now())
+        )
+        # 同时将新节标记为在读
+        cursor.execute(
+            '''INSERT OR REPLACE INTO section_reading_status
+               (user_id, book_id, section_id, status, updated_at)
+               VALUES (?, ?, ?, 'reading', ?)''',
+            (user_id, book_id, section_id, datetime.now())
+        )
+    # 更新断点
     cursor.execute(
         '''INSERT OR REPLACE INTO reading_progress
            (user_id, book_id, current_section_id, current_segment_id, current_position, audio_position, updated_at)
