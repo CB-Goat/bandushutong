@@ -232,13 +232,48 @@ class WordStructureParser:
             return int(match.group(1))
         return None
 
+    def _get_auto_number(self, para):
+        """从 Word XML 中提取段落的自动编号"""
+        try:
+            p_elem = para._element
+            numPr = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}numPr')
+            if numPr is not None:
+                ilvl = numPr.find(f'{{{self.W_NS}}}ilvl')
+                numId = numPr.find(f'{{{self.W_NS}}}numId')
+                if numId is not None:
+                    # 通过 numbering.xml 获取实际编号
+                    num_elem = numId.get(f'{{{self.W_NS}}}val')
+                    if num_elem:
+                        try:
+                            num_obj = self.doc.part.numbering_part.numbering
+                            # 查找对应的 numbering 实例
+                            for key, inst in num_obj.num.items():
+                                if str(key) == num_elem:
+                                    # 获取当前段落的编号文本
+                                    pPr = p_elem.find(f'{{{self.W_NS}}}pPr')
+                                    if pPr is not None:
+                                        numPr_copy = pPr.find(f'{{{self.W_NS}}}numPr')
+                                        if numPr_copy is not None:
+                                            ilvl_elem = numPr_copy.find(f'{{{self.W_NS}}}ilvl')
+                                            level = int(ilvl_elem.get(f'{{{self.W_NS}}}val', '0')) if ilvl_elem is not None else 0
+                                            try:
+                                                return inst.get_num(level)
+                                            except:
+                                                pass
+                        except:
+                            pass
+        except:
+            pass
+        return None
+
     def _build_structure(self, comments, comment_ranges):
         """
         构建章节结构：
         - Heading 2 = 章
         - Heading 3 = 节（阅读单元）
         - 如果只有 Heading 2 没有 Heading 3，则 Heading 2 作为节
-        - 序号从 Word 标题文本中解析，解析失败时使用自增序号
+        - 序号优先从 Word 自动编号获取，其次从标题文本解析，最后自增
+        - 每个新章节开始时重置节序号
         """
         chapters = []
         sections = []
@@ -262,12 +297,23 @@ class WordStructureParser:
                 continue
             
             elif style == 'Heading 2':
-                # 从标题中提取序号，失败则自增
-                extracted_num = self._extract_number(text)
-                if extracted_num:
-                    chapter_number = extracted_num
+                # 新章节开始，重置节序号
+                section_number = 0
+                
+                # 优先从 Word 自动编号获取序号
+                auto_num = self._get_auto_number(para)
+                if auto_num:
+                    try:
+                        chapter_number = int(str(auto_num))
+                    except:
+                        chapter_number += 1
                 else:
-                    chapter_number += 1
+                    # 从标题文本中提取序号，失败则自增
+                    extracted_num = self._extract_number(text)
+                    if extracted_num:
+                        chapter_number = extracted_num
+                    else:
+                        chapter_number += 1
                 
                 if has_h3:
                     # 有 Heading 3 时，Heading 2 是章
@@ -290,12 +336,21 @@ class WordStructureParser:
                     sections.append(section)
             
             elif style == 'Heading 3':
-                # 节标题，从标题中提取序号
-                extracted_num = self._extract_number(text)
-                if extracted_num:
-                    section_number = extracted_num
+                # 节标题
+                # 优先从 Word 自动编号获取序号
+                auto_num = self._get_auto_number(para)
+                if auto_num:
+                    try:
+                        section_number = int(str(auto_num))
+                    except:
+                        section_number += 1
                 else:
-                    section_number += 1
+                    # 从标题文本中提取序号，失败则自增
+                    extracted_num = self._extract_number(text)
+                    if extracted_num:
+                        section_number = extracted_num
+                    else:
+                        section_number += 1
                 
                 section = self._create_section(
                     section_number=section_number,
