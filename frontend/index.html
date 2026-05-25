@@ -3272,7 +3272,17 @@
                             }
                             if (targetSegIdx >= 0) {
                                 this._playlistIndex = targetSegIdx - 1;
-                                this._resumeTimeInSegment = progressV2.audio_position || 0;
+                                // 计算段内音频时间
+                                var resumeTime = progressV2.audio_position || 0;
+                                if (resumeTime === 0 && progressV2.current_position > 0) {
+                                    // 从 charTimeline 查找对应时间的音频时间
+                                    var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
+                                    if (this.charTimeline && this.charTimeline.length > textPos) {
+                                        resumeTime = this.charTimeline[textPos];
+                                        console.log('断点恢复: 从 charTimeline 计算音频时间', textPos, '->', resumeTime, '秒');
+                                    }
+                                }
+                                this._resumeTimeInSegment = resumeTime;
                                 console.log('断点恢复: 跳到段', targetSegIdx, 'segment_id=', progressV2.current_segment_id, '段内时间', this._resumeTimeInSegment, '秒');
                             }
                         }
