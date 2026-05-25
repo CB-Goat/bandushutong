@@ -9,6 +9,7 @@ Word 结构优先解析器
 """
 from docx import Document
 from lxml import etree
+import re
 
 
 class WordStructureParser:
@@ -215,12 +216,29 @@ class WordStructureParser:
         
         return comment_ranges
     
+    def _extract_number(self, text):
+        """从标题文本中提取序号，如 '第一章' -> 1, '1. 标题' -> 1, '第3节' -> 3"""
+        # 匹配 "第X章"、"第X节"、"第X回" 等中文序号
+        match = re.search(r'第\s*(\d+)\s*[章节回]', text)
+        if match:
+            return int(match.group(1))
+        # 匹配 "1."、"1、"、"1 " 开头的数字序号
+        match = re.match(r'^\s*(\d+)\s*[.．、\s]', text)
+        if match:
+            return int(match.group(1))
+        # 匹配纯数字开头
+        match = re.match(r'^\s*(\d+)\s*', text)
+        if match:
+            return int(match.group(1))
+        return None
+
     def _build_structure(self, comments, comment_ranges):
         """
         构建章节结构：
         - Heading 2 = 章
         - Heading 3 = 节（阅读单元）
         - 如果只有 Heading 2 没有 Heading 3，则 Heading 2 作为节
+        - 序号从 Word 标题文本中解析，解析失败时使用自增序号
         """
         chapters = []
         sections = []
@@ -244,9 +262,15 @@ class WordStructureParser:
                 continue
             
             elif style == 'Heading 2':
+                # 从标题中提取序号，失败则自增
+                extracted_num = self._extract_number(text)
+                if extracted_num:
+                    chapter_number = extracted_num
+                else:
+                    chapter_number += 1
+                
                 if has_h3:
                     # 有 Heading 3 时，Heading 2 是章
-                    chapter_number += 1
                     current_chapter_title = text
                     chapters.append({
                         'chapter_number': chapter_number,
@@ -255,9 +279,8 @@ class WordStructureParser:
                     print(f"[Parser] 章 {chapter_number}: {text}")
                 else:
                     # 没有 Heading 3 时，Heading 2 是节
-                    section_number += 1
                     section = self._create_section(
-                        section_number=section_number,
+                        section_number=chapter_number,
                         chapter_number=None,
                         title=text,
                         para_idx=para_idx,
@@ -267,8 +290,13 @@ class WordStructureParser:
                     sections.append(section)
             
             elif style == 'Heading 3':
-                # 节标题
-                section_number += 1
+                # 节标题，从标题中提取序号
+                extracted_num = self._extract_number(text)
+                if extracted_num:
+                    section_number = extracted_num
+                else:
+                    section_number += 1
+                
                 section = self._create_section(
                     section_number=section_number,
                     chapter_number=chapter_number if has_h3 else None,
