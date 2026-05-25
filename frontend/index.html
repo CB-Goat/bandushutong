@@ -3250,13 +3250,24 @@
                     if (this._playlistIndex < 0) {
                         // 检查是否有断点恢复位置（新格式）
                         var progressV2 = state.currentProgressV2;
-                        if (progressV2 && progressV2.current_segment_id && progressV2.current_section_id === section.id) {
-                            // 根据 segment_id 找到对应的播放队列索引
+                        if (progressV2 && progressV2.current_section_id === section.id) {
                             var targetSegIdx = -1;
-                            for (var i = 0; i < this.audioSegments.length; i++) {
-                                if (this.audioSegments[i].type === 'text_segment' && this.audioSegments[i].id === progressV2.current_segment_id) {
-                                    targetSegIdx = i;
-                                    break;
+                            if (progressV2.current_segment_id) {
+                                // 根据 segment_id 找到对应的播放队列索引
+                                for (var i = 0; i < this.audioSegments.length; i++) {
+                                    if (this.audioSegments[i].type === 'text_segment' && this.audioSegments[i].id === progressV2.current_segment_id) {
+                                        targetSegIdx = i;
+                                        break;
+                                    }
+                                }
+                            } else if (progressV2.current_position > 0) {
+                                // 没有 segment_id，根据 current_position 找到对应的段
+                                for (var i = 0; i < this.audioSegments.length; i++) {
+                                    var seg = this.audioSegments[i];
+                                    if (seg.type === 'text_segment' && seg.start_char <= progressV2.current_position && seg.end_char > progressV2.current_position) {
+                                        targetSegIdx = i;
+                                        break;
+                                    }
                                 }
                             }
                             if (targetSegIdx >= 0) {
