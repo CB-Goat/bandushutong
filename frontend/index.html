@@ -2646,6 +2646,15 @@
                 }
                 var pos = position !== undefined ? position : this._currentPosition || 0;
                 
+                // 如果当前位置为0但有之前的断点数据，使用之前的断点位置（避免点评播放中返回导致断点丢失）
+                if (pos === 0 && state.currentProgressV2) {
+                    var oldPos = state.currentProgressV2.text_position !== undefined ? state.currentProgressV2.text_position : state.currentProgressV2.current_position;
+                    if (oldPos && oldPos > 0 && parseInt(state.currentProgressV2.current_section_id) === parseInt(section.id)) {
+                        pos = oldPos;
+                        console.log('saveProgress: 当前位置为0，使用之前的断点位置', pos);
+                    }
+                }
+                
                 // 获取当前段的段内文字位置和音频位置
                 var segmentId = 0;
                 var textPosition = 0;
@@ -2654,6 +2663,10 @@
                     segmentId = player._currentSegment.id;
                     textPosition = pos - player._currentSegment.start_char;
                     audioPosition = player.currentTime || 0;
+                } else {
+                    // 非文本段（点评/小结播放中），使用全局位置作为 text_position
+                    textPosition = pos;
+                    segmentId = 0;
                 }
                 
                 console.log('saveProgress: segment_id=' + segmentId + ', textPosition=' + textPosition + ', audioPosition=' + audioPosition);
