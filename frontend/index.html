@@ -1730,6 +1730,22 @@
             return String(num);
         }
 
+        // 判断标题是否已包含序号（如"第一篇"、"1. "等）
+        function hasNumberPrefix(title) {
+            if (!title) return false;
+            // 匹配 "第X章/篇/节/回"、"X."、"X、"、纯数字开头
+            return /^\s*(第\s*\d+\s*[章节篇回]|\d+\s*[.．、]|\d+\s+)/.test(title);
+        }
+
+        // 格式化章节标题显示
+        function formatChapterTitle(number, title, type) {
+            if (hasNumberPrefix(title)) {
+                return title;  // 标题已包含序号，直接显示
+            }
+            var prefix = type === 'chapter' ? '第' + toChineseNumber(number) + '章 ' : '第' + number + '节 ';
+            return prefix + (title || '');
+        }
+
         const state = {
             currentUser: null,  // 当前登录用户
             books: [],
@@ -1919,7 +1935,7 @@
                         var div = document.createElement('div');
                         div.className = 'catalog-section';
                         div.innerHTML = '<span class="sec-status ' + status + '"></span>' +
-                            '<span class="sec-title">第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                            '<span class="sec-title">' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
                             '<span class="sec-info">' +
                             '<span>' + (sec.word_count || 0) + '字</span>' +
                             '<span>点评' + (annoMap[sec.id] || 0) + '</span>' +
@@ -1941,7 +1957,7 @@
 
                         var header = document.createElement('div');
                         header.className = 'catalog-chapter-header';
-                        header.innerHTML = '<span class="ch-label">第' + toChineseNumber(ch.chapter_number) + '章 ' + (ch.title || '') + '</span>' +
+                        header.innerHTML = '<span class="ch-label">' + formatChapterTitle(ch.chapter_number, ch.title, 'chapter') + '</span>' +
                             '<span class="ch-stats">' +
                             '<span>' + chSections.length + '节</span>' +
                             '<span>已读' + chReadCount + '节</span>' +
@@ -1956,7 +1972,7 @@
                             var secDiv = document.createElement('div');
                             secDiv.className = 'catalog-section';
                             secDiv.innerHTML = '<span class="sec-status ' + status + '"></span>' +
-                                '<span class="sec-title">第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                '<span class="sec-title">' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
                                 '<span class="sec-info">' +
                                 '<span>' + (sec.word_count || 0) + '字</span>' +
                                 '<span>点评' + (annoMap[sec.id] || 0) + '</span>' +
@@ -2177,13 +2193,13 @@
                 }
                 state.currentSectionIndex = 0;
 
-                // 设置导航栏标题：如果有章节则显示"第X章 章名"（中文数字），否则显示书名+作者
+                // 设置导航栏标题：如果有章节则显示章节标题，否则显示书名+作者
                 var bookTitle;
                 if (data.book.total_chapters > 0 && state.currentSections.length > 0) {
-                    // 有章节：显示"第X章 章名"（中文数字）
+                    // 有章节：显示章节标题
                     var firstSection = state.currentSections[0];
                     if (firstSection.chapter_number && firstSection.chapter_title) {
-                        bookTitle = '第' + toChineseNumber(firstSection.chapter_number) + '章 ' + firstSection.chapter_title;
+                        bookTitle = formatChapterTitle(firstSection.chapter_number, firstSection.chapter_title, 'chapter');
                     } else {
                         bookTitle = firstSection.chapter_title || data.book.title;
                     }
@@ -2224,13 +2240,11 @@
 
                 // 显示节标题：第X节 节名
                 document.getElementById('readerSectionTitle').textContent =
-                    '第' + (state.currentSectionIndex + 1) + '节 ' + (section.title || '');
+                    formatChapterTitle(section.section_number, section.title, 'section');
                 
-                // 如果有章节，更新导航栏标题为"第X章 章名"（中文数字）
+                // 如果有章节，更新导航栏标题为章节标题
                 if (state.currentBook && state.currentBook.total_chapters > 0 && section.chapter_title) {
-                    var chapterTitle = section.chapter_number ? 
-                        '第' + toChineseNumber(section.chapter_number) + '章 ' + section.chapter_title : 
-                        section.chapter_title;
+                    var chapterTitle = formatChapterTitle(section.chapter_number, section.chapter_title, 'chapter');
                     document.getElementById('navbarTitle').innerHTML = chapterTitle;
                 }
 
@@ -5341,7 +5355,7 @@
                             var div = document.createElement('div');
                             div.className = 'chapter-item';
                             div.innerHTML = '<div class="ch-info">' +
-                                '<div class="ch-title">第' + toChineseNumber(ch.chapter_number) + '章 ' + (ch.title || '') + '</div>' +
+                                '<div class="ch-title">' + formatChapterTitle(ch.chapter_number, ch.title, 'chapter') + '</div>' +
                                 '<div class="ch-meta">' + (ch.section_count || 0) + '节 | ' + (ch.total_words || 0) + '字</div>' +
                                 '</div>' +
                                 '<div style="display:flex;gap:4px;">' +
@@ -5380,7 +5394,7 @@
                     var div = document.createElement('div');
                     div.className = 'section-item';
                     div.innerHTML = '<div class="sec-info">' +
-                        '<div class="sec-title">第' + sec.section_number + '节 ' + (sec.title || '') + '</div>' +
+                        '<div class="sec-title">' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</div>' +
                         '<div class="sec-meta">' + (sec.word_count || len(sec.content || '')) + '字</div>' +
                         '</div>' +
                         '<div style="display:flex;gap:4px;">' +
@@ -5612,7 +5626,7 @@
                                     var div = document.createElement('div');
                                     div.className = 'section-browse-item';
                                     div.innerHTML = '<span class="status-tag ' + statusClass + '">' + statusLabel + '</span>' +
-                                        '<span class="sb-title">第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                        '<span class="sb-title">' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
                                         '<span class="sb-words">' + (sec.word_count || 0) + '字</span>';
                                     div.onclick = function() { browse.openSection(bookId, sec.id, sec.section_number); };
                                     list.appendChild(div);
@@ -5624,7 +5638,7 @@
                         data.chapters.forEach(function(ch) {
                             var chDiv = document.createElement('div');
                             chDiv.className = 'chapter-browse-item';
-                            chDiv.innerHTML = '<div class="cb-header"><div><div class="cb-title">第' + toChineseNumber(ch.chapter_number) + '章 ' + (ch.title || '') + '</div>' +
+                            chDiv.innerHTML = '<div class="cb-header"><div><div class="cb-title">' + formatChapterTitle(ch.chapter_number, ch.title, 'chapter') + '</div>' +
                                 '<div class="cb-meta">' + (ch.section_count || 0) + '节 | ' + (ch.total_words || 0) + '字</div></div></div>';
                             list.appendChild(chDiv);
                             
@@ -5640,7 +5654,7 @@
                                         var secDiv = document.createElement('div');
                                         secDiv.className = 'section-browse-item';
                                         secDiv.innerHTML = '<span class="status-tag ' + statusClass + '">' + statusLabel + '</span>' +
-                                            '<span class="sb-title">第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                            '<span class="sb-title">' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
                                             '<span class="sb-words">' + (sec.word_count || 0) + '字</span>';
                                         secDiv.onclick = function() { browse.openSection(bookId, sec.id, sec.section_number); };
                                         chDiv.appendChild(secDiv);
@@ -6909,7 +6923,7 @@
                     data.chapters.forEach(function(ch) {
                         html += '<div class="catalog-chapter">' +
                             '<div class="catalog-chapter-header">' +
-                            '<span onclick="this.parentElement.querySelector(\'.ch-sections\').style.display=this.parentElement.querySelector(\'.ch-sections\').style.display===\'none\'?\'block\':\'none\'" style="cursor:pointer;">第' + toChineseNumber(ch.chapter_number) + '章 ' + (ch.title || '') + '</span>' +
+                            '<span onclick="this.parentElement.querySelector(\'.ch-sections\').style.display=this.parentElement.querySelector(\'.ch-sections\').style.display===\'none\'?\'block\':\'none\'" style="cursor:pointer;">' + formatChapterTitle(ch.chapter_number, ch.title, 'chapter') + '</span>' +
                             '<span style="display:flex;align-items:center;gap:10px;">' +
                             '<span class="catalog-chapter-stats">' + ch.section_count + '节 | ' + ch.total_words + '字 | ' + ch.total_annotations + '点评</span>' +
                             '<button class="admin-inline-btn primary" onclick="event.stopPropagation();reimportChapter(' + bookId + ',' + ch.id + ',this)">更新</button>' +
@@ -6919,7 +6933,7 @@
                             html += '<div class="ch-sections">';
                             ch.sections.forEach(function(sec) {
                                 html += '<div class="catalog-section-item">' +
-                                    '<span>第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                    '<span>' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
                                     '<span style="display:flex;align-items:center;gap:10px;">' +
                                     '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评</span>' +
                                     '<button class="admin-inline-btn primary" onclick="reimportSection(' + bookId + ',' + sec.id + ',this)">更新</button>' +
@@ -6936,7 +6950,7 @@
                             '<div class="catalog-chapter-header">独立节</div><div>';
                         data.orphan_sections.forEach(function(sec) {
                             html += '<div class="catalog-section-item">' +
-                                '<span>第' + sec.section_number + '节 ' + (sec.title || '') + '</span>' +
+                                '<span>' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
                                 '<span style="display:flex;align-items:center;gap:10px;">' +
                                 '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评</span>' +
                                 '<button class="admin-inline-btn primary" onclick="reimportSection(' + bookId + ',' + sec.id + ',this)">更新</button>' +
