@@ -2742,7 +2742,7 @@
                     return;
                 }
                 // 只对保存断点的那一节恢复位置
-                if (state.currentProgressV2.current_section_id !== section.id) {
+                if (parseInt(state.currentProgressV2.current_section_id) !== parseInt(section.id)) {
                     console.log('restorePosition: 跳过 - 不是断点所在节');
                     return;
                 }
@@ -3162,9 +3162,20 @@
                             self.charTimeline = [];
                             for (var i = 0; i < data.playlist.length; i++) {
                                 if (data.playlist[i].type === 'text_segment' && data.playlist[i].char_timeline) {
-                                    self.charTimeline = self.charTimeline.concat(data.playlist[i].char_timeline);
+                                    var segTimeline = data.playlist[i].char_timeline;
+                                    // 如果 char_timeline 是字符串，解析为 JSON
+                                    if (typeof segTimeline === 'string') {
+                                        try {
+                                            segTimeline = JSON.parse(segTimeline);
+                                        } catch (e) {
+                                            console.log('解析 char_timeline 失败:', e);
+                                            segTimeline = [];
+                                        }
+                                    }
+                                    self.charTimeline = self.charTimeline.concat(segTimeline);
                                 }
                             }
+                            console.log('构建 charTimeline, 长度:', self.charTimeline.length);
                             // 不再设置 audioUrl（分段模式下不需要）
                             self.audioUrl = null;
                             
@@ -3250,7 +3261,7 @@
                     if (this._playlistIndex < 0) {
                         // 检查是否有断点恢复位置（新格式）
                         var progressV2 = state.currentProgressV2;
-                        if (progressV2 && progressV2.current_section_id === section.id) {
+                        if (progressV2 && parseInt(progressV2.current_section_id) === parseInt(section.id)) {
                             var targetSegIdx = -1;
                             if (progressV2.current_segment_id) {
                                 // 根据 segment_id 找到对应的播放队列索引
