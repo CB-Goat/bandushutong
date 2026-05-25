@@ -2950,11 +2950,9 @@
                     tabEl.onclick = function() {
                         // 点击标签切换到该标签，并作为轮巡起点
                         self.showTab(tab.id);
-                        // 如果有多个标签，重新开始轮巡（从当前点击的标签开始）
-                        if (self.tabs.length > 1) {
-                            self.stopRotation();
-                            self.startRotationFrom(tab.id);
-                        }
+                        // 重新开始轮巡（从当前点击的标签开始）
+                        self.stopRotation();
+                        self.startRotationAlways();
                     };
                     tabsContainer.appendChild(tabEl);
                 });
