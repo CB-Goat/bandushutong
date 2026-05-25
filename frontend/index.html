@@ -2286,6 +2286,9 @@
                     document.getElementById('annotationDisplay').classList.remove('active');
                 }
 
+                // 加载随机名言（无论音频状态如何都加载）
+                loadRandomQuote(section.id);
+
                 // 功能2：已读节加载时显示所有点评标记（序号+高亮）
                 if (sectionStatus === 'read') {
                     // 显示所有点评序号标记
