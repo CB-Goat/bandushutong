@@ -4663,6 +4663,10 @@
                 }
                 
                 if (section && state.currentBook && state.currentUser) {
+                    // 立即更新本地状态，避免返回时 saveProgress 覆盖
+                    if (state.catalogStatusMap) {
+                        state.catalogStatusMap[section.id] = 'read';
+                    }
                     fetch(API_BASE + '/sections/' + section.id + '/status', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
