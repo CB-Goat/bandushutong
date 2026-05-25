@@ -6,6 +6,20 @@
 from flask import Blueprint, request, jsonify, send_file
 import os
 import sys
+import threading
+import time
+
+# 导入状态存储 {book_id: {'status': str, 'message': str, 'updated_at': float}}
+_import_status = {}
+_import_lock = threading.Lock()
+
+def _set_import_status(book_id, status, message):
+    with _import_lock:
+        _import_status[book_id] = {'status': status, 'message': message, 'updated_at': time.time()}
+
+def _get_import_status(book_id):
+    with _import_lock:
+        return _import_status.get(book_id)
 
 # 添加父目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -226,6 +240,7 @@ def upload_book():
         
         # 支持传入 book_id，直接导入到指定书籍
         book_id = request.form.get('book_id', type=int)
+        is_update = False
         
         if book_id:
             # 导入到已有书籍
@@ -259,7 +274,6 @@ def upload_book():
             print(f"[UPLOAD] 解析结果: 标题={title}, 作者={author}, 国籍={author_nationality}, 版本={version}")
             
             existing_book = get_book_by_title_author_version(title, author, version)
-            is_update = False
             
             if existing_book:
                 book_id = existing_book['id']
@@ -286,6 +300,9 @@ def upload_book():
                 if author_nationality or version:
                     update_book(book_id, title=title, author=author,
                                author_nationality=author_nationality, version=version)
+        
+        # 设置导入状态
+        _set_import_status(book_id, 'importing', '原文导入开始')
         
         # 保存章节到数据库
         chapter_id_map = {}  # chapter_number -> chapter_id
@@ -347,19 +364,28 @@ def upload_book():
             ch_total_words = sum(len(s.get('content', '')) for s in ch_sections)
             update_chapter_info(ch_id, len(ch_sections), ch_total_words)
 
+        # 原文导入完成
+        _set_import_status(book_id, 'imported', f'原文导入完成{len(chapters)}章{len(sections)}节')
+
         # 预生成所有节的音频（异步，不阻塞返回）
-        try:
-            from backend.baidu_tts import generate_book_audio
-            generate_book_audio(book_id)
-            print(f"[TTS] 已开始为书籍 {book_id} 预生成音频")
-        except Exception as e:
-            print(f"[TTS] 预生成音频失败: {e}")
+        def _generate_audio_async():
+            try:
+                _set_import_status(book_id, 'generating', '音频生成开始')
+                from backend.baidu_tts import generate_book_audio
+                generate_book_audio(book_id)
+                _set_import_status(book_id, 'done', '音频生成完成')
+                print(f"[TTS] 书籍 {book_id} 音频生成完成")
+            except Exception as e:
+                _set_import_status(book_id, 'tts_error', f'音频生成失败: {str(e)}')
+                print(f"[TTS] 书籍 {book_id} 音频生成失败: {e}")
+        
+        import threading
+        t = threading.Thread(target=_generate_audio_async, daemon=True)
+        t.start()
 
         return jsonify({
             'message': '更新成功' if is_update else '上传成功',
             'book_id': book_id,
-            'title': title,
-            'author': author,
             'chapters_count': len(chapters),
             'sections_count': len(sections),
             'is_update': is_update
@@ -1154,6 +1180,14 @@ def admin_create_book():
         version=data.get('version', '')
     )
     return jsonify({'book_id': book_id, 'message': '创建成功'})
+
+@api_bp.route('/admin/books/<int:book_id>/import-status', methods=['GET'])
+def admin_get_import_status(book_id):
+    """查询书籍导入状态"""
+    status = _get_import_status(book_id)
+    if status:
+        return jsonify(status)
+    return jsonify({'status': 'none', 'message': ''})
 
 @api_bp.route('/admin/books/<int:book_id>/price', methods=['PUT'])
 def admin_update_book_price(book_id):
