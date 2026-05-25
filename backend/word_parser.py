@@ -217,9 +217,9 @@ class WordStructureParser:
         return comment_ranges
     
     def _extract_number(self, text):
-        """从标题文本中提取序号，如 '第一章' -> 1, '1. 标题' -> 1, '第3节' -> 3"""
-        # 匹配 "第X章"、"第X节"、"第X回" 等中文序号
-        match = re.search(r'第\s*(\d+)\s*[章节回]', text)
+        """从标题文本中提取序号，如 '第一章' -> 1, '1. 标题' -> 1, '第3节' -> 3, '第一篇' -> 1"""
+        # 匹配 "第X章"、"第X节"、"第X回"、"第X篇" 等中文序号
+        match = re.search(r'第\s*(\d+)\s*[章节回篇]', text)
         if match:
             return int(match.group(1))
         # 匹配 "1."、"1、"、"1 " 开头的数字序号
