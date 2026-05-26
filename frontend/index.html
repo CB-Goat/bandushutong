@@ -2886,8 +2886,8 @@
                 console.log('显示书签在位置:', charIndex, 'top:', top, 'left:', left);
             },
 
-            // 根据书签位置和节状态决定是否显示书签
-            // 逻辑：书签在当前节 AND 节状态不是已读，才显示书签
+            // 根据书签位置决定是否显示书签
+            // 逻辑：书签在当前节就显示，不在当前节就隐藏（与节状态无关）
             _checkAndShowBookmark: function() {
                 var section = state.currentSections[state.currentSectionIndex];
                 if (!section) return;
@@ -2904,34 +2904,7 @@
                     return;
                 }
 
-                // 检查节状态，如果已读则不显示书签
-                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                if (sectionStatus === 'read') {
-                    // 已读节显示全部文字，不显示书签
-                    this._hideBookmark();
-                    return;
-                }
-
-                // 节状态未加载，等待最多2秒
-                if (!sectionStatus) {
-                    var self = this;
-                    var waited = 0;
-                    var checkInterval = setInterval(function() {
-                        waited += 100;
-                        sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                        if (sectionStatus || waited >= 2000) {
-                            clearInterval(checkInterval);
-                            if (sectionStatus === 'read') {
-                                self._hideBookmark();
-                            } else {
-                                self._doShowBookmark();
-                            }
-                        }
-                    }, 100);
-                    return;
-                }
-
-                // 显示书签
+                // 书签在当前节，显示书签
                 this._doShowBookmark();
             },
 
@@ -4799,6 +4772,12 @@
                 }
                 
                 if (section && state.currentBook && state.currentUser) {
+                    // 播放完毕，保存书签到本节内容末尾位置
+                    if (typeof reader !== 'undefined' && reader._totalChars > 0) {
+                        reader.saveProgress(reader._totalChars);
+                        console.log('播放完毕：保存书签到节末尾位置', reader._totalChars);
+                    }
+
                     // 检查节是否已经是已读状态
                     var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
                     if (sectionStatus === 'read') {
@@ -4808,7 +4787,6 @@
                         if (state.catalogStatusMap) {
                             state.catalogStatusMap[section.id] = 'read';
                         }
-                        // 节播放完毕，只标记已读，不保存断点（避免update_progress_v2将状态改回reading）
                         fetch(API_BASE + '/sections/' + section.id + '/status', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
