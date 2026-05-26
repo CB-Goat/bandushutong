@@ -2321,6 +2321,8 @@
                     document.getElementById('annotationDisplay').classList.remove('active');
                     // 在读节：启动标签轮巡
                     analysisManager.startRotationAlways();
+                    // 在读节：恢复断点位置并显示书签
+                    this._restoreBookmarkAndPosition();
                 } else {
                     // 未读节：不显示点评、小结和编号
                     analysisManager.init();
@@ -2356,11 +2358,7 @@
                 // 设置滚动监听
                 this.setupScrollListener();
 
-                // 恢复阅读断点位置
-                this.restorePosition();
-
-                // 不在这里保存进度，避免保存初始位置 0
-                // this.saveProgress();
+                // 书签和断点位置恢复已在上面的 sectionStatus === 'reading' 分支中处理
             },
 
             _prepareChalkText: function(content) {
@@ -2759,140 +2757,88 @@
                 }).catch(function(e) { console.error('标记已读失败:', e); });
             },
 
-            restorePosition: function() {
-                var self = this;
+            // 恢复在读节的书签和断点位置（只在节状态确认为reading时调用）
+            _restoreBookmarkAndPosition: function() {
                 var section = state.currentSections[state.currentSectionIndex];
-                console.log('restorePosition: section.id=', section ? section.id : null);
-                console.log('restorePosition: state.currentProgressV2=', JSON.stringify(state.currentProgressV2));
-                if (!section || !state.currentProgressV2) {
-                    console.log('restorePosition: 跳过 - 无section或无progressV2');
-                    return;
-                }
-                // 只对保存断点的那一节恢复位置
-                var currentSectionId = parseInt(state.currentProgressV2.current_section_id);
-                var sectionId = parseInt(section.id);
-                console.log('restorePosition: current_section_id=', currentSectionId, 'section.id=', sectionId);
-                if (currentSectionId !== sectionId) {
-                    console.log('restorePosition: 跳过 - 不是断点所在节');
-                    return;
-                }
-                
-                // 检查节状态
-                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                console.log('restorePosition: sectionStatus=', sectionStatus, 'catalogStatusMap=', JSON.stringify(state.catalogStatusMap));
-                
-                // 已读节不恢复位置（已读节应该显示全部文字）
-                if (sectionStatus === 'read') {
-                    console.log('restorePosition: 跳过 - 已读节');
-                    return;
-                }
-                
-                // 如果状态未加载，等待最多2秒
-                if (!sectionStatus) {
-                    console.log('restorePosition: 等待状态加载...');
-                    var waited = 0;
-                    var checkInterval = setInterval(function() {
-                        waited += 100;
-                        sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                        if (sectionStatus === 'read' || waited >= 2000) {
-                            clearInterval(checkInterval);
-                            if (sectionStatus === 'read') {
-                                console.log('restorePosition: 等待后确认是已读节，跳过');
-                            } else {
-                                console.log('restorePosition: 等待超时，继续恢复位置');
-                                doRestore();
-                            }
-                        }
-                    }, 100);
-                    return;
-                }
-                
-                doRestore();
-                
-                function doRestore() {
-                    var progressV2 = state.currentProgressV2;
-                    // 使用 progressV2 的 segment_id 和 text_position 计算全局字符位置
-                    var savedPosition = 0;
-                    var segId = progressV2.current_segment_id;
-                    var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
-                    if (textPos !== undefined && textPos > 0) {
-                        if (segId) {
-                            // 找到对应的 text_segment，计算全局位置
-                            // 先尝试从 audioSegments 中查找（如果已加载）
-                            if (typeof player !== 'undefined' && player.audioSegments) {
-                                for (var i = 0; i < player.audioSegments.length; i++) {
-                                    var seg = player.audioSegments[i];
-                                    if (seg.type === 'text_segment' && seg.id === segId) {
-                                        savedPosition = seg.start_char + textPos;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        // 如果 audioSegments 未加载或没有 segment_id，直接用 textPos
-                        if (savedPosition === 0) {
-                            savedPosition = textPos;
-                        }
-                    }
-                    console.log('restorePosition: savedPosition=', savedPosition, '(segment_id=', segId, ', text_position=', textPos, ')');
-                    if (savedPosition <= 0) {
-                        console.log('restorePosition: 跳过 - 无有效位置');
-                        return;
-                    }
-                    
-                    // 恢复文字显示位置
-                    setTimeout(function() {
-                        var container = document.getElementById('chalkboard');
-                        if (!container || self._totalChars <= 0) return;
-                        // 恢复已显示的文字到上次阅读位置
-                        self.revealCharsUpTo(savedPosition);
-                        // 恢复滚动位置
-                        var scrollPercent = savedPosition / self._totalChars;
-                        scrollPercent = Math.min(scrollPercent, 1);
-                        var scrollTarget = scrollPercent * (container.scrollHeight - container.clientHeight);
-                        container.scrollTop = scrollTarget;
-                        self._currentPosition = savedPosition;
-                        document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
-                        console.log('恢复阅读位置:', savedPosition, '/', self._totalChars);
+                if (!section) return;
 
-                        // 显示书签图标在断点位置
-                        self._showBookmarkAt(savedPosition);
-                        
-                        // 功能3：断点恢复时显示已播放的点评标记
-                        // 恢复已触发的点评显示（根据savedPosition判断）
-                        var section = state.currentSections[state.currentSectionIndex];
-                        if (section && section.annotations) {
-                            section.annotations.forEach(function(ann) {
-                                if (savedPosition >= ann.end_char) {
-                                    // 该点评已触发过
-                                    // 显示在赏析区
-                                    if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
-                                        analysisManager.addAnnotationTab(ann);
-                                        // 标记为已播放，完整显示内容（不是逐字动画）
-                                        var tabId = 'annotation_' + ann.id;
-                                        var tab = analysisManager.tabs.find(function(t) { return t.id === tabId; });
-                                        if (tab) {
-                                            tab._played = true;
-                                            tab._commentText = ann.comment;
-                                        }
-                                    }
-                                    // 显示序号标记
-                                    if (typeof reader !== 'undefined' && reader._showAnnotationMarker) {
-                                        reader._showAnnotationMarker(ann);
-                                    }
-                                    // 高亮引用文字
-                                    if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
-                                        reader._highlightAnnotation(ann);
-                                    }
-                                    // 标记为已触发，避免重复播放
-                                    ann._triggered = true;
-                                }
-                            });
-                        }
-                        
-                        // 不在这里设置 audio.currentTime，由 play() 中的断点恢复处理
-                    }, 100);
+                var progressV2 = state.currentProgressV2;
+                if (!progressV2 || parseInt(progressV2.current_section_id) !== parseInt(section.id)) {
+                    console.log('_restoreBookmarkAndPosition: 跳过 - 无断点或断点不在当前节');
+                    return;
                 }
+
+                // 计算断点位置
+                var savedPosition = 0;
+                var segId = progressV2.current_segment_id;
+                var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
+
+                if (textPos !== undefined && textPos > 0) {
+                    if (segId && player.audioSegments) {
+                        // 根据 segment_id 找到对应的段
+                        for (var i = 0; i < player.audioSegments.length; i++) {
+                            var seg = player.audioSegments[i];
+                            if (seg.type === 'text_segment' && seg.id === segId) {
+                                savedPosition = seg.start_char + textPos;
+                                break;
+                            }
+                        }
+                    }
+                    // 如果没有 segment_id 或未找到，直接用 textPos
+                    if (savedPosition === 0) {
+                        savedPosition = textPos;
+                    }
+                }
+
+                console.log('_restoreBookmarkAndPosition: savedPosition=', savedPosition);
+                if (savedPosition <= 0) return;
+
+                // 恢复文字显示位置
+                var self = this;
+                setTimeout(function() {
+                    var container = document.getElementById('chalkboard');
+                    if (!container || self._totalChars <= 0) return;
+
+                    // 恢复已显示的文字到上次阅读位置
+                    self.revealCharsUpTo(savedPosition);
+
+                    // 恢复滚动位置
+                    var scrollPercent = Math.min(savedPosition / self._totalChars, 1);
+                    var scrollTarget = scrollPercent * (container.scrollHeight - container.clientHeight);
+                    container.scrollTop = scrollTarget;
+                    self._currentPosition = savedPosition;
+                    document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
+
+                    // 显示书签
+                    self._showBookmarkAt(savedPosition);
+
+                    // 恢复已触发的点评显示
+                    if (section.annotations) {
+                        section.annotations.forEach(function(ann) {
+                            if (savedPosition >= ann.end_char) {
+                                // 该点评已触发过
+                                if (typeof analysisManager !== 'undefined' && analysisManager.addAnnotationTab) {
+                                    analysisManager.addAnnotationTab(ann);
+                                    var tabId = 'annotation_' + ann.id;
+                                    var tab = analysisManager.tabs.find(function(t) { return t.id === tabId; });
+                                    if (tab) {
+                                        tab._played = true;
+                                        tab._commentText = ann.comment;
+                                    }
+                                }
+                                if (typeof reader !== 'undefined' && reader._showAnnotationMarker) {
+                                    reader._showAnnotationMarker(ann);
+                                }
+                                if (typeof reader !== 'undefined' && reader._highlightAnnotation) {
+                                    reader._highlightAnnotation(ann);
+                                }
+                                ann._triggered = true;
+                            }
+                        });
+                    }
+
+                    console.log('_restoreBookmarkAndPosition: 已恢复位置并显示书签');
+                }, 100);
             },
 
             // 显示书签图标在指定字符位置
