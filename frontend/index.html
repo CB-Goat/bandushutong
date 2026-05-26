@@ -3150,8 +3150,23 @@
             // 点评阅读完，继续原文时恢复轮巡
             resumeRotation: function() {
                 if (!this.isRotating) {
-                    this.startRotationAlways();
+                    // 从当前标签开始轮巡，不立即切换到下一个
+                    this.startRotationFromCurrent();
                 }
+            },
+
+            // 从当前标签开始轮巡，10秒后才切换到下一个
+            startRotationFromCurrent: function() {
+                if (this.rotationTimer) return;
+                this.isRotating = true;
+
+                var self = this;
+                // 先显示当前标签，10秒后才切换到下一个
+                this.rotationTimer = setInterval(function() {
+                    var currentIndex = self.tabs.findIndex(function(t) { return t.id === self.currentTab; });
+                    var nextIndex = (currentIndex + 1) % self.tabs.length;
+                    self.showTab(self.tabs[nextIndex].id);
+                }, 10000); // 10秒切换
             },
 
             // 重置
