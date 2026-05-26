@@ -2712,10 +2712,7 @@
                     var scrollPercent = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
                     self._currentPosition = Math.floor(self._totalChars * scrollPercent);
                     document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
-                    // 已读字数等于总字数时，标记为已读
-                    if (self._currentPosition >= self._totalChars) {
-                        self.markSectionRead();
-                    }
+                    // 已读标记统一由播放完毕时处理（_onAllSegmentsEnd）
                 };
                 container.addEventListener('scroll', this._scrollListener);
                 // 不再定时自动保存，只在退出时保存
@@ -4723,6 +4720,23 @@
                     // 立即更新本地状态，避免返回时 saveProgress 覆盖
                     if (state.catalogStatusMap) {
                         state.catalogStatusMap[section.id] = 'read';
+                    }
+                    // 更新断点到节的结束位置
+                    var endPosition = reader._totalChars || 0;
+                    if (endPosition > 0) {
+                        fetch(API_BASE + '/progress/v2', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                book_id: state.currentBook.id,
+                                section_id: section.id,
+                                segment_id: 0,
+                                text_position: endPosition,
+                                audio_position: 0,
+                                user_id: state.currentUser.id
+                            })
+                        }).catch(function() {});
+                        console.log('节播放完毕，更新断点到结束位置:', endPosition);
                     }
                     fetch(API_BASE + '/sections/' + section.id + '/status', {
                         method: 'POST',
