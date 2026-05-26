@@ -2054,15 +2054,30 @@
         }
 
         function _doOpenBookSection(bookId, sectionId, sectionNumber) {
-            // 设置阅读状态为"在读"（已读节不重置）
-            var currentStatus = (state.catalogStatusMap && state.catalogStatusMap[sectionId]) || '';
-            if (currentStatus !== 'read') {
-                fetch(API_BASE + '/sections/' + sectionId + '/status', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({book_id: bookId, status: 'reading', user_id: state.currentUser.id})
-                });
-            }
+            // 先加载阅读状态，确认不是已读节后再设置为"在读"
+            fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + state.currentUser.id)
+                .then(function(r) { return r.json(); })
+                .then(function(statusData) {
+                    if (statusData.statuses) {
+                        var statusMap = {};
+                        statusData.statuses.forEach(function(s) {
+                            statusMap[s.section_id] = s.status;
+                        });
+                        state.catalogStatusMap = statusMap;
+                        
+                        // 检查当前节状态，不是已读才设置为"在读"
+                        var currentStatus = statusMap[sectionId] || '';
+                        if (currentStatus !== 'read') {
+                            fetch(API_BASE + '/sections/' + sectionId + '/status', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({book_id: bookId, status: 'reading', user_id: state.currentUser.id})
+                            });
+                        }
+                    }
+                })
+                .catch(function() {});
+            
             // 打开阅读器并跳转到指定节
             openBook(bookId);
             setTimeout(function() {
