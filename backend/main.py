@@ -53,12 +53,15 @@ def serve_bookmark_icon():
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '#214'})
+    return jsonify({'status': 'ok', 'version': '#215'})
 
 # 初始化数据库
 init_db()
+import sys
 print('[启动] 调用 cleanup_duplicate_progress...')
+sys.stdout.flush()
 cleanup_duplicate_progress()
+sys.stdout.flush()
 
 if __name__ == '__main__':
     # 确保目录存在
@@ -81,7 +84,7 @@ if __name__ == '__main__':
     
     print("=" * 50)
     print("悦读小将后端服务启动")
-    print("更新版本: #214")
+    print("更新版本: #215")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
