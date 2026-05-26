@@ -7444,10 +7444,30 @@
                     btn.disabled = false;
                     return;
                 }
-                fetch(API_BASE + '/sections/' + sectionId + '/audio-timeline')
+                // 通过 catalog-stats 检查该节音频是否完整
+                fetch(API_BASE + '/admin/books/' + bookId + '/catalog-stats')
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
-                        if (data.audio_path && data.char_timeline && data.char_timeline.length > 0) {
+                        var allDone = true;
+                        var found = false;
+                        function checkSections(sections) {
+                            for (var i = 0; i < sections.length; i++) {
+                                if (sections[i].id === sectionId) {
+                                    found = true;
+                                    if (sections[i].audio_done < sections[i].audio_total) {
+                                        allDone = false;
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        if (data.chapters) {
+                            data.chapters.forEach(function(ch) {
+                                if (ch.sections) checkSections(ch.sections);
+                            });
+                        }
+                        if (data.orphan_sections) checkSections(data.orphan_sections);
+                        if (found && allDone) {
                             clearInterval(timer);
                             btn.textContent = '修复音频';
                             btn.disabled = false;

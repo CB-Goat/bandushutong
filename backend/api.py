@@ -618,46 +618,91 @@ def build_segments(section_id):
 
 @api_bp.route('/sections/<int:section_id>/fix-audio', methods=['POST'])
 def fix_section_audio(section_id):
-    """检查并修复某节缺失的音频文件"""
+    """检查并修复某节缺失的音频文件（只生成缺失的段）"""
     import threading
     from backend.database import get_section, get_annotations_by_section
-    from backend.baidu_tts import generate_segmented_audio
-    from backend.database import update_section_audio_timeline, update_section_audio_segments
+    from backend.baidu_tts import text_to_speech_long
 
     section = get_section(section_id)
     if not section:
         return jsonify({'error': '节不存在'}), 404
 
-    # 检查哪些音频缺失
+    # 收集缺失的段信息
     conn = get_db()
     cursor = conn.cursor()
     # 缺失的 text_segments
-    cursor.execute("SELECT id FROM text_segments WHERE section_id = ? AND (audio_path IS NULL OR audio_path = '')", (section_id,))
-    missing_segs = [row[0] for row in cursor.fetchall()]
+    cursor.execute("SELECT id, start_char, end_char FROM text_segments WHERE section_id = ? AND (audio_path IS NULL OR audio_path = '') ORDER BY start_char", (section_id,))
+    missing_segs = [dict(row) for row in cursor.fetchall()]
     # 缺失的 insert_points
-    cursor.execute("SELECT id FROM insert_points WHERE section_id = ? AND (audio_path IS NULL OR audio_path = '')", (section_id,))
-    missing_ips = [row[0] for row in cursor.fetchall()]
+    cursor.execute("SELECT id, point_type, comment FROM insert_points WHERE section_id = ? AND (audio_path IS NULL OR audio_path = '')", (section_id,))
+    missing_ips = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
     total_missing = len(missing_segs) + len(missing_ips)
     if total_missing == 0:
         return jsonify({'message': '音频完整，无需修复', 'missing': 0})
 
-    # 异步重新生成该节的分段音频
+    # 异步逐个修复缺失的音频
     def do_fix():
+        fixed = 0
+        failed = 0
         try:
-            annotations = get_annotations_by_section(section_id)
-            annotations = sorted(annotations, key=lambda a: a.get('end_char', 0))
-            result = generate_segmented_audio(section['content'], section_id, annotations=annotations, speed=5, person=0)
-            if result:
-                update_section_audio_timeline(section_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
-                if result.get('audio_segments'):
-                    update_section_audio_segments(section_id, result['audio_segments'])
-                print(f'[fix-audio] 节{section_id} 音频修复完成，共{len(result.get("audio_segments", []))}段')
-            else:
-                print(f'[fix-audio] 节{section_id} 音频修复失败')
+            # 修复缺失的 text_segments
+            for seg in missing_segs:
+                try:
+                    text = section['content'][seg['start_char']:seg['end_char']]
+                    if not text.strip():
+                        print(f'[fix-audio] 段{seg["id"]} 文本为空，跳过')
+                        continue
+                    audio_paths = text_to_speech_long(text, section_id=section_id)
+                    if audio_paths and len(audio_paths) > 0:
+                        audio_path = audio_paths[0]
+                        conn = get_db()
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE text_segments SET audio_path = ? WHERE id = ?", (audio_path, seg['id']))
+                        conn.commit()
+                        conn.close()
+                        fixed += 1
+                        print(f'[fix-audio] 段{seg["id"]} 音频修复成功: {audio_path}')
+                    else:
+                        failed += 1
+                        print(f'[fix-audio] 段{seg["id"]} 音频生成失败')
+                except Exception as e:
+                    failed += 1
+                    print(f'[fix-audio] 段{seg["id"]} 修复异常: {e}')
+
+            # 修复缺失的 insert_points（点评/小结）
+            for ip in missing_ips:
+                try:
+                    text = ip.get('comment', '') or ''
+                    if ip.get('point_type') == 'summary':
+                        # 小结需要从 section.summary 获取
+                        from backend.database import get_section
+                        sec = get_section(section_id)
+                        text = sec.get('summary', '') or ''
+                    if not text.strip():
+                        print(f'[fix-audio] 插入点{ip["id"]} 文本为空，跳过')
+                        continue
+                    audio_paths = text_to_speech_long(text, section_id=section_id)
+                    if audio_paths and len(audio_paths) > 0:
+                        audio_path = audio_paths[0]
+                        conn = get_db()
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE insert_points SET audio_path = ? WHERE id = ?", (audio_path, ip['id']))
+                        conn.commit()
+                        conn.close()
+                        fixed += 1
+                        print(f'[fix-audio] 插入点{ip["id"]} 音频修复成功: {audio_path}')
+                    else:
+                        failed += 1
+                        print(f'[fix-audio] 插入点{ip["id"]} 音频生成失败')
+                except Exception as e:
+                    failed += 1
+                    print(f'[fix-audio] 插入点{ip["id"]} 修复异常: {e}')
+
+            print(f'[fix-audio] 节{section_id} 修复完成: 成功{fixed}, 失败{failed}, 共{total_missing}')
         except Exception as e:
-            print(f'[fix-audio] 节{section_id} 音频修复异常: {e}')
+            print(f'[fix-audio] 节{section_id} 修复异常: {e}')
             import traceback
             traceback.print_exc()
 
