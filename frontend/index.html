@@ -3148,12 +3148,24 @@
                     }
                     self._onSegmentEnd();
                 };
-                this.audio.onerror = function() {
-                    console.log('音频播放错误');
-                    self.isPlaying = false;
-                    state.isPlaying = false;
-                    document.getElementById('playBtn').textContent = '\u25B6';
+                this.audio.onerror = function(e) {
+                    console.log('音频播放错误:', e);
+                    // 错误时也触发段结束，避免卡住
+                    self._onSegmentEnd();
                 };
+                // 添加超时保护，避免音频卡住不触发ended
+                this._segmentTimeout = setTimeout(function() {
+                    if (self.isPlaying && self.audio.currentTime > 0) {
+                        // 音频正在播放，检查是否卡住（currentTime不变化）
+                        var lastTime = self.audio.currentTime;
+                        setTimeout(function() {
+                            if (self.isPlaying && self.audio.currentTime === lastTime) {
+                                console.log('音频播放卡住，强制触发段结束');
+                                self._onSegmentEnd();
+                            }
+                        }, 10000); // 10秒后检查是否卡住
+                    }
+                }, 30000); // 30秒总超时
             },
 
             loadSection: function(sectionId) {
@@ -4646,7 +4658,13 @@
                 this.isPlaying = false;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
-                
+
+                // 清理超时定时器
+                if (this._segmentTimeout) {
+                    clearTimeout(this._segmentTimeout);
+                    this._segmentTimeout = null;
+                }
+
                 // 清理多步骤播放状态
                 if (this._insertPointStep > 0) {
                     this._stopCommentTextAnimation();
