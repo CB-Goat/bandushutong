@@ -3354,50 +3354,27 @@
                     }
                 }
                 if (audioPaths.length === 0) {
-                    // 没有音频需要加载
                     return;
                 }
                 // 禁用播放按钮，显示加载状态
                 playBtn.disabled = true;
                 playBtn.style.opacity = '0.5';
-                playBtn.textContent = '\u23F3'; // 沙漏
+                playBtn.textContent = '\u23F3';
                 playBtn.title = '请等待音频加载';
 
                 var loaded = 0;
                 var failed = 0;
                 var total = audioPaths.length;
-
-                audioPaths.forEach(function(path) {
-                    var audio = new Audio();
-                    audio.preload = 'auto';
-
-                    var onCanPlay = function() {
-                        audio.removeEventListener('canplay', onCanPlay);
-                        audio.removeEventListener('error', onError);
-                        loaded++;
-                        console.log('音频预加载完成:', path, '(' + loaded + '/' + total + ')');
-                        checkDone();
-                    };
-                    var onError = function() {
-                        audio.removeEventListener('canplay', onCanPlay);
-                        audio.removeEventListener('error', onError);
-                        failed++;
-                        console.log('音频预加载失败:', path, '(' + failed + '失败)');
-                        checkDone();
-                    };
-
-                    audio.addEventListener('canplay', onCanPlay);
-                    audio.addEventListener('error', onError);
-                    audio.src = path;
-                    audio.load();
-                });
+                var finished = false;
 
                 function checkDone() {
+                    if (finished) return;
                     if (loaded + failed >= total) {
-                        // 所有音频加载完成
+                        finished = true;
+                        clearTimeout(safetyTimer);
                         playBtn.disabled = false;
                         playBtn.style.opacity = '1';
-                        playBtn.textContent = '\u25B6'; // 播放三角
+                        playBtn.textContent = '\u25B6';
                         playBtn.title = '';
                         if (failed > 0) {
                             console.log('音频预加载完成，' + failed + '/' + total + '个失败');
@@ -3406,6 +3383,47 @@
                         }
                     }
                 }
+
+                // 安全超时：15秒后强制解除禁用，避免永远卡住
+                var safetyTimer = setTimeout(function() {
+                    if (!finished) {
+                        console.log('音频预加载超时(' + (loaded + failed) + '/' + total + ')，强制解除');
+                        checkDone();
+                        // 标记剩余为失败
+                        failed = total - loaded;
+                        checkDone();
+                    }
+                }, 15000);
+
+                audioPaths.forEach(function(path) {
+                    var audio = new Audio();
+                    audio.preload = 'auto';
+
+                    var done = false;
+                    function markDone(isError) {
+                        if (done) return;
+                        done = true;
+                        audio.removeEventListener('canplaythrough', onSuccess);
+                        audio.removeEventListener('canplay', onSuccess);
+                        audio.removeEventListener('loadeddata', onSuccess);
+                        audio.removeEventListener('error', onError);
+                        if (isError) {
+                            failed++;
+                            console.log('音频预加载失败:', path);
+                        } else {
+                            loaded++;
+                        }
+                        checkDone();
+                    }
+                    var onSuccess = function() { markDone(false); };
+                    var onError = function() { markDone(true); };
+
+                    audio.addEventListener('canplaythrough', onSuccess);
+                    audio.addEventListener('loadeddata', onSuccess);
+                    audio.addEventListener('error', onError);
+                    audio.src = path;
+                    audio.load();
+                });
             },
 
             _checkTTSStatus: function() {
