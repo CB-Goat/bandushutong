@@ -2358,7 +2358,8 @@
                 // 设置滚动监听
                 this.setupScrollListener();
 
-                // 书签和断点位置恢复已在上面的 sectionStatus === 'reading' 分支中处理
+                // 根据书签位置决定是否显示书签（书签属于书籍，不属于单个节）
+                this._checkAndShowBookmark();
             },
 
             _prepareChalkText: function(content) {
@@ -2875,6 +2876,64 @@
                 bookmark.style.right = 'auto';
                 bookmark.style.display = 'block';
                 console.log('显示书签在位置:', charIndex, 'top:', top, 'left:', left);
+            },
+
+            // 根据书签位置决定是否显示书签（书签属于书籍，不属于单个节）
+            // 逻辑：书签在当前节就显示，不在当前节就隐藏
+            _checkAndShowBookmark: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return;
+
+                var progressV2 = state.currentProgressV2;
+                if (!progressV2) {
+                    this._hideBookmark();
+                    return;
+                }
+
+                // 检查书签是否在当前节
+                if (parseInt(progressV2.current_section_id) !== parseInt(section.id)) {
+                    this._hideBookmark();
+                    return;
+                }
+
+                // 书签在当前节，计算位置并显示
+                var savedPosition = 0;
+                var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
+
+                if (textPos !== undefined && textPos > 0) {
+                    var segId = progressV2.current_segment_id;
+                    if (segId && player.audioSegments) {
+                        for (var i = 0; i < player.audioSegments.length; i++) {
+                            var seg = player.audioSegments[i];
+                            if (seg.type === 'text_segment' && seg.id === segId) {
+                                savedPosition = seg.start_char + textPos;
+                                break;
+                            }
+                        }
+                    }
+                    if (savedPosition === 0) {
+                        savedPosition = textPos;
+                    }
+                }
+
+                if (savedPosition <= 0) {
+                    this._hideBookmark();
+                    return;
+                }
+
+                // 恢复显示位置
+                var self = this;
+                setTimeout(function() {
+                    var container = document.getElementById('chalkboard');
+                    if (!container || self._totalChars <= 0) return;
+
+                    self.revealCharsUpTo(savedPosition);
+                    var scrollPercent = Math.min(savedPosition / self._totalChars, 1);
+                    container.scrollTop = scrollPercent * (container.scrollHeight - container.clientHeight);
+                    self._currentPosition = savedPosition;
+                    document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
+                    self._showBookmarkAt(savedPosition);
+                }, 100);
             },
 
             // 隐藏书签图标
