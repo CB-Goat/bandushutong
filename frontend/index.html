@@ -2079,16 +2079,9 @@
                 .catch(function() {});
             
             // 打开阅读器并跳转到指定节
+            // 保存目标节ID，让openBook渲染后自动跳转
+            state._targetSectionId = sectionId;
             openBook(bookId);
-            setTimeout(function() {
-                for (var i = 0; i < state.currentSections.length; i++) {
-                    if (state.currentSections[i].id === sectionId) {
-                        state.currentSectionIndex = i;
-                        reader.renderCurrentSection();
-                        break;
-                    }
-                }
-            }, 500);
         }
 
         // ===== 公开浏览页 =====
@@ -2238,6 +2231,16 @@
                         showPage('readerPage');
                         // 确保阅读页隐藏用户按钮
                         document.getElementById('userBtn').style.display = 'none';
+                        // 如果有目标节ID，跳转到指定节
+                        if (state._targetSectionId) {
+                            for (var i = 0; i < state.currentSections.length; i++) {
+                                if (state.currentSections[i].id === state._targetSectionId) {
+                                    state.currentSectionIndex = i;
+                                    break;
+                                }
+                            }
+                            state._targetSectionId = null;
+                        }
                         reader.renderCurrentSection();
                     });
                 
@@ -7481,6 +7484,12 @@
                 if (pos > 0 && state.currentBook && state.currentUser && state.currentUser.id) {
                     var section = state.currentSections[state.currentSectionIndex];
                     if (section) {
+                        // 已读节不记录断点
+                        var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                        if (sectionStatus === 'read') {
+                            console.log('beforeunload: 已读节，不记录断点');
+                            return;
+                        }
                         // 使用 sendBeacon 确保请求被发送（即使页面关闭）
                         var segmentId = 0;
                         var textPosition = pos;
