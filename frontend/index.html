@@ -2268,6 +2268,9 @@
                 var section = state.currentSections[state.currentSectionIndex];
                 if (!section) return;
 
+                // 清除书签，确保进入新节时不显示旧书签
+                if (this._hideBookmark) this._hideBookmark();
+
                 // 显示节标题：第X节 节名
                 document.getElementById('readerSectionTitle').textContent =
                     formatChapterTitle(section.section_number, section.title, 'section');
@@ -2851,7 +2854,7 @@
                         self._currentPosition = savedPosition;
                         document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
                         console.log('恢复阅读位置:', savedPosition, '/', self._totalChars);
-                        
+
                         // 显示书签图标在断点位置
                         self._showBookmarkAt(savedPosition);
                         
