@@ -1354,58 +1354,64 @@ def admin_import_quotes():
 @api_bp.route('/quote/random', methods=['GET'])
 def get_random_quote():
     """获取随机名言（用于阅读页面）"""
-    book_id = request.args.get('book_id', type=int)
-    section_id = request.args.get('section_id', type=int)
-    user_id = request.args.get('user_id', type=int)
-    
-    from backend.database import get_db
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    # 获取总数
-    cursor.execute('SELECT COUNT(*) FROM quotes')
-    total = cursor.fetchone()[0]
-    if total == 0:
-        conn.close()
-        return jsonify({'quotes': []})
-    
-    # 获取该书该用户已用过的名言ID
-    if book_id and section_id and user_id:
-        cursor.execute('''
-            SELECT quote_id FROM quote_usage 
-            WHERE book_id=? AND user_id=?
-        ''', (book_id, user_id))
-        used_ids = [r[0] for r in cursor.fetchall()]
-    else:
-        used_ids = []
-    
-    # 优先选择未用过的名言，取2条
-    count = min(2, total)
-    if used_ids and len(used_ids) < total:
-        placeholders = ','.join('?' * len(used_ids))
-        cursor.execute(f'''
-            SELECT id, content, author, source FROM quotes 
-            WHERE id NOT IN ({placeholders})
-            ORDER BY RANDOM() LIMIT ?
-        ''', used_ids + [count])
-    else:
-        cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT ?', (count,))
-    rows = cursor.fetchall()
-    
-    results = []
-    for row in rows:
-        results.append({'id': row[0], 'content': row[1], 'author': row[2], 'source': row[3]})
-        # 记录使用
+    try:
+        book_id = request.args.get('book_id', type=int)
+        section_id = request.args.get('section_id', type=int)
+        user_id = request.args.get('user_id', type=int)
+        
+        from backend.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # 获取总数
+        cursor.execute('SELECT COUNT(*) FROM quotes')
+        total = cursor.fetchone()[0]
+        if total == 0:
+            conn.close()
+            return jsonify({'quotes': []})
+        
+        # 获取该书该用户已用过的名言ID
         if book_id and section_id and user_id:
             cursor.execute('''
-                INSERT INTO quote_usage (quote_id, book_id, section_id, user_id)
-                VALUES (?, ?, ?, ?)
-            ''', (row[0], book_id, section_id, user_id))
-    
-    if book_id and section_id and user_id:
-        conn.commit()
-    conn.close()
-    return jsonify({'quotes': results})
+                SELECT quote_id FROM quote_usage 
+                WHERE book_id=? AND user_id=?
+            ''', (book_id, user_id))
+            used_ids = [r[0] for r in cursor.fetchall()]
+        else:
+            used_ids = []
+        
+        # 优先选择未用过的名言，取2条
+        count = min(2, total)
+        if used_ids and len(used_ids) < total:
+            placeholders = ','.join('?' * len(used_ids))
+            cursor.execute(f'''
+                SELECT id, content, author, source FROM quotes 
+                WHERE id NOT IN ({placeholders})
+                ORDER BY RANDOM() LIMIT ?
+            ''', used_ids + [count])
+        else:
+            cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT ?', (count,))
+        rows = cursor.fetchall()
+        
+        results = []
+        for row in rows:
+            results.append({'id': row[0], 'content': row[1], 'author': row[2], 'source': row[3]})
+            # 记录使用
+            if book_id and section_id and user_id:
+                cursor.execute('''
+                    INSERT INTO quote_usage (quote_id, book_id, section_id, user_id)
+                    VALUES (?, ?, ?, ?)
+                ''', (row[0], book_id, section_id, user_id))
+        
+        if book_id and section_id and user_id:
+            conn.commit()
+        conn.close()
+        return jsonify({'quotes': results})
+    except Exception as e:
+        print(f'[ERROR] get_random_quote: {e}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/admin/quotes/parse-word', methods=['POST'])
 def admin_parse_word_quotes():
