@@ -4200,6 +4200,12 @@
                     console.log('小结触发：保存书签到节末尾位置', reader._totalChars);
                 }
                 
+                // 暂停轮询，避免小结播放时跳到其他标签
+                if (typeof analysisManager !== 'undefined' && analysisManager.stopRotation) {
+                    analysisManager.stopRotation();
+                    console.log('小结播放：暂停轮询');
+                }
+                
                 // 存储当前小结数据
                 this._currentSummarySeg = seg;
                 this._summaryStep = 0;
