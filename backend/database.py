@@ -1510,6 +1510,21 @@ def update_book_price(book_id, price):
     conn.close()
 
 
+def _get_section_audio_stats(cursor, section_id):
+    """获取某节的音频完成统计 (done, total)"""
+    # text_segments
+    cursor.execute('SELECT COUNT(*) FROM text_segments WHERE section_id = ?', (section_id,))
+    seg_total = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM text_segments WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ''", (section_id,))
+    seg_done = cursor.fetchone()[0]
+    # insert_points
+    cursor.execute('SELECT COUNT(*) FROM insert_points WHERE section_id = ?', (section_id,))
+    ip_total = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM insert_points WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ''", (section_id,))
+    ip_done = cursor.fetchone()[0]
+    return seg_done + ip_done, seg_total + ip_total
+
+
 def get_book_catalog_stats(book_id):
     """获取书籍的目录结构及统计信息"""
     conn = get_db()
@@ -1556,6 +1571,9 @@ def get_book_catalog_stats(book_id):
             ORDER BY s.section_number
         ''', (ch['id'],))
         sections = [dict(row) for row in cursor.fetchall()]
+        # 为每个section添加音频统计
+        for sec in sections:
+            sec['audio_done'], sec['audio_total'] = _get_section_audio_stats(cursor, sec['id'])
         ch['sections'] = sections
 
     # 获取不属于任何章节的sections
@@ -1572,6 +1590,8 @@ def get_book_catalog_stats(book_id):
         ORDER BY s.section_number
     ''', (book_id,))
     orphan_sections = [dict(row) for row in cursor.fetchall()]
+    for sec in orphan_sections:
+        sec['audio_done'], sec['audio_total'] = _get_section_audio_stats(cursor, sec['id'])
 
     conn.close()
     return {

@@ -3287,8 +3287,12 @@
                             
                             // 构建播放队列（直接使用后端返回的 playlist）
                             self._buildPlaylist(data.playlist);
-                            // 预加载前3个音频段，避免播放时卡顿
-                            self._preloadAudioSegments(3);
+                            // 检查是否有缺失音频的段
+                            var missingAudio = self.audioSegments.some(function(seg) {
+                                return seg.audio_path && seg.type === 'text_segment';
+                            });
+                            // 预加载所有音频段，加载完成前禁用播放按钮
+                            self._preloadAllAudio();
                             // 加载随机名言
                             loadRandomQuote(sectionId);
                         } else {
@@ -3318,7 +3322,7 @@
                 }
             },
 
-            // 预加载音频段
+            // 预加载音频段（旧方法，保留兼容）
             _preloadAudioSegments: function(count) {
                 var self = this;
                 var preloadCount = 0;
@@ -3333,6 +3337,73 @@
                             console.log('预加载音频:', path);
                         })(seg.audio_path);
                         preloadCount++;
+                    }
+                }
+            },
+
+            // 预加载所有音频段，加载完成前禁用播放按钮
+            _preloadAllAudio: function() {
+                var self = this;
+                var playBtn = document.getElementById('playBtn');
+                // 收集所有需要预加载的音频路径
+                var audioPaths = [];
+                for (var i = 0; i < this.audioSegments.length; i++) {
+                    var seg = this.audioSegments[i];
+                    if (seg.type === 'text_segment' && seg.audio_path) {
+                        audioPaths.push(seg.audio_path);
+                    }
+                }
+                if (audioPaths.length === 0) {
+                    // 没有音频需要加载
+                    return;
+                }
+                // 禁用播放按钮，显示加载状态
+                playBtn.disabled = true;
+                playBtn.style.opacity = '0.5';
+                playBtn.textContent = '\u23F3'; // 沙漏
+                playBtn.title = '请等待音频加载';
+
+                var loaded = 0;
+                var failed = 0;
+                var total = audioPaths.length;
+
+                audioPaths.forEach(function(path) {
+                    var audio = new Audio();
+                    audio.preload = 'auto';
+
+                    var onCanPlay = function() {
+                        audio.removeEventListener('canplay', onCanPlay);
+                        audio.removeEventListener('error', onError);
+                        loaded++;
+                        console.log('音频预加载完成:', path, '(' + loaded + '/' + total + ')');
+                        checkDone();
+                    };
+                    var onError = function() {
+                        audio.removeEventListener('canplay', onCanPlay);
+                        audio.removeEventListener('error', onError);
+                        failed++;
+                        console.log('音频预加载失败:', path, '(' + failed + '失败)');
+                        checkDone();
+                    };
+
+                    audio.addEventListener('canplay', onCanPlay);
+                    audio.addEventListener('error', onError);
+                    audio.src = path;
+                    audio.load();
+                });
+
+                function checkDone() {
+                    if (loaded + failed >= total) {
+                        // 所有音频加载完成
+                        playBtn.disabled = false;
+                        playBtn.style.opacity = '1';
+                        playBtn.textContent = '\u25B6'; // 播放三角
+                        playBtn.title = '';
+                        if (failed > 0) {
+                            console.log('音频预加载完成，' + failed + '/' + total + '个失败');
+                        } else {
+                            console.log('所有音频预加载完成');
+                        }
                     }
                 }
             },
@@ -3355,6 +3426,8 @@
             },
 
             toggle: function() {
+                var playBtn = document.getElementById('playBtn');
+                if (playBtn.disabled) return;
                 if (this.isPlaying) { this.pause(); } else { this.play(); }
             },
 
@@ -7276,17 +7349,21 @@
                             '<div class="catalog-chapter-header">' +
                             '<span onclick="this.parentElement.querySelector(\'.ch-sections\').style.display=this.parentElement.querySelector(\'.ch-sections\').style.display===\'none\'?\'block\':\'none\'" style="cursor:pointer;">' + formatChapterTitle(ch.chapter_number, ch.title, 'chapter') + '</span>' +
                             '<span style="display:flex;align-items:center;gap:10px;">' +
-                            '<span class="catalog-chapter-stats">' + ch.section_count + '节 | ' + ch.total_words + '字 | ' + ch.total_annotations + '点评</span>' +
+                            '<span class="catalog-chapter-stats">' + ch.total_words + '字 | ' + ch.total_annotations + '点评</span>' +
                             '<button class="admin-inline-btn primary" onclick="event.stopPropagation();reimportChapter(' + bookId + ',' + ch.id + ',this)">更新</button>' +
                             '</span>' +
                             '</div>';
                         if (ch.sections && ch.sections.length > 0) {
                             html += '<div class="ch-sections">';
                             ch.sections.forEach(function(sec) {
+                                var audioInfo = _formatAudioStats(sec.audio_done, sec.audio_total);
+                                var fixBtn = (sec.audio_done < sec.audio_total) ?
+                                    '<button class="admin-inline-btn danger" onclick="fixSectionAudio(' + bookId + ',' + sec.id + ',this)">修复音频</button>' : '';
                                 html += '<div class="catalog-section-item">' +
                                     '<span>' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
                                     '<span style="display:flex;align-items:center;gap:10px;">' +
-                                    '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评</span>' +
+                                    '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评 | ' + audioInfo + '</span>' +
+                                    fixBtn +
                                     '<button class="admin-inline-btn primary" onclick="reimportSection(' + bookId + ',' + sec.id + ',this)">更新</button>' +
                                     '</span>' +
                                     '</div>';
@@ -7300,10 +7377,14 @@
                         html += '<div class="catalog-chapter">' +
                             '<div class="catalog-chapter-header">独立节</div><div>';
                         data.orphan_sections.forEach(function(sec) {
+                            var audioInfo = _formatAudioStats(sec.audio_done, sec.audio_total);
+                            var fixBtn = (sec.audio_done < sec.audio_total) ?
+                                '<button class="admin-inline-btn danger" onclick="fixSectionAudio(' + bookId + ',' + sec.id + ',this)">修复音频</button>' : '';
                             html += '<div class="catalog-section-item">' +
                                 '<span>' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
                                 '<span style="display:flex;align-items:center;gap:10px;">' +
-                                '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评</span>' +
+                                '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评 | ' + audioInfo + '</span>' +
+                                fixBtn +
                                 '<button class="admin-inline-btn primary" onclick="reimportSection(' + bookId + ',' + sec.id + ',this)">更新</button>' +
                                 '</span>' +
                                 '</div>';
@@ -7313,6 +7394,69 @@
                     html += '</div>';
                     container.innerHTML = html;
                 });
+        }
+
+        // 格式化音频统计
+        function _formatAudioStats(done, total) {
+            if (!total || total === 0) return '音频 -';
+            if (done >= total) return '音频 ' + done + '/' + total;
+            return '音频 <span style="color:#e74c3c;font-weight:bold;">' + done + '/' + total + '</span>';
+        }
+
+        // 修复某节音频
+        function fixSectionAudio(bookId, sectionId, btn) {
+            btn.textContent = '修复中...';
+            btn.disabled = true;
+            fetch(API_BASE + '/sections/' + sectionId + '/fix-audio', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.error) {
+                        alert(data.error);
+                        btn.textContent = '修复音频';
+                        btn.disabled = false;
+                        return;
+                    }
+                    if (data.missing === 0) {
+                        btn.textContent = '修复音频';
+                        btn.disabled = false;
+                        btn.style.display = 'none';
+                        return;
+                    }
+                    // 轮询修复进度
+                    pollFixProgress(sectionId, btn, bookId);
+                })
+                .catch(function() {
+                    alert('修复请求失败');
+                    btn.textContent = '修复音频';
+                    btn.disabled = false;
+                });
+        }
+
+        // 轮询音频修复进度
+        function pollFixProgress(sectionId, btn, bookId) {
+            var checkCount = 0;
+            var maxChecks = 120;
+            var timer = setInterval(function() {
+                checkCount++;
+                if (checkCount > maxChecks) {
+                    clearInterval(timer);
+                    btn.textContent = '修复失败';
+                    btn.disabled = false;
+                    return;
+                }
+                fetch(API_BASE + '/sections/' + sectionId + '/audio-timeline')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.audio_path && data.char_timeline && data.char_timeline.length > 0) {
+                            clearInterval(timer);
+                            btn.textContent = '修复音频';
+                            btn.disabled = false;
+                            btn.style.display = 'none';
+                            if (bookId) adminShowCatalogStats(bookId);
+                        }
+                    })
+                    .catch(function() {});
+            }, 5000);
         }
 
         // 重新导入章节

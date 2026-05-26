@@ -616,6 +616,56 @@ def build_segments(section_id):
     create_insert_points(section_id)
     return jsonify({'message': f'已创建 {seg_count} 个文本段', 'segment_count': seg_count})
 
+@api_bp.route('/sections/<int:section_id>/fix-audio', methods=['POST'])
+def fix_section_audio(section_id):
+    """检查并修复某节缺失的音频文件"""
+    import threading
+    from backend.database import get_section, get_annotations_by_section
+    from backend.baidu_tts import generate_segmented_audio
+    from backend.database import update_section_audio_timeline, update_section_audio_segments
+
+    section = get_section(section_id)
+    if not section:
+        return jsonify({'error': '节不存在'}), 404
+
+    # 检查哪些音频缺失
+    conn = get_db()
+    cursor = conn.cursor()
+    # 缺失的 text_segments
+    cursor.execute("SELECT id FROM text_segments WHERE section_id = ? AND (audio_path IS NULL OR audio_path = '')", (section_id,))
+    missing_segs = [row[0] for row in cursor.fetchall()]
+    # 缺失的 insert_points
+    cursor.execute("SELECT id FROM insert_points WHERE section_id = ? AND (audio_path IS NULL OR audio_path = '')", (section_id,))
+    missing_ips = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    total_missing = len(missing_segs) + len(missing_ips)
+    if total_missing == 0:
+        return jsonify({'message': '音频完整，无需修复', 'missing': 0})
+
+    # 异步重新生成该节的分段音频
+    def do_fix():
+        try:
+            annotations = get_annotations_by_section(section_id)
+            annotations = sorted(annotations, key=lambda a: a.get('end_char', 0))
+            result = generate_segmented_audio(section['content'], section_id, annotations=annotations, speed=5, person=0)
+            if result:
+                update_section_audio_timeline(section_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
+                if result.get('audio_segments'):
+                    update_section_audio_segments(section_id, result['audio_segments'])
+                print(f'[fix-audio] 节{section_id} 音频修复完成，共{len(result.get("audio_segments", []))}段')
+            else:
+                print(f'[fix-audio] 节{section_id} 音频修复失败')
+        except Exception as e:
+            print(f'[fix-audio] 节{section_id} 音频修复异常: {e}')
+            import traceback
+            traceback.print_exc()
+
+    thread = threading.Thread(target=do_fix, daemon=True)
+    thread.start()
+
+    return jsonify({'message': f'正在修复音频，缺失{total_missing}个文件', 'missing': total_missing})
+
 @api_bp.route('/progress/v2', methods=['POST'])
 def save_progress_v2():
     """新版断点保存"""
