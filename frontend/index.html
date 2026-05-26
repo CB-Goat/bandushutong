@@ -3535,6 +3535,8 @@
             
             _playTextSegment: function(seg) {
                 var self = this;
+                // 重置多步骤播放状态，避免影响文本段播放
+                this._insertPointStep = 0;
                 this.audio.src = seg.audio_path;
                 this.audio.load();
                 
