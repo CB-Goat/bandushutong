@@ -76,13 +76,14 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS reading_progress (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
+            user_id INTEGER NOT NULL,
             book_id INTEGER NOT NULL,
             current_section_id INTEGER,
             current_position INTEGER DEFAULT 0,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (book_id) REFERENCES books(id),
-            FOREIGN KEY (current_section_id) REFERENCES sections(id)
+            FOREIGN KEY (current_section_id) REFERENCES sections(id),
+            UNIQUE(user_id, book_id)
         )
     ''')
 
@@ -399,8 +400,12 @@ def init_db():
         cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_progress_user_book ON reading_progress(user_id, book_id)')
     except:
         pass
-    # 清理重复的断点记录（每个用户每本书只保留最新的一条）
-    # 注意：这个清理在初始化时只对新数据库执行，已有数据库可能需要单独清理
+    # 清理 user_id 为 NULL 的无效记录
+    try:
+        cursor.execute('DELETE FROM reading_progress WHERE user_id IS NULL')
+        print('[迁移] 删除 user_id 为 NULL 的断点记录')
+    except:
+        pass
     
     # insert_points 新增引用音频字段（独立音频文件，不从主线截取）
     try:
