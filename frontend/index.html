@@ -2886,8 +2886,8 @@
                 console.log('显示书签在位置:', charIndex, 'top:', top, 'left:', left);
             },
 
-            // 根据书签位置决定是否显示书签（书签属于书籍，不属于单个节）
-            // 逻辑：书签在当前节就显示，不在当前节就隐藏
+            // 根据书签位置和节状态决定是否显示书签
+            // 逻辑：书签在当前节 AND 节状态不是已读，才显示书签
             _checkAndShowBookmark: function() {
                 var section = state.currentSections[state.currentSectionIndex];
                 if (!section) return;
@@ -2904,7 +2904,46 @@
                     return;
                 }
 
-                // 书签在当前节，计算位置并显示
+                // 检查节状态，如果已读则不显示书签
+                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                if (sectionStatus === 'read') {
+                    // 已读节显示全部文字，不显示书签
+                    this._hideBookmark();
+                    return;
+                }
+
+                // 节状态未加载，等待最多2秒
+                if (!sectionStatus) {
+                    var self = this;
+                    var waited = 0;
+                    var checkInterval = setInterval(function() {
+                        waited += 100;
+                        sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                        if (sectionStatus || waited >= 2000) {
+                            clearInterval(checkInterval);
+                            if (sectionStatus === 'read') {
+                                self._hideBookmark();
+                            } else {
+                                self._doShowBookmark();
+                            }
+                        }
+                    }, 100);
+                    return;
+                }
+
+                // 显示书签
+                this._doShowBookmark();
+            },
+
+            // 实际显示书签和恢复位置
+            _doShowBookmark: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return;
+
+                var progressV2 = state.currentProgressV2;
+                if (!progressV2) return;
+
+                // 计算书签位置
                 var savedPosition = 0;
                 var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
 
@@ -2924,12 +2963,8 @@
                     }
                 }
 
-                if (savedPosition <= 0) {
-                    this._hideBookmark();
-                    return;
-                }
+                if (savedPosition <= 0) return;
 
-                // 恢复显示位置
                 var self = this;
                 setTimeout(function() {
                     var container = document.getElementById('chalkboard');
