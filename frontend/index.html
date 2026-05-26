@@ -4720,29 +4720,13 @@
                     // 检查节是否已经是已读状态
                     var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
                     if (sectionStatus === 'read') {
-                        console.log('节已是已读状态，跳过标记已读和保存断点');
+                        console.log('节已是已读状态，跳过标记已读');
                     } else {
                         // 立即更新本地状态，避免返回时 saveProgress 覆盖
                         if (state.catalogStatusMap) {
                             state.catalogStatusMap[section.id] = 'read';
                         }
-                        // 更新断点到节的结束位置
-                        var endPosition = reader._totalChars || 0;
-                        if (endPosition > 0) {
-                            fetch(API_BASE + '/progress/v2', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({
-                                    book_id: state.currentBook.id,
-                                    section_id: section.id,
-                                    segment_id: 0,
-                                    text_position: endPosition,
-                                    audio_position: 0,
-                                    user_id: state.currentUser.id
-                                })
-                            }).catch(function() {});
-                            console.log('节播放完毕，更新断点到结束位置:', endPosition);
-                        }
+                        // 节播放完毕，只标记已读，不保存断点（避免update_progress_v2将状态改回reading）
                         fetch(API_BASE + '/sections/' + section.id + '/status', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
