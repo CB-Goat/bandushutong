@@ -1396,15 +1396,22 @@ def get_random_quote():
         results = []
         for row in rows:
             results.append({'id': row[0], 'content': row[1], 'author': row[2], 'source': row[3]})
-            # 记录使用
+            # 记录使用（忽略外键约束错误）
             if book_id and section_id and user_id:
-                cursor.execute('''
-                    INSERT INTO quote_usage (quote_id, book_id, section_id, user_id)
-                    VALUES (?, ?, ?, ?)
-                ''', (row[0], book_id, section_id, user_id))
+                try:
+                    cursor.execute('''
+                        INSERT INTO quote_usage (quote_id, book_id, section_id, user_id)
+                        VALUES (?, ?, ?, ?)
+                    ''', (row[0], book_id, section_id, user_id))
+                except Exception as insert_err:
+                    # 外键约束错误或其他插入错误，忽略
+                    print(f'[WARN] quote_usage insert skipped: {insert_err}')
         
-        if book_id and section_id and user_id:
-            conn.commit()
+        try:
+            if book_id and section_id and user_id:
+                conn.commit()
+        except Exception as commit_err:
+            print(f'[WARN] quote_usage commit skipped: {commit_err}')
         conn.close()
         return jsonify({'quotes': results})
     except Exception as e:
