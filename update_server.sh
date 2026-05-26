@@ -50,6 +50,12 @@ sleep 2
 PORT=8080 nohup python3 backend/main.py > backend.log 2>&1 &
 sleep 3
 
+# 显示启动日志（包含清理信息）
+echo ""
+echo "--- 服务启动日志 ---"
+tail -10 backend.log 2>/dev/null || echo "(无日志)"
+echo "--- 服务启动日志结束 ---"
+
 # 检查服务是否启动
 echo ""
 echo "检查服务状态..."
