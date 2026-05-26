@@ -393,6 +393,21 @@ def init_db():
         cursor.execute('ALTER TABLE reading_progress ADD COLUMN current_segment_id INTEGER')
     except:
         pass
+
+    # reading_progress 添加 user_id+book_id 唯一约束，确保每个用户每本书只有一条断点记录
+    try:
+        cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_progress_user_book ON reading_progress(user_id, book_id)')
+    except:
+        pass
+    # 清理重复的断点记录（每个用户每本书只保留最新的一条）
+    try:
+        cursor.execute('''
+            DELETE FROM reading_progress WHERE id NOT IN (
+                SELECT MAX(id) FROM reading_progress WHERE user_id IS NOT NULL GROUP BY user_id, book_id
+            )
+        ''')
+    except:
+        pass
     
     # insert_points 新增引用音频字段（独立音频文件，不从主线截取）
     try:
@@ -1899,6 +1914,8 @@ def get_section_playback_plan(section_id):
 
 def update_progress_v2(user_id, book_id, section_id, segment_id, text_position, audio_position):
     """新版断点保存：包含 segment_id，断点移动时将旧节标记为已读"""
+    if not user_id:
+        return  # 必须有用户ID
     conn = get_db()
     cursor = conn.cursor()
     # 查询之前的断点节
