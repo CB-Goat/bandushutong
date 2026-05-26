@@ -1370,29 +1370,27 @@ def get_random_quote():
             conn.close()
             return jsonify({'quotes': []})
         
-        # 获取该书该用户已用过的名言ID
-        if book_id and section_id and user_id:
-            cursor.execute('''
-                SELECT quote_id FROM quote_usage 
-                WHERE book_id=? AND user_id=?
-            ''', (book_id, user_id))
-            used_ids = [r[0] for r in cursor.fetchall()]
-        else:
-            used_ids = []
-        
         # 优先选择未用过的名言，取2条
         count = min(2, total)
-        if used_ids and len(used_ids) < total:
-            placeholders = ','.join('?' * len(used_ids))
-            cursor.execute(f'''
+        if book_id and user_id:
+            # 使用子查询而不是 IN 列表，避免 SQL 变量数量限制
+            cursor.execute('''
                 SELECT id, content, author, source FROM quotes 
-                WHERE id NOT IN ({placeholders})
+                WHERE id NOT IN (
+                    SELECT quote_id FROM quote_usage 
+                    WHERE book_id=? AND user_id=?
+                )
                 ORDER BY RANDOM() LIMIT ?
-            ''', used_ids + [count])
+            ''', (book_id, user_id, count))
+            rows = cursor.fetchall()
+            # 如果未用过的名言不够，随机选择
+            if len(rows) < count:
+                cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT ?', (count,))
+                rows = cursor.fetchall()
         else:
             cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT ?', (count,))
-        rows = cursor.fetchall()
-        
+            rows = cursor.fetchall()
+
         results = []
         for row in rows:
             results.append({'id': row[0], 'content': row[1], 'author': row[2], 'source': row[3]})
@@ -1415,10 +1413,11 @@ def get_random_quote():
         conn.close()
         return jsonify({'quotes': results})
     except Exception as e:
-        print(f'[ERROR] get_random_quote: {e}')
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        error_detail = traceback.format_exc()
+        print(f'[ERROR] get_random_quote: {e}')
+        print(error_detail)
+        return jsonify({'error': str(e), 'detail': error_detail}), 500
 
 @api_bp.route('/health/db', methods=['GET'])
 def health_db():
