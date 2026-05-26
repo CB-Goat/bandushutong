@@ -3345,14 +3345,43 @@
             _preloadAllAudio: function() {
                 var self = this;
                 var playBtn = document.getElementById('playBtn');
-                // 收集所有需要预加载的音频路径
+
+                // 先检查是否有缺失音频的文本段
+                var missingSegs = [];
                 var audioPaths = [];
                 for (var i = 0; i < this.audioSegments.length; i++) {
                     var seg = this.audioSegments[i];
-                    if (seg.type === 'text_segment' && seg.audio_path) {
-                        audioPaths.push(seg.audio_path);
+                    if (seg.type === 'text_segment') {
+                        if (seg.audio_path) {
+                            audioPaths.push(seg.audio_path);
+                        } else {
+                            missingSegs.push(seg);
+                        }
                     }
                 }
+
+                // 有缺失音频的段，提示用户并禁用播放
+                if (missingSegs.length > 0) {
+                    console.log('音频不完整，缺失' + missingSegs.length + '个文本段音频');
+                    playBtn.disabled = true;
+                    playBtn.style.opacity = '0.5';
+                    playBtn.textContent = '\u26A0'; // ⚠ 警告
+                    playBtn.title = '音频不完整，请在管理页修复音频';
+                    // 在阅读区显示提示
+                    var readerContent = document.getElementById('readerContent');
+                    if (readerContent) {
+                        var warnEl = document.getElementById('audioWarning');
+                        if (!warnEl) {
+                            warnEl = document.createElement('div');
+                            warnEl.id = 'audioWarning';
+                            warnEl.style.cssText = 'background:#fff3cd;color:#856404;padding:10px 15px;border-radius:8px;margin-bottom:10px;font-size:14px;text-align:center;';
+                        }
+                        warnEl.textContent = '⚠ 音频不完整（缺失' + missingSegs.length + '段），请在管理页点击"修复音频"后重新进入';
+                        readerContent.parentNode.insertBefore(warnEl, readerContent);
+                    }
+                    return;
+                }
+
                 if (audioPaths.length === 0) {
                     return;
                 }
@@ -3388,8 +3417,6 @@
                 var safetyTimer = setTimeout(function() {
                     if (!finished) {
                         console.log('音频预加载超时(' + (loaded + failed) + '/' + total + ')，强制解除');
-                        checkDone();
-                        // 标记剩余为失败
                         failed = total - loaded;
                         checkDone();
                     }
