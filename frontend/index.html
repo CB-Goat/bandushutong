@@ -2782,7 +2782,7 @@
                 }
                 
                 // 如果状态未加载，等待最多2秒
-                if (!sectionStatus && state.catalogStatusMap) {
+                if (!sectionStatus) {
                     console.log('restorePosition: 等待状态加载...');
                     var waited = 0;
                     var checkInterval = setInterval(function() {
