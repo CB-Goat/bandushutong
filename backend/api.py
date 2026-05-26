@@ -1413,6 +1413,31 @@ def get_random_quote():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@api_bp.route('/health/db', methods=['GET'])
+def health_db():
+    """数据库健康检查"""
+    try:
+        from backend.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # 检查 quotes 表
+        cursor.execute("SELECT COUNT(*) FROM quotes")
+        quotes_count = cursor.fetchone()[0]
+        
+        # 检查 quote_usage 表
+        cursor.execute("SELECT COUNT(*) FROM quote_usage")
+        usage_count = cursor.fetchone()[0]
+        
+        conn.close()
+        return jsonify({
+            'status': 'ok',
+            'quotes_count': quotes_count,
+            'quote_usage_count': usage_count
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
 @api_bp.route('/admin/quotes/parse-word', methods=['POST'])
 def admin_parse_word_quotes():
     """解析Word文档中的名言"""
