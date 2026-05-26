@@ -4149,6 +4149,12 @@
                     return;
                 }
                 
+                // 小结触发时保存断点
+                if (typeof reader !== 'undefined' && reader.saveProgress && reader._totalChars > 0) {
+                    reader.saveProgress(reader._totalChars);
+                    console.log('小结触发：保存书签到节末尾位置', reader._totalChars);
+                }
+                
                 // 存储当前小结数据
                 this._currentSummarySeg = seg;
                 this._summaryStep = 0;
@@ -7445,12 +7451,28 @@
             }
             if (typeof reader !== 'undefined') {
                 var pos = reader._currentPosition || 0;
-                if (pos > 0 && state.currentBook) {
+                if (pos > 0 && state.currentBook && state.currentUser && state.currentUser.id) {
                     var section = state.currentSections[state.currentSectionIndex];
                     if (section) {
                         // 使用 sendBeacon 确保请求被发送（即使页面关闭）
-                        var payload = JSON.stringify({book_id: state.currentBook.id, section_id: section.id, position: pos, user_id: state.currentUser.id});
-                        navigator.sendBeacon(API_BASE + '/progress', new Blob([payload], {type: 'application/json'}));
+                        var segmentId = 0;
+                        var textPosition = pos;
+                        var audioPosition = 0;
+                        if (player._currentSegment && player._currentSegment.type === 'text_segment') {
+                            segmentId = player._currentSegment.id;
+                            textPosition = pos - player._currentSegment.start_char;
+                            audioPosition = player.currentTime || 0;
+                        }
+                        var payload = JSON.stringify({
+                            book_id: state.currentBook.id,
+                            section_id: section.id,
+                            segment_id: segmentId,
+                            text_position: textPosition,
+                            audio_position: audioPosition,
+                            user_id: state.currentUser.id
+                        });
+                        navigator.sendBeacon(API_BASE + '/progress/v2', new Blob([payload], {type: 'application/json'}));
+                        console.log('beforeunload: 已发送断点保存请求');
                     }
                 }
             }
