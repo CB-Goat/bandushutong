@@ -166,6 +166,7 @@
         .catalog-section .sec-status.reading { background: #FF9800; }
         .catalog-section .sec-status.unread { background: #ddd; }
         .catalog-section .sec-title { flex: 1; color: #333; }
+        .catalog-section .sec-bookmark { font-size: 14px; margin-right: 4px; }
         .catalog-section .sec-info { font-size: 13px; color: #999; display: flex; gap: 10px; }
 
         /* ===== 阅读页 - 黑板风格 ===== */
@@ -1932,6 +1933,12 @@
                 state.catalogSections = sections;
                 state.catalogStatusMap = statusMap;
 
+                // 获取书签所在的节ID
+                var bookmarkSectionId = null;
+                if (state.currentProgressV2 && state.currentProgressV2.current_section_id) {
+                    bookmarkSectionId = parseInt(state.currentProgressV2.current_section_id);
+                }
+
                 var container = document.getElementById('catalogContent');
                 container.innerHTML = '';
 
@@ -1945,10 +1952,12 @@
                     // 无章节，直接列出所有节
                     sections.forEach(function(sec) {
                         var status = statusMap[sec.id] || 'unread';
+                        var isBookmark = (sec.id === bookmarkSectionId);
                         var div = document.createElement('div');
                         div.className = 'catalog-section';
                         div.innerHTML = '<span class="sec-status ' + status + '"></span>' +
                             '<span class="sec-title">' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
+                            (isBookmark ? '<span class="sec-bookmark" title="书签位置">🔖</span>' : '') +
                             '<span class="sec-info">' +
                             '<span>' + (sec.word_count || 0) + '字</span>' +
                             '<span>点评' + (annoMap[sec.id] || 0) + '</span>' +
@@ -1982,10 +1991,12 @@
                         // 该章下的节（缩进）
                         chSections.forEach(function(sec) {
                             var status = statusMap[sec.id] || 'unread';
+                            var isBookmark = (sec.id === bookmarkSectionId);
                             var secDiv = document.createElement('div');
                             secDiv.className = 'catalog-section';
                             secDiv.innerHTML = '<span class="sec-status ' + status + '"></span>' +
                                 '<span class="sec-title">' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
+                                (isBookmark ? '<span class="sec-bookmark" title="书签位置">🔖</span>' : '') +
                                 '<span class="sec-info">' +
                                 '<span>' + (sec.word_count || 0) + '字</span>' +
                                 '<span>点评' + (annoMap[sec.id] || 0) + '</span>' +
