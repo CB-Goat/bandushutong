@@ -2663,10 +2663,18 @@
                     console.log('saveProgress: 无section，跳过');
                     return;
                 }
+                if (!state.currentUser || !state.currentUser.id) {
+                    console.log('saveProgress: 无用户，跳过');
+                    return;
+                }
                 // 已读节不记录断点
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
                 if (sectionStatus === 'read') {
                     console.log('saveProgress: 已读节，不记录断点');
+                    return;
+                }
+                if (!state.currentBook || !state.currentBook.id) {
+                    console.log('saveProgress: 无书籍，跳过');
                     return;
                 }
                 var pos = position !== undefined ? position : this._currentPosition || 0;

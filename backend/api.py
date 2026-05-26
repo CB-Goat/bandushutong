@@ -628,8 +628,10 @@ def save_progress_v2():
     text_position = data.get('text_position', 0)
     audio_position = data.get('audio_position', 0)
 
+    if not user_id:
+        return jsonify({'error': '缺少用户ID'}), 400
     if not book_id or not section_id:
-        return jsonify({'error': '缺少必要参数'}), 400
+        return jsonify({'error': '缺少书籍或节ID'}), 400
 
     update_progress_v2(user_id, book_id, section_id, segment_id, text_position, audio_position)
     return jsonify({'message': '进度保存成功'})
