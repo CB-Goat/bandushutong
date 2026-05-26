@@ -1912,7 +1912,7 @@ def cleanup_duplicate_progress():
     try:
         # 删除重复记录，只保留每个 user_id+book_id 组合的最新记录
         cursor.execute('''
-            DELETE FROM reading_progress WHERE id NOT IN (
+            DELETE FROM reading_progress WHERE user_id IS NOT NULL AND id NOT IN (
                 SELECT MAX(id) FROM reading_progress WHERE user_id IS NOT NULL GROUP BY user_id, book_id
             )
         ''')
