@@ -400,14 +400,7 @@ def init_db():
     except:
         pass
     # 清理重复的断点记录（每个用户每本书只保留最新的一条）
-    try:
-        cursor.execute('''
-            DELETE FROM reading_progress WHERE id NOT IN (
-                SELECT MAX(id) FROM reading_progress WHERE user_id IS NOT NULL GROUP BY user_id, book_id
-            )
-        ''')
-    except:
-        pass
+    # 注意：这个清理在初始化时只对新数据库执行，已有数据库可能需要单独清理
     
     # insert_points 新增引用音频字段（独立音频文件，不从主线截取）
     try:
@@ -1911,6 +1904,25 @@ def get_section_playback_plan(section_id):
     }
 
 # ==================== 新版断点 ====================
+
+def cleanup_duplicate_progress():
+    """清理重复的断点记录，每个用户每本书只保留最新的一条"""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # 删除重复记录，只保留每个 user_id+book_id 组合的最新记录
+        cursor.execute('''
+            DELETE FROM reading_progress WHERE id NOT IN (
+                SELECT MAX(id) FROM reading_progress WHERE user_id IS NOT NULL GROUP BY user_id, book_id
+            )
+        ''')
+        deleted = cursor.rowcount
+        conn.commit()
+        print(f'[清理] 删除重复断点记录: {deleted} 条')
+    except Exception as e:
+        print(f'[清理] 清理重复断点记录失败: {e}')
+    finally:
+        conn.close()
 
 def update_progress_v2(user_id, book_id, section_id, segment_id, text_position, audio_position):
     """新版断点保存：包含 segment_id，断点移动时将旧节标记为已读"""

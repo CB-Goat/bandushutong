@@ -13,7 +13,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from api import api_bp
-from database import init_db
+from database import init_db, cleanup_duplicate_progress
 
 app = Flask(__name__, static_folder=None)
 CORS(app)  # 允许跨域
@@ -53,10 +53,11 @@ def serve_bookmark_icon():
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '#212'})
+    return jsonify({'status': 'ok', 'version': '#213'})
 
 # 初始化数据库
 init_db()
+cleanup_duplicate_progress()
 
 if __name__ == '__main__':
     # 确保目录存在
@@ -79,7 +80,7 @@ if __name__ == '__main__':
     
     print("=" * 50)
     print("悦读小将后端服务启动")
-    print("更新版本: #212")
+    print("更新版本: #213")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
