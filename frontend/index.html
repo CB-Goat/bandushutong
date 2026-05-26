@@ -3661,6 +3661,16 @@
                 var self = this;
                 // 重置多步骤播放状态，避免影响文本段播放
                 this._insertPointStep = 0;
+                // 跳过无音频的段
+                if (!seg.audio_path) {
+                    console.log('跳过无音频的文本段: start_char=' + seg.start_char);
+                    // 显示该段文字
+                    if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
+                        reader.revealCharsUpTo(seg.end_char);
+                    }
+                    this._onSegmentEnd();
+                    return;
+                }
                 this.audio.src = seg.audio_path;
                 this.audio.load();
                 
