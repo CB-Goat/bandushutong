@@ -602,6 +602,18 @@
             opacity: 1;
         }
 
+        /* 小结内容逐字显示样式 */
+        .chalkboard .analysis-area .content .comment-char {
+            display: inline;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            color: #F5E8D0;
+        }
+
+        .chalkboard .analysis-area .content .comment-char.visible {
+            opacity: 1;
+        }
+
         /* 粉笔灰效果 */
         .chalkboard::after {
             content: '';
@@ -3594,10 +3606,9 @@
                         });
                     }
                 } else if (seg.point_type === 'summary') {
-                    // 显示小结
-                    if (typeof analysisManager !== 'undefined' && analysisManager.addSummaryTab) {
-                        analysisManager.addSummaryTab(seg.comment);
-                    }
+                    // 小结类型：不立即显示内容，在步骤3（播放小结内容）时才逐字显示
+                    // 只隐藏点评区域，准备小结播放
+                    document.getElementById('annotationDisplay').classList.remove('active');
                 }
                 
                 // 开始步骤1：播放开场白
@@ -4223,10 +4234,15 @@
                 var audioDuration = seg.audio_duration || 1;
                 var commentChars = [];
                 
+                // 先添加小结标签（不显示内容）
+                if (typeof analysisManager !== 'undefined') {
+                    analysisManager.addSummaryTab('');  // 先添加空内容
+                }
+                
                 // 在 tab 里创建逐字 span 元素（类似点评的处理方式）
                 var analysisContent = document.getElementById('analysisContent');
                 if (analysisContent) {
-                    // 清空并创建逐字 span
+                    // 清空并创建逐字 span（初始隐藏）
                     analysisContent.innerHTML = '';
                     var chars = commentText.split('');
                     for (var i = 0; i < chars.length; i++) {
