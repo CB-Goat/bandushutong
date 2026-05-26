@@ -3346,7 +3346,7 @@
                 var self = this;
                 var playBtn = document.getElementById('playBtn');
 
-                // 先检查是否有缺失音频的文本段
+                // 检查所有需要音频的段（text_segment + insert_point）
                 var missingSegs = [];
                 var audioPaths = [];
                 for (var i = 0; i < this.audioSegments.length; i++) {
@@ -3357,10 +3357,18 @@
                         } else {
                             missingSegs.push(seg);
                         }
+                    } else if (seg.type === 'insert_point') {
+                        // insert_point 的 audio_path（评论音频）和 quote_audio_path（引用音频）
+                        if (seg.audio_path) {
+                            audioPaths.push(seg.audio_path);
+                        }
+                        if (seg.quote_audio_path) {
+                            audioPaths.push(seg.quote_audio_path);
+                        }
                     }
                 }
 
-                // 有缺失音频的段，提示用户并禁用播放
+                // 有缺失音频的文本段，提示用户并禁用播放
                 if (missingSegs.length > 0) {
                     console.log('音频不完整，缺失' + missingSegs.length + '个文本段音频');
                     playBtn.disabled = true;
@@ -3401,19 +3409,33 @@
                     if (loaded + failed >= total) {
                         finished = true;
                         clearTimeout(safetyTimer);
-                        playBtn.disabled = false;
-                        playBtn.style.opacity = '1';
-                        playBtn.textContent = '\u25B6';
-                        playBtn.title = '';
                         if (failed > 0) {
-                            console.log('音频预加载完成，' + failed + '/' + total + '个失败');
+                            // 有文件不存在，禁用播放并提示
+                            console.log('音频预加载完成，' + failed + '/' + total + '个文件不存在');
+                            playBtn.textContent = '\u26A0';
+                            playBtn.title = '音频不完整，请在管理页修复音频';
+                            var readerContent = document.getElementById('readerContent');
+                            if (readerContent) {
+                                var warnEl = document.getElementById('audioWarning');
+                                if (!warnEl) {
+                                    warnEl = document.createElement('div');
+                                    warnEl.id = 'audioWarning';
+                                    warnEl.style.cssText = 'background:#fff3cd;color:#856404;padding:10px 15px;border-radius:8px;margin-bottom:10px;font-size:14px;text-align:center;';
+                                }
+                                warnEl.textContent = '⚠ 音频文件缺失（' + failed + '个），请在管理页点击"修复音频"后重新进入';
+                                readerContent.parentNode.insertBefore(warnEl, readerContent);
+                            }
                         } else {
+                            playBtn.disabled = false;
+                            playBtn.style.opacity = '1';
+                            playBtn.textContent = '\u25B6';
+                            playBtn.title = '';
                             console.log('所有音频预加载完成');
                         }
                     }
                 }
 
-                // 安全超时：15秒后强制解除禁用，避免永远卡住
+                // 安全超时：15秒后强制解除
                 var safetyTimer = setTimeout(function() {
                     if (!finished) {
                         console.log('音频预加载超时(' + (loaded + failed) + '/' + total + ')，强制解除');
@@ -3422,34 +3444,28 @@
                     }
                 }, 15000);
 
+                // 用 fetch HEAD 验证文件是否存在，再用 Audio 预加载到缓存
                 audioPaths.forEach(function(path) {
-                    var audio = new Audio();
-                    audio.preload = 'auto';
-
-                    var done = false;
-                    function markDone(isError) {
-                        if (done) return;
-                        done = true;
-                        audio.removeEventListener('canplaythrough', onSuccess);
-                        audio.removeEventListener('canplay', onSuccess);
-                        audio.removeEventListener('loadeddata', onSuccess);
-                        audio.removeEventListener('error', onError);
-                        if (isError) {
+                    fetch(path, { method: 'HEAD' })
+                        .then(function(r) {
+                            if (r.ok) {
+                                // 文件存在，用 Audio 预加载到浏览器缓存
+                                var audio = new Audio();
+                                audio.preload = 'auto';
+                                audio.src = path;
+                                audio.load();
+                                loaded++;
+                            } else {
+                                failed++;
+                                console.log('音频文件不存在:', path, r.status);
+                            }
+                            checkDone();
+                        })
+                        .catch(function() {
                             failed++;
-                            console.log('音频预加载失败:', path);
-                        } else {
-                            loaded++;
-                        }
-                        checkDone();
-                    }
-                    var onSuccess = function() { markDone(false); };
-                    var onError = function() { markDone(true); };
-
-                    audio.addEventListener('canplaythrough', onSuccess);
-                    audio.addEventListener('loadeddata', onSuccess);
-                    audio.addEventListener('error', onError);
-                    audio.src = path;
-                    audio.load();
+                            console.log('音频文件检查失败:', path);
+                            checkDone();
+                        });
                 });
             },
 
