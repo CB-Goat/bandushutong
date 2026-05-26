@@ -2505,10 +2505,17 @@
             // 检查是否触发点评播放，返回 true 表示已触发
             _checkAnnotationTrigger: function(currentCharIndex) {
                 if (state.isPlayingAnnotation) return false; // 正在播放点评中，不重复触发
-                
+
+                // 已读节不触发点评保存断点
+                var section = state.currentSections[state.currentSectionIndex];
+                var sectionStatus = (section && state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                if (sectionStatus === 'read') {
+                    return false; // 已读节跳过点评触发
+                }
+
                 var annotations = state.currentAnnotations;
                 if (!annotations) return false;
-                
+
                 for (var i = 0; i < annotations.length; i++) {
                     var ann = annotations[i];
                     // 在语音播放到点评原文结束位置时触发
