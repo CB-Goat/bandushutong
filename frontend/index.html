@@ -6578,8 +6578,9 @@
                         document.getElementById('rankName').textContent = rank.rank_name;
                         document.getElementById('rankTitle').textContent = rank.title || '';
                         document.getElementById('rankWords').textContent = (data.total_words || 0).toLocaleString();
-                        document.getElementById('rankProgress').style.width = (data.progress_percent || 0) + '%';
-                        document.getElementById('rankPercent').textContent = Math.floor(data.progress_percent || 0);
+                        var progressPercent = data.progress || 0;
+                        document.getElementById('rankProgress').style.width = progressPercent + '%';
+                        document.getElementById('rankPercent').textContent = Math.floor(progressPercent);
                         // 记录当前军衔
                         state._lastRankName = rank.rank_name;
                         if (data.next_rank) {
