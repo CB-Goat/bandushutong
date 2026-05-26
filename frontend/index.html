@@ -3279,9 +3279,11 @@
                 
                 if (this._isSegmentMode && this.audioSegments.length > 0) {
                     if (this._playlistIndex < 0) {
-                        // 检查是否有断点恢复位置（新格式）
-                        var progressV2 = state.currentProgressV2;
-                        if (progressV2 && parseInt(progressV2.current_section_id) === parseInt(section.id)) {
+                        // 已读节不做断点恢复，从头开始播放
+                        if (sectionStatus !== 'read') {
+                            // 检查是否有断点恢复位置（新格式）
+                            var progressV2 = state.currentProgressV2;
+                            if (progressV2 && parseInt(progressV2.current_section_id) === parseInt(section.id)) {
                             var targetSegIdx = -1;
                             if (progressV2.current_segment_id) {
                                 // 根据 segment_id 找到对应的播放队列索引
@@ -3317,6 +3319,7 @@
                                 console.log('断点恢复: 跳到段', targetSegIdx, 'segment_id=', progressV2.current_segment_id, '段内时间', this._resumeTimeInSegment, '秒');
                             }
                         }
+                        } // end if (sectionStatus !== 'read')
                         // 先设置播放状态，再更新灯笼
                         self.isPlaying = true;
                         state.isPlaying = true;
