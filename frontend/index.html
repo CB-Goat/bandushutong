@@ -3201,6 +3201,8 @@
                             
                             // 构建播放队列（直接使用后端返回的 playlist）
                             self._buildPlaylist(data.playlist);
+                            // 预加载前3个音频段，避免播放时卡顿
+                            self._preloadAudioSegments(3);
                             // 加载随机名言
                             loadRandomQuote(sectionId);
                         } else {
@@ -3229,7 +3231,26 @@
                     }
                 }
             },
-            
+
+            // 预加载音频段
+            _preloadAudioSegments: function(count) {
+                var self = this;
+                var preloadCount = 0;
+                for (var i = 0; i < this.audioSegments.length && preloadCount < count; i++) {
+                    var seg = this.audioSegments[i];
+                    if (seg.type === 'text_segment' && seg.audio_path) {
+                        (function(path) {
+                            var audio = new Audio();
+                            audio.preload = 'auto';
+                            audio.src = path;
+                            audio.load();
+                            console.log('预加载音频:', path);
+                        })(seg.audio_path);
+                        preloadCount++;
+                    }
+                }
+            },
+
             _checkTTSStatus: function() {
                 var self = this;
                 var checkInterval = setInterval(function() {
@@ -3513,6 +3534,8 @@
                         self.isPlaying = true;
                         state.isPlaying = true;
                         document.getElementById('playBtn').textContent = '\u23F8';
+                        // 播放开始时预加载下一段音频
+                        self._preloadNextAudioSegment();
                     }).catch(function(e) {
                         console.log('文本段播放失败:', e);
                     });
@@ -3522,6 +3545,21 @@
                     if (!self.isPlaying) self.audio.play().catch(function() {});
                 }, 5000);
                 self._allTimers.push(timerId2);
+            },
+
+            // 预加载下一段音频
+            _preloadNextAudioSegment: function() {
+                var nextIdx = this._playlistIndex + 1;
+                if (nextIdx < this.audioSegments.length) {
+                    var nextSeg = this.audioSegments[nextIdx];
+                    if (nextSeg.type === 'text_segment' && nextSeg.audio_path) {
+                        var audio = new Audio();
+                        audio.preload = 'auto';
+                        audio.src = nextSeg.audio_path;
+                        audio.load();
+                        console.log('预加载下一段音频:', nextSeg.audio_path);
+                    }
+                }
             },
             
             _playOriginalSegment: function(seg) {
