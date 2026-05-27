@@ -260,16 +260,16 @@ class WordStructureParser:
             # 获取段落直接属性中的 numPr
             numPr = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}numPr')
             
-            # 检查 numId 是否为 0（表示移除编号），回退到样式中的 numPr
-            effective_numPr = numPr
+            # numId=0 表示明确移除编号，直接返回 None
             if numPr is not None:
                 numId_elem = numPr.find(f'{{{self.W_NS}}}numId')
                 if numId_elem is not None:
                     num_id_val = numId_elem.get(f'{{{self.W_NS}}}val')
                     if num_id_val == '0':
-                        effective_numPr = self._get_style_numPr(para)
+                        return None
             
             # 如果段落没有 numPr，尝试从样式获取
+            effective_numPr = numPr
             if effective_numPr is None:
                 effective_numPr = self._get_style_numPr(para)
             
@@ -412,6 +412,7 @@ class WordStructureParser:
         sections = []
         chapter_number = 0
         section_number = 0
+        numbering_counter = 0  # 编号计数器（只对有编号的节递增）
         current_chapter_title = None
         
         # 先检查是否有 Heading 3
@@ -437,17 +438,13 @@ class WordStructureParser:
                 num_fmt = self._get_auto_number_text(para)
                 if num_fmt:
                     lvlText, numFmt, start = num_fmt
-                    chapter_number += 1
-                    auto_num_text = self._format_number_text(lvlText, numFmt, chapter_number)
+                    numbering_counter += 1
+                    chapter_number = numbering_counter
+                    auto_num_text = self._format_number_text(lvlText, numFmt, numbering_counter)
                     print(f"[Parser] 章编号: {auto_num_text}")
                 else:
                     auto_num_text = None
-                    # 从标题文本中提取序号，失败则自增
-                    extracted_num = self._extract_number(text)
-                    if extracted_num:
-                        chapter_number = extracted_num
-                    else:
-                        chapter_number += 1
+                    chapter_number += 1
                 
                 # 构建完整标题：自动编号 + 原标题
                 full_title = f"{auto_num_text} {text}" if auto_num_text else text
@@ -474,21 +471,17 @@ class WordStructureParser:
             
             elif style == 'Heading 3':
                 # 节标题
+                section_number += 1
+                
                 # 获取 Word 自动编号格式
                 num_fmt = self._get_auto_number_text(para)
                 if num_fmt:
                     lvlText, numFmt, start = num_fmt
-                    section_number += 1
-                    auto_num_text = self._format_number_text(lvlText, numFmt, section_number)
+                    numbering_counter += 1
+                    auto_num_text = self._format_number_text(lvlText, numFmt, numbering_counter)
                     print(f"[Parser] 节编号: {auto_num_text}")
                 else:
                     auto_num_text = None
-                    # 从标题文本中提取序号，失败则自增
-                    extracted_num = self._extract_number(text)
-                    if extracted_num:
-                        section_number = extracted_num
-                    else:
-                        section_number += 1
                 
                 # 构建完整标题：自动编号 + 原标题
                 full_title = f"{auto_num_text} {text}" if auto_num_text else text
