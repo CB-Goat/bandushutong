@@ -7639,15 +7639,14 @@
                         btn.disabled = false;
                         return;
                     }
-                    btn.textContent = '音频生成中...';
-                    if (data.section_ids && data.section_ids.length > 0) {
-                        pollTTSProgress(data.section_ids, btn, bookId);
-                    } else {
-                        btn.textContent = '更新';
-                        btn.style.background = '';
-                        btn.disabled = false;
-                        adminShowCatalogStats(bookId);
+                    // 同步生成完成，直接刷新
+                    btn.textContent = '更新';
+                    btn.style.background = data.failed_sections && data.failed_sections.length > 0 ? '#e74c3c' : '';
+                    btn.disabled = false;
+                    if (data.failed_sections && data.failed_sections.length > 0) {
+                        alert('导入完成，但 ' + data.failed_sections.length + ' 个节音频生成失败');
                     }
+                    adminShowCatalogStats(bookId);
                 }).catch(function() {
                     alert('导入失败');
                     btn.textContent = '更新';
@@ -7683,15 +7682,14 @@
                         btn.disabled = false;
                         return;
                     }
-                    btn.textContent = '音频生成中...';
-                    if (data.section_ids && data.section_ids.length > 0) {
-                        pollTTSProgress(data.section_ids, btn, bookId);
-                    } else {
-                        btn.textContent = '更新';
-                        btn.style.background = '';
-                        btn.disabled = false;
-                        adminShowCatalogStats(bookId);
+                    // 同步生成完成，直接刷新
+                    btn.textContent = '更新';
+                    btn.style.background = data.audio_success ? '' : '#e74c3c';
+                    btn.disabled = false;
+                    if (!data.audio_success) {
+                        alert('导入完成，但音频生成失败');
                     }
+                    adminShowCatalogStats(bookId);
                 }).catch(function() {
                     alert('导入失败');
                     btn.textContent = '更新';

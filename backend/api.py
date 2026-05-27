@@ -1697,6 +1697,11 @@ def admin_reimport_chapter(book_id, chapter_id):
                 cursor = conn.cursor()
                 # 删除旧的点评
                 cursor.execute('DELETE FROM annotations WHERE section_id = ?', (sec_id,))
+                # 删除旧的 text_segments 和 insert_points（级联删除）
+                cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (sec_id,))
+                cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (sec_id,))
+                # 清除音频相关字段
+                cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = ?', (sec_id,))
                 # 更新小节内容
                 cursor.execute('UPDATE sections SET title = ?, content = ?, summary = ?, word_count = ? WHERE id = ?',
                               (title, content, summary, word_count, sec_id))
@@ -1752,42 +1757,43 @@ def admin_reimport_chapter(book_id, chapter_id):
         conn.close()
         update_book_sections_count(book_id, total_sections)
 
-        # 为更新的节生成分段TTS音频（按点评边界分割）
+        # 为更新的节生成分段TTS音频（按点评边界分割）- 同步生成确保完整
+        failed_sections = []
         try:
             from backend.baidu_tts import generate_segmented_audio
             from backend.database import update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section
-            import threading
-            def generate_tts_for_chapter():
-                for sec in matched_sections:
-                    sec_number = sec['section_number']
-                    if sec_number in existing_sections:
-                        sec_id = existing_sections[sec_number]
-                        # 从数据库重新加载点评（获取正确的id）
-                        annotations = get_annotations_by_section(sec_id)
-                        print(f"[TTS] 为节 {sec_id} 生成音频，点评数: {len(annotations)}")
-                        # 按点评边界生成分段音频
-                        result = generate_segmented_audio(
-                            sec.get('content', ''),
-                            sec_id,
-                            annotations=annotations,
-                            speed=5,
-                            person=0
-                        )
-                        if result:
-                            update_section_audio_timeline(sec_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
-                            if result.get('audio_segments'):
-                                update_section_audio_segments(sec_id, result['audio_segments'])
-                            print(f"[TTS] 节 {sec_id} 音频生成完成")
-            t = threading.Thread(target=generate_tts_for_chapter)
-            t.daemon = True
-            t.start()
+            for sec in matched_sections:
+                sec_number = sec['section_number']
+                if sec_number in existing_sections:
+                    sec_id = existing_sections[sec_number]
+                    # 从数据库重新加载点评（获取正确的id）
+                    annotations = get_annotations_by_section(sec_id)
+                    print(f"[TTS] 为节 {sec_id} 生成音频，点评数: {len(annotations)}")
+                    # 按点评边界生成分段音频
+                    result = generate_segmented_audio(
+                        sec.get('content', ''),
+                        sec_id,
+                        annotations=annotations,
+                        speed=5,
+                        person=0
+                    )
+                    if result:
+                        update_section_audio_timeline(sec_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
+                        if result.get('audio_segments'):
+                            update_section_audio_segments(sec_id, result['audio_segments'])
+                        print(f"[TTS] 节 {sec_id} 音频生成完成")
+                    else:
+                        failed_sections.append(sec_id)
+                        print(f"[TTS] 节 {sec_id} 音频生成失败")
         except Exception as e:
             print(f'[TTS] 章节分段音频生成失败: {e}')
 
+        section_ids = [existing_sections[s['section_number']] for s in matched_sections if s['section_number'] in existing_sections]
         return jsonify({
-            'message': '章节导入成功（音频生成中）',
+            'message': '章节导入成功' + ('（部分音频生成失败）' if failed_sections else ''),
             'section_count': len(matched_sections),
-            'section_ids': [existing_sections[s['section_number']] for s in matched_sections if s['section_number'] in existing_sections]
+            'section_ids': section_ids,
+            'failed_sections': failed_sections
         })
 
     except Exception as e:
@@ -1839,11 +1845,16 @@ def admin_reimport_section(book_id, section_id):
         summary = matched_section.get('summary', '')
         word_count = len(content)
 
-        # 删除旧点评并更新内容（同一事务）
+        # 删除旧数据并更新内容（同一事务）
         from backend.database import get_db
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute('DELETE FROM annotations WHERE section_id = ?', (section_id,))
+        # 删除旧的 text_segments 和 insert_points
+        cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
+        cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (section_id,))
+        # 清除音频相关字段
+        cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = ?', (section_id,))
         cursor.execute('UPDATE sections SET title = ?, content = ?, summary = ?, word_count = ? WHERE id = ?',
                       (title, content, summary, word_count, section_id))
         conn.commit()
@@ -1881,35 +1892,38 @@ def admin_reimport_section(book_id, section_id):
         conn.close()
         update_book_sections_count(book_id, total_sections)
 
-        # 为更新的节生成分段TTS音频（按点评边界分割）
+        # 为更新的节生成分段TTS音频（按点评边界分割）- 同步生成确保完整
+        audio_success = False
         try:
             from backend.baidu_tts import generate_segmented_audio
             from backend.database import update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section
-            import threading
-            def generate_tts_for_section():
-                # 从数据库重新加载点评（获取正确的id）
-                db_annotations = get_annotations_by_section(section_id)
-                print(f"[TTS] 为节 {section_id} 生成音频，点评数: {len(db_annotations)}")
-                # 按点评边界生成分段音频
-                result = generate_segmented_audio(
-                    content,
-                    section_id,
-                    annotations=db_annotations,
-                    speed=5,
-                    person=0
-                )
-                if result:
-                    update_section_audio_timeline(section_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
-                    if result.get('audio_segments'):
-                        update_section_audio_segments(section_id, result['audio_segments'])
-                    print(f"[TTS] 节 {section_id} 音频生成完成")
-            t = threading.Thread(target=generate_tts_for_section)
-            t.daemon = True
-            t.start()
+            # 从数据库重新加载点评（获取正确的id）
+            db_annotations = get_annotations_by_section(section_id)
+            print(f"[TTS] 为节 {section_id} 生成音频，点评数: {len(db_annotations)}")
+            # 按点评边界生成分段音频
+            result = generate_segmented_audio(
+                content,
+                section_id,
+                annotations=db_annotations,
+                speed=5,
+                person=0
+            )
+            if result:
+                update_section_audio_timeline(section_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
+                if result.get('audio_segments'):
+                    update_section_audio_segments(section_id, result['audio_segments'])
+                audio_success = True
+                print(f"[TTS] 节 {section_id} 音频生成完成")
+            else:
+                print(f"[TTS] 节 {section_id} 音频生成失败")
         except Exception as e:
             print(f'[TTS] 小节分段音频生成失败: {e}')
 
-        return jsonify({'message': '小节导入成功（音频生成中）', 'section_ids': [section_id]})
+        return jsonify({
+            'message': '小节导入成功' + ('' if audio_success else '（音频生成失败）'),
+            'section_ids': [section_id],
+            'audio_success': audio_success
+        })
 
     except Exception as e:
         return jsonify({'error': f'导入失败: {str(e)}'}), 500
