@@ -1803,7 +1803,7 @@
                 checkLogin();
             }
             setupEventListeners();
-            player.init();
+            // player.init() 已移到 player 定义之后
         });
 
         async function initDatabase() {
@@ -5143,6 +5143,9 @@
                 window.speechSynthesis.speak(utterance);
             }
         };
+
+        // 初始化播放器（在player定义之后）
+        player.init();
 
         // ===== 点评编辑器 =====
         var annotationEditor = {
