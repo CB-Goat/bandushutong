@@ -236,8 +236,32 @@ class WordStructureParser:
         """从 Word XML 中提取段落的自动编号文本（如'第1篇'）"""
         try:
             p_elem = para._element
-            # 检查是否有自动编号
+            
+            # 方法1：检查段落直接属性中的 numPr
             numPr = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}numPr')
+            
+            # 方法2：检查段落样式中定义的 numPr
+            if numPr is None:
+                pStyle = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}pStyle')
+                if pStyle is not None:
+                    style_val = pStyle.get(f'{{{self.W_NS}}}val')
+                    if style_val:
+                        # 在 styles.xml 中查找样式定义
+                        try:
+                            styles_part = self.doc.part.package.part_related_by('/word/styles.xml') if hasattr(self.doc.part, 'package') else None
+                            if styles_part is None:
+                                # 尝试通过 document.styles 获取
+                                for style in self.doc.styles:
+                                    if style.name == style_val or style.style_id == style_val:
+                                        # 检查样式的 XML 是否包含 numPr
+                                        style_elem = style.element
+                                        style_numPr = style_elem.find(f'.//{{{self.W_NS}}}numPr')
+                                        if style_numPr is not None:
+                                            numPr = style_numPr
+                                            break
+                        except Exception as e:
+                            print(f"[Parser] 样式查找失败: {e}")
+            
             if numPr is None:
                 return None
             
@@ -252,7 +276,7 @@ class WordStructureParser:
             # 获取段落纯文本（不包含自动编号）
             para_text = para.text.strip() if para.text else ''
             
-            print(f"[Parser] 自动编号提取: full_text='{full_text[:50]}...', para_text='{para_text[:50]}...'")
+            print(f"[Parser] 自动编号提取: full_text='{full_text[:50]}', para_text='{para_text[:50]}', numPr存在={numPr is not None}")
             
             # 如果完整文本以段落文本结尾，前面的部分就是自动编号
             if full_text.endswith(para_text) and len(full_text) > len(para_text):
@@ -261,15 +285,16 @@ class WordStructureParser:
                     print(f"[Parser] 提取到自动编号: '{auto_num}'")
                     return auto_num
             
-            # 如果文本相同，说明没有自动编号前缀
+            # 如果文本相同，说明没有自动编号前缀（编号可能通过 numbering.xml 渲染）
             if full_text == para_text:
-                print(f"[Parser] 无自动编号前缀")
-                return None
+                print(f"[Parser] full_text与para_text相同，尝试从numbering.xml解析")
+                return self._get_auto_number_from_numbering(para)
             
-            # 备选方案：尝试从 numbering.xml 解析
-            return self._get_auto_number_from_numbering(para)
+            return None
         except Exception as e:
             print(f"[Parser] 获取自动编号文本失败: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def _get_auto_number_from_numbering(self, para):
