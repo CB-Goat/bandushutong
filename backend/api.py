@@ -1757,15 +1757,18 @@ def admin_reimport_chapter(book_id, chapter_id):
         conn.close()
         update_book_sections_count(book_id, total_sections)
 
-        # 为更新的节生成分段TTS音频（按点评边界分割）- 同步生成确保完整
+        # 为更新的节重新创建分段数据并生成分段TTS音频
         failed_sections = []
         try:
             from backend.baidu_tts import generate_segmented_audio
-            from backend.database import update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section
+            from backend.database import update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section, create_text_segments, create_insert_points
             for sec in matched_sections:
                 sec_number = sec['section_number']
                 if sec_number in existing_sections:
                     sec_id = existing_sections[sec_number]
+                    # 重新创建 text_segments 和 insert_points
+                    create_text_segments(sec_id)
+                    create_insert_points(sec_id)
                     # 从数据库重新加载点评（获取正确的id）
                     annotations = get_annotations_by_section(sec_id)
                     print(f"[TTS] 为节 {sec_id} 生成音频，点评数: {len(annotations)}")
@@ -1892,11 +1895,14 @@ def admin_reimport_section(book_id, section_id):
         conn.close()
         update_book_sections_count(book_id, total_sections)
 
-        # 为更新的节生成分段TTS音频（按点评边界分割）- 同步生成确保完整
+        # 为更新的节重新创建分段数据并生成分段TTS音频
         audio_success = False
         try:
             from backend.baidu_tts import generate_segmented_audio
-            from backend.database import update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section
+            from backend.database import update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section, create_text_segments, create_insert_points
+            # 重新创建 text_segments 和 insert_points
+            create_text_segments(section_id)
+            create_insert_points(section_id)
             # 从数据库重新加载点评（获取正确的id）
             db_annotations = get_annotations_by_section(section_id)
             print(f"[TTS] 为节 {section_id} 生成音频，点评数: {len(db_annotations)}")
