@@ -321,8 +321,13 @@ class WordStructureParser:
         """获取 numbering.xml 的根元素"""
         try:
             numbering_part = self.doc.part.numbering_part
-            return numbering_part._element
-        except:
+            elem = numbering_part._element
+            # 调试：打印原始 XML（仅前2000字符）
+            raw_xml = etree.tostring(elem, pretty_print=True, encoding='unicode')
+            print(f"[Parser] numbering.xml 内容（前2000字符）:\n{raw_xml[:2000]}")
+            return elem
+        except Exception as e:
+            print(f"[Parser] 获取numbering.xml失败: {e}")
             return None
     
     def _resolve_numbering(self, num_id_val, level):
