@@ -450,31 +450,55 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
             print(f"[TTS] 段 {seg_idx} 结束后有点评 id={ann['id']}")
             # 为点评生成音频
             comment = ann.get('comment', '')
-            if comment:
-                ann_audio = generate_annotation_audio(ann['id'], '', comment, person=person, speed=speed)
-                if ann_audio:
-                    audio_segments.append({
-                        'type': 'annotation',
-                        'annotation_id': ann['id'],
-                        'audio_path': ann_audio['audio_path'],
-                        'audio_duration': ann_audio['audio_duration']
-                    })
-                    full_duration += ann_audio['audio_duration']
-                    # 更新数据库中的点评音频信息（annotations表 + insert_points表）
+            original_text = ann.get('original_text', '')
+            if comment or original_text:
+                # 生成引用原文音频（quote）
+                if original_text:
                     try:
-                        from backend.database import update_annotation_audio, get_db
-                        update_annotation_audio(ann['id'], ann_audio['audio_path'], ann_audio['audio_duration'])
-                        # 同时更新 insert_points 表的 audio_path
+                        from backend.database import get_db
                         conn = get_db()
                         cursor = conn.cursor()
-                        cursor.execute(
-                            "UPDATE insert_points SET audio_path = ?, audio_duration = ? WHERE section_id = ? AND annotation_index = ?",
-                            (ann_audio['audio_path'], ann_audio['audio_duration'], section_id, ann['annotation_index'])
-                        )
+                        # 为引用原文生成音频（使用 person=0 原文男声）
+                        quote_audio = generate_annotation_audio(ann['id'], original_text, '', person=0, speed=speed)
+                        if quote_audio:
+                            quote_audio_path = quote_audio['audio_path']
+                            quote_duration = quote_audio['audio_duration']
+                            # 更新 insert_points 表的 quote_audio_path
+                            cursor.execute(
+                                "UPDATE insert_points SET quote_audio_path = ?, quote_audio_duration = ? WHERE section_id = ? AND annotation_id = ?",
+                                (quote_audio_path, quote_duration, section_id, ann['id'])
+                            )
+                            print(f"[TTS] 引用音频生成完成: {quote_audio_path}, 时长 {quote_duration:.1f}s")
                         conn.commit()
                         conn.close()
                     except Exception as e:
-                        print(f"[TTS] 更新点评音频到数据库失败: {e}")
+                        print(f"[TTS] 生成引用音频失败: {e}")
+                # 生成点评音频（comment）
+                if comment:
+                    ann_audio = generate_annotation_audio(ann['id'], '', comment, person=person, speed=speed)
+                    if ann_audio:
+                        audio_segments.append({
+                            'type': 'annotation',
+                            'annotation_id': ann['id'],
+                            'audio_path': ann_audio['audio_path'],
+                            'audio_duration': ann_audio['audio_duration']
+                        })
+                        full_duration += ann_audio['audio_duration']
+                        # 更新数据库中的点评音频信息（annotations表 + insert_points表）
+                        try:
+                            from backend.database import update_annotation_audio, get_db
+                            update_annotation_audio(ann['id'], ann_audio['audio_path'], ann_audio['audio_duration'])
+                            # 同时更新 insert_points 表的 audio_path
+                            conn = get_db()
+                            cursor = conn.cursor()
+                            cursor.execute(
+                                "UPDATE insert_points SET audio_path = ?, audio_duration = ? WHERE section_id = ? AND annotation_index = ?",
+                                (ann_audio['audio_path'], ann_audio['audio_duration'], section_id, ann['annotation_index'])
+                            )
+                            conn.commit()
+                            conn.close()
+                        except Exception as e:
+                            print(f"[TTS] 更新点评音频到数据库失败: {e}")
         else:
             print(f"[TTS] 段 {seg_idx} 结束后无点评")
     
