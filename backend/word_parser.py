@@ -252,11 +252,19 @@ class WordStructureParser:
             # 获取段落纯文本（不包含自动编号）
             para_text = para.text.strip() if para.text else ''
             
+            print(f"[Parser] 自动编号提取: full_text='{full_text[:50]}...', para_text='{para_text[:50]}...'")
+            
             # 如果完整文本以段落文本结尾，前面的部分就是自动编号
             if full_text.endswith(para_text) and len(full_text) > len(para_text):
                 auto_num = full_text[:-len(para_text)].strip()
                 if auto_num:
+                    print(f"[Parser] 提取到自动编号: '{auto_num}'")
                     return auto_num
+            
+            # 如果文本相同，说明没有自动编号前缀
+            if full_text == para_text:
+                print(f"[Parser] 无自动编号前缀")
+                return None
             
             # 备选方案：尝试从 numbering.xml 解析
             return self._get_auto_number_from_numbering(para)
