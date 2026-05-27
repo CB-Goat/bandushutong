@@ -69,6 +69,97 @@ WECHAT_TOKEN = os.environ.get('WECHAT_TOKEN', 'bandushutong2024')  # 公众号To
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), '..', 'books')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+
+def reimport_section_core(section_id, content, annotations, title='', summary=''):
+    """
+    统一的节导入核心函数：清除历史数据，重新创建分段，生成音频
+    返回: {'success': bool, 'audio_segments_count': int, 'error': str}
+    """
+    from backend.database import (
+        get_db, update_section_audio_timeline, update_section_audio_segments,
+        get_annotations_by_section, create_text_segments, create_insert_points
+    )
+    from backend.baidu_tts import generate_segmented_audio, is_configured
+
+    result = {'success': False, 'audio_segments_count': 0, 'error': ''}
+
+    try:
+        # 1. 清除节的历史数据
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM annotations WHERE section_id = ?', (section_id,))
+        cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
+        cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (section_id,))
+        cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = ?', (section_id,))
+        if title:
+            cursor.execute('UPDATE sections SET title = ? WHERE id = ?', (title, section_id))
+        if summary:
+            cursor.execute('UPDATE sections SET summary = ? WHERE id = ?', (summary, section_id))
+        conn.commit()
+        conn.close()
+        print(f"[reimport_core] 节 {section_id}: 历史数据已清除")
+
+        # 2. 保存新的点评
+        if annotations:
+            conn = get_db()
+            cursor = conn.cursor()
+            for idx, anno in enumerate(annotations):
+                cursor.execute(
+                    '''INSERT INTO annotations (section_id, annotation_index, start_char, end_char, original_text, comment)
+                       VALUES (?, ?, ?, ?, ?, ?)''',
+                    (section_id, idx + 1, anno.get('start_char', 0), anno.get('end_char', 0),
+                     anno.get('original_text', ''), anno.get('comment', ''))
+                )
+            conn.commit()
+            conn.close()
+            print(f"[reimport_core] 节 {section_id}: 保存 {len(annotations)} 个点评")
+
+        # 3. 检查 TTS 配置
+        if not is_configured():
+            result['error'] = 'TTS未配置'
+            print(f"[reimport_core] 节 {section_id}: TTS未配置")
+            return result
+
+        # 4. 重新创建分段数据
+        seg_count = create_text_segments(section_id)
+        ip_count = create_insert_points(section_id)
+        print(f"[reimport_core] 节 {section_id}: 创建 {seg_count} 个text_segments, {ip_count} 个insert_points")
+
+        # 5. 重新加载点评（获取正确的id）
+        db_annotations = get_annotations_by_section(section_id)
+        print(f"[reimport_core] 节 {section_id}: 从数据库加载 {len(db_annotations)} 个点评")
+
+        # 6. 生成分段音频
+        print(f"[reimport_core] 节 {section_id}: 开始生成音频...")
+        audio_result = generate_segmented_audio(
+            content,
+            section_id,
+            annotations=db_annotations,
+            speed=5,
+            person=0
+        )
+
+        if audio_result:
+            update_section_audio_timeline(section_id, audio_result['audio_duration'],
+                                          audio_result['char_timeline'], audio_result['audio_path'])
+            if audio_result.get('audio_segments'):
+                update_section_audio_segments(section_id, audio_result['audio_segments'])
+            result['success'] = True
+            result['audio_segments_count'] = len(audio_result.get('audio_segments', []))
+            print(f"[reimport_core] 节 {section_id}: 音频生成完成, {result['audio_segments_count']} 段")
+        else:
+            result['error'] = '音频生成返回None'
+            print(f"[reimport_core] 节 {section_id}: 音频生成失败")
+
+    except Exception as e:
+        result['error'] = f'{type(e).__name__}: {e}'
+        print(f"[reimport_core] 节 {section_id}: 异常: {result['error']}")
+        import traceback
+        traceback.print_exc()
+
+    return result
+
+
 # ===== 微信公众号 API =====
 
 @api_bp.route('/wechat', methods=['GET', 'POST'])
@@ -364,24 +455,31 @@ def upload_book():
             ch_total_words = sum(len(s.get('content', '')) for s in ch_sections)
             update_chapter_info(ch_id, len(ch_sections), ch_total_words)
 
-        # 原文导入完成
-        _set_import_status(book_id, 'imported', f'原文导入完成{len(chapters)}章{len(sections)}节')
-
-        # 预生成所有节的音频（异步，不阻塞返回）
-        def _generate_audio_async():
-            try:
-                _set_import_status(book_id, 'generating', '音频生成开始')
-                from backend.baidu_tts import generate_book_audio
-                generate_book_audio(book_id)
-                _set_import_status(book_id, 'done', '音频生成完成')
-                print(f"[TTS] 书籍 {book_id} 音频生成完成")
-            except Exception as e:
-                _set_import_status(book_id, 'tts_error', f'音频生成失败: {str(e)}')
-                print(f"[TTS] 书籍 {book_id} 音频生成失败: {e}")
+        # 原文导入完成，开始生成音频（使用统一核心函数）
+        _set_import_status(book_id, 'generating', '音频生成开始')
+        failed_count = 0
+        total_count = len(sections)
         
-        import threading
-        t = threading.Thread(target=_generate_audio_async, daemon=True)
-        t.start()
+        for i, sec in enumerate(sections):
+            sec_id = section_id_map.get(sec['section_number'])
+            if not sec_id:
+                continue
+            result = reimport_section_core(
+                section_id=sec_id,
+                content=sec.get('content', ''),
+                annotations=sec.get('annotations', []),
+                title=sec.get('title', ''),
+                summary=sec.get('summary', '')
+            )
+            if not result['success']:
+                failed_count += 1
+                print(f"[upload] 节 {sec_id} 音频生成失败: {result['error']}")
+            _set_import_status(book_id, 'generating', f'音频生成中 {i+1}/{total_count}')
+        
+        if failed_count == 0:
+            _set_import_status(book_id, 'done', f'音频生成完成 {total_count}/{total_count}')
+        else:
+            _set_import_status(book_id, 'tts_error', f'音频生成完成，{failed_count}个节失败')
 
         return jsonify({
             'message': '更新成功' if is_update else '上传成功',
@@ -1757,46 +1855,22 @@ def admin_reimport_chapter(book_id, chapter_id):
         conn.close()
         update_book_sections_count(book_id, total_sections)
 
-        # 为更新的节重新创建分段数据并生成分段TTS音频
+        # 为更新的节重新创建分段数据并生成分段TTS音频（使用统一核心函数）
         failed_sections = []
-        from backend.baidu_tts import generate_segmented_audio, is_configured
-        from backend.database import update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section, create_text_segments, create_insert_points
-
-        print(f"[Reimport] TTS配置状态: is_configured={is_configured()}")
-
         for sec in matched_sections:
             sec_number = sec['section_number']
             if sec_number in existing_sections:
                 sec_id = existing_sections[sec_number]
-                try:
-                    # 重新创建 text_segments 和 insert_points
-                    seg_count = create_text_segments(sec_id)
-                    ip_count = create_insert_points(sec_id)
-                    print(f"[Reimport] 节 {sec_id}: 创建 {seg_count} 个text_segments, {ip_count} 个insert_points")
-                    # 从数据库重新加载点评（获取正确的id）
-                    annotations = get_annotations_by_section(sec_id)
-                    print(f"[TTS] 为节 {sec_id} 生成音频，点评数: {len(annotations)}")
-                    # 按点评边界生成分段音频
-                    result = generate_segmented_audio(
-                        sec.get('content', ''),
-                        sec_id,
-                        annotations=annotations,
-                        speed=5,
-                        person=0
-                    )
-                    if result:
-                        update_section_audio_timeline(sec_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
-                        if result.get('audio_segments'):
-                            update_section_audio_segments(sec_id, result['audio_segments'])
-                        print(f"[TTS] 节 {sec_id} 音频生成完成, 段数: {len(result.get('audio_segments', []))}")
-                    else:
-                        failed_sections.append(sec_id)
-                        print(f"[TTS] 节 {sec_id} 音频生成失败: result is None")
-                except Exception as e:
+                result = reimport_section_core(
+                    section_id=sec_id,
+                    content=sec.get('content', ''),
+                    annotations=sec.get('annotations', []),
+                    title=sec.get('title', ''),
+                    summary=sec.get('summary', '')
+                )
+                if not result['success']:
                     failed_sections.append(sec_id)
-                    print(f"[TTS] 节 {sec_id} 处理异常: {type(e).__name__}: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    print(f"[reimport_chapter] 节 {sec_id} 处理失败: {result['error']}")
 
         section_ids = [existing_sections[s['section_number']] for s in matched_sections if s['section_number'] in existing_sections]
         return jsonify({
@@ -1902,38 +1976,17 @@ def admin_reimport_section(book_id, section_id):
         conn.close()
         update_book_sections_count(book_id, total_sections)
 
-        # 为更新的节重新创建分段数据并生成分段TTS音频
-        audio_success = False
-        from backend.baidu_tts import generate_segmented_audio, is_configured
-        from backend.database import update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section, create_text_segments, create_insert_points
-
-        print(f"[Reimport] TTS配置状态: is_configured={is_configured()}")
-
-        try:
-            seg_count = create_text_segments(section_id)
-            ip_count = create_insert_points(section_id)
-            print(f"[Reimport] 节 {section_id}: 创建 {seg_count} 个text_segments, {ip_count} 个insert_points")
-            # 从数据库重新加载点评（获取正确的id）
-            db_annotations = get_annotations_by_section(section_id)
-            print(f"[TTS] 为节 {section_id} 生成音频，点评数: {len(db_annotations)}")
-            # 按点评边界生成分段音频
-            result = generate_segmented_audio(
-                content,
-                section_id,
-                annotations=db_annotations,
-                speed=5,
-                person=0
-            )
-            if result:
-                update_section_audio_timeline(section_id, result['audio_duration'], result['char_timeline'], result['audio_path'])
-                if result.get('audio_segments'):
-                    update_section_audio_segments(section_id, result['audio_segments'])
-                audio_success = True
-                print(f"[TTS] 节 {section_id} 音频生成完成, 段数: {len(result.get('audio_segments', []))}")
-            else:
-                print(f"[TTS] 节 {section_id} 音频生成失败: result is None")
-        except Exception as e:
-            print(f'[TTS] 小节分段音频生成失败: {e}')
+        # 为更新的节重新创建分段数据并生成分段TTS音频（使用统一核心函数）
+        result = reimport_section_core(
+            section_id=section_id,
+            content=content,
+            annotations=matched_section.get('annotations', []),
+            title=title,
+            summary=summary
+        )
+        audio_success = result['success']
+        if not audio_success:
+            print(f"[reimport_section] 节 {section_id} 处理失败: {result['error']}")
 
         return jsonify({
             'message': '小节导入成功' + ('' if audio_success else '（音频生成失败）'),
