@@ -459,7 +459,8 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
                         conn = get_db()
                         cursor = conn.cursor()
                         # 为引用原文生成音频（使用 person=0 原文男声）
-                        quote_audio = generate_annotation_audio(ann['id'], original_text, '', person=0, speed=speed)
+                        # 注意：generate_annotation_audio 的第3个参数是 comment，所以将 original_text 作为 comment 传入
+                        quote_audio = generate_annotation_audio(ann['id'], '', original_text, person=0, speed=speed)
                         if quote_audio:
                             quote_audio_path = quote_audio['audio_path']
                             quote_duration = quote_audio['audio_duration']
