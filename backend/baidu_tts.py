@@ -446,28 +446,28 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
         
         # 查找该段结束位置对应的点评（使用next_point，因为ann_by_end_char的key是点评的end_char）
         if next_point in ann_by_end_char:
-                ann = ann_by_end_char[next_point]
-                print(f"[TTS] 段 {seg_idx} 结束后有点评 id={ann['id']}")
-                # 为点评生成音频
-                comment = ann.get('comment', '')
-                if comment:
-                    ann_audio = generate_annotation_audio(ann['id'], '', comment, person=person, speed=speed)
-                    if ann_audio:
-                        audio_segments.append({
-                            'type': 'annotation',
-                            'annotation_id': ann['id'],
-                            'audio_path': ann_audio['audio_path'],
-                            'audio_duration': ann_audio['audio_duration']
-                        })
-                        full_duration += ann_audio['audio_duration']
-                        # 更新数据库中的点评音频信息
-                        try:
-                            from backend.database import update_annotation_audio
-                            update_annotation_audio(section_id, ann['annotation_index'], ann_audio['audio_path'], ann_audio['audio_duration'])
-                        except:
-                            pass
-            else:
-                print(f"[TTS] 段 {seg_idx} 结束后无点评")
+            ann = ann_by_end_char[next_point]
+            print(f"[TTS] 段 {seg_idx} 结束后有点评 id={ann['id']}")
+            # 为点评生成音频
+            comment = ann.get('comment', '')
+            if comment:
+                ann_audio = generate_annotation_audio(ann['id'], '', comment, person=person, speed=speed)
+                if ann_audio:
+                    audio_segments.append({
+                        'type': 'annotation',
+                        'annotation_id': ann['id'],
+                        'audio_path': ann_audio['audio_path'],
+                        'audio_duration': ann_audio['audio_duration']
+                    })
+                    full_duration += ann_audio['audio_duration']
+                    # 更新数据库中的点评音频信息
+                    try:
+                        from backend.database import update_annotation_audio
+                        update_annotation_audio(section_id, ann['annotation_index'], ann_audio['audio_path'], ann_audio['audio_duration'])
+                    except:
+                        pass
+        else:
+            print(f"[TTS] 段 {seg_idx} 结束后无点评")
     
     # 3. 合并所有段为完整音频（兼容旧模式）
     final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
