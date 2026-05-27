@@ -1797,7 +1797,11 @@ def create_insert_points(section_id):
         )
     
     conn.commit()
+    # 统计创建的 insert_points 数量
+    cursor.execute('SELECT COUNT(*) FROM insert_points WHERE section_id = ?', (section_id,))
+    count = cursor.fetchone()[0]
     conn.close()
+    return count
 
 def get_insert_points_by_section(section_id):
     """获取一节的所有 insert_points，按 segment 关联排序"""
