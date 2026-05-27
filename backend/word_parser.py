@@ -236,45 +236,83 @@ class WordStructureParser:
         """从 Word XML 中提取段落的自动编号文本（如'第1篇'）"""
         try:
             p_elem = para._element
+            # 检查是否有自动编号
             numPr = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}numPr')
-            if numPr is not None:
-                numId = numPr.find(f'{{{self.W_NS}}}numId')
-                ilvl = numPr.find(f'{{{self.W_NS}}}ilvl')
-                if numId is not None:
-                    num_elem = numId.get(f'{{{self.W_NS}}}val')
-                    level = int(ilvl.get(f'{{{self.W_NS}}}val', '0')) if ilvl is not None else 0
-                    if num_elem:
-                        try:
-                            num_obj = self.doc.part.numbering_part.numbering
-                            for key, abstract_num in num_obj.num.items():
-                                if str(key) == num_elem:
-                                    # 获取 numbering 定义
-                                    for an in num_obj.abstractNum:
-                                        if str(an.abstractNumId) == str(abstract_num.abstractNumId):
-                                            # 获取当前级别的编号格式
-                                            for lvl in an.lvl:
-                                                if int(lvl.ilvl) == level:
-                                                    numFmt = lvl.numFmt.get(f'{{{self.W_NS}}}val') if lvl.numFmt else 'decimal'
-                                                    lvlText = lvl.lvlText.get(f'{{{self.W_NS}}}val') if lvl.lvlText else '%1.'
-                                                    # 获取当前编号值
-                                                    try:
-                                                        current_num = abstract_num.get_num(level)
-                                                        # 替换 lvlText 中的 %1 为实际数字
-                                                        if '%1' in lvlText:
-                                                            # 中文数字格式
-                                                            if numFmt == 'chineseCounting':
-                                                                num_str = self._num_to_chinese(current_num)
-                                                            else:
-                                                                num_str = str(current_num)
-                                                            result = lvlText.replace('%1', num_str)
-                                                            return result
-                                                    except:
-                                                        pass
-                        except Exception as e:
-                            print(f"[Parser] 获取自动编号文本失败: {e}")
-                            pass
-        except:
-            pass
+            if numPr is None:
+                return None
+            
+            # 获取所有 w:t 文本节点
+            text_nodes = p_elem.findall(f'.//{{{self.W_NS}}}t')
+            if not text_nodes:
+                return None
+            
+            # 获取完整文本（包含自动编号）
+            full_text = ''.join([t.text for t in text_nodes if t.text])
+            
+            # 获取段落纯文本（不包含自动编号）
+            para_text = para.text.strip() if para.text else ''
+            
+            # 如果完整文本以段落文本结尾，前面的部分就是自动编号
+            if full_text.endswith(para_text) and len(full_text) > len(para_text):
+                auto_num = full_text[:-len(para_text)].strip()
+                if auto_num:
+                    return auto_num
+            
+            # 备选方案：尝试从 numbering.xml 解析
+            return self._get_auto_number_from_numbering(para)
+        except Exception as e:
+            print(f"[Parser] 获取自动编号文本失败: {e}")
+            return None
+    
+    def _get_auto_number_from_numbering(self, para):
+        """从 numbering.xml 解析自动编号文本"""
+        try:
+            p_elem = para._element
+            numPr = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}numPr')
+            if numPr is None:
+                return None
+            
+            numId = numPr.find(f'{{{self.W_NS}}}numId')
+            ilvl = numPr.find(f'{{{self.W_NS}}}ilvl')
+            if numId is None:
+                return None
+            
+            num_elem = numId.get(f'{{{self.W_NS}}}val')
+            level = int(ilvl.get(f'{{{self.W_NS}}}val', '0')) if ilvl is not None else 0
+            
+            if not num_elem:
+                return None
+            
+            # 获取 numbering 定义
+            num_obj = self.doc.part.numbering_part.numbering
+            for key, abstract_num in num_obj.num.items():
+                if str(key) == num_elem:
+                    # 获取 abstractNumId
+                    abstract_num_id = str(abstract_num.abstractNumId)
+                    # 在 abstractNum 中查找
+                    for an in num_obj.abstractNum:
+                        if str(an.abstractNumId) == abstract_num_id:
+                            # 获取当前级别的编号格式
+                            for lvl in an.lvl:
+                                if int(lvl.ilvl) == level:
+                                    numFmt = lvl.numFmt.get(f'{{{self.W_NS}}}val') if lvl.numFmt else 'decimal'
+                                    lvlText = lvl.lvlText.get(f'{{{self.W_NS}}}val') if lvl.lvlText else '%1.'
+                                    # 获取当前编号值
+                                    try:
+                                        current_num = abstract_num.get_num(level)
+                                        # 替换 lvlText 中的 %1 为实际数字
+                                        if '%1' in lvlText:
+                                            # 中文数字格式
+                                            if numFmt == 'chineseCounting':
+                                                num_str = self._num_to_chinese(current_num)
+                                            else:
+                                                num_str = str(current_num)
+                                            result = lvlText.replace('%1', num_str)
+                                            return result
+                                    except:
+                                        pass
+        except Exception as e:
+            print(f"[Parser] 从numbering解析自动编号失败: {e}")
         return None
 
     def _num_to_chinese(self, num):
