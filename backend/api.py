@@ -656,7 +656,12 @@ def fix_section_audio(section_id):
                         continue
                     audio_paths = text_to_speech_long(text, section_id=section_id)
                     if audio_paths and len(audio_paths) > 0:
-                        audio_path = audio_paths[0]
+                        # 转换路径格式：audio_files/xxx.mp3 -> /api/audio/xxx.mp3
+                        raw_path = audio_paths[0]
+                        if raw_path.startswith('audio_files/'):
+                            audio_path = '/api/audio/' + raw_path.replace('audio_files/', '')
+                        else:
+                            audio_path = raw_path
                         conn = get_db()
                         cursor = conn.cursor()
                         cursor.execute("UPDATE text_segments SET audio_path = ? WHERE id = ?", (audio_path, seg['id']))
@@ -685,7 +690,12 @@ def fix_section_audio(section_id):
                         continue
                     audio_paths = text_to_speech_long(text, section_id=section_id)
                     if audio_paths and len(audio_paths) > 0:
-                        audio_path = audio_paths[0]
+                        # 转换路径格式
+                        raw_path = audio_paths[0]
+                        if raw_path.startswith('audio_files/'):
+                            audio_path = '/api/audio/' + raw_path.replace('audio_files/', '')
+                        else:
+                            audio_path = raw_path
                         conn = get_db()
                         cursor = conn.cursor()
                         cursor.execute("UPDATE insert_points SET audio_path = ? WHERE id = ?", (audio_path, ip['id']))

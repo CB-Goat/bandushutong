@@ -3346,24 +3346,40 @@
                 var self = this;
                 var playBtn = document.getElementById('playBtn');
 
+                // 辅助函数：转换音频路径格式
+                function normalizeAudioPath(path) {
+                    if (!path) return null;
+                    // audio_files/xxx.mp3 -> /api/audio/xxx.mp3
+                    if (path.startsWith('audio_files/')) {
+                        return '/api/audio/' + path.replace('audio_files/', '');
+                    }
+                    return path;
+                }
+
                 // 检查所有需要音频的段（text_segment + insert_point）
                 var missingSegs = [];
                 var audioPaths = [];
                 for (var i = 0; i < this.audioSegments.length; i++) {
                     var seg = this.audioSegments[i];
                     if (seg.type === 'text_segment') {
-                        if (seg.audio_path) {
-                            audioPaths.push(seg.audio_path);
+                        var normPath = normalizeAudioPath(seg.audio_path);
+                        if (normPath) {
+                            audioPaths.push(normPath);
+                            seg.audio_path = normPath; // 更新为规范路径
                         } else {
                             missingSegs.push(seg);
                         }
                     } else if (seg.type === 'insert_point') {
                         // insert_point 的 audio_path（评论音频）和 quote_audio_path（引用音频）
-                        if (seg.audio_path) {
-                            audioPaths.push(seg.audio_path);
+                        var normPath1 = normalizeAudioPath(seg.audio_path);
+                        var normPath2 = normalizeAudioPath(seg.quote_audio_path);
+                        if (normPath1) {
+                            audioPaths.push(normPath1);
+                            seg.audio_path = normPath1;
                         }
-                        if (seg.quote_audio_path) {
-                            audioPaths.push(seg.quote_audio_path);
+                        if (normPath2) {
+                            audioPaths.push(normPath2);
+                            seg.quote_audio_path = normPath2;
                         }
                     }
                 }
