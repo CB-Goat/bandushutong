@@ -503,6 +503,29 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
     except Exception as e:
         print(f"[TTS] 小结音频生成失败: {e}")
     
+    # 5. 更新 text_segments 表的 audio_path
+    try:
+        from backend.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        # 获取该节的所有 text_segments，按 segment_number 排序
+        cursor.execute('SELECT id, segment_number FROM text_segments WHERE section_id = ? ORDER BY segment_number', (section_id,))
+        db_segments = {row['segment_number']: row['id'] for row in cursor.fetchall()}
+        # 更新每个 original 类型段的 audio_path
+        for seg in audio_segments:
+            if seg['type'] == 'original':
+                seg_num = seg.get('segment_number', 0)
+                if seg_num in db_segments:
+                    cursor.execute(
+                        'UPDATE text_segments SET audio_path = ?, audio_duration = ? WHERE id = ?',
+                        (seg['audio_path'], seg['audio_duration'], db_segments[seg_num])
+                    )
+                    print(f"[TTS] 更新 text_segments id={db_segments[seg_num]} audio_path={seg['audio_path']}")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[TTS] 更新 text_segments 音频路径失败: {e}")
+    
     return {
         'audio_segments': audio_segments,
         'audio_path': f'/api/audio/section_{section_id}.mp3',
@@ -648,6 +671,7 @@ def _generate_single_segment_audio(text, section_id, seg_idx, start_char, actual
     
     return {
         'type': 'original',
+        'segment_number': seg_idx,
         'audio_path': f'/api/audio/segment_{section_id}_{seg_idx}.mp3',
         'audio_duration': seg_total_duration,
         'start_char': start_char,
