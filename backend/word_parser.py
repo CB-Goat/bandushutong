@@ -324,19 +324,28 @@ class WordStructureParser:
         """
         numbering_elem = self._get_numbering_xml()
         if numbering_elem is None:
+            print(f"[Parser] numbering.xml 为空")
             return None, None
         
         W = self.W_NS
         
         # 1. 通过 numId 找到对应的 num 元素，获取 abstractNumId
         num_elem = None
-        for num in numbering_elem.findall(f'{{{W}}}num'):
+        all_nums = list(numbering_elem.findall(f'{{{W}}}num'))
+        print(f"[Parser] 找到 {len(all_nums)} 个 w:num 元素，查找 numId={num_id_val}")
+        
+        for num in all_nums:
             num_id = num.find(f'{{{W}}}numId')
-            if num_id is not None and num_id.get(f'{{{W}}}val') == str(num_id_val):
-                num_elem = num
-                break
+            if num_id is not None:
+                found_val = num_id.get(f'{{{W}}}val')
+                print(f"[Parser]   检查 w:num: numId={found_val}")
+                if found_val == str(num_id_val):
+                    num_elem = num
+                    print(f"[Parser]   匹配成功!")
+                    break
         
         if num_elem is None:
+            print(f"[Parser] 未找到匹配的 w:num 元素")
             return None, None
         
         abstract_num_id_ref = num_elem.find(f'{{{W}}}abstractNumId')
