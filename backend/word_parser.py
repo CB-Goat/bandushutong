@@ -232,37 +232,48 @@ class WordStructureParser:
             return int(match.group(1))
         return None
 
+    def _get_style_numPr(self, para):
+        """从段落样式中获取 numPr"""
+        try:
+            p_elem = para._element
+            pStyle = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}pStyle')
+            if pStyle is not None:
+                style_val = pStyle.get(f'{{{self.W_NS}}}val')
+                if style_val:
+                    for style in self.doc.styles:
+                        if style.style_id == style_val:
+                            style_elem = style.element
+                            style_numPr = style_elem.find(f'.//{{{self.W_NS}}}numPr')
+                            if style_numPr is not None:
+                                return style_numPr
+        except Exception as e:
+            print(f"[Parser] 样式numPr查找失败: {e}")
+        return None
+
     def _get_auto_number_text(self, para):
         """从 Word XML 中提取段落的自动编号文本（如'第1篇'）"""
         try:
             p_elem = para._element
             
-            # 方法1：检查段落直接属性中的 numPr
+            # 获取段落直接属性中的 numPr
             numPr = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}numPr')
             
-            # 方法2：检查段落样式中定义的 numPr
-            if numPr is None:
-                pStyle = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}pStyle')
-                if pStyle is not None:
-                    style_val = pStyle.get(f'{{{self.W_NS}}}val')
-                    if style_val:
-                        # 在 styles.xml 中查找样式定义
-                        try:
-                            styles_part = self.doc.part.package.part_related_by('/word/styles.xml') if hasattr(self.doc.part, 'package') else None
-                            if styles_part is None:
-                                # 尝试通过 document.styles 获取
-                                for style in self.doc.styles:
-                                    if style.name == style_val or style.style_id == style_val:
-                                        # 检查样式的 XML 是否包含 numPr
-                                        style_elem = style.element
-                                        style_numPr = style_elem.find(f'.//{{{self.W_NS}}}numPr')
-                                        if style_numPr is not None:
-                                            numPr = style_numPr
-                                            break
-                        except Exception as e:
-                            print(f"[Parser] 样式查找失败: {e}")
+            # 检查 numId 是否为 0（表示移除编号）
+            effective_numPr = numPr
+            if numPr is not None:
+                numId_elem = numPr.find(f'{{{self.W_NS}}}numId')
+                if numId_elem is not None:
+                    num_id_val = numId_elem.get(f'{{{self.W_NS}}}val')
+                    if num_id_val == '0':
+                        # numId=0 表示移除编号，回退到样式中的 numPr
+                        print(f"[Parser] numId=0，回退到样式numPr")
+                        effective_numPr = self._get_style_numPr(para)
             
-            if numPr is None:
+            # 如果段落没有 numPr，尝试从样式获取
+            if effective_numPr is None:
+                effective_numPr = self._get_style_numPr(para)
+            
+            if effective_numPr is None:
                 return None
             
             # 获取所有 w:t 文本节点
@@ -276,7 +287,7 @@ class WordStructureParser:
             # 获取段落纯文本（不包含自动编号）
             para_text = para.text.strip() if para.text else ''
             
-            print(f"[Parser] 自动编号提取: full_text='{full_text[:50]}', para_text='{para_text[:50]}', numPr存在={numPr is not None}")
+            print(f"[Parser] 自动编号提取: full_text='{full_text[:50]}', para_text='{para_text[:50]}'")
             
             # 如果完整文本以段落文本结尾，前面的部分就是自动编号
             if full_text.endswith(para_text) and len(full_text) > len(para_text):
@@ -285,12 +296,11 @@ class WordStructureParser:
                     print(f"[Parser] 提取到自动编号: '{auto_num}'")
                     return auto_num
             
-            # 如果文本相同，说明没有自动编号前缀（编号可能通过 numbering.xml 渲染）
+            # 如果文本相同，说明没有自动编号前缀（编号通过 numbering.xml 渲染）
             if full_text == para_text:
                 print(f"[Parser] full_text与para_text相同，尝试从numbering.xml解析")
-                # 从 numbering.xml 解析
-                numId = numPr.find(f'{{{self.W_NS}}}numId')
-                ilvl = numPr.find(f'{{{self.W_NS}}}ilvl')
+                numId = effective_numPr.find(f'{{{self.W_NS}}}numId')
+                ilvl = effective_numPr.find(f'{{{self.W_NS}}}ilvl')
                 if numId is not None:
                     num_id_val = numId.get(f'{{{self.W_NS}}}val')
                     level = int(ilvl.get(f'{{{self.W_NS}}}val', '0')) if ilvl is not None else 0
@@ -456,9 +466,22 @@ class WordStructureParser:
         try:
             p_elem = para._element
             numPr = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}numPr')
+            
+            # 检查 numId 是否为 0（表示移除编号），回退到样式
+            effective_numPr = numPr
             if numPr is not None:
-                ilvl = numPr.find(f'{{{self.W_NS}}}ilvl')
-                numId = numPr.find(f'{{{self.W_NS}}}numId')
+                numId_elem = numPr.find(f'{{{self.W_NS}}}numId')
+                if numId_elem is not None:
+                    num_id_val = numId_elem.get(f'{{{self.W_NS}}}val')
+                    if num_id_val == '0':
+                        effective_numPr = self._get_style_numPr(para)
+            
+            if effective_numPr is None:
+                effective_numPr = self._get_style_numPr(para)
+            
+            if effective_numPr is not None:
+                ilvl = effective_numPr.find(f'{{{self.W_NS}}}ilvl')
+                numId = effective_numPr.find(f'{{{self.W_NS}}}numId')
                 if numId is not None:
                     num_id_val = numId.get(f'{{{self.W_NS}}}val')
                     level = int(ilvl.get(f'{{{self.W_NS}}}val', '0')) if ilvl is not None else 0
