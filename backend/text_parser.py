@@ -45,9 +45,11 @@ def parse_docx_file(file_path):
     - 第1个 Heading 1 = 书名
     - 第2个段落(Normal) = 作者「国籍」
     - 第3个段落(Normal) = 版本
-    - 后续 Heading 1 = 章标题（可选）
-    - Heading 2 = 节标题
+    - Heading 2 = 章标题（系统中的章）
+    - Heading 3 = 节标题（系统中的节）
     - Normal = 节正文
+    - 章节标题保持原文显示，不自动添加/去除序号
+    - 第一个 Heading 2 之前的内容忽略
     """
     from docx import Document
 
@@ -229,6 +231,7 @@ def parse_docx_file(file_path):
     current_chapter = None
     current_section = None
     section_number = 0
+    found_first_chapter = False  # 标记是否找到第一个章
 
     for i in range(meta_end, len(all_paras)):
         p = all_paras[i]
@@ -238,35 +241,36 @@ def parse_docx_file(file_path):
         if not text:
             continue
 
-        # Heading 1 = 章标题（书名之后的）
-        if 'Heading 1' in style and i > 0:
+        # Heading 2 = 章标题（系统中的章）
+        if 'Heading 2' in style:
             # 保存当前未完成的节
             if current_section and current_section.get('content'):
                 sections.append(current_section)
                 current_section = None
+            # 保持原文标题，不去除序号
             current_chapter = {
                 'chapter_number': len(chapters) + 1,
                 'title': text
             }
             chapters.append(current_chapter)
+            found_first_chapter = True
             continue
 
-        # Heading 2 = 节标题
-        if 'Heading 2' in style:
+        # 第一个章之前的内容忽略
+        if not found_first_chapter:
+            continue
+
+        # Heading 3 = 节标题（系统中的节）
+        if 'Heading 3' in style:
             # 保存当前未完成的节
             if current_section and current_section.get('content'):
                 sections.append(current_section)
 
             section_number += 1
-            # 提取节名（"第X节  节名" 格式）
-            sec_title = text
-            m = re.match(r'^第\d+节\s+(.+)', text)
-            if m:
-                sec_title = m.group(1).strip()
-
+            # 保持原文标题，不去除序号
             current_section = {
                 'section_number': section_number,
-                'title': sec_title,
+                'title': text,
                 'content': '',
                 'chapter_number': current_chapter['chapter_number'] if current_chapter else 1,
                 'summary': '',      # 从批注中提取的小结

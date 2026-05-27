@@ -1760,11 +1760,8 @@
 
         // 格式化章节标题显示
         function formatChapterTitle(number, title, type) {
-            if (hasNumberPrefix(title)) {
-                return title;  // 标题已包含序号，直接显示
-            }
-            var prefix = type === 'chapter' ? '第' + toChineseNumber(number) + '章 ' : '第' + number + '节 ';
-            return prefix + (title || '');
+            // 直接使用原标题，不自动添加序号（保持与 Word 文件一致）
+            return title || '';
         }
 
         const state = {
