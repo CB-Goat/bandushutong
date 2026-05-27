@@ -460,12 +460,21 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
                         'audio_duration': ann_audio['audio_duration']
                     })
                     full_duration += ann_audio['audio_duration']
-                    # 更新数据库中的点评音频信息
+                    # 更新数据库中的点评音频信息（annotations表 + insert_points表）
                     try:
-                        from backend.database import update_annotation_audio
-                        update_annotation_audio(section_id, ann['annotation_index'], ann_audio['audio_path'], ann_audio['audio_duration'])
-                    except:
-                        pass
+                        from backend.database import update_annotation_audio, get_db
+                        update_annotation_audio(ann['id'], ann_audio['audio_path'], ann_audio['audio_duration'])
+                        # 同时更新 insert_points 表的 audio_path
+                        conn = get_db()
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "UPDATE insert_points SET audio_path = ?, audio_duration = ? WHERE section_id = ? AND annotation_index = ?",
+                            (ann_audio['audio_path'], ann_audio['audio_duration'], section_id, ann['annotation_index'])
+                        )
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        print(f"[TTS] 更新点评音频到数据库失败: {e}")
         else:
             print(f"[TTS] 段 {seg_idx} 结束后无点评")
     
@@ -493,7 +502,7 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
     # 4. 添加小结段（如果有）
     # 从数据库获取小结内容
     try:
-        from backend.database import get_section
+        from backend.database import get_section, get_db
         section = get_section(section_id)
         if section and section.get('summary'):
             summary_audio = generate_summary_audio(section_id, section['summary'], person=person, speed=speed)
@@ -504,6 +513,18 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
                     'audio_duration': summary_audio['audio_duration']
                 })
                 full_duration += summary_audio['audio_duration']
+                # 更新 insert_points 表中小结的 audio_path
+                try:
+                    conn = get_db()
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "UPDATE insert_points SET audio_path = ?, audio_duration = ? WHERE section_id = ? AND point_type = 'summary'",
+                        (summary_audio['audio_path'], summary_audio['audio_duration'], section_id)
+                    )
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    print(f"[TTS] 更新小结音频到insert_points失败: {e}")
     except Exception as e:
         print(f"[TTS] 小结音频生成失败: {e}")
     

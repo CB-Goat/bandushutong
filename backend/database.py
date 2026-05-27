@@ -1517,8 +1517,8 @@ def _get_section_audio_stats(cursor, section_id):
     seg_total = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM text_segments WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ''", (section_id,))
     seg_done = cursor.fetchone()[0]
-    # insert_points - 只计算有音频路径的（需要音频的）
-    cursor.execute("SELECT COUNT(*) FROM insert_points WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ''", (section_id,))
+    # insert_points
+    cursor.execute('SELECT COUNT(*) FROM insert_points WHERE section_id = ?', (section_id,))
     ip_total = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM insert_points WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ''", (section_id,))
     ip_done = cursor.fetchone()[0]
