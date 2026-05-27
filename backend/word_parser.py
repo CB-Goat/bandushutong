@@ -355,7 +355,21 @@ class WordStructureParser:
                     break
         
         if num_elem is None:
-            print(f"[Parser] 未找到匹配的 w:num 元素")
+            # 打印所有 abstractNum 信息帮助调试
+            all_abstract = list(numbering_elem.findall(f'{{{W}}}abstractNum'))
+            print(f"[Parser] 未找到匹配的 w:num。共有 {len(all_abstract)} 个 w:abstractNum")
+            for an in all_abstract:
+                an_id = an.find(f'{{{W}}}abstractNumId')
+                if an_id is not None:
+                    print(f"[Parser]   abstractNumId={an_id.get(f'{{{W}}}val')}")
+                    for lvl in an.findall(f'{{{W}}}lvl'):
+                        ilvl = lvl.find(f'{{{W}}}ilvl')
+                        lvlText = lvl.find(f'{{{W}}}lvlText')
+                        numFmt = lvl.find(f'{{{W}}}numFmt')
+                        ilvl_val = ilvl.get(f'{{{W}}}val') if ilvl is not None else '?'
+                        lt_val = lvlText.get(f'{{{W}}}val') if lvlText is not None else '?'
+                        nf_val = numFmt.get(f'{{{W}}}val') if numFmt is not None else '?'
+                        print(f"[Parser]     lvl={ilvl_val} lvlText='{lt_val}' numFmt={nf_val}")
             return None, None
         
         abstract_num_id_ref = num_elem.find(f'{{{W}}}abstractNumId')
