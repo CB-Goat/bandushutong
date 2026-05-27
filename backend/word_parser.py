@@ -232,6 +232,67 @@ class WordStructureParser:
             return int(match.group(1))
         return None
 
+    def _get_auto_number_text(self, para):
+        """从 Word XML 中提取段落的自动编号文本（如'第1篇'）"""
+        try:
+            p_elem = para._element
+            numPr = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}numPr')
+            if numPr is not None:
+                numId = numPr.find(f'{{{self.W_NS}}}numId')
+                ilvl = numPr.find(f'{{{self.W_NS}}}ilvl')
+                if numId is not None:
+                    num_elem = numId.get(f'{{{self.W_NS}}}val')
+                    level = int(ilvl.get(f'{{{self.W_NS}}}val', '0')) if ilvl is not None else 0
+                    if num_elem:
+                        try:
+                            num_obj = self.doc.part.numbering_part.numbering
+                            for key, abstract_num in num_obj.num.items():
+                                if str(key) == num_elem:
+                                    # 获取 numbering 定义
+                                    for an in num_obj.abstractNum:
+                                        if str(an.abstractNumId) == str(abstract_num.abstractNumId):
+                                            # 获取当前级别的编号格式
+                                            for lvl in an.lvl:
+                                                if int(lvl.ilvl) == level:
+                                                    numFmt = lvl.numFmt.get(f'{{{self.W_NS}}}val') if lvl.numFmt else 'decimal'
+                                                    lvlText = lvl.lvlText.get(f'{{{self.W_NS}}}val') if lvl.lvlText else '%1.'
+                                                    # 获取当前编号值
+                                                    try:
+                                                        current_num = abstract_num.get_num(level)
+                                                        # 替换 lvlText 中的 %1 为实际数字
+                                                        if '%1' in lvlText:
+                                                            # 中文数字格式
+                                                            if numFmt == 'chineseCounting':
+                                                                num_str = self._num_to_chinese(current_num)
+                                                            else:
+                                                                num_str = str(current_num)
+                                                            result = lvlText.replace('%1', num_str)
+                                                            return result
+                                                    except:
+                                                        pass
+                        except Exception as e:
+                            print(f"[Parser] 获取自动编号文本失败: {e}")
+                            pass
+        except:
+            pass
+        return None
+
+    def _num_to_chinese(self, num):
+        """将数字转换为中文数字"""
+        chinese_nums = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
+        if num <= 10:
+            return chinese_nums[num]
+        elif num < 20:
+            return '十' + chinese_nums[num - 10]
+        elif num < 100:
+            tens = num // 10
+            ones = num % 10
+            if ones == 0:
+                return chinese_nums[tens] + '十'
+            else:
+                return chinese_nums[tens] + '十' + chinese_nums[ones]
+        return str(num)
+
     def _get_auto_number(self, para):
         """从 Word XML 中提取段落的自动编号"""
         try:
@@ -300,7 +361,9 @@ class WordStructureParser:
                 # 新章节开始，重置节序号
                 section_number = 0
                 
-                # 优先从 Word 自动编号获取序号
+                # 获取 Word 自动编号的文本（如"第1篇"）
+                auto_num_text = self._get_auto_number_text(para)
+                # 优先从 Word 自动编号获取序号数字
                 auto_num = self._get_auto_number(para)
                 if auto_num:
                     try:
@@ -315,20 +378,23 @@ class WordStructureParser:
                     else:
                         chapter_number += 1
                 
+                # 构建完整标题：自动编号 + 原标题
+                full_title = f"{auto_num_text} {text}" if auto_num_text else text
+                
                 if has_h3:
                     # 有 Heading 3 时，Heading 2 是章
-                    current_chapter_title = text
+                    current_chapter_title = full_title
                     chapters.append({
                         'chapter_number': chapter_number,
-                        'title': text
+                        'title': full_title
                     })
-                    print(f"[Parser] 章 {chapter_number}: {text}")
+                    print(f"[Parser] 章 {chapter_number}: {full_title}")
                 else:
                     # 没有 Heading 3 时，Heading 2 是节
                     section = self._create_section(
                         section_number=chapter_number,
                         chapter_number=None,
-                        title=text,
+                        title=full_title,
                         para_idx=para_idx,
                         comments=comments,
                         comment_ranges=comment_ranges
@@ -337,7 +403,9 @@ class WordStructureParser:
             
             elif style == 'Heading 3':
                 # 节标题
-                # 优先从 Word 自动编号获取序号
+                # 获取 Word 自动编号的文本（如"第1节"）
+                auto_num_text = self._get_auto_number_text(para)
+                # 优先从 Word 自动编号获取序号数字
                 auto_num = self._get_auto_number(para)
                 if auto_num:
                     try:
@@ -352,10 +420,13 @@ class WordStructureParser:
                     else:
                         section_number += 1
                 
+                # 构建完整标题：自动编号 + 原标题
+                full_title = f"{auto_num_text} {text}" if auto_num_text else text
+                
                 section = self._create_section(
                     section_number=section_number,
                     chapter_number=chapter_number if has_h3 else None,
-                    title=text,
+                    title=full_title,
                     para_idx=para_idx,
                     comments=comments,
                     comment_ranges=comment_ranges
