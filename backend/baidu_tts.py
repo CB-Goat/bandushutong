@@ -459,8 +459,8 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
                         conn = get_db()
                         cursor = conn.cursor()
                         # 为引用原文生成音频（使用 person=0 原文男声）
-                        # 注意：generate_annotation_audio 的第3个参数是 comment，所以将 original_text 作为 comment 传入
-                        quote_audio = generate_annotation_audio(ann['id'], '', original_text, person=0, speed=speed)
+                        # 使用 quote_{id} 作为文件名，避免与点评音频冲突
+                        quote_audio = _generate_quote_audio(ann['id'], original_text, person=0, speed=speed)
                         if quote_audio:
                             quote_audio_path = quote_audio['audio_path']
                             quote_duration = quote_audio['audio_duration']
@@ -903,6 +903,111 @@ def generate_annotation_audio(annotation_id, original_text, comment, person=3, s
     
     return {
         'audio_path': f'/api/audio/annotation_{annotation_id}.mp3',
+        'audio_duration': audio_duration
+    }
+
+
+def _generate_quote_audio(annotation_id, original_text, person=0, speed=5):
+    """
+    生成引用原文音频
+    格式：直接朗读原文，不加前缀
+    
+    返回: {'audio_path': 路径, 'audio_duration': 时长} 或 None
+    """
+    import subprocess
+    
+    token = get_access_token()
+    if not token:
+        return None
+    
+    # 直接使用原文
+    text = original_text
+    
+    # 分段处理
+    segments = []
+    current = ''
+    for char in text:
+        current += char
+        if len(current.encode('utf-8')) >= 900 or char in '。！？\n':
+            if current.strip():
+                segments.append(current.strip())
+            current = ''
+    if current.strip():
+        segments.append(current.strip())
+    
+    if not segments:
+        return None
+    
+    # 合成所有段
+    audio_files = []
+    segment_durations = []
+    
+    for i, seg in enumerate(segments):
+        params = {
+            'tok': token,
+            'tex': seg,
+            'per': person,
+            'spd': speed,
+            'pit': 5,
+            'vol': 5,
+            'aue': 3,
+            'cuid': 'bandushutong_app',
+            'lan': 'zh',
+            'ctp': 1
+        }
+        
+        try:
+            response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
+            content_type = response.headers.get('Content-Type', '')
+            
+            if 'audio' in content_type:
+                filename = f'quote_{annotation_id}_{i}.mp3'
+                filepath = os.path.join(AUDIO_DIR, filename)
+                with open(filepath, 'wb') as f:
+                    f.write(response.content)
+                audio_files.append(filepath)
+                
+                # 获取该段音频的实际时长
+                seg_duration = 0
+                try:
+                    dur_result = subprocess.run(
+                        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                         '-of', 'default=noprint_wrappers=1:nokey=1', filepath],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
+                    seg_duration = float(dur_result.stdout.strip())
+                except:
+                    seg_duration = len(seg) / 200 * 60
+                segment_durations.append(seg_duration)
+            else:
+                print(f"[TTS] 引用段 {i} 合成失败: {response.text}")
+                return None
+        except Exception as e:
+            print(f"[TTS] 引用段 {i} 合成异常: {e}")
+            return None
+    
+    # 合并音频文件
+    final_path = os.path.join(AUDIO_DIR, f'quote_{annotation_id}.mp3')
+    
+    if len(audio_files) == 1:
+        os.rename(audio_files[0], final_path)
+    else:
+        try:
+            with open(final_path, 'wb') as outfile:
+                for af in audio_files:
+                    with open(af, 'rb') as infile:
+                        outfile.write(infile.read())
+            for af in audio_files:
+                os.remove(af)
+        except Exception as e:
+            print(f"[TTS] 引用音频合并异常: {e}")
+            return None
+    
+    audio_duration = sum(segment_durations)
+    print(f"[TTS] 引用音频生成完成: quote_{annotation_id}.mp3, 时长 {audio_duration:.1f}s")
+    
+    return {
+        'audio_path': f'/api/audio/quote_{annotation_id}.mp3',
         'audio_duration': audio_duration
     }
 
