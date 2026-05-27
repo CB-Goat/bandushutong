@@ -406,6 +406,7 @@ def upload_book():
             chapter_id_map[ch['chapter_number']] = ch_id
         
         # 保存小节到数据库
+        section_id_map = {}  # section_number -> section_id
         for sec in sections:
             ch_num = sec.get('chapter_number')
             ch_id = chapter_id_map.get(ch_num) if ch_num else None
@@ -418,6 +419,7 @@ def upload_book():
                 content=sec.get('content', ''),
                 title=sec.get('title', '')
             )
+            section_id_map[sec['section_number']] = sec_id
 
             # 保存小结（从批注解析）
             if sec.get('summary'):
