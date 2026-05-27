@@ -560,16 +560,17 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
         # 获取该节的所有 text_segments，按 segment_number 排序
         cursor.execute('SELECT id, segment_number FROM text_segments WHERE section_id = ? ORDER BY segment_number', (section_id,))
         db_segments = {row['segment_number']: row['id'] for row in cursor.fetchall()}
-        # 更新每个 original 类型段的 audio_path
+        # 更新每个 original 类型段的 audio_path 和 char_timeline
         for seg in audio_segments:
             if seg['type'] == 'original':
                 seg_num = seg.get('segment_number', 0)
                 if seg_num in db_segments:
+                    char_timeline_json = json.dumps(seg['char_timeline']) if seg.get('char_timeline') else None
                     cursor.execute(
-                        'UPDATE text_segments SET audio_path = ?, audio_duration = ? WHERE id = ?',
-                        (seg['audio_path'], seg['audio_duration'], db_segments[seg_num])
+                        'UPDATE text_segments SET audio_path = ?, audio_duration = ?, char_timeline = ? WHERE id = ?',
+                        (seg['audio_path'], seg['audio_duration'], char_timeline_json, db_segments[seg_num])
                     )
-                    print(f"[TTS] 更新 text_segments id={db_segments[seg_num]} audio_path={seg['audio_path']}")
+                    print(f"[TTS] 更新 text_segments id={db_segments[seg_num]} audio_path={seg['audio_path']} char_timeline长度={len(seg.get('char_timeline', []))}")
         conn.commit()
         conn.close()
     except Exception as e:
