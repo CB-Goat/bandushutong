@@ -288,65 +288,143 @@ class WordStructureParser:
             # 如果文本相同，说明没有自动编号前缀（编号可能通过 numbering.xml 渲染）
             if full_text == para_text:
                 print(f"[Parser] full_text与para_text相同，尝试从numbering.xml解析")
-                return self._get_auto_number_from_numbering(para)
-            
-            return None
+                # 从 numbering.xml 解析
+                numId = numPr.find(f'{{{self.W_NS}}}numId')
+                ilvl = numPr.find(f'{{{self.W_NS}}}ilvl')
+                if numId is not None:
+                    num_id_val = numId.get(f'{{{self.W_NS}}}val')
+                    level = int(ilvl.get(f'{{{self.W_NS}}}val', '0')) if ilvl is not None else 0
+                    num_text, num_val = self._resolve_numbering(num_id_val, level)
+                    if num_text:
+                        print(f"[Parser] 从numbering.xml解析到编号: '{num_text}' (值={num_val})")
+                        return num_text
+                    else:
+                        print(f"[Parser] numbering.xml解析返回空")
+                return None
         except Exception as e:
             print(f"[Parser] 获取自动编号文本失败: {e}")
             import traceback
             traceback.print_exc()
             return None
     
-    def _get_auto_number_from_numbering(self, para):
-        """从 numbering.xml 解析自动编号文本"""
+    def _get_numbering_xml(self):
+        """获取 numbering.xml 的根元素"""
         try:
-            p_elem = para._element
-            numPr = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}numPr')
-            if numPr is None:
-                return None
+            numbering_part = self.doc.part.numbering_part
+            return numbering_part._element
+        except:
+            return None
+    
+    def _resolve_numbering(self, num_id_val, level):
+        """
+        从 numbering.xml 解析自动编号文本
+        num_id_val: w:numId 的 val 值（字符串）
+        level: w:ilvl 的值（整数）
+        返回: (编号文本, 编号数字) 或 (None, None)
+        """
+        numbering_elem = self._get_numbering_xml()
+        if numbering_elem is None:
+            return None, None
+        
+        W = self.W_NS
+        
+        # 1. 通过 numId 找到对应的 num 元素，获取 abstractNumId
+        num_elem = None
+        for num in numbering_elem.findall(f'{{{W}}}num'):
+            num_id = num.find(f'{{{W}}}numId')
+            if num_id is not None and num_id.get(f'{{{W}}}val') == str(num_id_val):
+                num_elem = num
+                break
+        
+        if num_elem is None:
+            return None, None
+        
+        abstract_num_id_ref = num_elem.find(f'{{{W}}}abstractNumId')
+        if abstract_num_id_ref is None:
+            return None, None
+        abstract_num_id = abstract_num_id_ref.get(f'{{{W}}}val')
+        
+        # 2. 通过 abstractNumId 找到 abstractNum，获取 lvlText 和 numFmt
+        abstract_num_elem = None
+        for an in numbering_elem.findall(f'{{{W}}}abstractNum'):
+            an_id = an.find(f'{{{W}}}abstractNumId')
+            if an_id is not None and an_id.get(f'{{{W}}}val') == str(abstract_num_id):
+                abstract_num_elem = an
+                break
+        
+        if abstract_num_elem is None:
+            return None, None
+        
+        # 找到对应 level 的定义
+        lvl_elem = None
+        for lvl in abstract_num_elem.findall(f'{{{W}}}lvl'):
+            ilvl = lvl.find(f'{{{W}}}ilvl')
+            if ilvl is not None and int(ilvl.get(f'{{{W}}}val', '0')) == level:
+                lvl_elem = lvl
+                break
+        
+        if lvl_elem is None:
+            return None, None
+        
+        # 获取编号格式
+        numFmt_elem = lvl_elem.find(f'{{{W}}}numFmt')
+        lvlText_elem = lvl_elem.find(f'{{{W}}}lvlText')
+        start_elem = lvl_elem.find(f'{{{W}}}start')
+        
+        numFmt = numFmt_elem.get(f'{{{W}}}val', 'decimal') if numFmt_elem is not None else 'decimal'
+        lvlText = lvlText_elem.get(f'{{{W}}}val', '%1.') if lvlText_elem is not None else '%1.'
+        start = int(start_elem.get(f'{{{W}}}val', '1')) if start_elem is not None else 1
+        
+        # 3. 计算当前编号值（需要统计同 numId 同 level 之前有多少个段落）
+        current_num = self._count_numbering_instances(num_id_val, level, start)
+        
+        # 4. 替换 lvlText 中的占位符
+        try:
+            result = lvlText
+            # 替换 %1, %2 等占位符
+            import re
+            placeholders = re.findall(r'%(\d+)', lvlText)
+            for ph in placeholders:
+                ph_num = int(ph)
+                if ph_num == 1:
+                    if numFmt == 'chineseCounting':
+                        val = self._num_to_chinese(current_num)
+                    else:
+                        val = str(current_num)
+                    result = result.replace(f'%{ph_num}', val)
             
-            numId = numPr.find(f'{{{self.W_NS}}}numId')
-            ilvl = numPr.find(f'{{{self.W_NS}}}ilvl')
-            if numId is None:
-                return None
-            
-            num_elem = numId.get(f'{{{self.W_NS}}}val')
-            level = int(ilvl.get(f'{{{self.W_NS}}}val', '0')) if ilvl is not None else 0
-            
-            if not num_elem:
-                return None
-            
-            # 获取 numbering 定义
-            num_obj = self.doc.part.numbering_part.numbering
-            for key, abstract_num in num_obj.num.items():
-                if str(key) == num_elem:
-                    # 获取 abstractNumId
-                    abstract_num_id = str(abstract_num.abstractNumId)
-                    # 在 abstractNum 中查找
-                    for an in num_obj.abstractNum:
-                        if str(an.abstractNumId) == abstract_num_id:
-                            # 获取当前级别的编号格式
-                            for lvl in an.lvl:
-                                if int(lvl.ilvl) == level:
-                                    numFmt = lvl.numFmt.get(f'{{{self.W_NS}}}val') if lvl.numFmt else 'decimal'
-                                    lvlText = lvl.lvlText.get(f'{{{self.W_NS}}}val') if lvl.lvlText else '%1.'
-                                    # 获取当前编号值
-                                    try:
-                                        current_num = abstract_num.get_num(level)
-                                        # 替换 lvlText 中的 %1 为实际数字
-                                        if '%1' in lvlText:
-                                            # 中文数字格式
-                                            if numFmt == 'chineseCounting':
-                                                num_str = self._num_to_chinese(current_num)
-                                            else:
-                                                num_str = str(current_num)
-                                            result = lvlText.replace('%1', num_str)
-                                            return result
-                                    except:
-                                        pass
+            return result, current_num
         except Exception as e:
-            print(f"[Parser] 从numbering解析自动编号失败: {e}")
-        return None
+            print(f"[Parser] 编号文本替换失败: {e}")
+            return None, None
+    
+    def _count_numbering_instances(self, num_id_val, level, start):
+        """
+        统计在当前段落之前，同一 numId 和 level 出现了多少次
+        返回当前段落的编号值
+        """
+        W = self.W_NS
+        count = 0
+        
+        for para in self.paragraphs:
+            p_elem = para._element
+            pPr = p_elem.find(f'{{{W}}}pPr')
+            if pPr is None:
+                continue
+            pNumPr = pPr.find(f'{{{W}}}numPr')
+            if pNumPr is None:
+                continue
+            pNumId = pNumPr.find(f'{{{W}}}numId')
+            pIlvl = pNumPr.find(f'{{{W}}}ilvl')
+            if pNumId is None:
+                continue
+            if pNumId.get(f'{{{W}}}val') == str(num_id_val):
+                p_level = int(pIlvl.get(f'{{{W}}}val', '0')) if pIlvl is not None else 0
+                if p_level == level:
+                    count += 1
+        
+        # 当前段落是第 count 个，编号值 = start + count - 1
+        return start + count - 1
 
     def _num_to_chinese(self, num):
         """将数字转换为中文数字"""
@@ -365,7 +443,7 @@ class WordStructureParser:
         return str(num)
 
     def _get_auto_number(self, para):
-        """从 Word XML 中提取段落的自动编号"""
+        """从 Word XML 中提取段落的自动编号数字"""
         try:
             p_elem = para._element
             numPr = p_elem.find(f'{{{self.W_NS}}}pPr/{{{self.W_NS}}}numPr')
@@ -373,29 +451,13 @@ class WordStructureParser:
                 ilvl = numPr.find(f'{{{self.W_NS}}}ilvl')
                 numId = numPr.find(f'{{{self.W_NS}}}numId')
                 if numId is not None:
-                    # 通过 numbering.xml 获取实际编号
-                    num_elem = numId.get(f'{{{self.W_NS}}}val')
-                    if num_elem:
-                        try:
-                            num_obj = self.doc.part.numbering_part.numbering
-                            # 查找对应的 numbering 实例
-                            for key, inst in num_obj.num.items():
-                                if str(key) == num_elem:
-                                    # 获取当前段落的编号文本
-                                    pPr = p_elem.find(f'{{{self.W_NS}}}pPr')
-                                    if pPr is not None:
-                                        numPr_copy = pPr.find(f'{{{self.W_NS}}}numPr')
-                                        if numPr_copy is not None:
-                                            ilvl_elem = numPr_copy.find(f'{{{self.W_NS}}}ilvl')
-                                            level = int(ilvl_elem.get(f'{{{self.W_NS}}}val', '0')) if ilvl_elem is not None else 0
-                                            try:
-                                                return inst.get_num(level)
-                                            except:
-                                                pass
-                        except:
-                            pass
-        except:
-            pass
+                    num_id_val = numId.get(f'{{{self.W_NS}}}val')
+                    level = int(ilvl.get(f'{{{self.W_NS}}}val', '0')) if ilvl is not None else 0
+                    if num_id_val:
+                        _, num_val = self._resolve_numbering(num_id_val, level)
+                        return num_val
+        except Exception as e:
+            print(f"[Parser] _get_auto_number失败: {e}")
         return None
 
     def _build_structure(self, comments, comment_ranges):
