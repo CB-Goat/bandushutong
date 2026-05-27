@@ -439,9 +439,13 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
             for t in seg_result['char_timeline']:
                 full_timeline.append(round(t + time_offset, 3))
             full_duration += seg_result['audio_duration']
-            
-            # 查找该段结束位置对应的点评（使用next_point，因为ann_by_end_char的key是点评的end_char）
-            if next_point in ann_by_end_char:
+            print(f"[TTS] 段 {seg_idx} 音频生成成功: {seg_result['audio_path']}")
+        else:
+            print(f"[TTS] 段 {seg_idx} 音频生成失败，跳过")
+            # 继续生成其他段，而不是直接返回None
+        
+        # 查找该段结束位置对应的点评（使用next_point，因为ann_by_end_char的key是点评的end_char）
+        if next_point in ann_by_end_char:
                 ann = ann_by_end_char[next_point]
                 print(f"[TTS] 段 {seg_idx} 结束后有点评 id={ann['id']}")
                 # 为点评生成音频
@@ -624,10 +628,11 @@ def _generate_single_segment_audio(text, section_id, seg_idx, start_char, actual
                     seg_duration = len(seg) / 200 * 60
                 segment_durations.append(seg_duration)
             else:
-                print(f"子段 {seg_idx}-{i} 合成失败: {response.text}")
+                error_text = response.text[:200] if response.text else '无错误信息'
+                print(f"[TTS] 子段 {seg_idx}-{i} 合成失败: status={response.status_code}, content-type={content_type}, error={error_text}")
                 return None
         except Exception as e:
-            print(f"子段 {seg_idx}-{i} 合成异常: {e}")
+            print(f"[TTS] 子段 {seg_idx}-{i} 合成异常: {type(e).__name__}: {e}")
             return None
     
     # 合并子段为该段的完整音频
