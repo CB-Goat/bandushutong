@@ -1682,9 +1682,9 @@ def create_text_segments(section_id):
     cursor.execute('SELECT id, start_char, end_char FROM annotations WHERE section_id = ? ORDER BY start_char', (section_id,))
     annotations = [dict(r) for r in cursor.fetchall()]
     
-    # 确定分割点：在点评的 end_char 处切割
+    # 确定分割点：在点评的 start_char 和 end_char 处切割（与 generate_segmented_audio 保持一致）
     # end_char 是不包含的边界（Python切片风格 [start, end)）
-    split_points = sorted(set([0] + [ann['end_char'] for ann in annotations] + [text_len]))
+    split_points = sorted(set([0] + [ann['start_char'] for ann in annotations if ann.get('start_char') is not None] + [ann['end_char'] for ann in annotations if ann.get('end_char') is not None] + [text_len]))
     
     # 删除旧的 text_segments
     cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
