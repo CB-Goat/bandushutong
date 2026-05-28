@@ -3393,13 +3393,11 @@
                 this.audio.src = '';
                 this.audio.currentTime = 0;
                 
-                // 重置显示状态
+                // 重置显示状态（但保留已读节的赏析标签）
                 if (typeof reader !== 'undefined' && reader.hideAll) {
                     reader.hideAll();
                 }
-                if (typeof analysisManager !== 'undefined' && analysisManager.reset) {
-                    analysisManager.reset();
-                }
+                // 注意：已读节的赏析标签在 renderCurrentSection 中已经设置好，这里不要重置
                 // 重置点评音频
                 this._resetAnnotationAudio();
                 
