@@ -2322,6 +2322,7 @@
                 });
 
                 // 准备粉笔字
+                console.log('[DEBUG] 准备粉笔字, section.id=' + section.id + ' content.length=' + (section.content ? section.content.length : 'undefined'));
                 this._prepareChalkText(section.content);
 
                 // ============================================
@@ -2346,6 +2347,7 @@
                 console.log('[节状态] id=' + section.id + ' end=' + (section.end_char||0) + ' 书签=' + (progressV2 ? progressV2.current_section_id + '@' + progressV2.current_position : 'N/A') + ' → ' + sectionStatus);
                 
                 if (sectionStatus === 'read') {
+                    console.log('[DEBUG] 已读节，显示完整内容, _allChars.length=' + this._allChars.length);
                     this.revealAll();
                     document.getElementById('progressFill').style.width = '100%';
                     analysisManager.init();
