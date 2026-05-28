@@ -53,7 +53,7 @@ def serve_bookmark_icon():
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '#285'})
+    return jsonify({'status': 'ok', 'version': '#286'})
 
 # 初始化数据库
 init_db()
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     
     print("=" * 50)
     print("悦读小将后端服务启动")
-    print("更新版本: #285")
+    print("更新版本: #286")
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
