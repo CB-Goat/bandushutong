@@ -3249,8 +3249,13 @@
                 };
                 this.audio.onerror = function(e) {
                     console.log('音频播放错误:', e);
-                    // 错误时也触发段结束，避免卡住
-                    self._onSegmentEnd();
+                    console.log('音频 URL:', self.audio.src);
+                    // 错误时不触发段结束，避免立即标记为已读
+                    // 让用户知道音频有问题
+                    self.isPlaying = false;
+                    self.audio.pause();
+                    document.getElementById('playBtn').textContent = '\u26A0';
+                    document.getElementById('playBtn').title = '音频加载失败，请刷新重试';
                 };
                 // 添加超时保护，避免音频卡住不触发ended
                 this._segmentTimeout = setTimeout(function() {
