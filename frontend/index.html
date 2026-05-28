@@ -3619,28 +3619,43 @@
                     }
                 }, 15000);
 
-                // 用 fetch HEAD 验证文件是否存在，再用 Audio 预加载到缓存
+                // 用 Audio 元素真正加载音频，等待 canplay 事件确认可以播放
                 audioPaths.forEach(function(path) {
-                    fetch(path, { method: 'HEAD' })
-                        .then(function(r) {
-                            if (r.ok) {
-                                // 文件存在，用 Audio 预加载到浏览器缓存
-                                var audio = new Audio();
-                                audio.preload = 'auto';
-                                audio.src = path;
-                                audio.load();
-                                loaded++;
-                            } else {
-                                failed++;
-                                console.log('音频文件不存在:', path, r.status);
-                            }
+                    var audio = new Audio();
+                    audio.preload = 'auto';
+                    
+                    var hasResult = false;
+                    function markLoaded() {
+                        if (!hasResult) {
+                            hasResult = true;
+                            loaded++;
                             checkDone();
-                        })
-                        .catch(function() {
+                        }
+                    }
+                    function markFailed(err) {
+                        if (!hasResult) {
+                            hasResult = true;
                             failed++;
-                            console.log('音频文件检查失败:', path);
+                            console.log('音频加载失败:', path, err);
                             checkDone();
-                        });
+                        }
+                    }
+                    
+                    // 成功加载到可以播放
+                    audio.addEventListener('canplay', markLoaded);
+                    // 加载出错
+                    audio.addEventListener('error', function(e) {
+                        markFailed(audio.error ? audio.error.message : 'unknown error');
+                    });
+                    // 超时处理（10秒）
+                    setTimeout(function() {
+                        if (!hasResult) {
+                            markFailed('timeout');
+                        }
+                    }, 10000);
+                    
+                    audio.src = path;
+                    audio.load();
                 });
             },
 
