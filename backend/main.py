@@ -22,7 +22,7 @@ CORS(app)  # 允许跨域
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'frontend')
 
 # 当前版本号 - 每次修改后手动更新
-CURRENT_VERSION = '#298'
+CURRENT_VERSION = '#299'
 
 # 注册 API 蓝图
 app.register_blueprint(api_bp, url_prefix='/api')
