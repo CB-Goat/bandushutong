@@ -26,17 +26,19 @@ FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'f
 def get_git_version():
     """从 git 获取最新提交的版本号"""
     try:
+        # git 仓库在 backend 的上一级目录
+        repo_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
         result = subprocess.run(['git', 'log', '-1', '--format=%s'], 
                               capture_output=True, text=True, 
-                              cwd=os.path.dirname(os.path.abspath(__file__)))
+                              cwd=repo_dir)
         commit_msg = result.stdout.strip()
         # 从提交信息中提取版本号，如 "#293 修复xxx"
         import re
         match = re.search(r'#(\d+)', commit_msg)
         if match:
             return '#' + match.group(1)
-    except:
-        pass
+    except Exception as e:
+        print('获取git版本失败:', e)
     return '#dev'
 
 # 注册 API 蓝图
