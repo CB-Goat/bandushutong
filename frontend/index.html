@@ -2225,6 +2225,8 @@
                     })
                     .catch(function() {})
                     .finally(function() {
+                        // 进入阅读页前重置播放器状态
+                        player._resetPlayerState();
                         showPage('readerPage');
                         // 确保阅读页隐藏用户按钮
                         document.getElementById('userBtn').style.display = 'none';
@@ -3280,6 +3282,25 @@
                         }, 10000); // 10秒后检查是否卡住
                     }
                 }, 30000); // 30秒总超时
+            },
+
+            // 重置播放器所有状态（进入阅读页前调用）
+            _resetPlayerState: function() {
+                console.log('_resetPlayerState: 重置播放器状态');
+                this._currentSectionId = null;
+                this._playlistIndex = -1;
+                this._currentSegment = null;
+                this._insertPointStep = 0;
+                this._hasPlayed = false;
+                this.isPlaying = false;
+                this.audio.pause();
+                this.audio.src = '';
+                this.audio.currentTime = 0;
+                this.audioSegments = [];
+                this._isSegmentMode = false;
+                this._resumeTimeInSegment = 0;
+                this._resetAnnotationAudio();
+                console.log('_resetPlayerState: 完成');
             },
 
             loadSection: function(sectionId) {
