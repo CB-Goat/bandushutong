@@ -3302,6 +3302,8 @@
                     this.audio.pause();
                     this.audio.src = '';
                     this.audio.currentTime = 0;
+                    // 重置点评音频
+                    this._resetAnnotationAudio();
                     // 重置文本显示
                     if (typeof reader !== 'undefined' && reader.resetDisplay) {
                         reader.resetDisplay();
@@ -3334,6 +3336,8 @@
                 if (typeof analysisManager !== 'undefined' && analysisManager.reset) {
                     analysisManager.reset();
                 }
+                // 重置点评音频
+                this._resetAnnotationAudio();
                 
                 console.log('加载节:', sectionId);
                 fetch(API_BASE + '/sections/' + sectionId + '/playback-plan')
@@ -3421,6 +3425,30 @@
                         preloadCount++;
                     }
                 }
+            },
+
+            // 重置点评音频，清理事件监听和状态
+            _resetAnnotationAudio: function() {
+                if (this._annotationAudio) {
+                    this._annotationAudio.pause();
+                    // 克隆新元素替换旧元素，清除所有事件监听
+                    var oldAudio = this._annotationAudio;
+                    var newAudio = oldAudio.cloneNode(false);
+                    if (oldAudio.parentNode) {
+                        oldAudio.parentNode.replaceChild(newAudio, oldAudio);
+                    }
+                    this._annotationAudio = newAudio;
+                }
+                // 重置点评播放状态
+                this._currentInsertPoint = null;
+                this._insertPointStep = 0;
+                this._isFinishing = false;
+                this._clearAllTimers();
+                if (this._commentTextAnimationTimer) {
+                    clearInterval(this._commentTextAnimationTimer);
+                    this._commentTextAnimationTimer = null;
+                }
+                console.log('_resetAnnotationAudio: 已重置');
             },
 
             // 预加载所有音频段，加载完成前禁用播放按钮
