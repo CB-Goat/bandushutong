@@ -3709,13 +3709,18 @@
                                 }
                                 this._resumeTimeInSegment = resumeTime;
                                 console.log('断点恢复: 跳到段', targetSegIdx, 'segment_id=', progressV2.current_segment_id, '段内时间', this._resumeTimeInSegment, '秒');
+                            } else {
+                                console.log('断点恢复: 未找到对应段，将从头开始');
                             }
                         }
                         } // end if (sectionStatus !== 'read')
+                        
                         // 播放开始时停止轮巡，避免干扰
                         if (typeof analysisManager !== 'undefined' && analysisManager.stopRotation) {
                             analysisManager.stopRotation();
                         }
+                        
+                        console.log('开始播放: _playlistIndex=', this._playlistIndex, '_resumeTimeInSegment=', this._resumeTimeInSegment);
                         // 先设置播放状态，再更新灯笼
                         self.isPlaying = true;
                         state.isPlaying = true;
@@ -4015,6 +4020,7 @@
             // 6. 结束语（固定音频，如非结尾）
             _playInsertPoint: function(seg) {
                 var self = this;
+                console.log('进入_playInsertPoint: annotation_id=' + seg.annotation_id + ' quote_start=' + seg.quote_start_char + ' quote_end=' + seg.quote_end_char);
                 
                 // 暂停主线音频，避免和点评音频冲突
                 this.audio.pause();
