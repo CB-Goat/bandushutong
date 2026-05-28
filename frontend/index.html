@@ -2334,6 +2334,7 @@
                     var bkSectionId = parseInt(progressV2.current_section_id);
                     var bkPos = progressV2.current_position || 0;
                     var secEnd = section.end_char || 0;
+                    console.log('[判断] bkSectionId=' + bkSectionId + ' section.id=' + section.id + ' bkPos=' + bkPos + ' secEnd=' + secEnd);
                     if (bkSectionId === section.id) {
                         sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
                     } else if (bkSectionId > section.id) {

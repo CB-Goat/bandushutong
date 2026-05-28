@@ -1119,12 +1119,15 @@ def get_sections_by_book(book_id):
     sections = [dict(row) for row in cursor.fetchall()]
     
     # 计算每节的 start_char 和 end_char（基于内容的累积长度）
-    # 注意：这里的 start_char 是节内容相对于整本书的起始位置
     offset = 0
     for sec in sections:
         sec['start_char'] = offset
         sec['end_char'] = offset + len(sec['content']) if sec.get('content') else offset
         offset = sec['end_char']
+    
+    # 调试日志
+    for sec in sections[:3]:
+        print(f"[DB] Section {sec['id']}: start_char={sec['start_char']}, end_char={sec['end_char']}, content_len={len(sec.get('content',''))}")
     
     conn.close()
     return sections
