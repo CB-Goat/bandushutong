@@ -3481,6 +3481,24 @@
                 if (audioPaths.length === 0) {
                     return;
                 }
+                
+                // 显示加载提示
+                var loadingEl = document.getElementById('audioLoadingHint');
+                if (!loadingEl) {
+                    loadingEl = document.createElement('div');
+                    loadingEl.id = 'audioLoadingHint';
+                    loadingEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:#fff;padding:20px 30px;border-radius:12px;text-align:center;z-index:1000;font-size:16px;';
+                    document.body.appendChild(loadingEl);
+                }
+                var startTime = Date.now();
+                var updateLoadingHint = function() {
+                    var elapsed = Math.round((Date.now() - startTime) / 1000);
+                    var progress = loaded + failed + '/' + total;
+                    loadingEl.innerHTML = '\u23F3 正在加载音频...<br><small>' + progress + ' (' + elapsed + 's)</small>';
+                };
+                updateLoadingHint();
+                var loadingTimer = setInterval(updateLoadingHint, 500);
+                
                 // 禁用播放按钮，显示加载状态
                 playBtn.disabled = true;
                 playBtn.style.opacity = '0.5';
@@ -3494,9 +3512,14 @@
 
                 function checkDone() {
                     if (finished) return;
+                    clearInterval(loadingTimer);
                     if (loaded + failed >= total) {
                         finished = true;
                         clearTimeout(safetyTimer);
+                        // 移除加载提示
+                        var hintEl = document.getElementById('audioLoadingHint');
+                        if (hintEl) hintEl.remove();
+                        
                         if (failed > 0) {
                             // 有文件不存在，禁用播放并提示
                             console.log('音频预加载完成，' + failed + '/' + total + '个文件不存在');
