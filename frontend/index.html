@@ -3250,11 +3250,6 @@
                     self._onSegmentEnd();
                 };
                 this.audio.onerror = function(e) {
-                    // 如果 src 为空，说明是重置状态，不处理错误
-                    if (!self.audio.src || self.audio.src === window.location.href) {
-                        console.log('音频错误: src为空，忽略');
-                        return;
-                    }
                     console.log('音频播放错误:', e);
                     console.log('音频 URL:', self.audio.src);
                     
@@ -3298,8 +3293,10 @@
                 this._insertPointStep = 0;
                 this._hasPlayed = false;
                 this.isPlaying = false;
+                // 暂停并重置音频，但不设置空src避免触发error
                 this.audio.pause();
-                this.audio.src = '';
+                this.audio.removeAttribute('src');
+                this.audio.load();
                 this.audio.currentTime = 0;
                 this.audioSegments = [];
                 this._isSegmentMode = false;
@@ -3324,9 +3321,10 @@
                     this._insertPointStep = 0;
                     this._hasPlayed = false;
                     this.isPlaying = false;
-                    // 重置音频
+                    // 重置音频，使用removeAttribute避免触发error
                     this.audio.pause();
-                    this.audio.src = '';
+                    this.audio.removeAttribute('src');
+                    this.audio.load();
                     this.audio.currentTime = 0;
                     // 重置点评音频
                     this._resetAnnotationAudio();
