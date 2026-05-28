@@ -2346,6 +2346,7 @@
                 }
                 
                 if (sectionStatus === 'read') {
+                    console.log('[节状态] 已读节, summary:', section.summary ? '有(' + section.summary.length + '字)' : '无');
                     this.revealAll();
                     document.getElementById('progressFill').style.width = '100%';
                     analysisManager.init();
