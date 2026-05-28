@@ -2351,11 +2351,14 @@
                     this.revealAll();
                     document.getElementById('progressFill').style.width = '100%';
                     analysisManager.init();
+                    console.log('[DEBUG] 已读节，section.annotations:', section.annotations ? section.annotations.length : 'undefined');
                     if (section.annotations && section.annotations.length > 0) {
                         section.annotations.forEach(function(ann) {
+                            console.log('[DEBUG] 添加点评标签:', ann.id, ann.annotation_index);
                             analysisManager.addAnnotationTab(ann, true);  // 已播放，完整显示
                         });
                     }
+                    console.log('[DEBUG] 已读节，section.summary:', section.summary ? '有' : '无');
                     if (section.summary) {
                         analysisManager.addSummaryTab(section.summary);
                     }
