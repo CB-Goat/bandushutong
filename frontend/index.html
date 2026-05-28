@@ -3048,6 +3048,7 @@
                 if (isPlayed) {
                     // 已读节/已播放：直接显示完整文本
                     content = annotation.comment;
+                    console.log('[DEBUG] pushing tab:', tabId, 'comment length:', annotation.comment ? annotation.comment.length : 'undefined');
                     this.tabs.push({
                         id: tabId,
                         label: tabLabel,
@@ -3057,6 +3058,7 @@
                         _played: true,
                         _commentText: annotation.comment
                     });
+                    console.log('[DEBUG] after push, tabs count:', this.tabs.length);
                 } else {
                     // 阅读中：创建逐字的 span 元素用于逐字显示动画
                     var chars = annotation.comment.split('').map(function(c) {
