@@ -2243,12 +2243,6 @@
                         reader.renderCurrentSection();
                     });
                 
-                // 调试：检查第一个节的 content
-                if (data.sections && data.sections.length > 0) {
-                    var firstSection = data.sections[0];
-                    console.log('API returned section content length:', firstSection.content.length);
-                    console.log('API content[75:95]:', JSON.stringify(firstSection.content.substring(75, 95)));
-                }
                 state.currentSectionIndex = 0;
 
                 // 设置导航栏标题：如果有章节则显示章节标题，否则显示书名+作者
@@ -2322,7 +2316,6 @@
                 });
 
                 // 准备粉笔字
-                console.log('[DEBUG] 准备粉笔字, section.id=' + section.id + ' content.length=' + (section.content ? section.content.length : 'undefined'));
                 this._prepareChalkText(section.content);
 
                 // ============================================
@@ -2347,18 +2340,14 @@
                 console.log('[节状态] id=' + section.id + ' end=' + (section.end_char||0) + ' 书签=' + (progressV2 ? progressV2.current_section_id + '@' + progressV2.current_position : 'N/A') + ' → ' + sectionStatus);
                 
                 if (sectionStatus === 'read') {
-                    console.log('[DEBUG] 已读节，显示完整内容, _allChars.length=' + this._allChars.length);
                     this.revealAll();
                     document.getElementById('progressFill').style.width = '100%';
                     analysisManager.init();
-                    console.log('[DEBUG] 已读节，section.annotations:', section.annotations ? section.annotations.length : 'undefined');
                     if (section.annotations && section.annotations.length > 0) {
                         section.annotations.forEach(function(ann) {
-                            console.log('[DEBUG] 添加点评标签:', ann.id, ann.annotation_index);
                             analysisManager.addAnnotationTab(ann, true);  // 已播放，完整显示
                         });
                     }
-                    console.log('[DEBUG] 已读节，section.summary:', section.summary ? '有' : '无');
                     if (section.summary) {
                         analysisManager.addSummaryTab(section.summary);
                     }
@@ -3035,20 +3024,17 @@
 
             // 添加点评标签
             addAnnotationTab: function(annotation, isPlayed) {
-                console.log('[DEBUG] addAnnotationTab called:', annotation.id, annotation.annotation_index);
                 var tabId = 'annotation_' + annotation.id;
                 var tabLabel = getCircledNumber(annotation.annotation_index);  // 只显示序号
                 
                 // 检查是否已存在
                 var exists = this.tabs.some(function(t) { return t.id === tabId; });
-                console.log('[DEBUG] tab exists:', exists, 'current tabs:', this.tabs.length);
                 if (exists) return;
 
                 var contentHtml, content;
                 if (isPlayed) {
                     // 已读节/已播放：直接显示完整文本
                     content = annotation.comment;
-                    console.log('[DEBUG] pushing tab:', tabId, 'comment length:', annotation.comment ? annotation.comment.length : 'undefined');
                     this.tabs.push({
                         id: tabId,
                         label: tabLabel,
@@ -3058,7 +3044,6 @@
                         _played: true,
                         _commentText: annotation.comment
                     });
-                    console.log('[DEBUG] after push, tabs count:', this.tabs.length);
                 } else {
                     // 阅读中：创建逐字的 span 元素用于逐字显示动画
                     var chars = annotation.comment.split('').map(function(c) {
@@ -3103,7 +3088,6 @@
 
             // 渲染标签
             renderTabs: function() {
-                console.log('[DEBUG] renderTabs, tabs count:', this.tabs.length);
                 var tabsContainer = document.getElementById('analysisTabs');
                 tabsContainer.innerHTML = '';
 
@@ -3343,7 +3327,6 @@
             },
 
             loadSection: function(sectionId) {
-                console.log('[DEBUG] loadSection called:', sectionId, '_currentSectionId:', this._currentSectionId, 'audioSegments.length:', this.audioSegments.length);
                 var self = this;
                 this._isLeaving = false;
                 
@@ -3353,7 +3336,6 @@
                 
                 // 如果是同一节且已有数据，重置播放状态而不是跳过
                 if (this._currentSectionId === sectionId && this.audioSegments.length > 0) {
-                    console.log('[DEBUG] loadSection: 同一节重置分支');
                     console.log('重置播放状态，重新播放节:', sectionId);
                     this._playlistIndex = -1;
                     this._currentSegment = null;
@@ -3382,7 +3364,6 @@
                 
                 // 进入新节：重置所有播放状态
                 console.log('进入新节:', sectionId, '(旧节:', this._currentSectionId, ')');
-                console.trace('[DEBUG] _currentSectionId 被设置为:', sectionId);
                 this._currentSectionId = sectionId;
                 this._playlistIndex = -1;
                 this._currentSegment = null;
