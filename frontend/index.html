@@ -3343,6 +3343,7 @@
             },
 
             loadSection: function(sectionId) {
+                console.log('[DEBUG] loadSection called:', sectionId, '_currentSectionId:', this._currentSectionId, 'audioSegments.length:', this.audioSegments.length);
                 var self = this;
                 this._isLeaving = false;
                 
@@ -3352,6 +3353,7 @@
                 
                 // 如果是同一节且已有数据，重置播放状态而不是跳过
                 if (this._currentSectionId === sectionId && this.audioSegments.length > 0) {
+                    console.log('[DEBUG] loadSection: 同一节重置分支');
                     console.log('重置播放状态，重新播放节:', sectionId);
                     this._playlistIndex = -1;
                     this._currentSegment = null;
