@@ -3287,6 +3287,7 @@
             // 重置播放器所有状态（进入阅读页前调用）
             _resetPlayerState: function() {
                 console.log('_resetPlayerState: 重置播放器状态');
+                var self = this;
                 this._currentSectionId = null;
                 this._playlistIndex = -1;
                 this._currentSegment = null;
@@ -3302,6 +3303,32 @@
                 this._isSegmentMode = false;
                 this._resumeTimeInSegment = 0;
                 this._resetAnnotationAudio();
+                // 重新设置音频事件监听器（stop()可能已清除）
+                this.audio.ontimeupdate = function() {
+                    self.currentTime = self.audio.currentTime;
+                    self._updateDisplayByTime();
+                };
+                this.audio.onended = function() {
+                    console.log('音频段播放结束');
+                    if (self._insertPointStep > 0) {
+                        console.log('多步骤播放中，跳过全局onended');
+                        return;
+                    }
+                    self._onSegmentEnd();
+                };
+                this.audio.onerror = function(e) {
+                    console.log('音频播放错误:', e);
+                    console.log('音频 URL:', self.audio.src);
+                    self.isPlaying = false;
+                    state.isPlaying = false;
+                    self.audio.pause();
+                    if (self._segmentTimeout) {
+                        clearTimeout(self._segmentTimeout);
+                        self._segmentTimeout = null;
+                    }
+                    document.getElementById('playBtn').textContent = '\u26A0';
+                    document.getElementById('playBtn').title = '音频加载失败，请刷新重试';
+                };
                 console.log('_resetPlayerState: 完成');
             },
 
@@ -3897,16 +3924,24 @@
             stop: function() {
                 this.audio.pause();
                 this.audio.onended = null;
+                this.audio.ontimeupdate = null;
+                this.audio.onerror = null;
+                this.audio.oncanplay = null;
+                // 清理音频源，避免旧音频残留
+                this.audio.removeAttribute('src');
+                this.audio.load();
                 this.audio.currentTime = 0;
                 // 清除所有定时器
                 this._clearAllTimers();
                 // 停止并清理点评音频
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
-                    this._annotationAudio.src = '';
+                    this._annotationAudio.removeAttribute('src');
+                    this._annotationAudio.load();
                     this._annotationAudio.onended = null;
                     this._annotationAudio.oncanplay = null;
                     this._annotationAudio.onerror = null;
+                    this._annotationAudio.ontimeupdate = null;
                 }
                 this.isPlaying = false;
                 this._playlistIndex = -1;
