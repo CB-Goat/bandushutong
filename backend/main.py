@@ -8,6 +8,7 @@ from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 import sys
+import subprocess
 
 # 添加当前目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -20,6 +21,23 @@ CORS(app)  # 允许跨域
 
 # 前端文件目录
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'frontend')
+
+# 自动获取 git 版本号
+def get_git_version():
+    """从 git 获取最新提交的版本号"""
+    try:
+        result = subprocess.run(['git', 'log', '-1', '--format=%s'], 
+                              capture_output=True, text=True, 
+                              cwd=os.path.dirname(os.path.abspath(__file__)))
+        commit_msg = result.stdout.strip()
+        # 从提交信息中提取版本号，如 "#293 修复xxx"
+        import re
+        match = re.search(r'#(\d+)', commit_msg)
+        if match:
+            return '#' + match.group(1)
+    except:
+        pass
+    return '#dev'
 
 # 注册 API 蓝图
 app.register_blueprint(api_bp, url_prefix='/api')
@@ -53,7 +71,7 @@ def serve_bookmark_icon():
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '#290'})
+    return jsonify({'status': 'ok', 'version': get_git_version()})
 
 # 初始化数据库
 init_db()
@@ -80,7 +98,7 @@ if __name__ == '__main__':
     
     print("=" * 50)
     print("悦读小将后端服务启动")
-    print("更新版本: #290")
+    print("更新版本:", get_git_version())
     print("访问地址: http://localhost:%d" % port)
     print("API 地址: http://localhost:%d/api" % port)
     print("=" * 50)
