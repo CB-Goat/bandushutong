@@ -3712,6 +3712,10 @@
                             }
                         }
                         } // end if (sectionStatus !== 'read')
+                        // 播放开始时停止轮巡，避免干扰
+                        if (typeof analysisManager !== 'undefined' && analysisManager.stopRotation) {
+                            analysisManager.stopRotation();
+                        }
                         // 先设置播放状态，再更新灯笼
                         self.isPlaying = true;
                         state.isPlaying = true;
@@ -3721,6 +3725,10 @@
                             thoughtEditor.updateAllLanternsState();
                         }
                     } else {
+                        // 播放开始时停止轮巡
+                        if (typeof analysisManager !== 'undefined' && analysisManager.stopRotation) {
+                            analysisManager.stopRotation();
+                        }
                         this.audio.play().then(function() {
                             self.isPlaying = true;
                             state.isPlaying = true;
@@ -3840,7 +3848,7 @@
                 
                 var seg = this.audioSegments[this._playlistIndex];
                 this._currentSegment = seg;
-                console.log('播放段 ' + this._playlistIndex + ':', seg.type);
+                console.log('播放段 ' + this._playlistIndex + ': type=' + seg.type + ' id=' + (seg.id || seg.annotation_id || 'N/A'));
                 
                 if (seg.type === 'text_segment') {
                     this._playTextSegment(seg);
