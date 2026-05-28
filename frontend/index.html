@@ -3250,12 +3250,22 @@
                 this.audio.onerror = function(e) {
                     console.log('音频播放错误:', e);
                     console.log('音频 URL:', self.audio.src);
-                    // 错误时不触发段结束，避免立即标记为已读
-                    // 让用户知道音频有问题
+                    
+                    // 完整清理播放状态
                     self.isPlaying = false;
+                    state.isPlaying = false;
                     self.audio.pause();
+                    
+                    // 清理超时定时器
+                    if (self._segmentTimeout) {
+                        clearTimeout(self._segmentTimeout);
+                        self._segmentTimeout = null;
+                    }
+                    
                     document.getElementById('playBtn').textContent = '\u26A0';
                     document.getElementById('playBtn').title = '音频加载失败，请刷新重试';
+                    
+                    // 不要调用 _onSegmentEnd()，避免错误标记已读
                 };
                 // 添加超时保护，避免音频卡住不触发ended
                 this._segmentTimeout = setTimeout(function() {
@@ -3523,6 +3533,8 @@
                         if (failed > 0) {
                             // 有文件不存在，禁用播放并提示
                             console.log('音频预加载完成，' + failed + '/' + total + '个文件不存在');
+                            playBtn.disabled = true;
+                            playBtn.style.opacity = '0.5';
                             playBtn.textContent = '\u26A0';
                             playBtn.title = '音频不完整，请在管理页修复音频';
                             var readerContent = document.getElementById('readerContent');
@@ -3605,6 +3617,21 @@
 
             play: function() {
                 var self = this;
+                var playBtn = document.getElementById('playBtn');
+                
+                // 检查播放按钮是否被禁用（音频未加载完成或有错误）
+                if (playBtn && playBtn.disabled) {
+                    console.log('play: 播放按钮被禁用，音频未加载完成');
+                    return;
+                }
+                
+                // 检查是否有音频缺失的警告
+                var warnEl = document.getElementById('audioWarning');
+                if (warnEl) {
+                    console.log('play: 存在音频缺失警告，禁止播放');
+                    return;
+                }
+                
                 var section = state.currentSections[state.currentSectionIndex];
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
                 console.log('play: section.id=', section ? section.id : 'N/A', 'sectionStatus=', sectionStatus);
