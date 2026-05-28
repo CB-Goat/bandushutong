@@ -101,8 +101,8 @@ def text_to_speech(text, section_id=None, speed=5, pitch=5, volume=5, person=3):
         pitch: 音调 0-15，默认5
         volume: 音量 0-15，默认5
         person: 发音人选择
-            0: 普通女声（默认）
-            1: 普通男声
+            0: 普通女声
+            1: 普通男声（默认）
             3: 情感合成-度逍遥
             4: 情感合成-度丫丫
             5: 情感合成-度小娇
@@ -907,7 +907,7 @@ def generate_annotation_audio(annotation_id, original_text, comment, person=3, s
     }
 
 
-def _generate_quote_audio(annotation_id, original_text, person=0, speed=5):
+def _generate_quote_audio(annotation_id, original_text, person=3, speed=5):
     """
     生成引用原文音频
     格式：直接朗读原文，不加前缀
@@ -1119,7 +1119,7 @@ def generate_summary_audio(section_id, summary, person=3, speed=5):
 
 # ==================== 新版音频生成辅助函数 ====================
 
-def call_baidu_tts(text, token, speed=5, person=0):
+def call_baidu_tts(text, token, speed=5, person=3):
     """调用百度 TTS API，返回音频字节数据"""
     params = {
         'tok': token,

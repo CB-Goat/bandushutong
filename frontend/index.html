@@ -3259,25 +3259,55 @@
                 var self = this;
                 this._isLeaving = false;
                 
+                // 清除旧警告
+                var warnEl = document.getElementById('audioWarning');
+                if (warnEl) warnEl.remove();
+                
                 // 如果是同一节且已有数据，重置播放状态而不是跳过
                 if (this._currentSectionId === sectionId && this.audioSegments.length > 0) {
                     console.log('重置播放状态，重新播放节:', sectionId);
                     this._playlistIndex = -1;
                     this._currentSegment = null;
                     this._insertPointStep = 0;
+                    this._hasPlayed = false;
+                    this.isPlaying = false;
                     // 重置音频
                     this.audio.pause();
+                    this.audio.src = '';
                     this.audio.currentTime = 0;
                     // 重置文本显示
                     if (typeof reader !== 'undefined' && reader.resetDisplay) {
                         reader.resetDisplay();
+                    }
+                    // 重置赏析管理器
+                    if (typeof analysisManager !== 'undefined' && analysisManager.reset) {
+                        analysisManager.reset();
                     }
                     // 重新开始播放
                     this._preloadAllAudio();
                     return;
                 }
                 
+                // 进入新节：重置所有播放状态
+                console.log('进入新节:', sectionId, '(旧节:', this._currentSectionId, ')');
                 this._currentSectionId = sectionId;
+                this._playlistIndex = -1;
+                this._currentSegment = null;
+                this._insertPointStep = 0;
+                this._hasPlayed = false;
+                this.isPlaying = false;
+                this.audio.pause();
+                this.audio.src = '';
+                this.audio.currentTime = 0;
+                
+                // 重置显示状态
+                if (typeof reader !== 'undefined' && reader.hideAll) {
+                    reader.hideAll();
+                }
+                if (typeof analysisManager !== 'undefined' && analysisManager.reset) {
+                    analysisManager.reset();
+                }
+                
                 console.log('加载节:', sectionId);
                 fetch(API_BASE + '/sections/' + sectionId + '/playback-plan')
                     .then(function(r) { 
