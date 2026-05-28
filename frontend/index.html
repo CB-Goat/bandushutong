@@ -4168,6 +4168,10 @@
                     return;
                 }
                 
+                // 先获取引用范围
+                var quoteStartChar = seg.quote_start_char || 0;
+                var quoteEndChar = seg.quote_end_char || 0;
+                
                 // 清除当前引用范围之前的高亮（不影响其他点评的高亮）
                 if (typeof reader !== 'undefined' && reader._clearQuoteHighlight) {
                     reader._clearQuoteHighlight(quoteStartChar, quoteEndChar);
@@ -4176,8 +4180,6 @@
                 this._annotationAudio.src = seg.quote_audio_path;
                 this._annotationAudio.load();
                 
-                var quoteStartChar = seg.quote_start_char || 0;
-                var quoteEndChar = seg.quote_end_char || 0;
                 var quoteAudioDuration = seg.quote_audio_duration || 0;
                 var charCount = quoteEndChar - quoteStartChar;
                 
