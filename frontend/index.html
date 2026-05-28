@@ -2322,63 +2322,49 @@
                 // 准备粉笔字
                 this._prepareChalkText(section.content);
 
-                // 节状态判断逻辑：书签是唯一权威来源
-                // 书签在本节内：position < end_char → 在读，position >= end_char → 已读
-                // 书签不在本节：书签在后续节 → 已读，书签在前面节 → 未读
-                // 书签只跟踪主线位置，不受子过程(点评/引用/小结)影响
-                var sectionStatus = 'unread';
+                // ============================================
+                // 节状态判断：书签是唯一权威来源
+                // - 书签在后续节 → 本节已读
+                // - 书签在前面节 → 本节未读
+                // - 书签在本节：position < end_char → 在读，position >= end_char → 已读
+                // ============================================
                 var progressV2 = state.currentProgressV2;
+                var sectionStatus = 'unread';  // 默认未读
                 if (progressV2) {
-                    var bookmarkSectionId = parseInt(progressV2.current_section_id);
-                    var bookmarkPos = progressV2.current_position || 0;
-                    var sectionEndChar = section.end_char;
-                    if (bookmarkSectionId === section.id) {
-                        // 书签在本节：根据 position 判断
-                        sectionStatus = (bookmarkPos >= sectionEndChar) ? 'read' : 'reading';
-                    } else if (bookmarkSectionId > section.id) {
-                        // 书签在后续节 → 已读
+                    var bkSectionId = parseInt(progressV2.current_section_id);
+                    var bkPos = progressV2.current_position || 0;
+                    var secEnd = section.end_char || 0;
+                    if (bkSectionId === section.id) {
+                        sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
+                    } else if (bkSectionId > section.id) {
                         sectionStatus = 'read';
                     }
-                    // bookmarkSectionId < section.id → 未读（保持默认值）
                 }
-                console.log('[节状态] section.id=', section.id, 'end=', section.end_char, '书签节=', progressV2 ? progressV2.current_section_id : 'N/A', '书签位置=', progressV2 ? progressV2.current_position : 'N/A', '-> sectionStatus=', sectionStatus);
+                console.log('[节状态] id=' + section.id + ' end=' + (section.end_char||0) + ' 书签=' + (progressV2 ? progressV2.current_section_id + '@' + progressV2.current_position : 'N/A') + ' → ' + sectionStatus);
                 
                 if (sectionStatus === 'read') {
                     this.revealAll();
                     document.getElementById('progressFill').style.width = '100%';
-                    console.log('节已读，显示全部文字');
-                    // 已读节：显示所有点评和小结
                     analysisManager.init();
-                    console.log('[已读节] 添加点评: annotations=', section.annotations ? section.annotations.length : 'undefined/null', 'summary=', section.summary ? section.summary.substring(0, 50) + '...' : 'undefined/null');
                     if (section.annotations && section.annotations.length > 0) {
                         section.annotations.forEach(function(ann) {
-                            analysisManager.addAnnotationTab(ann, true);  // true = 已播放，完整显示
+                            analysisManager.addAnnotationTab(ann, true);  // 已播放，完整显示
                         });
-                    } else {
-                        console.log('[已读节] 警告: section.annotations 为空或 undefined');
                     }
                     if (section.summary) {
                         analysisManager.addSummaryTab(section.summary);
-                    } else {
-                        console.log('[已读节] 警告: section.summary 为空或 undefined');
                     }
-                    // 已读节：启动标签轮巡
                     analysisManager.startRotationAlways();
                 } else if (sectionStatus === 'reading') {
-                    // 在读节：按断点显示（由 player 控制显示进度）
-                    console.log('[在读节] sectionStatus=', sectionStatus);
+                    // 在读节：按断点显示
                     analysisManager.init();
-                    // 不预显示点评和小结，由播放进度触发
                     document.getElementById('annotationDisplay').classList.remove('active');
-                    // 在读节：启动标签轮巡
                     analysisManager.startRotationAlways();
-                    // 在读节：恢复断点位置并显示书签
                     this._restoreBookmarkAndPosition();
                 } else {
-                    // 未读节：不显示点评、小结和编号
+                    // 未读节
                     analysisManager.init();
                     document.getElementById('annotationDisplay').classList.remove('active');
-                    // 未读节：启动标签轮巡
                     analysisManager.startRotationAlways();
                 }
 

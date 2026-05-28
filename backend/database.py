@@ -1106,7 +1106,7 @@ def add_section(book_id, chapter_id, section_number, content, title=''):
     return section_id
 
 def get_sections_by_book(book_id):
-    """获取书籍的所有小节，包含章节编号和标题"""
+    """获取书籍的所有小节，包含章节编号和标题，以及 start_char/end_char"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
@@ -1117,6 +1117,15 @@ def get_sections_by_book(book_id):
         ORDER BY s.section_number
     ''', (book_id,))
     sections = [dict(row) for row in cursor.fetchall()]
+    
+    # 计算每节的 start_char 和 end_char（基于内容的累积长度）
+    # 注意：这里的 start_char 是节内容相对于整本书的起始位置
+    offset = 0
+    for sec in sections:
+        sec['start_char'] = offset
+        sec['end_char'] = offset + len(sec['content']) if sec.get('content') else offset
+        offset = sec['end_char']
+    
     conn.close()
     return sections
 
