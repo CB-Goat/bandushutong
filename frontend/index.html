@@ -3035,11 +3035,13 @@
 
             // 添加点评标签
             addAnnotationTab: function(annotation, isPlayed) {
+                console.log('[DEBUG] addAnnotationTab called:', annotation.id, annotation.annotation_index);
                 var tabId = 'annotation_' + annotation.id;
                 var tabLabel = getCircledNumber(annotation.annotation_index);  // 只显示序号
                 
                 // 检查是否已存在
                 var exists = this.tabs.some(function(t) { return t.id === tabId; });
+                console.log('[DEBUG] tab exists:', exists, 'current tabs:', this.tabs.length);
                 if (exists) return;
 
                 var contentHtml, content;
