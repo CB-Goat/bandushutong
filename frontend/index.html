@@ -2319,25 +2319,31 @@
                 this._prepareChalkText(section.content);
 
                 // ============================================
-                // 节状态判断：书签是唯一权威来源
-                // - 书签在后续节 → 本节已读
-                // - 书签在前面节 → 本节未读
-                // - 书签在本节：position < end_char → 在读，position >= end_char → 已读
+                // 节状态判断：优先使用 catalogStatusMap（与目录页一致）
+                // 如果没有，则根据书签位置计算
                 // ============================================
-                var progressV2 = state.currentProgressV2;
                 var sectionStatus = 'unread';  // 默认未读
-                if (progressV2) {
-                    var bkSectionId = parseInt(progressV2.current_section_id);
-                    var bkPos = progressV2.current_position || 0;
-                    var secEnd = section.end_char || 0;
-                    console.log('[判断] bkSectionId=' + bkSectionId + ' section.id=' + section.id + ' bkPos=' + bkPos + ' secEnd=' + secEnd);
-                    if (bkSectionId === section.id) {
-                        sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
-                    } else if (bkSectionId > section.id) {
-                        sectionStatus = 'read';
+                
+                // 优先使用目录页的状态（来自 section_reading_status 表）
+                if (state.catalogStatusMap && state.catalogStatusMap[section.id]) {
+                    sectionStatus = state.catalogStatusMap[section.id];
+                    console.log('[节状态] 使用 catalogStatusMap:', section.id, '→', sectionStatus);
+                } else {
+                    // 回退：根据书签位置计算
+                    var progressV2 = state.currentProgressV2;
+                    if (progressV2) {
+                        var bkSectionId = parseInt(progressV2.current_section_id);
+                        var bkPos = progressV2.current_position || 0;
+                        var secEnd = section.end_char || 0;
+                        console.log('[判断] bkSectionId=' + bkSectionId + ' section.id=' + section.id + ' bkPos=' + bkPos + ' secEnd=' + secEnd);
+                        if (bkSectionId === section.id) {
+                            sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
+                        } else if (bkSectionId > section.id) {
+                            sectionStatus = 'read';
+                        }
                     }
+                    console.log('[节状态] 根据书签计算:', section.id, '→', sectionStatus);
                 }
-                console.log('[节状态] id=' + section.id + ' end=' + (section.end_char||0) + ' 书签=' + (progressV2 ? progressV2.current_section_id + '@' + progressV2.current_position : 'N/A') + ' → ' + sectionStatus);
                 
                 if (sectionStatus === 'read') {
                     this.revealAll();
