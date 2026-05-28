@@ -2667,6 +2667,16 @@
                 // 重置赏析区域
                 analysisManager.reset();
             },
+            
+            // 重置显示状态（用于再次阅读同一节）
+            resetDisplay: function() {
+                console.log('[Reader] 重置显示状态');
+                this.hideAll();
+                // 重置进度条
+                document.getElementById('progressFill').style.width = '0%';
+                // 隐藏书签
+                if (this._hideBookmark) this._hideBookmark();
+            },
 
             prevSection: function() {
                 if (state.currentSectionIndex > 0) {
@@ -3245,10 +3255,25 @@
             loadSection: function(sectionId) {
                 var self = this;
                 this._isLeaving = false;
+                
+                // 如果是同一节且已有数据，重置播放状态而不是跳过
                 if (this._currentSectionId === sectionId && this.audioSegments.length > 0) {
-                    console.log('跳过重复加载节:', sectionId);
+                    console.log('重置播放状态，重新播放节:', sectionId);
+                    this._playlistIndex = -1;
+                    this._currentSegment = null;
+                    this._insertPointStep = 0;
+                    // 重置音频
+                    this.audio.pause();
+                    this.audio.currentTime = 0;
+                    // 重置文本显示
+                    if (typeof reader !== 'undefined' && reader.resetDisplay) {
+                        reader.resetDisplay();
+                    }
+                    // 重新开始播放
+                    this._preloadAllAudio();
                     return;
                 }
+                
                 this._currentSectionId = sectionId;
                 console.log('加载节:', sectionId);
                 fetch(API_BASE + '/sections/' + sectionId + '/playback-plan')
