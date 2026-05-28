@@ -2323,25 +2323,33 @@
                 this._prepareChalkText(section.content);
 
                 // 如果该节已读，直接显示全部文字
-                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                // 优先使用 catalogStatusMap，如果找不到则使用 section.status
+                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || section.status || '';
+                console.log('节状态检查: section.id=', section.id, 'catalogStatusMap=', state.catalogStatusMap && state.catalogStatusMap[section.id], 'section.status=', section.status, '-> sectionStatus=', sectionStatus);
                 if (sectionStatus === 'read') {
                     this.revealAll();
                     document.getElementById('progressFill').style.width = '100%';
                     console.log('节已读，显示全部文字');
                     // 已读节：显示所有点评和小结
                     analysisManager.init();
-                    if (section.annotations) {
+                    console.log('[已读节] 添加点评: annotations=', section.annotations ? section.annotations.length : 'undefined/null', 'summary=', section.summary ? section.summary.substring(0, 50) + '...' : 'undefined/null');
+                    if (section.annotations && section.annotations.length > 0) {
                         section.annotations.forEach(function(ann) {
                             analysisManager.addAnnotationTab(ann, true);  // true = 已播放，完整显示
                         });
+                    } else {
+                        console.log('[已读节] 警告: section.annotations 为空或 undefined');
                     }
                     if (section.summary) {
                         analysisManager.addSummaryTab(section.summary);
+                    } else {
+                        console.log('[已读节] 警告: section.summary 为空或 undefined');
                     }
                     // 已读节：启动标签轮巡
                     analysisManager.startRotationAlways();
                 } else if (sectionStatus === 'reading') {
                     // 在读节：按断点显示（由 player 控制显示进度）
+                    console.log('[在读节] sectionStatus=', sectionStatus);
                     analysisManager.init();
                     // 不预显示点评和小结，由播放进度触发
                     document.getElementById('annotationDisplay').classList.remove('active');
@@ -2351,6 +2359,7 @@
                     this._restoreBookmarkAndPosition();
                 } else {
                     // 未读节：不显示点评、小结和编号
+                    console.log('[未读节] sectionStatus=', sectionStatus);
                     analysisManager.init();
                     document.getElementById('annotationDisplay').classList.remove('active');
                     // 未读节：启动标签轮巡
