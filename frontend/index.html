@@ -3380,6 +3380,7 @@
                 
                 // 进入新节：重置所有播放状态
                 console.log('进入新节:', sectionId, '(旧节:', this._currentSectionId, ')');
+                console.trace('[DEBUG] _currentSectionId 被设置为:', sectionId);
                 this._currentSectionId = sectionId;
                 this._playlistIndex = -1;
                 this._currentSegment = null;
