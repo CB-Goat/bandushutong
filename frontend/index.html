@@ -3620,15 +3620,29 @@
                 }, 15000);
 
                 // 用 Audio 元素真正加载音频，等待 canplay 事件确认可以播放
+                // 添加时间戳参数强制从服务器下载，不使用浏览器缓存
+                var cacheTime = Date.now();
                 audioPaths.forEach(function(path) {
                     var audio = new Audio();
                     audio.preload = 'auto';
+                    
+                    // 添加时间戳绕过缓存
+                    var urlWithCacheBuster = path + (path.indexOf('?') >= 0 ? '&' : '?') + 't=' + cacheTime;
                     
                     var hasResult = false;
                     function markLoaded() {
                         if (!hasResult) {
                             hasResult = true;
                             loaded++;
+                            // 更新 audioSegments 中的路径为带时间戳的版本
+                            for (var i = 0; i < self.audioSegments.length; i++) {
+                                var seg = self.audioSegments[i];
+                                if (seg.audio_path === path) {
+                                    seg.audio_path = urlWithCacheBuster;
+                                } else if (seg.quote_audio_path === path) {
+                                    seg.quote_audio_path = urlWithCacheBuster;
+                                }
+                            }
                             checkDone();
                         }
                     }
@@ -3654,7 +3668,7 @@
                         }
                     }, 10000);
                     
-                    audio.src = path;
+                    audio.src = urlWithCacheBuster;
                     audio.load();
                 });
             },
