@@ -3633,8 +3633,21 @@
                 }
                 
                 var section = state.currentSections[state.currentSectionIndex];
-                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                console.log('play: section.id=', section ? section.id : 'N/A', 'sectionStatus=', sectionStatus);
+                
+                // 使用书签判断节状态（唯一权威来源）
+                var sectionStatus = 'unread';
+                var progressV2 = state.currentProgressV2;
+                if (progressV2) {
+                    var bkSectionId = parseInt(progressV2.current_section_id);
+                    var bkPos = progressV2.current_position || 0;
+                    var secEnd = section.end_char || 0;
+                    if (bkSectionId === section.id) {
+                        sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
+                    } else if (bkSectionId > section.id) {
+                        sectionStatus = 'read';
+                    }
+                }
+                console.log('play: section.id=', section ? section.id : 'N/A', 'sectionStatus=', sectionStatus, '书签=', progressV2 ? progressV2.current_section_id + '@' + progressV2.current_position : 'N/A');
                 // 点击播放后隐藏书签
                 if (typeof reader !== 'undefined' && reader._hideBookmark) {
                     reader._hideBookmark();
@@ -3859,8 +3872,21 @@
                 // 只有非已读节才使用断点恢复位置
                 var displayChar = seg.start_char + this.TEXT_AHEAD_OFFSET;
                 var section = state.currentSections[state.currentSectionIndex];
-                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
                 var progressV2 = state.currentProgressV2;
+                
+                // 使用书签判断节状态
+                var sectionStatus = 'unread';
+                if (progressV2) {
+                    var bkSectionId = parseInt(progressV2.current_section_id);
+                    var bkPos = progressV2.current_position || 0;
+                    var secEnd = section.end_char || 0;
+                    if (bkSectionId === section.id) {
+                        sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
+                    } else if (bkSectionId > section.id) {
+                        sectionStatus = 'read';
+                    }
+                }
+                
                 // 已读节不使用断点恢复，始终从头开始
                 if (sectionStatus !== 'read' && progressV2 && parseInt(progressV2.current_section_id) === parseInt(section.id)) {
                     var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
