@@ -2323,26 +2323,24 @@
                 this._prepareChalkText(section.content);
 
                 // 节状态判断逻辑：书签位置是唯一权威来源
-                // - 书签不在本节且书签在后续节 → 已读
-                // - 书签不在本节且书签在前面节 → 未读
-                // - 书签在本节开头或中间 → 在读
-                // - 书签在本节末尾(>=end_char) → 已读
+                // - bookmark_section_id > section.id → 本节已读（书签已到后续节）
+                // - bookmark_section_id < section.id → 本节未读（书签还在前面）
+                // - bookmark_section_id === section.id → 本节在读（书签不可能 >= end_char）
                 // 书签只跟踪主线位置，不受子过程(点评/引用/小结)影响
                 var sectionStatus = 'unread';
                 var progressV2 = state.currentProgressV2;
                 if (progressV2) {
                     var bookmarkSectionId = parseInt(progressV2.current_section_id);
-                    var bookmarkPos = progressV2.current_position || 0;
-                    var sectionEndChar = section.end_char || (section.start_char + (section.content ? section.content.length : 0));
                     if (bookmarkSectionId === section.id) {
-                        // 书签在本节：开头/中间→在读，末尾→已读
-                        sectionStatus = (bookmarkPos >= sectionEndChar) ? 'read' : 'reading';
+                        // 书签在本节 → 在读
+                        sectionStatus = 'reading';
                     } else if (bookmarkSectionId > section.id) {
-                        // 书签在后续节，本节已读
+                        // 书签在后续节 → 已读
                         sectionStatus = 'read';
                     }
+                    // bookmarkSectionId < section.id → 未读（保持默认值）
                 }
-                console.log('[节状态] section.id=', section.id, 'start=', section.start_char, 'end=', sectionEndChar, '书签节=', progressV2 ? progressV2.current_section_id : 'N/A', '书签位置=', progressV2 ? progressV2.current_position : 'N/A', '-> sectionStatus=', sectionStatus);
+                console.log('[节状态] section.id=', section.id, '书签节=', progressV2 ? progressV2.current_section_id : 'N/A', '-> sectionStatus=', sectionStatus);
                 
                 if (sectionStatus === 'read') {
                     this.revealAll();
