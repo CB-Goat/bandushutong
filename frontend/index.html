@@ -3250,6 +3250,11 @@
                     self._onSegmentEnd();
                 };
                 this.audio.onerror = function(e) {
+                    // 如果 src 为空，说明是重置状态，不处理错误
+                    if (!self.audio.src || self.audio.src === window.location.href) {
+                        console.log('音频错误: src为空，忽略');
+                        return;
+                    }
                     console.log('音频播放错误:', e);
                     console.log('音频 URL:', self.audio.src);
                     
