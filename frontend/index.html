@@ -3902,6 +3902,10 @@
                 this._stopCommentTextAnimation();
                 this._insertPointStep = 0;
                 this._currentInsertPoint = null;
+                // 完整清理：清除节ID和播放队列，确保再次进入时走"进入新节"分支
+                this._currentSectionId = null;
+                this.audioSegments = [];
+                this._isSegmentMode = false;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
                 // 更新灯笼状态为可点击
