@@ -3130,6 +3130,9 @@
                     if (tab.annotationId && tab._played) {
                         // 已播放完，直接显示完整文本
                         contentEl.innerHTML = '<div class="comment-text">' + tab._commentText + '</div>';
+                    } else if (tab.isSummary && tab._played) {
+                        // 小结已播放完，显示完整文本
+                        contentEl.innerHTML = '<div class="comment-text">' + (tab._commentText || tab.content) + '</div>';
                     } else if (tab.isHtml) {
                         contentEl.innerHTML = tab.content;
                     } else {
