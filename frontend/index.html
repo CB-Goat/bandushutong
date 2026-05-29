@@ -605,17 +605,21 @@
             opacity: 1;
         }
 
-        /* 小结内容逐字显示样式 */
-        .chalkboard .analysis-area .content .comment-char {
+        /* 小结内容逐字显示样式（与点评一致） */
+        .chalkboard .analysis-area .content .summary-comment {
+            font-size: 20px;
+            line-height: 1.8;
+            color: #f0e8d0;
+        }
+
+        .chalkboard .analysis-area .content .summary-comment .comment-char {
             display: inline;
             opacity: 0;
             transition: opacity 0.15s ease;
-            color: #F5E8D0 !important;
         }
 
-        .chalkboard .analysis-area .content .comment-char.visible {
+        .chalkboard .analysis-area .content .summary-comment .comment-char.visible {
             opacity: 1;
-            color: #F5E8D0 !important;
         }
 
         /* 小结文本样式（轮巡显示时） */
@@ -4818,14 +4822,15 @@
                 // 在 tab 里创建逐字 span 元素（类似点评的处理方式）
                 var analysisContent = document.getElementById('analysisContent');
                 if (analysisContent) {
-                    // 清空并创建逐字 span（初始隐藏）
-                    analysisContent.innerHTML = '';
+                    // 清空并创建 summary-comment 容器（与点评的 annotation-comment 一致）
+                    analysisContent.innerHTML = '<div class="summary-comment"></div>';
+                    var summaryComment = analysisContent.querySelector('.summary-comment');
                     var chars = commentText.split('');
                     for (var i = 0; i < chars.length; i++) {
                         var span = document.createElement('span');
                         span.className = 'comment-char';
                         span.textContent = chars[i];
-                        analysisContent.appendChild(span);
+                        summaryComment.appendChild(span);
                         commentChars.push(span);
                     }
                 }
