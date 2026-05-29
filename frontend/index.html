@@ -605,30 +605,6 @@
             opacity: 1;
         }
 
-        /* 小结内容逐字显示样式（与点评一致） */
-        .chalkboard .analysis-area .content .summary-comment {
-            font-size: 20px !important;
-            line-height: 1.8 !important;
-            color: #f0e8d0 !important;
-        }
-
-        .chalkboard .analysis-area .content .summary-comment .comment-char {
-            display: inline;
-            opacity: 0;
-            transition: opacity 0.15s ease;
-        }
-
-        .chalkboard .analysis-area .content .summary-comment .comment-char.visible {
-            opacity: 1;
-        }
-
-        /* 小结文本样式（轮巡显示时） */
-        .chalkboard .analysis-area .content .summary-text {
-            color: #f0e8d0 !important;
-            font-size: 20px !important;
-            line-height: 1.8 !important;
-        }
-
         /* 粉笔灰效果 */
         .chalkboard::after {
             content: '';
@@ -3158,8 +3134,8 @@
                         // 已播放完，直接显示完整文本
                         contentEl.innerHTML = '<div class="comment-text">' + tab._commentText + '</div>';
                     } else if (tab.isSummary && tab._played) {
-                        // 小结已播放完，显示完整文本（使用小结专用样式）
-                        contentEl.innerHTML = '<div class="summary-text">' + (tab._commentText || tab.content) + '</div>';
+                        // 小结已播放完，显示完整文本（与点评一致，使用 comment-text）
+                        contentEl.innerHTML = '<div class="comment-text">' + (tab._commentText || tab.content) + '</div>';
                     } else if (tab.isHtml) {
                         contentEl.innerHTML = tab.content;
                     } else {
@@ -4822,15 +4798,15 @@
                 // 在 tab 里创建逐字 span 元素（类似点评的处理方式）
                 var analysisContent = document.getElementById('analysisContent');
                 if (analysisContent) {
-                    // 清空并创建 summary-comment 容器（与点评的 annotation-comment 一致）
-                    analysisContent.innerHTML = '<div class="summary-comment"></div>';
-                    var summaryComment = analysisContent.querySelector('.summary-comment');
+                    // 使用 comment-text 容器（与点评完全一致）
+                    analysisContent.innerHTML = '<div class="comment-text"></div>';
+                    var commentContainer = analysisContent.querySelector('.comment-text');
                     var chars = commentText.split('');
                     for (var i = 0; i < chars.length; i++) {
                         var span = document.createElement('span');
                         span.className = 'comment-char';
                         span.textContent = chars[i];
-                        summaryComment.appendChild(span);
+                        commentContainer.appendChild(span);
                         commentChars.push(span);
                     }
                 }
