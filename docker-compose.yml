@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build: .
@@ -8,11 +6,13 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # 持久化数据库（使用绝对路径）
       - /www/dk_project/wwwroot/lit.handy.xin/data:/app/instance
     environment:
       - FLASK_ENV=production
       - TZ=Asia/Shanghai
+    dns:
+      - 223.5.5.5
+      - 8.8.8.8
 
   nginx:
     image: nginx:alpine
@@ -27,3 +27,6 @@ services:
       - /www/dk_project/wwwroot/lit.handy.xin/ssl:/etc/nginx/ssl:ro
     depends_on:
       - backend
+    dns:
+      - 223.5.5.5
+      - 8.8.8.8
