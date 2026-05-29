@@ -2,10 +2,6 @@
 
 FROM python:3.9-slim
 
-# 设置DNS（解决构建时域名解析问题）
-RUN echo "nameserver 223.5.5.5" > /etc/resolv.conf && \
-    echo "nameserver 8.8.8.8" >> /etc/resolv.conf
-
 # 设置工作目录
 WORKDIR /app
 
