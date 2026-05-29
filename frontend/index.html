@@ -3723,20 +3723,25 @@
                 
                 var section = state.currentSections[state.currentSectionIndex];
                 
-                // 使用书签判断节状态（唯一权威来源）
+                // 节状态判断：优先使用 catalogStatusMap（与目录页一致）
                 var sectionStatus = 'unread';
-                var progressV2 = state.currentProgressV2;
-                if (progressV2) {
-                    var bkSectionId = parseInt(progressV2.current_section_id);
-                    var bkPos = progressV2.current_position || 0;
-                    var secEnd = section.end_char || 0;
-                    if (bkSectionId === section.id) {
-                        sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
-                    } else if (bkSectionId > section.id) {
-                        sectionStatus = 'read';
+                if (state.catalogStatusMap && state.catalogStatusMap[section.id]) {
+                    sectionStatus = state.catalogStatusMap[section.id];
+                } else {
+                    // 回退：根据书签位置计算
+                    var progressV2 = state.currentProgressV2;
+                    if (progressV2) {
+                        var bkSectionId = parseInt(progressV2.current_section_id);
+                        var bkPos = progressV2.current_position || 0;
+                        var secEnd = section.end_char || 0;
+                        if (bkSectionId === section.id) {
+                            sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
+                        } else if (bkSectionId > section.id) {
+                            sectionStatus = 'read';
+                        }
                     }
                 }
-                console.log('play: section.id=', section ? section.id : 'N/A', 'sectionStatus=', sectionStatus, '书签=', progressV2 ? progressV2.current_section_id + '@' + progressV2.current_position : 'N/A');
+                console.log('play: section.id=', section ? section.id : 'N/A', 'sectionStatus=', sectionStatus);
                 // 点击播放后隐藏书签
                 if (typeof reader !== 'undefined' && reader._hideBookmark) {
                     reader._hideBookmark();
@@ -3988,16 +3993,20 @@
                 var section = state.currentSections[state.currentSectionIndex];
                 var progressV2 = state.currentProgressV2;
                 
-                // 使用书签判断节状态
+                // 节状态判断：优先使用 catalogStatusMap（与目录页一致）
                 var sectionStatus = 'unread';
-                if (progressV2) {
-                    var bkSectionId = parseInt(progressV2.current_section_id);
-                    var bkPos = progressV2.current_position || 0;
-                    var secEnd = section.end_char || 0;
-                    if (bkSectionId === section.id) {
-                        sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
-                    } else if (bkSectionId > section.id) {
-                        sectionStatus = 'read';
+                if (state.catalogStatusMap && state.catalogStatusMap[section.id]) {
+                    sectionStatus = state.catalogStatusMap[section.id];
+                } else {
+                    if (progressV2) {
+                        var bkSectionId = parseInt(progressV2.current_section_id);
+                        var bkPos = progressV2.current_position || 0;
+                        var secEnd = section.end_char || 0;
+                        if (bkSectionId === section.id) {
+                            sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
+                        } else if (bkSectionId > section.id) {
+                            sectionStatus = 'read';
+                        }
                     }
                 }
                 
