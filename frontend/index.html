@@ -4544,15 +4544,19 @@
                     annotationDisplay.classList.remove('active');
                 }
                 
-                // 恢复名言赏析内容
-                var analysisContent = document.getElementById('analysisContent');
-                if (analysisContent && state._quoteHtml) {
-                    analysisContent.innerHTML = state._quoteHtml;
-                }
-                // 切换回名言赏析tab
-                if (typeof analysisManager !== 'undefined') {
-                    analysisManager.showTab('famous');
-                }
+                // 播放完成后，延迟10秒再恢复名言赏析轮巡
+                // 让用户有时间阅读刚播放完的内容
+                setTimeout(function() {
+                    // 恢复名言赏析内容
+                    var analysisContent = document.getElementById('analysisContent');
+                    if (analysisContent && state._quoteHtml) {
+                        analysisContent.innerHTML = state._quoteHtml;
+                    }
+                    // 切换回名言赏析tab
+                    if (typeof analysisManager !== 'undefined') {
+                        analysisManager.showTab('famous');
+                    }
+                }, 10000); // 10秒后恢复
                 
                 // 停止并清理点评音频
                 if (this._annotationAudio) {
