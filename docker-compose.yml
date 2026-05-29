@@ -7,26 +7,10 @@ services:
       - "5000:5000"
     volumes:
       - /www/dk_project/wwwroot/lit.handy.xin/data:/app/instance
+      - /www/dk_project/wwwroot/lit.handy.xin/audio_files:/app/audio_files
     environment:
       - FLASK_ENV=production
       - TZ=Asia/Shanghai
-    dns:
-      - 223.5.5.5
-      - 8.8.8.8
-
-  nginx:
-    image: nginx:alpine
-    container_name: reading-companion-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /www/dk_project/wwwroot/lit.handy.xin/nginx.conf:/etc/nginx/nginx.conf:ro
-      - /www/dk_project/wwwroot/lit.handy.xin/frontend:/usr/share/nginx/html:ro
-      - /www/dk_project/wwwroot/lit.handy.xin/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - backend
     dns:
       - 223.5.5.5
       - 8.8.8.8
