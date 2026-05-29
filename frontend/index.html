@@ -617,6 +617,13 @@
             opacity: 1;
         }
 
+        /* 小结文本样式（轮巡显示时） */
+        .chalkboard .analysis-area .content .summary-text {
+            color: #F5E8D0;
+            font-size: 16px;
+            line-height: 1.8;
+        }
+
         /* 粉笔灰效果 */
         .chalkboard::after {
             content: '';
@@ -3146,8 +3153,8 @@
                         // 已播放完，直接显示完整文本
                         contentEl.innerHTML = '<div class="comment-text">' + tab._commentText + '</div>';
                     } else if (tab.isSummary && tab._played) {
-                        // 小结已播放完，显示完整文本
-                        contentEl.innerHTML = '<div class="comment-text">' + (tab._commentText || tab.content) + '</div>';
+                        // 小结已播放完，显示完整文本（使用小结专用样式）
+                        contentEl.innerHTML = '<div class="summary-text">' + (tab._commentText || tab.content) + '</div>';
                     } else if (tab.isHtml) {
                         contentEl.innerHTML = tab.content;
                     } else {
