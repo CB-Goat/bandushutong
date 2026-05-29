@@ -8,8 +8,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # 持久化数据库
-      - ./data:/app/instance
+      # 持久化数据库（使用绝对路径）
+      - /www/dk_project/wwwroot/lit.handy.xin/data:/app/instance
     environment:
       - FLASK_ENV=production
       - TZ=Asia/Shanghai
@@ -22,8 +22,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./frontend:/usr/share/nginx/html:ro
-      - ./ssl:/etc/nginx/ssl:ro  # SSL证书目录（可选）
+      - /www/dk_project/wwwroot/lit.handy.xin/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /www/dk_project/wwwroot/lit.handy.xin/frontend:/usr/share/nginx/html:ro
+      - /www/dk_project/wwwroot/lit.handy.xin/ssl:/etc/nginx/ssl:ro
     depends_on:
       - backend
