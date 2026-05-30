@@ -2,6 +2,9 @@
 
 FROM python:3.9-slim
 
+# 安装 ffmpeg（用于音频合并）
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
 # 设置工作目录
 WORKDIR /app
 
