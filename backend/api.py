@@ -152,7 +152,7 @@ def reimport_section_core(section_id, content, annotations, title='', summary=''
             section_id,
             annotations=db_annotations,
             speed=5,
-            person=0,
+            person=1,  # person=1 是男声（原文用男声）
             voice_type=voice_type
         )
 
@@ -594,7 +594,7 @@ def generate_section_audio_api(section_id):
         section['content'], 
         section_id,
         speed=5,
-        person=0  # 普通女声
+        person=1  # person=1 是男声（原文用男声）
     )
     
     if result:
@@ -644,7 +644,7 @@ def generate_segmented_audio_api(section_id):
             section_id,
             annotations=annotations,
             speed=5,
-            person=0,
+            person=1,  # person=1 是男声（原文用男声）
             voice_type=voice_type
         )
         

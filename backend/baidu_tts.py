@@ -459,9 +459,9 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
                         from backend.database import get_db
                         conn = get_db()
                         cursor = conn.cursor()
-                        # 为引用原文生成音频（使用 person=0 原文男声）
+                        # 为引用原文生成音频（使用 person=1 原文男声）
                         # 使用 quote_{id} 作为文件名，避免与点评音频冲突
-                        quote_audio = _generate_quote_audio(ann['id'], original_text, person=0, speed=speed)
+                        quote_audio = _generate_quote_audio(ann['id'], original_text, person=1, speed=speed)
                         if quote_audio:
                             quote_audio_path = quote_audio['audio_path']
                             quote_duration = quote_audio['audio_duration']
