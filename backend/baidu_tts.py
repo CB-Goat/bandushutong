@@ -336,9 +336,24 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=3):
         visible_chars = [c for c in seg_text if c != '\n']
         seg_len = len(visible_chars)
         if seg_len > 0 and seg_dur > 0:
+            # 计算每个字符的时间权重（标点符号权重更高）
+            char_weights = []
+            for char in visible_chars:
+                if char in '。！？；：':  # 长停顿
+                    char_weights.append(3.0)
+                elif char in '，、':  # 短停顿
+                    char_weights.append(2.0)
+                elif char in '""''（）【】《》':  # 中等停顿
+                    char_weights.append(1.5)
+                else:
+                    char_weights.append(1.0)
+            
+            total_weight = sum(char_weights)
+            accumulated_weight = 0
             for j in range(seg_len):
-                t = time_offset + (j / seg_len) * seg_dur
+                t = time_offset + (accumulated_weight / total_weight) * seg_dur
                 char_timeline.append(round(t, 3))
+                accumulated_weight += char_weights[j]
     
     print(f"[TTS] 时间轴构建完成: {len(char_timeline)} 个字符, 总时长 {audio_duration:.1f}s")
     
@@ -721,9 +736,26 @@ def _generate_single_segment_audio(text, section_id, seg_idx, start_char, actual
         time_offset = sum(segment_durations[:sub_idx])
         
         if sub_len > 0 and sub_dur > 0:
+            # 计算每个字符的时间权重（标点符号权重更高）
+            char_weights = []
             for j in range(sub_len):
-                t = time_offset + (j / sub_len) * sub_dur
+                char = seg[j] if j < len(seg) else ''
+                # 标点符号权重更高，模拟停顿
+                if char in '。！？；：':  # 长停顿
+                    char_weights.append(3.0)
+                elif char in '，、':  # 短停顿
+                    char_weights.append(2.0)
+                elif char in '""''（）【】《》':  # 中等停顿
+                    char_weights.append(1.5)
+                else:
+                    char_weights.append(1.0)
+            
+            total_weight = sum(char_weights)
+            accumulated_weight = 0
+            for j in range(sub_len):
+                t = time_offset + (accumulated_weight / total_weight) * sub_dur
                 char_timeline.append(round(t, 3))
+                accumulated_weight += char_weights[j]
     
     # 使用传入的actual_end_char，确保段的结束位置正确
     # 验证actual_end_char与text长度是否匹配
@@ -1174,13 +1206,28 @@ def get_audio_duration_and_timeline(audio_path, text):
     except:
         audio_duration = len(text) / 200 * 60
 
-    # 构建字符时间轴（均匀分布）
+    # 构建字符时间轴（考虑标点符号停顿）
     char_timeline = []
     text_len = len(text)
     if text_len > 0 and audio_duration > 0:
+        # 计算每个字符的时间权重
+        char_weights = []
+        for char in text:
+            if char in '。！？；：':  # 长停顿
+                char_weights.append(3.0)
+            elif char in '，、':  # 短停顿
+                char_weights.append(2.0)
+            elif char in '""''（）【】《》':  # 中等停顿
+                char_weights.append(1.5)
+            else:
+                char_weights.append(1.0)
+        
+        total_weight = sum(char_weights)
+        accumulated_weight = 0
         for j in range(text_len):
-            t = (j / text_len) * audio_duration
+            t = (accumulated_weight / total_weight) * audio_duration
             char_timeline.append(round(t, 3))
+            accumulated_weight += char_weights[j]
 
     return audio_duration, char_timeline
 
