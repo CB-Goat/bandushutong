@@ -4226,9 +4226,9 @@
                 var self = this;
                 console.log('步骤1：播放开场白');
                 
-                // 根据书籍voice_type选择开场白音频
+                // 根据书籍voice_type选择开场白音频：male=女声, female=男声 - 男女互补
                 var voiceType = (state.currentBook && state.currentBook.voice_type) || 'male';
-                var suffix = voiceType === 'female' ? '_female' : '_male';
+                var suffix = voiceType === 'female' ? '_male' : '_female';
                 this._annotationAudio.src = '/api/audio/annotation_opening' + suffix + '.mp3';
                 this._annotationAudio.load();
                 
@@ -4458,9 +4458,9 @@
                 
                 console.log('步骤6：播放结束语');
                 
-                // 根据书籍voice_type选择结束语音频
+                // 根据书籍voice_type选择结束语音频：male=女声, female=男声 - 男女互补
                 var voiceType = (state.currentBook && state.currentBook.voice_type) || 'male';
-                var suffix = voiceType === 'female' ? '_female' : '_male';
+                var suffix = voiceType === 'female' ? '_male' : '_female';
                 this._annotationAudio.src = '/api/audio/annotation_closing' + suffix + '.mp3';
                 this._annotationAudio.load();
                 
@@ -4697,9 +4697,9 @@
                 // 隐藏点评区域
                 document.getElementById('annotationDisplay').classList.remove('active');
                 
-                // 根据书籍voice_type选择小结开场白音频
+                // 根据书籍voice_type选择小结开场白音频：male=女声, female=男声 - 男女互补
                 var voiceType = (state.currentBook && state.currentBook.voice_type) || 'male';
-                var suffix = voiceType === 'female' ? '_female' : '_male';
+                var suffix = voiceType === 'female' ? '_male' : '_female';
                 this._annotationAudio.src = '/api/audio/summary_opening' + suffix + '.mp3';
                 this._annotationAudio.load();
                 
@@ -4944,9 +4944,9 @@
                 // 隐藏点评区域
                 document.getElementById('annotationDisplay').classList.remove('active');
                 
-                // 根据书籍voice_type选择小结结束语音频
+                // 根据书籍voice_type选择小结结束语音频：male=女声, female=男声 - 男女互补
                 var voiceType = (state.currentBook && state.currentBook.voice_type) || 'male';
-                var suffix = voiceType === 'female' ? '_female' : '_male';
+                var suffix = voiceType === 'female' ? '_male' : '_female';
                 this._annotationAudio.src = '/api/audio/summary_closing' + suffix + '.mp3';
                 this._annotationAudio.load();
                 

@@ -476,8 +476,8 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
                     except Exception as e:
                         print(f"[TTS] 生成引用音频失败: {e}")
                 # 生成点评音频（comment）
-                # 根据voice_type选择点评声音：male=3(男声), female=5(女声)
-                comment_person = 5 if voice_type == 'female' else 3
+                # 根据voice_type选择点评声音：male=5(女声), female=3(男声) - 男女互补
+                comment_person = 3 if voice_type == 'female' else 5
                 if comment:
                     ann_audio = generate_annotation_audio(ann['id'], '', comment, person=comment_person, speed=speed)
                     if ann_audio:
@@ -533,8 +533,8 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
         from backend.database import get_section, get_db
         section = get_section(section_id)
         if section and section.get('summary'):
-            # 根据voice_type选择小结声音：male=3(男声), female=5(女声)
-            summary_person = 5 if voice_type == 'female' else 3
+            # 根据voice_type选择小结声音：male=5(女声), female=3(男声) - 男女互补
+            summary_person = 3 if voice_type == 'female' else 5
             summary_audio = generate_summary_audio(section_id, section['summary'], person=summary_person, speed=speed)
             if summary_audio:
                 audio_segments.append({
