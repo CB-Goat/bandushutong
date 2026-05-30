@@ -2824,18 +2824,25 @@
                 var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
 
                 if (textPos !== undefined && textPos > 0) {
-                    if (segId && player.audioSegments) {
-                        // 根据 segment_id 找到对应的段
+                    if (segId && segId > 0 && player.audioSegments && player.audioSegments.length > 0) {
+                        // 有 segment_id 且 audioSegments 已加载：根据段查找，textPos 是段内偏移
+                        var segFound = false;
                         for (var i = 0; i < player.audioSegments.length; i++) {
                             var seg = player.audioSegments[i];
                             if (seg.type === 'text_segment' && seg.id === segId) {
                                 savedPosition = seg.start_char + textPos;
+                                segFound = true;
                                 break;
                             }
                         }
-                    }
-                    // 如果没有 segment_id 或未找到，直接用 textPos
-                    if (savedPosition === 0) {
+                        if (!segFound) {
+                            // audioSegments 中没找到该段（可能还没加载），textPos 是段内偏移，无法计算全局位置
+                            // 先不显示书签，等 audioSegments 加载后再显示
+                            console.log('_restoreBookmarkAndPosition: 段' + segId + '未找到，等待加载');
+                            return;
+                        }
+                    } else {
+                        // 没有 segment_id（点评/小结中保存的），textPos 是全局位置
                         savedPosition = textPos;
                     }
                 }
@@ -3421,6 +3428,10 @@
                             
                             // 构建播放队列（直接使用后端返回的 playlist）
                             self._buildPlaylist(data.playlist);
+                            // audioSegments 已构建，重新尝试恢复书签位置
+                            if (typeof reader !== 'undefined' && reader._restoreBookmarkAndPosition) {
+                                reader._restoreBookmarkAndPosition();
+                            }
                             // 检查是否有缺失音频的段
                             var missingAudio = self.audioSegments.some(function(seg) {
                                 return seg.audio_path && seg.type === 'text_segment';
