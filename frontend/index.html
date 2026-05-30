@@ -5330,14 +5330,24 @@
                     try { segTimeline = JSON.parse(segTimeline); } catch(e) { return; }
                 }
                 
-                // 调试：打印段信息，验证 audio_duration 和 char_timeline 是否一致
+                // 调试：打印时间轴和实际显示过程
                 if (!this._timelineDebugPrinted) {
                     this._timelineDebugPrinted = true;
-                    console.log('[时间轴调试] 段' + this._playlistIndex + ': audio_duration=' + seg.audio_duration + 
+                    // 打印每10个字符的时间点
+                    var debugPoints = [];
+                    for (var d = 0; d < segTimeline.length; d += 10) {
+                        debugPoints.push(d + ':' + segTimeline[d].toFixed(2) + 's');
+                    }
+                    // 确保包含最后一个
+                    if (segTimeline.length > 0) {
+                        var last = segTimeline.length - 1;
+                        debugPoints.push(last + ':' + segTimeline[last].toFixed(2) + 's');
+                    }
+                    console.log('[时间轴调试] 段' + this._playlistIndex + 
+                        ': audio_duration=' + seg.audio_duration + 
                         ', char_timeline长度=' + segTimeline.length + 
-                        ', end_char-start_char=' + ((seg.end_char||0) - (seg.start_char||0)) +
-                        ', char_timeline末值=' + segTimeline[segTimeline.length - 1] +
-                        ', 段字符数=' + (seg.end_char - seg.start_char));
+                        ', char_timeline末值=' + segTimeline[segTimeline.length - 1].toFixed(2) +
+                        ', 时间点=' + debugPoints.join(' | '));
                 }
                 
                 // currentTime 就是段内时间，直接使用
@@ -5347,6 +5357,23 @@
                         charInSegment = i;
                         break;
                     }
+                }
+                
+                // 调试：每隔2秒打印当前播放位置和文字显示位置
+                if (!this._displayDebugTimer) {
+                    var self = this;
+                    this._displayDebugTimer = setInterval(function() {
+                        if (!self.isPlaying || !self._currentSegment || self._currentSegment.type !== 'text_segment') {
+                            clearInterval(self._displayDebugTimer);
+                            self._displayDebugTimer = null;
+                            return;
+                        }
+                        console.log('[显示同步] currentTime=' + self.currentTime.toFixed(2) + 
+                            's/' + self._currentSegment.audio_duration.toFixed(2) + 's' +
+                            ', 显示到第' + charInSegment + '字符' +
+                            ', 显示位置=' + (self._currentSegment.start_char + charInSegment) +
+                            '/' + self._currentSegment.end_char);
+                    }, 2000);
                 }
                 
                 var displayIndex = seg.start_char + charInSegment;
