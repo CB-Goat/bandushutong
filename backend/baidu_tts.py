@@ -349,7 +349,7 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=3):
     }
 
 
-def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
+def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, voice_type='male'):
     """
     按点评边界分割原文为多段，每段独立生成音频。
     
@@ -359,7 +359,8 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
         annotations: 该节的点评列表，按 end_char 排序，例如:
             [{'id': 119, 'start_char': 46, 'end_char': 80}, ...]
         speed: 语速
-        person: 音色
+        person: 音色（用于原文朗读）
+        voice_type: 'male' 或 'female'，决定点评/小结的朗读声音
     
     返回: {
         'audio_segments': [
@@ -475,8 +476,10 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
                     except Exception as e:
                         print(f"[TTS] 生成引用音频失败: {e}")
                 # 生成点评音频（comment）
+                # 根据voice_type选择点评声音：male=3(男声), female=5(女声)
+                comment_person = 5 if voice_type == 'female' else 3
                 if comment:
-                    ann_audio = generate_annotation_audio(ann['id'], '', comment, person=person, speed=speed)
+                    ann_audio = generate_annotation_audio(ann['id'], '', comment, person=comment_person, speed=speed)
                     if ann_audio:
                         audio_segments.append({
                             'type': 'annotation',
@@ -530,7 +533,9 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3):
         from backend.database import get_section, get_db
         section = get_section(section_id)
         if section and section.get('summary'):
-            summary_audio = generate_summary_audio(section_id, section['summary'], person=person, speed=speed)
+            # 根据voice_type选择小结声音：male=3(男声), female=5(女声)
+            summary_person = 5 if voice_type == 'female' else 3
+            summary_audio = generate_summary_audio(section_id, section['summary'], person=summary_person, speed=speed)
             if summary_audio:
                 audio_segments.append({
                     'type': 'summary',
@@ -1203,16 +1208,30 @@ def generate_text_segment_audio(text, segment_id, speed=5, person=3):
     }
 
 def generate_fixed_audio_files(speed=5, person=3):
-    """生成系统固定音频文件（开场白、结束语）"""
+    """生成系统固定音频文件（开场白、结束语）- 默认男声"""
+    return generate_fixed_audio_files_by_voice('male', speed)
+
+def generate_fixed_audio_files_by_voice(voice_type='male', speed=5):
+    """生成系统固定音频文件（男声女声各一套）
+    
+    voice_type: 'male' 或 'female'
+    """
     token = get_access_token()
     if not token:
         return False
     
+    # 根据声音类型选择person参数
+    # person=3 是男声，person=5 是女声
+    person = 5 if voice_type == 'female' else 3
+    
+    # 根据声音类型选择文件名后缀
+    suffix = '_female' if voice_type == 'female' else '_male'
+    
     files = {
-        'annotation_opening.mp3': '我们来看下这里：',
-        'annotation_closing.mp3': '回到原文',
-        'summary_opening.mp3': '这篇内容已读完，我们回顾一下：',
-        'summary_closing.mp3': '小结之外有其他思考，请添加到右上角。'
+        f'annotation_opening{suffix}.mp3': '我们来看下这里：',
+        f'annotation_closing{suffix}.mp3': '回到原文',
+        f'summary_opening{suffix}.mp3': '这篇内容已读完，我们回顾一下：',
+        f'summary_closing{suffix}.mp3': '小结之外有其他思考，请添加到右上角。'
     }
     
     for filename, text in files.items():
@@ -1232,8 +1251,19 @@ def generate_fixed_audio_files(speed=5, person=3):
     
     return True
 
-def get_fixed_audio_path(filename):
-    """获取固定音频文件的URL路径"""
+def get_fixed_audio_path(filename, voice_type='male'):
+    """获取固定音频文件的URL路径
+    
+    voice_type: 'male' 或 'female'
+    """
+    suffix = '_female' if voice_type == 'female' else '_male'
+    
+    # 先尝试带后缀的文件
+    audio_path = os.path.join(AUDIO_DIR, filename.replace('.mp3', f'{suffix}.mp3'))
+    if os.path.exists(audio_path):
+        return f'/api/audio/{filename.replace(".mp3", f"{suffix}.mp3")}'
+    
+    # 回退到旧版文件名（兼容旧数据）
     audio_path = os.path.join(AUDIO_DIR, filename)
     if os.path.exists(audio_path):
         return f'/api/audio/{filename}'

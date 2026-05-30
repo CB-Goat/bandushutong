@@ -1579,6 +1579,9 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group"><label>订阅价格</label><input type="text" id="editBookPrice" placeholder="￥0.00"></div>
+                            <div class="form-group"><label>朗读声音</label><select id="editBookVoiceType"><option value="male">男声</option><option value="female">女声</option></select></div>
+                        </div>
+                        <div class="form-row">
                             <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:28px;"><input type="checkbox" id="editBookIsPublic" style="width:18px;height:18px;"><label for="editBookIsPublic" style="margin:0;cursor:pointer;">公版书籍（无需登录即可浏览）</label></div>
                         </div>
                         <div class="form-row" style="align-items:flex-start;">
@@ -4223,7 +4226,10 @@
                 var self = this;
                 console.log('步骤1：播放开场白');
                 
-                this._annotationAudio.src = '/api/audio/annotation_opening.mp3';
+                // 根据书籍voice_type选择开场白音频
+                var voiceType = (state.currentBook && state.currentBook.voice_type) || 'male';
+                var suffix = voiceType === 'female' ? '_female' : '_male';
+                this._annotationAudio.src = '/api/audio/annotation_opening' + suffix + '.mp3';
                 this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
@@ -4452,7 +4458,10 @@
                 
                 console.log('步骤6：播放结束语');
                 
-                this._annotationAudio.src = '/api/audio/annotation_closing.mp3';
+                // 根据书籍voice_type选择结束语音频
+                var voiceType = (state.currentBook && state.currentBook.voice_type) || 'male';
+                var suffix = voiceType === 'female' ? '_female' : '_male';
+                this._annotationAudio.src = '/api/audio/annotation_closing' + suffix + '.mp3';
                 this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
@@ -4688,7 +4697,10 @@
                 // 隐藏点评区域
                 document.getElementById('annotationDisplay').classList.remove('active');
                 
-                this._annotationAudio.src = '/api/audio/summary_opening.mp3';
+                // 根据书籍voice_type选择小结开场白音频
+                var voiceType = (state.currentBook && state.currentBook.voice_type) || 'male';
+                var suffix = voiceType === 'female' ? '_female' : '_male';
+                this._annotationAudio.src = '/api/audio/summary_opening' + suffix + '.mp3';
                 this._annotationAudio.load();
                 
                 var completeStep = function() {
@@ -4932,7 +4944,10 @@
                 // 隐藏点评区域
                 document.getElementById('annotationDisplay').classList.remove('active');
                 
-                this._annotationAudio.src = '/api/audio/summary_closing.mp3';
+                // 根据书籍voice_type选择小结结束语音频
+                var voiceType = (state.currentBook && state.currentBook.voice_type) || 'male';
+                var suffix = voiceType === 'female' ? '_female' : '_male';
+                this._annotationAudio.src = '/api/audio/summary_closing' + suffix + '.mp3';
                 this._annotationAudio.load();
                 
                 var completeStep = function() {
@@ -6083,6 +6098,7 @@
                     document.getElementById('editBookVersion').value = book.version || '';
                     document.getElementById('editBookPrice').value = book.subscription_price || '';
                     document.getElementById('editBookIsPublic').checked = book.is_public ? true : false;
+                    document.getElementById('editBookVoiceType').value = book.voice_type || 'male';
                     // 加载书籍图标
                     var iconPreview = document.getElementById('editBookIconPreview');
                     var iconPlaceholder = document.getElementById('editBookIconPlaceholder');
@@ -6281,6 +6297,7 @@
             var version = document.getElementById('editBookVersion').value.trim();
             var price = document.getElementById('editBookPrice').value;
             var isPublic = document.getElementById('editBookIsPublic').checked ? 1 : 0;
+            var voiceType = document.getElementById('editBookVoiceType').value;
             
             if (!title) { alert('请输入书名'); return; }
             
@@ -6319,7 +6336,7 @@
                 fetch(API_BASE + '/admin/books/' + bookId, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ title: title, author: author, author_nationality: nationality, version: version })
+                    body: JSON.stringify({ title: title, author: author, author_nationality: nationality, version: version, voice_type: voiceType })
                 }).then(function(r) { return r.json(); }).then(function() { saveAndContinue(bookId); });
             } else {
                 // 新建书籍

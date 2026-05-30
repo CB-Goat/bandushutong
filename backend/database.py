@@ -32,6 +32,7 @@ def init_db():
             file_path TEXT,
             total_sections INTEGER DEFAULT 0,
             total_chapters INTEGER DEFAULT 0,
+            voice_type TEXT DEFAULT 'male',  -- male/female 男声/女声
             tts_status TEXT DEFAULT 'none',  -- none/pending/generating/done/error
             tts_progress TEXT DEFAULT '',     -- 如 "5/30"
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -933,14 +934,20 @@ def get_all_books():
     conn.close()
     return books
 
-def update_book(book_id, title, author, author_nationality, version):
+def update_book(book_id, title, author, author_nationality, version, voice_type=None):
     """更新书籍信息"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute(
-        'UPDATE books SET title = ?, author = ?, author_nationality = ?, version = ? WHERE id = ?',
-        (title, author, author_nationality, version, book_id)
-    )
+    if voice_type is not None:
+        cursor.execute(
+            'UPDATE books SET title = ?, author = ?, author_nationality = ?, version = ?, voice_type = ? WHERE id = ?',
+            (title, author, author_nationality, version, voice_type, book_id)
+        )
+    else:
+        cursor.execute(
+            'UPDATE books SET title = ?, author = ?, author_nationality = ?, version = ? WHERE id = ?',
+            (title, author, author_nationality, version, book_id)
+        )
     conn.commit()
     conn.close()
 

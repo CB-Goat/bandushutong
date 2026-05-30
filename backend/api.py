@@ -70,18 +70,34 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), '..', 'books')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-def reimport_section_core(section_id, content, annotations, title='', summary=''):
+def reimport_section_core(section_id, content, annotations, title='', summary='', voice_type='male'):
     """
     统一的节导入核心函数：清除历史数据，重新创建分段，生成音频
     返回: {'success': bool, 'audio_segments_count': int, 'error': str}
     """
     from backend.database import (
         get_db, update_section_audio_timeline, update_section_audio_segments,
-        get_annotations_by_section, create_text_segments, create_insert_points
+        get_annotations_by_section, create_text_segments, create_insert_points,
+        get_section
     )
     from backend.baidu_tts import generate_segmented_audio, is_configured
 
     result = {'success': False, 'audio_segments_count': 0, 'error': ''}
+    
+    # 如果没有传入voice_type，从数据库获取
+    if not voice_type or voice_type not in ['male', 'female']:
+        try:
+            section = get_section(section_id)
+            if section:
+                book_id = section.get('book_id')
+                if book_id:
+                    from backend.database import get_book
+                    book = get_book(book_id)
+                    if book:
+                        voice_type = book.get('voice_type', 'male')
+        except Exception as e:
+            print(f"[reimport_core] 获取voice_type失败: {e}")
+            voice_type = 'male'
 
     try:
         # 1. 清除节的历史数据
@@ -136,7 +152,8 @@ def reimport_section_core(section_id, content, annotations, title='', summary=''
             section_id,
             annotations=db_annotations,
             speed=5,
-            person=0
+            person=0,
+            voice_type=voice_type
         )
 
         if audio_result:
@@ -599,26 +616,36 @@ def generate_section_audio_api(section_id):
 def generate_segmented_audio_api(section_id):
     """为节生成分段音频（按点评边界分割）"""
     try:
-        from backend.database import get_section, update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section
+        from backend.database import get_section, update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section, get_book
         from backend.baidu_tts import generate_segmented_audio
         
         section = get_section(section_id)
         if not section:
             return jsonify({'error': '节不存在'}), 404
         
+        # 获取书籍的voice_type
+        voice_type = 'male'
+        try:
+            book = get_book(section.get('book_id'))
+            if book:
+                voice_type = book.get('voice_type', 'male')
+        except Exception as e:
+            print(f"[TTS] 获取voice_type失败: {e}")
+        
         # 获取该节的所有点评
         annotations = get_annotations_by_section(section_id)
         # 按 end_char 排序
         annotations = sorted(annotations, key=lambda a: a.get('end_char', 0))
         
-        print(f"[TTS] 开始为节 {section_id} 生成分段音频，共 {len(annotations)} 个点评")
+        print(f"[TTS] 开始为节 {section_id} 生成分段音频，共 {len(annotations)} 个点评，voice_type={voice_type}")
         
         result = generate_segmented_audio(
             section['content'], 
             section_id,
             annotations=annotations,
             speed=5,
-            person=0
+            person=0,
+            voice_type=voice_type
         )
         
         if result:
@@ -906,7 +933,8 @@ def admin_update_book(book_id):
         title=data.get('title', book['title']),
         author=data.get('author', book['author']),
         author_nationality=data.get('author_nationality', book.get('author_nationality')),
-        version=data.get('version', book.get('version'))
+        version=data.get('version', book.get('version')),
+        voice_type=data.get('voice_type', book.get('voice_type', 'male'))
     )
     return jsonify({'message': '更新成功'})
 

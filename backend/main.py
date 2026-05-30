@@ -69,11 +69,13 @@ if not os.path.exists('audio_files'):
     os.makedirs('audio_files')
 
 # 检查并生成固定音频文件（gunicorn启动时也需要执行）
+# 生成男声女声各一套
 try:
-    from baidu_tts import is_configured, generate_fixed_audio_files
+    from baidu_tts import is_configured, generate_fixed_audio_files_by_voice
     if is_configured():
         print("[TTS] 检查固定音频文件...")
-        generate_fixed_audio_files()
+        generate_fixed_audio_files_by_voice('male')
+        generate_fixed_audio_files_by_voice('female')
 except Exception as e:
     print(f"[TTS] 生成固定音频失败: {e}")
 
