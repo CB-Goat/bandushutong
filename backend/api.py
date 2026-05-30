@@ -1668,13 +1668,22 @@ def admin_parse_word_quotes():
         elif filename.endswith('.docx'):
             # Word文档用python-docx解析
             try:
+                import tempfile
+                import os
                 from docx import Document
-                doc = Document(file.stream)
-                paragraphs = []
-                for para in doc.paragraphs:
-                    if para.text.strip():
-                        paragraphs.append(para.text.strip())
-                text = '\n'.join(paragraphs)
+                # 将上传文件保存到临时文件（SpooledTemporaryFile不支持seekable）
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                    file.save(tmp.name)
+                    tmp_path = tmp.name
+                try:
+                    doc = Document(tmp_path)
+                    paragraphs = []
+                    for para in doc.paragraphs:
+                        if para.text.strip():
+                            paragraphs.append(para.text.strip())
+                    text = '\n'.join(paragraphs)
+                finally:
+                    os.unlink(tmp_path)
             except ImportError:
                 return jsonify({'error': '服务器未安装python-docx，无法解析Word文档'}), 500
         elif filename.endswith('.doc'):
