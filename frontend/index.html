@@ -3056,10 +3056,15 @@
                     });
                 }
 
-                // 添加点评时暂停轮巡
+                // 添加点评时暂停轮巡，延迟10秒后恢复（让用户先看到点评内容）
                 this.stopRotation();
                 this.renderTabs();
                 this.showTab(tabId);
+                // 延迟10秒后恢复轮巡
+                var self = this;
+                setTimeout(function() {
+                    self.startRotationAlways();
+                }, 10000);
             },
 
             // 添加梗概小结标签
@@ -3129,6 +3134,7 @@
                 
                 if (tab) {
                     var contentEl = document.getElementById('analysisContent');
+                    if (!contentEl) return;
                     // 如果是点评 tab，检查是否已播放完（tab._played === true）
                     if (tab.annotationId && tab._played) {
                         // 已播放完，直接显示完整文本
@@ -3138,6 +3144,11 @@
                         contentEl.innerHTML = '<div class="comment-text">' + (tab._commentText || tab.content) + '</div>';
                     } else if (tab.isHtml) {
                         contentEl.innerHTML = tab.content;
+                        // 如果是点评的逐字HTML，显示所有字符（轮巡时不需要逐字动画）
+                        if (tab.annotationId) {
+                            var chars = contentEl.querySelectorAll('.comment-char');
+                            chars.forEach(function(c) { c.classList.add('visible'); });
+                        }
                     } else {
                         contentEl.textContent = tab.content;
                     }
