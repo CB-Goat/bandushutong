@@ -392,10 +392,10 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
         return None
     
     # 根据voice_type选择声音
-    # male: 原文用person=3(度逍遥男声), 点评用person=4(度丫丫女声)
-    # female: 原文用person=4(度丫丫女声), 点评用person=3(度逍遥男声)
-    original_person = 3 if voice_type == 'male' else 4
-    comment_person = 4 if voice_type == 'male' else 3
+    # male: 原文用person=3(度逍遥), 点评用person=5(度小娇)
+    # female: 原文用person=5(度小娇), 点评用person=3(度逍遥)
+    original_person = 3 if voice_type == 'male' else 5
+    comment_person = 5 if voice_type == 'male' else 3
     person = original_person  # 覆盖传入的person参数
     
     # 去掉换行符，统一使用显示索引（与前端 _allChars 一致）
@@ -1229,8 +1229,8 @@ def generate_fixed_audio_files_by_voice(voice_type='male', speed=5):
         return False
     
     # 根据声音类型选择person参数
-    # person=3 是度逍遥男声，person=4 是度丫丫女声
-    person = 4 if voice_type == 'female' else 3
+    # person=3 是度逍遥，person=5 是度小娇
+    person = 5 if voice_type == 'female' else 3
     
     # 根据声音类型选择文件名后缀
     suffix = '_female' if voice_type == 'female' else '_male'
