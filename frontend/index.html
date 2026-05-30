@@ -5351,11 +5351,25 @@
                 }
                 
                 // currentTime 就是段内时间，直接使用
+                // 校准：用实际音频时长缩放 char_timeline 查找，避免数据库 audio_duration 与实际不一致
                 var charInSegment = 0;
-                for (var i = segTimeline.length - 1; i >= 0; i--) {
-                    if (segTimeline[i] <= this.currentTime + 0.05) {
-                        charInSegment = i;
-                        break;
+                var timelineMax = segTimeline.length > 0 ? segTimeline[segTimeline.length - 1] : 1;
+                var actualDuration = this.audio.duration || seg.audio_duration || timelineMax;
+                if (timelineMax > 0 && actualDuration > 0 && Math.abs(timelineMax - actualDuration) > 0.1) {
+                    // 数据库记录的时长和实际音频时长不一致，按比例缩放
+                    var scaledTime = (this.currentTime / actualDuration) * timelineMax;
+                    for (var i = segTimeline.length - 1; i >= 0; i--) {
+                        if (segTimeline[i] <= scaledTime + 0.05) {
+                            charInSegment = i;
+                            break;
+                        }
+                    }
+                } else {
+                    for (var i = segTimeline.length - 1; i >= 0; i--) {
+                        if (segTimeline[i] <= this.currentTime + 0.05) {
+                            charInSegment = i;
+                            break;
+                        }
                     }
                 }
                 
@@ -5373,12 +5387,16 @@
                         var tl = seg2.char_timeline;
                         if (typeof tl === 'string') { try { tl = JSON.parse(tl); } catch(e) { return; } }
                         if (!tl || tl.length === 0) return;
+                        var tlMax = tl.length > 0 ? tl[tl.length - 1] : 1;
+                        var actDur = self.audio.duration || seg2.audio_duration || tlMax;
+                        var scaledT = (tlMax > 0 && actDur > 0 && Math.abs(tlMax - actDur) > 0.1) 
+                            ? (self.currentTime / actDur) * tlMax : self.currentTime;
                         var charIdx = 0;
                         for (var k = tl.length - 1; k >= 0; k--) {
-                            if (tl[k] <= self.currentTime + 0.05) { charIdx = k; break; }
+                            if (tl[k] <= scaledT + 0.05) { charIdx = k; break; }
                         }
                         console.log('[显示同步] currentTime=' + self.currentTime.toFixed(2) + 
-                            's/' + seg2.audio_duration.toFixed(2) + 's' +
+                            's/实际' + actDur.toFixed(2) + 's/记录' + seg2.audio_duration.toFixed(2) + 's' +
                             ', 显示到第' + charIdx + '字符/共' + tl.length + 
                             ', 显示位置=' + (seg2.start_char + charIdx) +
                             '/' + seg2.end_char);
