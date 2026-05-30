@@ -5325,23 +5325,15 @@
                 if (!this._currentSegment || this._currentSegment.type !== 'text_segment') return;
                 
                 var seg = this._currentSegment;
-                var segTimeline = seg.char_timeline;
-                if (!segTimeline || segTimeline.length === 0) return;
+                var segDuration = seg.audio_duration || 1;
+                var segCharCount = (seg.end_char || 0) - (seg.start_char || 0);
                 
-                // 如果 char_timeline 是字符串，解析为 JSON
-                if (typeof segTimeline === 'string') {
-                    try { segTimeline = JSON.parse(segTimeline); } catch(e) { return; }
-                }
+                if (segCharCount <= 0 || segDuration <= 0) return;
                 
-                // currentTime 就是段内时间，直接使用
-                // 增加时间偏移量（0.5秒），让文字提前显示，避免滞后于声音
-                var charInSegment = 0;
-                for (var i = segTimeline.length - 1; i >= 0; i--) {
-                    if (segTimeline[i] <= this.currentTime + 0.5) {
-                        charInSegment = i;
-                        break;
-                    }
-                }
+                // 用播放进度百分比计算当前字符位置（不依赖char_timeline，避免累积误差）
+                var progress = this.currentTime / segDuration;
+                progress = Math.min(progress, 1.0);
+                var charInSegment = Math.floor(progress * segCharCount);
                 
                 var displayIndex = seg.start_char + charInSegment;
                 if (typeof reader !== 'undefined') {
