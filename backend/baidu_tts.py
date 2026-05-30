@@ -303,17 +303,20 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=3):
     else:
         print(f"[TTS] 开始合并 {len(audio_files)} 个音频段...")
         try:
-            with open(final_path, 'wb') as outfile:
-                for af in audio_files:
-                    with open(af, 'rb') as infile:
-                        outfile.write(infile.read())
-            print(f"[TTS] 合并成功: {final_path}")
-            # 删除临时文件
-            for af in audio_files:
-                os.remove(af)
             list_file = os.path.join(AUDIO_DIR, f'section_{section_id}_list.txt')
+            with open(list_file, 'w') as f:
+                for af in audio_files:
+                    f.write(f"file '{af}'\n")
+            subprocess.run(
+                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60
+            )
+            for af in audio_files:
+                if os.path.exists(af):
+                    os.remove(af)
             if os.path.exists(list_file):
                 os.remove(list_file)
+            print(f"[TTS] 合并成功: {final_path}")
         except Exception as e:
             print(f"[TTS] 合并异常: {e}")
             return None
@@ -554,10 +557,16 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
     
     if seg_files:
         try:
-            with open(final_path, 'wb') as outfile:
+            list_file = os.path.join(AUDIO_DIR, f'section_{section_id}_merge_list.txt')
+            with open(list_file, 'w') as f:
                 for sf in seg_files:
-                    with open(sf, 'rb') as infile:
-                        outfile.write(infile.read())
+                    f.write(f"file '{sf}'\n")
+            subprocess.run(
+                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60
+            )
+            if os.path.exists(list_file):
+                os.remove(list_file)
             print(f"[TTS] 合并分段音频完成: {final_path}")
         except Exception as e:
             print(f"[TTS] 合并分段音频失败: {e}")
@@ -721,19 +730,38 @@ def _generate_single_segment_audio(text, section_id, seg_idx, start_char, actual
             print(f"[TTS] 子段 {seg_idx}-{i} 合成异常: {type(e).__name__}: {e}")
             return None
     
-    # 合并子段为该段的完整音频
+    # 合并子段为该段的完整音频（使用ffmpeg正确合并MP3）
     final_filename = f'segment_{section_id}_{seg_idx}.mp3'
     final_path = os.path.join(AUDIO_DIR, final_filename)
     
     if len(audio_files) == 1:
         os.rename(audio_files[0], final_path)
     else:
-        with open(final_path, 'wb') as outfile:
+        # 使用ffmpeg concat demuxer正确合并MP3文件
+        list_file = os.path.join(AUDIO_DIR, f'segment_{section_id}_{seg_idx}_list.txt')
+        with open(list_file, 'w') as f:
             for af in audio_files:
-                with open(af, 'rb') as infile:
-                    outfile.write(infile.read())
-        for af in audio_files:
-            os.remove(af)
+                f.write(f"file '{af}'\n")
+        try:
+            subprocess.run(
+                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30
+            )
+            for af in audio_files:
+                if os.path.exists(af):
+                    os.remove(af)
+            if os.path.exists(list_file):
+                os.remove(list_file)
+        except Exception as e:
+            print(f"[TTS] ffmpeg合并失败: {e}, 降级为直接拼接")
+            with open(final_path, 'wb') as outfile:
+                for af in audio_files:
+                    with open(af, 'rb') as infile:
+                        outfile.write(infile.read())
+            for af in audio_files:
+                os.remove(af)
+            if os.path.exists(list_file):
+                os.remove(list_file)
     
     # 用ffprobe测量合并后文件的实际时长（MP3直接拼接后时长不等于各段之和）
     seg_total_duration = 0
@@ -956,12 +984,19 @@ def generate_annotation_audio(annotation_id, original_text, comment, person=3, s
         os.rename(audio_files[0], final_path)
     else:
         try:
-            with open(final_path, 'wb') as outfile:
+            list_file = os.path.join(AUDIO_DIR, f'annotation_{annotation_id}_list.txt')
+            with open(list_file, 'w') as f:
                 for af in audio_files:
-                    with open(af, 'rb') as infile:
-                        outfile.write(infile.read())
+                    f.write(f"file '{af}'\n")
+            subprocess.run(
+                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30
+            )
             for af in audio_files:
-                os.remove(af)
+                if os.path.exists(af):
+                    os.remove(af)
+            if os.path.exists(list_file):
+                os.remove(list_file)
         except Exception as e:
             print(f"[TTS] 点评音频合并异常: {e}")
             return None
@@ -1073,12 +1108,19 @@ def _generate_quote_audio(annotation_id, original_text, person=3, speed=5):
         os.rename(audio_files[0], final_path)
     else:
         try:
-            with open(final_path, 'wb') as outfile:
+            list_file = os.path.join(AUDIO_DIR, f'quote_{annotation_id}_list.txt')
+            with open(list_file, 'w') as f:
                 for af in audio_files:
-                    with open(af, 'rb') as infile:
-                        outfile.write(infile.read())
+                    f.write(f"file '{af}'\n")
+            subprocess.run(
+                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30
+            )
             for af in audio_files:
-                os.remove(af)
+                if os.path.exists(af):
+                    os.remove(af)
+            if os.path.exists(list_file):
+                os.remove(list_file)
         except Exception as e:
             print(f"[TTS] 引用音频合并异常: {e}")
             return None
@@ -1190,12 +1232,19 @@ def generate_summary_audio(section_id, summary, person=3, speed=5):
         os.rename(audio_files[0], final_path)
     else:
         try:
-            with open(final_path, 'wb') as outfile:
+            list_file = os.path.join(AUDIO_DIR, f'summary_{section_id}_list.txt')
+            with open(list_file, 'w') as f:
                 for af in audio_files:
-                    with open(af, 'rb') as infile:
-                        outfile.write(infile.read())
+                    f.write(f"file '{af}'\n")
+            subprocess.run(
+                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30
+            )
             for af in audio_files:
-                os.remove(af)
+                if os.path.exists(af):
+                    os.remove(af)
+            if os.path.exists(list_file):
+                os.remove(list_file)
         except Exception as e:
             print(f"[TTS] 小结音频合并异常: {e}")
             return None
