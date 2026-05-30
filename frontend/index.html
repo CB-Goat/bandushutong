@@ -4418,9 +4418,7 @@
                 var commentTimeUpdateHandler = function() {
                     if (audioDuration > 0 && charCount > 0 && analysisContent) {
                         var currentTime = self._annotationAudio.currentTime;
-                        // 增加时间偏移量（0.5秒），让文字提前显示
-                        var adjustedTime = Math.min(currentTime + 0.5, audioDuration);
-                        var progress = adjustedTime / audioDuration;
+                        var progress = currentTime / audioDuration;
                         // 计算当前进度对应的字符索引
                         var currentCharIdx = Math.floor(progress * charCount);
                         // 确保不超过范围
@@ -4900,9 +4898,7 @@
                 var timeUpdateHandler = function() {
                     if (audioDuration > 0 && charCount > 0) {
                         var currentTime = self._annotationAudio.currentTime;
-                        // 增加时间偏移量（0.5秒），让文字提前显示
-                        var adjustedTime = Math.min(currentTime + 0.5, audioDuration);
-                        var progress = adjustedTime / audioDuration;
+                        var progress = currentTime / audioDuration;
                         var currentCharIdx = Math.floor(progress * charCount);
                         currentCharIdx = Math.min(currentCharIdx, charCount);
                         for (var i = lastCharIdx; i < currentCharIdx; i++) {
@@ -5334,10 +5330,9 @@
                 }
                 
                 // currentTime 就是段内时间，直接使用
-                // 增加时间偏移量（0.5秒），让文字提前显示，避免滞后于声音
                 var charInSegment = 0;
                 for (var i = segTimeline.length - 1; i >= 0; i--) {
-                    if (segTimeline[i] <= this.currentTime + 0.5) {
+                    if (segTimeline[i] <= this.currentTime + 0.05) {
                         charInSegment = i;
                         break;
                     }
