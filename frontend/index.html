@@ -5368,11 +5368,20 @@
                             self._displayDebugTimer = null;
                             return;
                         }
+                        // 实时计算当前字符位置（避免闭包问题）
+                        var seg2 = self._currentSegment;
+                        var tl = seg2.char_timeline;
+                        if (typeof tl === 'string') { try { tl = JSON.parse(tl); } catch(e) { return; } }
+                        if (!tl || tl.length === 0) return;
+                        var charIdx = 0;
+                        for (var k = tl.length - 1; k >= 0; k--) {
+                            if (tl[k] <= self.currentTime + 0.05) { charIdx = k; break; }
+                        }
                         console.log('[显示同步] currentTime=' + self.currentTime.toFixed(2) + 
-                            's/' + self._currentSegment.audio_duration.toFixed(2) + 's' +
-                            ', 显示到第' + charInSegment + '字符' +
-                            ', 显示位置=' + (self._currentSegment.start_char + charInSegment) +
-                            '/' + self._currentSegment.end_char);
+                            's/' + seg2.audio_duration.toFixed(2) + 's' +
+                            ', 显示到第' + charIdx + '字符/共' + tl.length + 
+                            ', 显示位置=' + (seg2.start_char + charIdx) +
+                            '/' + seg2.end_char);
                     }, 2000);
                 }
                 
