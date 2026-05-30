@@ -3962,6 +3962,7 @@
                 var seg = this.audioSegments[this._playlistIndex];
                 this._currentSegment = seg;
                 console.log('播放段 ' + this._playlistIndex + ': type=' + seg.type + ' id=' + (seg.id || seg.annotation_id || 'N/A'));
+                this._timelineDebugPrinted = false;  // 重置调试标记
                 
                 if (seg.type === 'text_segment') {
                     this._playTextSegment(seg);
@@ -5327,6 +5328,16 @@
                 // 如果 char_timeline 是字符串，解析为 JSON
                 if (typeof segTimeline === 'string') {
                     try { segTimeline = JSON.parse(segTimeline); } catch(e) { return; }
+                }
+                
+                // 调试：打印段信息，验证 audio_duration 和 char_timeline 是否一致
+                if (!this._timelineDebugPrinted) {
+                    this._timelineDebugPrinted = true;
+                    console.log('[时间轴调试] 段' + this._playlistIndex + ': audio_duration=' + seg.audio_duration + 
+                        ', char_timeline长度=' + segTimeline.length + 
+                        ', end_char-start_char=' + ((seg.end_char||0) - (seg.start_char||0)) +
+                        ', char_timeline末值=' + segTimeline[segTimeline.length - 1] +
+                        ', 段字符数=' + (seg.end_char - seg.start_char));
                 }
                 
                 // currentTime 就是段内时间，直接使用
