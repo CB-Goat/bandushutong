@@ -6,8 +6,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # 数据库文件挂载到backend目录（正确路径）
-      - /www/dk_project/wwwroot/lit.handy.xin/data:/app/backend
+      # 只挂载数据库文件（不覆盖整个backend目录）
+      - /www/dk_project/wwwroot/lit.handy.xin/data/reading_companion.db:/app/backend/reading_companion.db
       # 音频文件挂载
       - /www/dk_project/wwwroot/lit.handy.xin/audio_files:/app/audio_files
     environment:
