@@ -318,8 +318,20 @@ def generate_section_audio_with_timeline(text, section_id, speed=5, person=3):
             print(f"[TTS] 合并异常: {e}")
             return None
     
-    # 计算总时长
-    audio_duration = sum(segment_durations)
+    # 用ffprobe测量合并后文件的实际时长（MP3直接拼接后时长不等于各段之和）
+    audio_duration = 0
+    try:
+        dur_result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        audio_duration = float(dur_result.stdout.strip())
+    except:
+        audio_duration = sum(segment_durations)
+    
+    if audio_duration <= 0:
+        audio_duration = sum(segment_durations)
     
     # 基于每段实际时长构建精确字符时间轴（不含换行符，与前端一致）
     char_timeline = []
@@ -723,8 +735,20 @@ def _generate_single_segment_audio(text, section_id, seg_idx, start_char, actual
         for af in audio_files:
             os.remove(af)
     
-    # 计算该段的总时长
-    seg_total_duration = sum(segment_durations)
+    # 用ffprobe测量合并后文件的实际时长（MP3直接拼接后时长不等于各段之和）
+    seg_total_duration = 0
+    try:
+        dur_result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        seg_total_duration = float(dur_result.stdout.strip())
+    except:
+        seg_total_duration = sum(segment_durations)
+    
+    if seg_total_duration <= 0:
+        seg_total_duration = sum(segment_durations)
     
     # 构建该段的字符时间轴（相对于该段音频的起始时间）
     char_timeline = []
@@ -942,7 +966,19 @@ def generate_annotation_audio(annotation_id, original_text, comment, person=3, s
             print(f"[TTS] 点评音频合并异常: {e}")
             return None
     
-    audio_duration = sum(segment_durations)
+    # 用ffprobe测量合并后文件的实际时长
+    audio_duration = 0
+    try:
+        dur_result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        audio_duration = float(dur_result.stdout.strip())
+    except:
+        audio_duration = sum(segment_durations)
+    if audio_duration <= 0:
+        audio_duration = sum(segment_durations)
     print(f"[TTS] 点评音频生成完成: annotation_{annotation_id}.mp3, 时长 {audio_duration:.1f}s")
     
     return {
@@ -1047,7 +1083,19 @@ def _generate_quote_audio(annotation_id, original_text, person=3, speed=5):
             print(f"[TTS] 引用音频合并异常: {e}")
             return None
     
-    audio_duration = sum(segment_durations)
+    # 用ffprobe测量合并后文件的实际时长
+    audio_duration = 0
+    try:
+        dur_result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        audio_duration = float(dur_result.stdout.strip())
+    except:
+        audio_duration = sum(segment_durations)
+    if audio_duration <= 0:
+        audio_duration = sum(segment_durations)
     print(f"[TTS] 引用音频生成完成: quote_{annotation_id}.mp3, 时长 {audio_duration:.1f}s")
     
     return {
@@ -1152,7 +1200,19 @@ def generate_summary_audio(section_id, summary, person=3, speed=5):
             print(f"[TTS] 小结音频合并异常: {e}")
             return None
     
-    audio_duration = sum(segment_durations)
+    # 用ffprobe测量合并后文件的实际时长
+    audio_duration = 0
+    try:
+        dur_result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        audio_duration = float(dur_result.stdout.strip())
+    except:
+        audio_duration = sum(segment_durations)
+    if audio_duration <= 0:
+        audio_duration = sum(segment_durations)
     print(f"[TTS] 小结音频生成完成: summary_{section_id}.mp3, 时长 {audio_duration:.1f}s")
     
     return {
