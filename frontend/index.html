@@ -2485,6 +2485,9 @@
 
             // 显示单个点评点序号（在触发后调用）
             _showAnnotationMarker: function(annotation) {
+                // 检查是否已存在该点评的序号标记，避免重复
+                var existing = document.querySelector('.annotation-superscript[data-annotation-id="' + annotation.id + '"]');
+                if (existing) return;
                 // end_char 是不包含的边界
                 var endIdx = annotation.end_char - 1;
                 if (endIdx >= 0 && endIdx < this._allChars.length) {
