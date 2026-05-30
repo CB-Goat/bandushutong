@@ -353,14 +353,16 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
     """
     按点评边界分割原文为多段，每段独立生成音频。
     
+    voice_type='male': 原文用person=3(度逍遥男声), 点评用person=4(度丫丫女声)
+    voice_type='female': 原文用person=4(度丫丫女声), 点评用person=3(度逍遥男声)
+    
     参数:
         text: 原文内容
         section_id: 节ID
-        annotations: 该节的点评列表，按 end_char 排序，例如:
-            [{'id': 119, 'start_char': 46, 'end_char': 80}, ...]
+        annotations: 该节的点评列表，按 end_char 排序
         speed: 语速
-        person: 音色（用于原文朗读）
-        voice_type: 'male' 或 'female'，决定点评/小结的朗读声音
+        person: 音色（被voice_type覆盖）
+        voice_type: 'male' 或 'female'
     
     返回: {
         'audio_segments': [
@@ -388,6 +390,13 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
     token = get_access_token()
     if not token:
         return None
+    
+    # 根据voice_type选择声音
+    # male: 原文用person=3(度逍遥男声), 点评用person=4(度丫丫女声)
+    # female: 原文用person=4(度丫丫女声), 点评用person=3(度逍遥男声)
+    original_person = 3 if voice_type == 'male' else 4
+    comment_person = 4 if voice_type == 'male' else 3
+    person = original_person  # 覆盖传入的person参数
     
     # 去掉换行符，统一使用显示索引（与前端 _allChars 一致）
     text = text.replace('\n', '')
@@ -459,9 +468,9 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
                         from backend.database import get_db
                         conn = get_db()
                         cursor = conn.cursor()
-                        # 为引用原文生成音频（使用 person=1 原文男声）
+                        # 为引用原文生成音频（使用原文声音original_person）
                         # 使用 quote_{id} 作为文件名，避免与点评音频冲突
-                        quote_audio = _generate_quote_audio(ann['id'], original_text, person=1, speed=speed)
+                        quote_audio = _generate_quote_audio(ann['id'], original_text, person=original_person, speed=speed)
                         if quote_audio:
                             quote_audio_path = quote_audio['audio_path']
                             quote_duration = quote_audio['audio_duration']
@@ -476,8 +485,7 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
                     except Exception as e:
                         print(f"[TTS] 生成引用音频失败: {e}")
                 # 生成点评音频（comment）
-                # 根据voice_type选择点评声音：male=5(女声), female=3(男声) - 男女互补
-                comment_person = 3 if voice_type == 'female' else 5
+                # 使用comment_person（男女互补）
                 if comment:
                     ann_audio = generate_annotation_audio(ann['id'], '', comment, person=comment_person, speed=speed)
                     if ann_audio:
@@ -533,9 +541,8 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
         from backend.database import get_section, get_db
         section = get_section(section_id)
         if section and section.get('summary'):
-            # 根据voice_type选择小结声音：male=5(女声), female=3(男声) - 男女互补
-            summary_person = 3 if voice_type == 'female' else 5
-            summary_audio = generate_summary_audio(section_id, section['summary'], person=summary_person, speed=speed)
+            # 使用comment_person（男女互补）
+            summary_audio = generate_summary_audio(section_id, section['summary'], person=comment_person, speed=speed)
             if summary_audio:
                 audio_segments.append({
                     'type': 'summary',
@@ -1214,15 +1221,16 @@ def generate_fixed_audio_files(speed=5, person=3):
 def generate_fixed_audio_files_by_voice(voice_type='male', speed=5):
     """生成系统固定音频文件（男声女声各一套）
     
-    voice_type: 'male' 或 'female'
+    voice_type='male': person=3(度逍遥男声)
+    voice_type='female': person=4(度丫丫女声)
     """
     token = get_access_token()
     if not token:
         return False
     
     # 根据声音类型选择person参数
-    # person=3 是男声，person=5 是女声
-    person = 5 if voice_type == 'female' else 3
+    # person=3 是度逍遥男声，person=4 是度丫丫女声
+    person = 4 if voice_type == 'female' else 3
     
     # 根据声音类型选择文件名后缀
     suffix = '_female' if voice_type == 'female' else '_male'
