@@ -206,10 +206,9 @@ def _call_glm_flash(original_text, thought_content, api_key,
 def _call_doubao(original_text, thought_content, api_key,
                  book_name='', author='', chapter_title='', section_title='', section_content=''):
     """
-    调用豆包 Doubao-Seed-2.0-mini API 进行评分（备用）
+    调用豆包 Doubao-Seed-2.0-mini API 进行评分（备用，使用requests直接调用）
     """
-    from openai import OpenAI
-    import json
+    import requests
     
     # 构建上下文信息
     context_info = f"书名：《{book_name}》"
@@ -259,44 +258,52 @@ def _call_doubao(original_text, thought_content, api_key,
 
     print(f"[AI评分] 调用豆包 API: model=doubao-seed-2-0-mini-260428")
     
-    client = OpenAI(
-        base_url="https://ark.cn-beijing.volces.com/api/v3",
-        api_key=api_key,
-    )
-    
-    response = client.chat.completions.create(
-        model="doubao-seed-2-0-mini-260428",
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.3,
+    response = requests.post(
+        'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {api_key}'
+        },
+        json={
+            'model': 'doubao-seed-2-0-mini-260428',
+            'messages': [
+                {'role': 'user', 'content': prompt}
+            ],
+            'temperature': 0.3
+        },
         timeout=30
     )
     
-    content = response.choices[0].message.content.strip()
-    print(f"[AI评分] 豆包 API 返回内容: {content[:200]}...")
+    print(f"[AI评分] 豆包 API 响应状态: {response.status_code}")
     
-    # 尝试解析 JSON
-    try:
-        json_match = __import__('re').search(r'\{[^}]+\}', content)
-        if json_match:
-            data = json.loads(json_match.group())
-            score = int(data.get('score', 1))
-            reason = data.get('reason', 'AI 评分')
-            score = max(0, min(3, score))
-            print(f"[AI评分] 豆包 JSON解析成功: score={score}, reason={reason}")
-            return score, reason
-    except (json.JSONDecodeError, ValueError) as e:
-        print(f"[AI评分] 豆包 JSON解析失败: {e}")
+    if response.status_code == 200:
+        result = response.json()
+        content = result['choices'][0]['message']['content'].strip()
+        print(f"[AI评分] 豆包 API 返回内容: {content[:200]}...")
+        
+        # 尝试解析 JSON
+        try:
+            json_match = re.search(r'\{[^}]+\}', content)
+            if json_match:
+                data = json.loads(json_match.group())
+                score = int(data.get('score', 1))
+                reason = data.get('reason', 'AI 评分')
+                score = max(0, min(3, score))
+                print(f"[AI评分] 豆包 JSON解析成功: score={score}, reason={reason}")
+                return score, reason
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"[AI评分] 豆包 JSON解析失败: {e}")
+        
+        # 降级：提取数字
+        match = re.search(r'[0123]', content)
+        if match:
+            score = int(match.group())
+            print(f"[AI评分] 豆包 提取数字成功: score={score}")
+            return score, "AI 评分"
+    else:
+        print(f"[AI评分] 豆包 API 错误响应: {response.text[:200]}")
     
-    # 降级：提取数字
-    match = __import__('re').search(r'[0123]', content)
-    if match:
-        score = int(match.group())
-        print(f"[AI评分] 豆包 提取数字成功: score={score}")
-        return score, "AI 评分"
-    
-    raise Exception("豆包 API 返回格式错误")
+    raise Exception(f"豆包 API 返回错误: status={response.status_code}")
 
 
 def call_ai_api(original_text, thought_content, section_content=None,
