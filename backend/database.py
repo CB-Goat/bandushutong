@@ -1,19 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-悦读小将 - 数据库模块
-使用 SQLite 快速开发
+悦读小将 - 数据库模块 (MySQL版本)
+使用 PyMySQL 连接 MySQL 数据库
 """
 
-import sqlite3
+import pymysql
 import os
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'reading_companion.db')
+# 从环境变量读取 MySQL 连接信息
+DB_HOST = os.environ.get('DB_HOST', 'localhost')
+DB_PORT = int(os.environ.get('DB_PORT', 3306))
+DB_USER = os.environ.get('DB_USER', 'root')
+DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
+DB_NAME = os.environ.get('DB_NAME', 'reading_companion')
 
 def get_db():
     """获取数据库连接"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = pymysql.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor
+    )
     return conn
 
 def init_db():
@@ -24,30 +36,33 @@ def init_db():
     # 书籍表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS books (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            author TEXT,
-            author_nationality TEXT,
-            version TEXT,
-            file_path TEXT,
-            total_sections INTEGER DEFAULT 0,
-            total_chapters INTEGER DEFAULT 0,
-            voice_type TEXT DEFAULT 'male',  -- male/female 男声/女声
-            tts_status TEXT DEFAULT 'none',  -- none/pending/generating/done/error
-            tts_progress TEXT DEFAULT '',     -- 如 "5/30"
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            title VARCHAR(255) NOT NULL,
+            author VARCHAR(255),
+            author_nationality VARCHAR(100),
+            version VARCHAR(100),
+            file_path VARCHAR(500),
+            total_sections INT DEFAULT 0,
+            total_chapters INT DEFAULT 0,
+            voice_type VARCHAR(20) DEFAULT 'male',
+            tts_status VARCHAR(20) DEFAULT 'none',
+            tts_progress VARCHAR(50) DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            subscription_price DECIMAL(10,2) DEFAULT 0,
+            is_public TINYINT DEFAULT 0,
+            icon_path VARCHAR(500)
         )
     ''')
 
     # 章节表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chapters (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            book_id INTEGER NOT NULL,
-            chapter_number INTEGER NOT NULL,
-            title TEXT,
-            section_count INTEGER DEFAULT 0,
-            total_words INTEGER DEFAULT 0,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            book_id INT NOT NULL,
+            chapter_number INT NOT NULL,
+            title VARCHAR(255),
+            section_count INT DEFAULT 0,
+            total_words INT DEFAULT 0,
             FOREIGN KEY (book_id) REFERENCES books(id)
         )
     ''')
@@ -55,19 +70,22 @@ def init_db():
     # 小节表（阅读的最小单位）
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS sections (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            book_id INTEGER NOT NULL,
-            chapter_id INTEGER,
-            section_number INTEGER NOT NULL,
-            title TEXT,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            book_id INT NOT NULL,
+            chapter_id INT,
+            section_number INT NOT NULL,
+            title VARCHAR(255),
             content TEXT NOT NULL,
-            audio_path TEXT,
-            has_audio BOOLEAN DEFAULT 0,
-            audio_duration REAL DEFAULT 0,  -- 音频时长（秒）
-            char_timeline TEXT,  -- 每个字符显示时间点的JSON数组
-            word_count INTEGER DEFAULT 0,
+            audio_path VARCHAR(500),
+            has_audio TINYINT DEFAULT 0,
+            audio_duration FLOAT DEFAULT 0,
+            char_timeline TEXT,
+            word_count INT DEFAULT 0,
             summary TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            summary_audio_path VARCHAR(500),
+            summary_audio_duration FLOAT DEFAULT 0,
+            audio_segments TEXT,
             FOREIGN KEY (book_id) REFERENCES books(id),
             FOREIGN KEY (chapter_id) REFERENCES chapters(id)
         )
@@ -76,28 +94,32 @@ def init_db():
     # 阅读进度表（按用户隔离）
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS reading_progress (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            book_id INTEGER NOT NULL,
-            current_section_id INTEGER,
-            current_position INTEGER DEFAULT 0,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            book_id INT NOT NULL,
+            current_section_id INT,
+            current_segment_id INT,
+            current_position INT DEFAULT 0,
+            audio_position FLOAT DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (book_id) REFERENCES books(id),
             FOREIGN KEY (current_section_id) REFERENCES sections(id),
-            UNIQUE(user_id, book_id)
+            UNIQUE KEY unique_user_book (user_id, book_id)
         )
     ''')
 
     # 点评点表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS annotations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            section_id INTEGER NOT NULL,
-            annotation_index INTEGER NOT NULL,
-            start_char INTEGER NOT NULL,
-            end_char INTEGER NOT NULL,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            section_id INT NOT NULL,
+            annotation_index INT NOT NULL,
+            start_char INT NOT NULL,
+            end_char INT NOT NULL,
             original_text TEXT NOT NULL,
             comment TEXT NOT NULL,
+            audio_path VARCHAR(500),
+            audio_duration FLOAT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (section_id) REFERENCES sections(id)
         )
@@ -106,77 +128,33 @@ def init_db():
     # 节阅读状态表（按用户隔离）
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS section_reading_status (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            book_id INTEGER NOT NULL,
-            section_id INTEGER NOT NULL,
-            status TEXT DEFAULT 'unread',
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT,
+            book_id INT NOT NULL,
+            section_id INT NOT NULL,
+            status VARCHAR(20) DEFAULT 'unread',
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (book_id) REFERENCES books(id),
             FOREIGN KEY (section_id) REFERENCES sections(id),
-            UNIQUE(user_id, book_id, section_id)
+            UNIQUE KEY unique_user_book_section (user_id, book_id, section_id)
         )
     ''')
-
-    # 添加点评音频字段（如果不存在）
-    try:
-        cursor.execute('ALTER TABLE annotations ADD COLUMN audio_path TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE annotations ADD COLUMN audio_duration REAL DEFAULT 0')
-    except:
-        pass
-
-    # 添加 user_id 字段到 reading_progress（如果不存在）
-    try:
-        cursor.execute('ALTER TABLE reading_progress ADD COLUMN user_id INTEGER')
-    except:
-        pass
-
-    # 添加 audio_position 字段到 reading_progress（如果不存在）
-    try:
-        cursor.execute('ALTER TABLE reading_progress ADD COLUMN audio_position REAL DEFAULT 0')
-    except:
-        pass
-
-    # 添加 user_id 字段到 section_reading_status（如果不存在）
-    try:
-        cursor.execute('ALTER TABLE section_reading_status ADD COLUMN user_id INTEGER')
-    except:
-        pass
-
-    # 添加小结音频字段（如果不存在）
-    try:
-        cursor.execute('ALTER TABLE sections ADD COLUMN summary_audio_path TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE sections ADD COLUMN summary_audio_duration REAL DEFAULT 0')
-    except:
-        pass
-
-    # 添加分段音频信息字段（如果不存在）
-    try:
-        cursor.execute('ALTER TABLE sections ADD COLUMN audio_segments TEXT')
-    except:
-        pass
 
     # 用户表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            phone TEXT UNIQUE,
-            password TEXT,
-            wechat_openid TEXT UNIQUE,
-            wechat_nickname TEXT,
-            wechat_avatar TEXT,
-            device_id TEXT,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            phone VARCHAR(20) UNIQUE,
+            password VARCHAR(255),
+            wechat_openid VARCHAR(100) UNIQUE,
+            wechat_nickname VARCHAR(100),
+            wechat_avatar VARCHAR(500),
+            device_id VARCHAR(100),
             device_info TEXT,
-            gender TEXT,
-            age INTEGER,
-            grade TEXT,
-            role TEXT DEFAULT 'user',
+            gender VARCHAR(10),
+            age INT,
+            grade VARCHAR(50),
+            role VARCHAR(20) DEFAULT 'user',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -184,11 +162,11 @@ def init_db():
     # 用户留言表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
             content TEXT NOT NULL,
             admin_reply TEXT,
-            is_read INTEGER DEFAULT 0,
+            is_read TINYINT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             replied_at TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
@@ -198,9 +176,9 @@ def init_db():
     # 换机校验码表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS device_transfer_codes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            transfer_code TEXT NOT NULL,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            transfer_code VARCHAR(10) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
@@ -209,23 +187,23 @@ def init_db():
     # 订阅表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS subscriptions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            book_id INTEGER NOT NULL,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            book_id INT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (book_id) REFERENCES books(id),
-            UNIQUE(user_id, book_id)
+            UNIQUE KEY unique_user_book_sub (user_id, book_id)
         )
     ''')
 
     # 订阅申请表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS subscription_requests (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            book_id INTEGER NOT NULL,
-            status TEXT DEFAULT 'pending',
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            book_id INT NOT NULL,
+            status VARCHAR(20) DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (book_id) REFERENCES books(id)
@@ -235,14 +213,14 @@ def init_db():
     # 思考表（用户个人点评）
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS thoughts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            section_id INTEGER NOT NULL,
-            start_char INTEGER NOT NULL,
-            end_char INTEGER NOT NULL,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            section_id INT NOT NULL,
+            start_char INT NOT NULL,
+            end_char INT NOT NULL,
             original_text TEXT NOT NULL,
             content TEXT NOT NULL,
-            ai_score INTEGER DEFAULT NULL,
+            ai_score INT DEFAULT NULL,
             score_reason TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id),
@@ -253,10 +231,10 @@ def init_db():
     # 名言表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS quotes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INT PRIMARY KEY AUTO_INCREMENT,
             content TEXT NOT NULL,
-            author TEXT,
-            source TEXT,
+            author VARCHAR(255),
+            source VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -264,11 +242,11 @@ def init_db():
     # 名言使用记录表（记录某节已用过哪些名言）
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS quote_usage (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            quote_id INTEGER NOT NULL,
-            book_id INTEGER NOT NULL,
-            section_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            quote_id INT NOT NULL,
+            book_id INT NOT NULL,
+            section_id INT NOT NULL,
+            user_id INT NOT NULL,
             used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (quote_id) REFERENCES quotes(id),
             FOREIGN KEY (book_id) REFERENCES books(id),
@@ -277,94 +255,22 @@ def init_db():
         )
     ''')
 
-    # 为已有表添加新字段
-    try:
-        cursor.execute('ALTER TABLE books ADD COLUMN author_nationality TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE books ADD COLUMN version TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE books ADD COLUMN total_chapters INTEGER DEFAULT 0')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE chapters ADD COLUMN section_count INTEGER DEFAULT 0')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE chapters ADD COLUMN total_words INTEGER DEFAULT 0')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE sections ADD COLUMN title TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE sections ADD COLUMN word_count INTEGER DEFAULT 0')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE sections ADD COLUMN summary TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE sections ADD COLUMN audio_duration REAL DEFAULT 0')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE sections ADD COLUMN char_timeline TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE books ADD COLUMN tts_status TEXT DEFAULT "none"')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE books ADD COLUMN tts_progress TEXT DEFAULT ""')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE books ADD COLUMN subscription_price REAL DEFAULT 0')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE books ADD COLUMN is_public INTEGER DEFAULT 0')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE books ADD COLUMN icon_path TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE thoughts ADD COLUMN ai_score INTEGER DEFAULT NULL')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE thoughts ADD COLUMN score_reason TEXT DEFAULT NULL')
-    except:
-        pass
-
-    # ===== 新架构：text_segments 和 insert_points 表 =====
-    
     # 文本段表：一节文字按点评边界切割成 n+1 段
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS text_segments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            section_id INTEGER NOT NULL,
-            segment_number INTEGER NOT NULL,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            section_id INT NOT NULL,
+            segment_number INT NOT NULL,
             content TEXT NOT NULL,
-            start_char INTEGER NOT NULL,
-            end_char INTEGER NOT NULL,
-            word_count INTEGER DEFAULT 0,
-            audio_path TEXT,
-            audio_duration REAL DEFAULT 0,
+            start_char INT NOT NULL,
+            end_char INT NOT NULL,
+            word_count INT DEFAULT 0,
+            audio_path VARCHAR(500),
+            audio_duration FLOAT DEFAULT 0,
             char_timeline TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE,
-            UNIQUE(section_id, segment_number)
+            UNIQUE KEY unique_section_segment (section_id, segment_number)
         )
     ''')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_text_segments_section ON text_segments(section_id)')
@@ -372,19 +278,21 @@ def init_db():
     # 插入点表：点评/小结绑定到对应段
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS insert_points (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            section_id INTEGER NOT NULL,
-            segment_id INTEGER NOT NULL,
-            point_order INTEGER NOT NULL,
-            point_type TEXT NOT NULL,
-            annotation_id INTEGER,
-            annotation_index INTEGER,
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            section_id INT NOT NULL,
+            segment_id INT NOT NULL,
+            point_order INT NOT NULL,
+            point_type VARCHAR(20) NOT NULL,
+            annotation_id INT,
+            annotation_index INT,
             quote_text TEXT,
-            quote_start_char INTEGER,
-            quote_end_char INTEGER,
+            quote_start_char INT,
+            quote_end_char INT,
             comment TEXT NOT NULL,
-            audio_path TEXT,
-            audio_duration REAL DEFAULT 0,
+            audio_path VARCHAR(500),
+            audio_duration FLOAT DEFAULT 0,
+            quote_audio_path VARCHAR(500),
+            quote_audio_duration FLOAT DEFAULT 0,
             char_timeline TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE,
@@ -395,87 +303,24 @@ def init_db():
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_insert_points_section ON insert_points(section_id)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_insert_points_segment ON insert_points(segment_id)')
 
-    # reading_progress 新增 current_segment_id 字段
-    try:
-        cursor.execute('ALTER TABLE reading_progress ADD COLUMN current_segment_id INTEGER')
-    except:
-        pass
-
-    # reading_progress 添加 user_id+book_id 唯一约束，确保每个用户每本书只有一条断点记录
-    try:
-        cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_progress_user_book ON reading_progress(user_id, book_id)')
-    except:
-        pass
-    # 清理 user_id 为 NULL 的无效记录
-    try:
-        cursor.execute('DELETE FROM reading_progress WHERE user_id IS NULL')
-        print('[迁移] 删除 user_id 为 NULL 的断点记录')
-    except:
-        pass
-    
-    # insert_points 新增引用音频字段（独立音频文件，不从主线截取）
-    try:
-        cursor.execute('ALTER TABLE insert_points ADD COLUMN quote_audio_path TEXT')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE insert_points ADD COLUMN quote_audio_duration REAL DEFAULT 0')
-    except:
-        pass
-    try:
-        cursor.execute('ALTER TABLE insert_points ADD COLUMN annotation_index INTEGER')
-    except:
-        pass
-    
-    # 重建所有 insert_points 以填充 annotation_index
-    try:
-        cursor.execute('SELECT DISTINCT section_id FROM insert_points WHERE annotation_index IS NULL AND point_type = ? AND annotation_id IS NOT NULL', ('annotation',))
-        sections_to_rebuild = [r[0] for r in cursor.fetchall()]
-        for sec_id in sections_to_rebuild:
-            try:
-                create_insert_points(sec_id)
-            except:
-                pass
-    except:
-        pass
-
-    # 兼容旧数据库：确保users表有所有字段
-    user_columns = [
-        ('password', 'TEXT'),
-        ('wechat_openid', 'TEXT'),
-        ('wechat_nickname', 'TEXT'),
-        ('wechat_avatar', 'TEXT'),
-        ('device_id', 'TEXT'),
-        ('device_info', 'TEXT'),
-        ('gender', 'TEXT'),
-        ('age', 'INTEGER'),
-        ('grade', 'TEXT'),
-        ('role', "TEXT DEFAULT 'user'")
-    ]
-    for col_name, col_type in user_columns:
-        try:
-            cursor.execute('ALTER TABLE users ADD COLUMN ' + col_name + ' ' + col_type)
-        except:
-            pass
-
-    # ===== 军衔等级配置表 =====
+    # 军衔等级配置表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS military_ranks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            rank_name TEXT NOT NULL,
-            rank_level INTEGER NOT NULL,
-            min_words INTEGER NOT NULL,
-            title TEXT NOT NULL,
-            icon TEXT NOT NULL
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            rank_name VARCHAR(50) NOT NULL,
+            rank_level INT NOT NULL,
+            min_words INT NOT NULL,
+            title VARCHAR(100) NOT NULL,
+            icon VARCHAR(50) NOT NULL
         )
     ''')
 
     # 插入20个军衔等级数据（仅在表为空时插入）
-    cursor.execute('SELECT COUNT(*) FROM military_ranks')
-    if cursor.fetchone()[0] == 0:
+    cursor.execute('SELECT COUNT(*) as cnt FROM military_ranks')
+    if cursor.fetchone()['cnt'] == 0:
         cursor.executemany('''
             INSERT INTO military_ranks (rank_name, rank_level, min_words, title, icon)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         ''', [
             ('列兵', 1, 0, '阅读新兵', 'private'),
             ('上等兵', 2, 5000, '阅读学徒', 'private_first'),
@@ -513,7 +358,7 @@ def create_user(phone=None, password=None, wechat_openid=None, wechat_nickname=N
     try:
         cursor.execute(
             '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
             (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role)
         )
     except Exception as e:
@@ -521,7 +366,7 @@ def create_user(phone=None, password=None, wechat_openid=None, wechat_nickname=N
         if 'auth_code' in str(e):
             cursor.execute(
                 '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role, auth_code) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, '')''',
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, '')''',
                 (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role)
             )
         else:
@@ -535,7 +380,7 @@ def get_user_by_phone(phone):
     """通过手机号获取用户"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE phone = ?', (phone,))
+    cursor.execute('SELECT * FROM users WHERE phone = %s', (phone,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -544,7 +389,7 @@ def get_user_by_wechat_openid(wechat_openid):
     """通过微信openid获取用户"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE wechat_openid = ?', (wechat_openid,))
+    cursor.execute('SELECT * FROM users WHERE wechat_openid = %s', (wechat_openid,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -553,7 +398,7 @@ def get_user(user_id):
     """获取用户信息"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+    cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -571,7 +416,7 @@ def update_user_role(user_id, role):
     """更新用户角色"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE users SET role = ? WHERE id = ?', (role, user_id))
+    cursor.execute('UPDATE users SET role = %s WHERE id = %s', (role, user_id))
     conn.commit()
     conn.close()
 
@@ -582,17 +427,17 @@ def update_user_profile(user_id, gender=None, age=None, grade=None):
     updates = []
     params = []
     if gender is not None:
-        updates.append('gender = ?')
+        updates.append('gender = %s')
         params.append(gender)
     if age is not None:
-        updates.append('age = ?')
+        updates.append('age = %s')
         params.append(age)
     if grade is not None:
-        updates.append('grade = ?')
+        updates.append('grade = %s')
         params.append(grade)
     if updates:
         params.append(user_id)
-        cursor.execute(f'UPDATE users SET {", ".join(updates)} WHERE id = ?', params)
+        cursor.execute(f'UPDATE users SET {", ".join(updates)} WHERE id = %s', params)
         conn.commit()
     conn.close()
 
@@ -601,9 +446,9 @@ def update_user_phone(user_id, phone, password=None):
     conn = get_db()
     cursor = conn.cursor()
     if password:
-        cursor.execute('UPDATE users SET phone = ?, password = ? WHERE id = ?', (phone, password, user_id))
+        cursor.execute('UPDATE users SET phone = %s, password = %s WHERE id = %s', (phone, password, user_id))
     else:
-        cursor.execute('UPDATE users SET phone = ? WHERE id = ?', (phone, user_id))
+        cursor.execute('UPDATE users SET phone = %s WHERE id = %s', (phone, user_id))
     conn.commit()
     conn.close()
 
@@ -611,7 +456,7 @@ def update_user_password(user_id, password):
     """更新用户密码"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE users SET password = ? WHERE id = ?', (password, user_id))
+    cursor.execute('UPDATE users SET password = %s WHERE id = %s', (password, user_id))
     conn.commit()
     conn.close()
 
@@ -620,7 +465,7 @@ def update_user_wechat(user_id, wechat_openid, wechat_nickname=None, wechat_avat
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE users SET wechat_openid = ?, wechat_nickname = ?, wechat_avatar = ? WHERE id = ?',
+        'UPDATE users SET wechat_openid = %s, wechat_nickname = %s, wechat_avatar = %s WHERE id = %s',
         (wechat_openid, wechat_nickname, wechat_avatar, user_id)
     )
     conn.commit()
@@ -630,7 +475,7 @@ def delete_user(user_id):
     """删除用户"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+    cursor.execute('DELETE FROM users WHERE id = %s', (user_id,))
     conn.commit()
     conn.close()
 
@@ -638,7 +483,7 @@ def verify_user_phone_password(phone, password):
     """验证手机号密码登录"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE phone = ? AND password = ?', (phone, password))
+    cursor.execute('SELECT * FROM users WHERE phone = %s AND password = %s', (phone, password))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -650,7 +495,7 @@ def add_message(user_id, content):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT INTO messages (user_id, content) VALUES (?, ?)',
+        'INSERT INTO messages (user_id, content) VALUES (%s, %s)',
         (user_id, content)
     )
     message_id = cursor.lastrowid
@@ -663,7 +508,7 @@ def get_messages_by_user(user_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM messages WHERE user_id = ? ORDER BY created_at DESC',
+        'SELECT * FROM messages WHERE user_id = %s ORDER BY created_at DESC',
         (user_id,)
     )
     messages = [dict(row) for row in cursor.fetchall()]
@@ -689,7 +534,7 @@ def reply_message(message_id, admin_reply):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE messages SET admin_reply = ?, replied_at = CURRENT_TIMESTAMP WHERE id = ?',
+        'UPDATE messages SET admin_reply = %s, replied_at = CURRENT_TIMESTAMP WHERE id = %s',
         (admin_reply, message_id)
     )
     conn.commit()
@@ -702,9 +547,9 @@ def update_user_device(user_id, device_id, device_info=None):
     conn = get_db()
     cursor = conn.cursor()
     if device_info:
-        cursor.execute('UPDATE users SET device_id = ?, device_info = ? WHERE id = ?', (device_id, device_info, user_id))
+        cursor.execute('UPDATE users SET device_id = %s, device_info = %s WHERE id = %s', (device_id, device_info, user_id))
     else:
-        cursor.execute('UPDATE users SET device_id = ? WHERE id = ?', (device_id, user_id))
+        cursor.execute('UPDATE users SET device_id = %s WHERE id = %s', (device_id, user_id))
     conn.commit()
     conn.close()
 
@@ -716,10 +561,10 @@ def create_transfer_code(user_id):
     # 生成6位随机数字
     transfer_code = ''.join(random.choices('0123456789', k=6))
     # 删除该用户旧的校验码
-    cursor.execute('DELETE FROM device_transfer_codes WHERE user_id = ?', (user_id,))
+    cursor.execute('DELETE FROM device_transfer_codes WHERE user_id = %s', (user_id,))
     # 插入新校验码
     cursor.execute(
-        'INSERT INTO device_transfer_codes (user_id, transfer_code) VALUES (?, ?)',
+        'INSERT INTO device_transfer_codes (user_id, transfer_code) VALUES (%s, %s)',
         (user_id, transfer_code)
     )
     conn.commit()
@@ -731,7 +576,7 @@ def verify_transfer_code(user_id, transfer_code):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM device_transfer_codes WHERE user_id = ? AND transfer_code = ?',
+        'SELECT * FROM device_transfer_codes WHERE user_id = %s AND transfer_code = %s',
         (user_id, transfer_code)
     )
     row = cursor.fetchone()
@@ -741,9 +586,10 @@ def verify_transfer_code(user_id, transfer_code):
     
     # 检查是否超过1分钟 - 使用UTC时间避免时区问题
     from datetime import datetime, timedelta, timezone
-    created_at_str = row['created_at']
-    # 解析数据库时间（SQLite存储的是UTC时间）
-    created_at = datetime.strptime(created_at_str, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+    created_at = row['created_at']
+    # 确保 created_at 是带时区的
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
     # 获取当前UTC时间
     now = datetime.now(timezone.utc)
     # 计算时间差
@@ -754,12 +600,10 @@ def verify_transfer_code(user_id, transfer_code):
         return False, f'校验码已过期（1分钟有效），已过去{int(diff.total_seconds())}秒'
     
     # 验证成功，删除校验码
-    cursor.execute('DELETE FROM device_transfer_codes WHERE id = ?', (row['id'],))
+    cursor.execute('DELETE FROM device_transfer_codes WHERE id = %s', (row['id'],))
     conn.commit()
     conn.close()
     return True, '验证成功'
-
-# ===== 订阅系统 =====
 
 # ===== 订阅系统 =====
 
@@ -768,7 +612,7 @@ def subscribe_book(user_id, book_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT OR IGNORE INTO subscriptions (user_id, book_id) VALUES (?, ?)',
+        'INSERT IGNORE INTO subscriptions (user_id, book_id) VALUES (%s, %s)',
         (user_id, book_id)
     )
     conn.commit()
@@ -778,7 +622,7 @@ def unsubscribe_book(user_id, book_id):
     """取消订阅"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM subscriptions WHERE user_id = ? AND book_id = ?', (user_id, book_id))
+    cursor.execute('DELETE FROM subscriptions WHERE user_id = %s AND book_id = %s', (user_id, book_id))
     conn.commit()
     conn.close()
 
@@ -786,7 +630,7 @@ def get_user_subscriptions(user_id):
     """获取用户的所有订阅"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT book_id FROM subscriptions WHERE user_id = ?', (user_id,))
+    cursor.execute('SELECT book_id FROM subscriptions WHERE user_id = %s', (user_id,))
     rows = cursor.fetchall()
     conn.close()
     return [r['book_id'] for r in rows]
@@ -814,7 +658,7 @@ def add_subscription_request(user_id, book_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT OR IGNORE INTO subscription_requests (user_id, book_id) VALUES (?, ?)',
+        'INSERT IGNORE INTO subscription_requests (user_id, book_id) VALUES (%s, %s)',
         (user_id, book_id)
     )
     conn.commit()
@@ -824,14 +668,14 @@ def approve_subscription_request(request_id):
     """审批订阅申请"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM subscription_requests WHERE id = ?', (request_id,))
+    cursor.execute('SELECT * FROM subscription_requests WHERE id = %s', (request_id,))
     req = cursor.fetchone()
     if req:
         cursor.execute(
-            'INSERT OR IGNORE INTO subscriptions (user_id, book_id) VALUES (?, ?)',
+            'INSERT IGNORE INTO subscriptions (user_id, book_id) VALUES (%s, %s)',
             (req['user_id'], req['book_id'])
         )
-        cursor.execute('DELETE FROM subscription_requests WHERE id = ?', (request_id,))
+        cursor.execute('DELETE FROM subscription_requests WHERE id = %s', (request_id,))
     conn.commit()
     conn.close()
 
@@ -839,7 +683,7 @@ def reject_subscription_request(request_id):
     """拒绝订阅申请"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM subscription_requests WHERE id = ?', (request_id,))
+    cursor.execute('DELETE FROM subscription_requests WHERE id = %s', (request_id,))
     conn.commit()
     conn.close()
 
@@ -850,7 +694,7 @@ def add_thought(user_id, section_id, start_char, end_char, original_text, conten
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT INTO thoughts (user_id, section_id, start_char, end_char, original_text, content, ai_score, score_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO thoughts (user_id, section_id, start_char, end_char, original_text, content, ai_score, score_reason) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
         (user_id, section_id, start_char, end_char, original_text, content, ai_score, score_reason)
     )
     thought_id = cursor.lastrowid
@@ -863,9 +707,9 @@ def update_thought_ai_score(thought_id, ai_score, score_reason=None):
     conn = get_db()
     cursor = conn.cursor()
     if score_reason:
-        cursor.execute('UPDATE thoughts SET ai_score = ?, score_reason = ? WHERE id = ?', (ai_score, score_reason, thought_id))
+        cursor.execute('UPDATE thoughts SET ai_score = %s, score_reason = %s WHERE id = %s', (ai_score, score_reason, thought_id))
     else:
-        cursor.execute('UPDATE thoughts SET ai_score = ? WHERE id = ?', (ai_score, thought_id))
+        cursor.execute('UPDATE thoughts SET ai_score = %s WHERE id = %s', (ai_score, thought_id))
     conn.commit()
     conn.close()
 
@@ -874,9 +718,9 @@ def get_thoughts_by_section(section_id, user_id=None):
     conn = get_db()
     cursor = conn.cursor()
     if user_id:
-        cursor.execute('SELECT * FROM thoughts WHERE section_id = ? AND user_id = ? ORDER BY start_char', (section_id, user_id))
+        cursor.execute('SELECT * FROM thoughts WHERE section_id = %s AND user_id = %s ORDER BY start_char', (section_id, user_id))
     else:
-        cursor.execute('SELECT * FROM thoughts WHERE section_id = ? ORDER BY start_char', (section_id,))
+        cursor.execute('SELECT * FROM thoughts WHERE section_id = %s ORDER BY start_char', (section_id,))
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -888,7 +732,7 @@ def get_all_thoughts_by_section(section_id):
     cursor.execute(
         '''SELECT t.*, u.phone FROM thoughts t 
            LEFT JOIN users u ON t.user_id = u.id 
-           WHERE t.section_id = ? ORDER BY t.start_char''', (section_id,))
+           WHERE t.section_id = %s ORDER BY t.start_char''', (section_id,))
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -897,7 +741,7 @@ def delete_thought(thought_id, user_id):
     """删除思考"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM thoughts WHERE id = ? AND user_id = ?', (thought_id, user_id))
+    cursor.execute('DELETE FROM thoughts WHERE id = %s AND user_id = %s', (thought_id, user_id))
     conn.commit()
     conn.close()
 
@@ -905,7 +749,7 @@ def update_thought(thought_id, user_id, content):
     """更新思考内容"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE thoughts SET content = ? WHERE id = ? AND user_id = ?', (content, thought_id, user_id))
+    cursor.execute('UPDATE thoughts SET content = %s WHERE id = %s AND user_id = %s', (content, thought_id, user_id))
     conn.commit()
     conn.close()
 
@@ -913,7 +757,7 @@ def get_unscored_thoughts_by_section(section_id, user_id):
     """获取某节未评分的思考（ai_score为NULL）"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM thoughts WHERE section_id = ? AND user_id = ? AND ai_score IS NULL', (section_id, user_id))
+    cursor.execute('SELECT * FROM thoughts WHERE section_id = %s AND user_id = %s AND ai_score IS NULL', (section_id, user_id))
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -922,7 +766,7 @@ def get_thought_by_id(thought_id):
     """根据ID获取思考"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM thoughts WHERE id = ?', (thought_id,))
+    cursor.execute('SELECT * FROM thoughts WHERE id = %s', (thought_id,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -934,7 +778,7 @@ def add_book(title, author=None, file_path=None, author_nationality=None, versio
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT INTO books (title, author, file_path, author_nationality, version) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO books (title, author, file_path, author_nationality, version) VALUES (%s, %s, %s, %s, %s)',
         (title, author, file_path, author_nationality, version)
     )
     book_id = cursor.lastrowid
@@ -946,7 +790,7 @@ def get_book(book_id):
     """获取书籍信息"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM books WHERE id = ?', (book_id,))
+    cursor.execute('SELECT * FROM books WHERE id = %s', (book_id,))
     book = cursor.fetchone()
     conn.close()
     return dict(book) if book else None
@@ -966,12 +810,12 @@ def update_book(book_id, title, author, author_nationality, version, voice_type=
     cursor = conn.cursor()
     if voice_type is not None:
         cursor.execute(
-            'UPDATE books SET title = ?, author = ?, author_nationality = ?, version = ?, voice_type = ? WHERE id = ?',
+            'UPDATE books SET title = %s, author = %s, author_nationality = %s, version = %s, voice_type = %s WHERE id = %s',
             (title, author, author_nationality, version, voice_type, book_id)
         )
     else:
         cursor.execute(
-            'UPDATE books SET title = ?, author = ?, author_nationality = ?, version = ? WHERE id = ?',
+            'UPDATE books SET title = %s, author = %s, author_nationality = %s, version = %s WHERE id = %s',
             (title, author, author_nationality, version, book_id)
         )
     conn.commit()
@@ -982,7 +826,7 @@ def get_book_by_title_author_version(title, author, version):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM books WHERE title = ? AND author = ? AND version = ?',
+        'SELECT * FROM books WHERE title = %s AND author = %s AND version = %s',
         (title, author, version)
     )
     row = cursor.fetchone()
@@ -996,18 +840,18 @@ def delete_book(book_id):
     # 删除关联的点评
     cursor.execute('''
         DELETE FROM annotations WHERE section_id IN
-        (SELECT id FROM sections WHERE book_id = ?)
+        (SELECT id FROM sections WHERE book_id = %s)
     ''', (book_id,))
     # 删除关联的节阅读状态
-    cursor.execute('DELETE FROM section_reading_status WHERE book_id = ?', (book_id,))
+    cursor.execute('DELETE FROM section_reading_status WHERE book_id = %s', (book_id,))
     # 删除关联的小节
-    cursor.execute('DELETE FROM sections WHERE book_id = ?', (book_id,))
+    cursor.execute('DELETE FROM sections WHERE book_id = %s', (book_id,))
     # 删除关联的章节
-    cursor.execute('DELETE FROM chapters WHERE book_id = ?', (book_id,))
+    cursor.execute('DELETE FROM chapters WHERE book_id = %s', (book_id,))
     # 删除关联的阅读进度
-    cursor.execute('DELETE FROM reading_progress WHERE book_id = ?', (book_id,))
+    cursor.execute('DELETE FROM reading_progress WHERE book_id = %s', (book_id,))
     # 删除书籍
-    cursor.execute('DELETE FROM books WHERE id = ?', (book_id,))
+    cursor.execute('DELETE FROM books WHERE id = %s', (book_id,))
     conn.commit()
     conn.close()
 
@@ -1015,7 +859,7 @@ def update_book_chapters_count(book_id, count):
     """更新书籍章数"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE books SET total_chapters = ? WHERE id = ?', (count, book_id))
+    cursor.execute('UPDATE books SET total_chapters = %s WHERE id = %s', (count, book_id))
     conn.commit()
     conn.close()
 
@@ -1023,7 +867,7 @@ def update_book_sections_count(book_id, count):
     """更新书籍的小节数"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE books SET total_sections = ? WHERE id = ?', (count, book_id))
+    cursor.execute('UPDATE books SET total_sections = %s WHERE id = %s', (count, book_id))
     conn.commit()
     conn.close()
 
@@ -1034,12 +878,12 @@ def add_chapter(book_id, chapter_number, title):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT INTO chapters (book_id, chapter_number, title) VALUES (?, ?, ?)',
+        'INSERT INTO chapters (book_id, chapter_number, title) VALUES (%s, %s, %s)',
         (book_id, chapter_number, title)
     )
     chapter_id = cursor.lastrowid
     # 更新书籍的总章节数
-    cursor.execute('UPDATE books SET total_chapters = total_chapters + 1 WHERE id = ?', (book_id,))
+    cursor.execute('UPDATE books SET total_chapters = total_chapters + 1 WHERE id = %s', (book_id,))
     conn.commit()
     conn.close()
     return chapter_id
@@ -1049,7 +893,7 @@ def get_chapters_by_book(book_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM chapters WHERE book_id = ? ORDER BY chapter_number',
+        'SELECT * FROM chapters WHERE book_id = %s ORDER BY chapter_number',
         (book_id,)
     )
     chapters = [dict(row) for row in cursor.fetchall()]
@@ -1060,7 +904,7 @@ def get_chapter(chapter_id):
     """获取单个章节"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM chapters WHERE id = ?', (chapter_id,))
+    cursor.execute('SELECT * FROM chapters WHERE id = %s', (chapter_id,))
     chapter = cursor.fetchone()
     conn.close()
     return dict(chapter) if chapter else None
@@ -1070,7 +914,7 @@ def update_chapter(chapter_id, title):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE chapters SET title = ? WHERE id = ?',
+        'UPDATE chapters SET title = %s WHERE id = %s',
         (title, chapter_id)
     )
     conn.commit()
@@ -1081,33 +925,33 @@ def delete_chapter(chapter_id):
     conn = get_db()
     cursor = conn.cursor()
     # 先获取book_id
-    cursor.execute('SELECT book_id FROM chapters WHERE id = ?', (chapter_id,))
+    cursor.execute('SELECT book_id FROM chapters WHERE id = %s', (chapter_id,))
     row = cursor.fetchone()
-    book_id = row[0] if row else None
+    book_id = row['book_id'] if row else None
     # 删除关联的点评
     cursor.execute('''
         DELETE FROM annotations WHERE section_id IN
-        (SELECT id FROM sections WHERE chapter_id = ?)
+        (SELECT id FROM sections WHERE chapter_id = %s)
     ''', (chapter_id,))
     # 删除关联的节阅读状态
     cursor.execute('''
         DELETE FROM section_reading_status WHERE section_id IN
-        (SELECT id FROM sections WHERE chapter_id = ?)
+        (SELECT id FROM sections WHERE chapter_id = %s)
     ''', (chapter_id,))
     # 级联删除 text_segments 和 insert_points
-    cursor.execute('DELETE FROM insert_points WHERE section_id IN (SELECT id FROM sections WHERE chapter_id = ?)', (chapter_id,))
-    cursor.execute('DELETE FROM text_segments WHERE section_id IN (SELECT id FROM sections WHERE chapter_id = ?)', (chapter_id,))
+    cursor.execute('DELETE FROM insert_points WHERE section_id IN (SELECT id FROM sections WHERE chapter_id = %s)', (chapter_id,))
+    cursor.execute('DELETE FROM text_segments WHERE section_id IN (SELECT id FROM sections WHERE chapter_id = %s)', (chapter_id,))
     # 删除关联的小节
-    cursor.execute('DELETE FROM sections WHERE chapter_id = ?', (chapter_id,))
+    cursor.execute('DELETE FROM sections WHERE chapter_id = %s', (chapter_id,))
     # 删除章节
-    cursor.execute('DELETE FROM chapters WHERE id = ?', (chapter_id,))
+    cursor.execute('DELETE FROM chapters WHERE id = %s', (chapter_id,))
     # 更新书籍统计
     if book_id:
-        cursor.execute('SELECT COUNT(*) FROM chapters WHERE book_id = ?', (book_id,))
-        ch_count = cursor.fetchone()[0]
-        cursor.execute('SELECT COUNT(*) FROM sections WHERE book_id = ?', (book_id,))
-        sec_count = cursor.fetchone()[0]
-        cursor.execute('UPDATE books SET total_chapters = ?, total_sections = ? WHERE id = ?', (ch_count, sec_count, book_id))
+        cursor.execute('SELECT COUNT(*) as cnt FROM chapters WHERE book_id = %s', (book_id,))
+        ch_count = cursor.fetchone()['cnt']
+        cursor.execute('SELECT COUNT(*) as cnt FROM sections WHERE book_id = %s', (book_id,))
+        sec_count = cursor.fetchone()['cnt']
+        cursor.execute('UPDATE books SET total_chapters = %s, total_sections = %s WHERE id = %s', (ch_count, sec_count, book_id))
     conn.commit()
     conn.close()
 
@@ -1116,7 +960,7 @@ def update_chapter_info(chapter_id, section_count, total_words):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE chapters SET section_count = ?, total_words = ? WHERE id = ?',
+        'UPDATE chapters SET section_count = %s, total_words = %s WHERE id = %s',
         (section_count, total_words, chapter_id)
     )
     conn.commit()
@@ -1130,7 +974,7 @@ def add_section(book_id, chapter_id, section_number, content, title=''):
     cursor = conn.cursor()
     word_count = len(content) if content else 0
     cursor.execute(
-        'INSERT INTO sections (book_id, chapter_id, section_number, content, title, word_count) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO sections (book_id, chapter_id, section_number, content, title, word_count) VALUES (%s, %s, %s, %s, %s, %s)',
         (book_id, chapter_id, section_number, content, title, word_count)
     )
     section_id = cursor.lastrowid
@@ -1146,7 +990,7 @@ def get_sections_by_book(book_id):
         SELECT s.*, c.chapter_number, c.title as chapter_title 
         FROM sections s 
         LEFT JOIN chapters c ON s.chapter_id = c.id 
-        WHERE s.book_id = ? 
+        WHERE s.book_id = %s 
         ORDER BY s.section_number
     ''', (book_id,))
     sections = [dict(row) for row in cursor.fetchall()]
@@ -1170,7 +1014,7 @@ def get_sections_by_chapter(chapter_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM sections WHERE chapter_id = ? ORDER BY section_number',
+        'SELECT * FROM sections WHERE chapter_id = %s ORDER BY section_number',
         (chapter_id,)
     )
     sections = [dict(row) for row in cursor.fetchall()]
@@ -1181,7 +1025,7 @@ def get_section(section_id):
     """获取单个小节"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM sections WHERE id = ?', (section_id,))
+    cursor.execute('SELECT * FROM sections WHERE id = %s', (section_id,))
     section = cursor.fetchone()
     conn.close()
     return dict(section) if section else None
@@ -1191,7 +1035,7 @@ def update_section(section_id, title, content, summary):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE sections SET title = ?, content = ?, summary = ? WHERE id = ?',
+        'UPDATE sections SET title = %s, content = %s, summary = %s WHERE id = %s',
         (title, content, summary, section_id)
     )
     conn.commit()
@@ -1202,14 +1046,14 @@ def delete_section(section_id):
     conn = get_db()
     cursor = conn.cursor()
     # 删除关联的点评
-    cursor.execute('DELETE FROM annotations WHERE section_id = ?', (section_id,))
+    cursor.execute('DELETE FROM annotations WHERE section_id = %s', (section_id,))
     # 删除关联的节阅读状态
-    cursor.execute('DELETE FROM section_reading_status WHERE section_id = ?', (section_id,))
+    cursor.execute('DELETE FROM section_reading_status WHERE section_id = %s', (section_id,))
     # 级联删除 text_segments 和 insert_points
-    cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (section_id,))
-    cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
+    cursor.execute('DELETE FROM insert_points WHERE section_id = %s', (section_id,))
+    cursor.execute('DELETE FROM text_segments WHERE section_id = %s', (section_id,))
     # 删除小节
-    cursor.execute('DELETE FROM sections WHERE id = ?', (section_id,))
+    cursor.execute('DELETE FROM sections WHERE id = %s', (section_id,))
     conn.commit()
     conn.close()
 
@@ -1218,7 +1062,7 @@ def update_section_audio(section_id, audio_path):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE sections SET audio_path = ?, has_audio = 1 WHERE id = ?',
+        'UPDATE sections SET audio_path = %s, has_audio = 1 WHERE id = %s',
         (audio_path, section_id)
     )
     conn.commit()
@@ -1231,12 +1075,12 @@ def update_section_audio_timeline(section_id, audio_duration, char_timeline, aud
     import json
     if audio_path:
         cursor.execute(
-            'UPDATE sections SET audio_path = ?, has_audio = 1, audio_duration = ?, char_timeline = ? WHERE id = ?',
+            'UPDATE sections SET audio_path = %s, has_audio = 1, audio_duration = %s, char_timeline = %s WHERE id = %s',
             (audio_path, audio_duration, json.dumps(char_timeline), section_id)
         )
     else:
         cursor.execute(
-            'UPDATE sections SET audio_duration = ?, char_timeline = ? WHERE id = ?',
+            'UPDATE sections SET audio_duration = %s, char_timeline = %s WHERE id = %s',
             (audio_duration, json.dumps(char_timeline), section_id)
         )
     conn.commit()
@@ -1247,7 +1091,7 @@ def get_section_audio_timeline(section_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT audio_path, audio_duration, char_timeline FROM sections WHERE id = ?',
+        'SELECT audio_path, audio_duration, char_timeline FROM sections WHERE id = %s',
         (section_id,)
     )
     row = cursor.fetchone()
@@ -1267,7 +1111,7 @@ def update_section_audio_segments(section_id, audio_segments):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE sections SET audio_segments = ? WHERE id = ?',
+        'UPDATE sections SET audio_segments = %s WHERE id = %s',
         (json.dumps(audio_segments), section_id)
     )
     conn.commit()
@@ -1279,7 +1123,7 @@ def get_section_audio_segments(section_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT audio_segments FROM sections WHERE id = ?',
+        'SELECT audio_segments FROM sections WHERE id = %s',
         (section_id,)
     )
     row = cursor.fetchone()
@@ -1293,7 +1137,7 @@ def update_book_tts_status(book_id, status, progress=''):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE books SET tts_status = ?, tts_progress = ? WHERE id = ?',
+        'UPDATE books SET tts_status = %s, tts_progress = %s WHERE id = %s',
         (status, progress, book_id)
     )
     conn.commit()
@@ -1304,7 +1148,7 @@ def update_annotation_audio(annotation_id, audio_path, audio_duration):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE annotations SET audio_path = ?, audio_duration = ? WHERE id = ?',
+        'UPDATE annotations SET audio_path = %s, audio_duration = %s WHERE id = %s',
         (audio_path, audio_duration, annotation_id)
     )
     conn.commit()
@@ -1315,7 +1159,7 @@ def update_section_summary_audio(section_id, audio_path, audio_duration):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE sections SET summary_audio_path = ?, summary_audio_duration = ? WHERE id = ?',
+        'UPDATE sections SET summary_audio_path = %s, summary_audio_duration = %s WHERE id = %s',
         (audio_path, audio_duration, section_id)
     )
     conn.commit()
@@ -1326,7 +1170,7 @@ def update_section_word_count(section_id, word_count):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE sections SET word_count = ? WHERE id = ?',
+        'UPDATE sections SET word_count = %s WHERE id = %s',
         (word_count, section_id)
     )
     conn.commit()
@@ -1339,9 +1183,9 @@ def update_progress(user_id, book_id, section_id, position=0, audio_position=0):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        '''INSERT OR REPLACE INTO reading_progress
+        '''REPLACE INTO reading_progress
            (user_id, book_id, current_section_id, current_position, audio_position, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)''',
+           VALUES (%s, %s, %s, %s, %s, %s)''',
         (user_id, book_id, section_id, position, audio_position, datetime.now())
     )
     conn.commit()
@@ -1352,7 +1196,7 @@ def get_progress(user_id, book_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM reading_progress WHERE user_id = ? AND book_id = ? ORDER BY updated_at DESC LIMIT 1',
+        'SELECT * FROM reading_progress WHERE user_id = %s AND book_id = %s ORDER BY updated_at DESC LIMIT 1',
         (user_id, book_id)
     )
     progress = cursor.fetchone()
@@ -1367,7 +1211,7 @@ def add_annotation(section_id, annotation_index, start_char, end_char, original_
     cursor = conn.cursor()
     cursor.execute(
         '''INSERT INTO annotations (section_id, annotation_index, start_char, end_char, original_text, comment)
-           VALUES (?, ?, ?, ?, ?, ?)''',
+           VALUES (%s, %s, %s, %s, %s, %s)''',
         (section_id, annotation_index, start_char, end_char, original_text, comment)
     )
     annotation_id = cursor.lastrowid
@@ -1380,7 +1224,7 @@ def get_annotations_by_section(section_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM annotations WHERE section_id = ? ORDER BY start_char',
+        'SELECT * FROM annotations WHERE section_id = %s ORDER BY start_char',
         (section_id,)
     )
     annotations = [dict(row) for row in cursor.fetchall()]
@@ -1391,7 +1235,7 @@ def delete_annotation(annotation_id):
     """删除点评点"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM annotations WHERE id = ?', (annotation_id,))
+    cursor.execute('DELETE FROM annotations WHERE id = %s', (annotation_id,))
     conn.commit()
     conn.close()
 
@@ -1402,9 +1246,9 @@ def set_section_status(user_id, book_id, section_id, status):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        '''INSERT OR REPLACE INTO section_reading_status
+        '''REPLACE INTO section_reading_status
            (user_id, book_id, section_id, status, updated_at)
-           VALUES (?, ?, ?, ?, ?)''',
+           VALUES (%s, %s, %s, %s, %s)''',
         (user_id, book_id, section_id, status, datetime.now())
     )
     conn.commit()
@@ -1415,7 +1259,7 @@ def get_section_status(user_id, book_id, section_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM section_reading_status WHERE user_id = ? AND book_id = ? AND section_id = ?',
+        'SELECT * FROM section_reading_status WHERE user_id = %s AND book_id = %s AND section_id = %s',
         (user_id, book_id, section_id)
     )
     row = cursor.fetchone()
@@ -1427,7 +1271,7 @@ def get_all_section_status(user_id, book_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM section_reading_status WHERE user_id = ? AND book_id = ?',
+        'SELECT * FROM section_reading_status WHERE user_id = %s AND book_id = %s',
         (user_id, book_id)
     )
     statuses = [dict(row) for row in cursor.fetchall()]
@@ -1439,7 +1283,7 @@ def get_book_reading_stats(user_id, book_id):
     conn = get_db()
     cursor = conn.cursor()
     # 获取总节数
-    cursor.execute('SELECT COUNT(*) as total FROM sections WHERE book_id = ?', (book_id,))
+    cursor.execute('SELECT COUNT(*) as total FROM sections WHERE book_id = %s', (book_id,))
     total = cursor.fetchone()['total']
     # 获取各状态数量
     cursor.execute('''
@@ -1447,7 +1291,7 @@ def get_book_reading_stats(user_id, book_id):
             COALESCE(SUM(CASE WHEN status = 'unread' THEN 1 ELSE 0 END), 0) as unread,
             COALESCE(SUM(CASE WHEN status = 'reading' THEN 1 ELSE 0 END), 0) as reading,
             COALESCE(SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END), 0) as read_count
-        FROM section_reading_status WHERE user_id = ? AND book_id = ?
+        FROM section_reading_status WHERE user_id = %s AND book_id = %s
     ''', (user_id, book_id))
     row = cursor.fetchone()
     conn.close()
@@ -1490,19 +1334,19 @@ def get_users_with_stats(phone=None, role=None, gender=None, age_above=None, age
     params = []
 
     if phone:
-        query += ' AND u.phone LIKE ?'
+        query += ' AND u.phone LIKE %s'
         params.append(f'%{phone}%')
     if role:
-        query += ' AND u.role = ?'
+        query += ' AND u.role = %s'
         params.append(role)
     if gender:
-        query += ' AND u.gender = ?'
+        query += ' AND u.gender = %s'
         params.append(gender)
     if age_above is not None:
-        query += ' AND u.age >= ?'
+        query += ' AND u.age >= %s'
         params.append(int(age_above))
     if age_below is not None:
-        query += ' AND u.age <= ?'
+        query += ' AND u.age <= %s'
         params.append(int(age_below))
 
     query += ' ORDER BY u.created_at DESC'
@@ -1550,7 +1394,7 @@ def update_book_price(book_id, price):
     """更新书籍订阅价格"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE books SET subscription_price = ? WHERE id = ?', (price, book_id))
+    cursor.execute('UPDATE books SET subscription_price = %s WHERE id = %s', (price, book_id))
     conn.commit()
     conn.close()
 
@@ -1558,15 +1402,15 @@ def update_book_price(book_id, price):
 def _get_section_audio_stats(cursor, section_id):
     """获取某节的音频完成统计 (done, total)"""
     # text_segments
-    cursor.execute('SELECT COUNT(*) FROM text_segments WHERE section_id = ?', (section_id,))
-    seg_total = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM text_segments WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ''", (section_id,))
-    seg_done = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) as cnt FROM text_segments WHERE section_id = %s', (section_id,))
+    seg_total = cursor.fetchone()['cnt']
+    cursor.execute("SELECT COUNT(*) as cnt FROM text_segments WHERE section_id = %s AND audio_path IS NOT NULL AND audio_path != ''", (section_id,))
+    seg_done = cursor.fetchone()['cnt']
     # insert_points
-    cursor.execute('SELECT COUNT(*) FROM insert_points WHERE section_id = ?', (section_id,))
-    ip_total = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM insert_points WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ''", (section_id,))
-    ip_done = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) as cnt FROM insert_points WHERE section_id = %s', (section_id,))
+    ip_total = cursor.fetchone()['cnt']
+    cursor.execute("SELECT COUNT(*) as cnt FROM insert_points WHERE section_id = %s AND audio_path IS NOT NULL AND audio_path != ''", (section_id,))
+    ip_done = cursor.fetchone()['cnt']
     return seg_done + ip_done, seg_total + ip_total
 
 
@@ -1593,10 +1437,10 @@ def get_book_catalog_stats(book_id):
                 FROM annotations
                 GROUP BY section_id
             ) anno ON s.id = anno.section_id
-            WHERE s.book_id = ?
+            WHERE s.book_id = %s
             GROUP BY s.chapter_id
         ) sec_agg ON c.id = sec_agg.chapter_id
-        WHERE c.book_id = ?
+        WHERE c.book_id = %s
         ORDER BY c.chapter_number
     ''', (book_id, book_id))
     chapters = [dict(row) for row in cursor.fetchall()]
@@ -1612,7 +1456,7 @@ def get_book_catalog_stats(book_id):
                 FROM annotations
                 GROUP BY section_id
             ) anno ON s.id = anno.section_id
-            WHERE s.chapter_id = ?
+            WHERE s.chapter_id = %s
             ORDER BY s.section_number
         ''', (ch['id'],))
         sections = [dict(row) for row in cursor.fetchall()]
@@ -1631,7 +1475,7 @@ def get_book_catalog_stats(book_id):
             FROM annotations
             GROUP BY section_id
         ) anno ON s.id = anno.section_id
-        WHERE s.book_id = ? AND s.chapter_id IS NULL
+        WHERE s.book_id = %s AND s.chapter_id IS NULL
         ORDER BY s.section_number
     ''', (book_id,))
     orphan_sections = [dict(row) for row in cursor.fetchall()]
@@ -1663,17 +1507,17 @@ def get_user_subscription_stats(user_id):
                    COALESCE(SUM(sec.word_count), 0) as read_words_count
             FROM section_reading_status srs
             JOIN sections sec ON srs.section_id = sec.id
-            WHERE srs.status = 'read' AND srs.user_id = ?
+            WHERE srs.status = 'read' AND srs.user_id = %s
             GROUP BY srs.book_id
         ) read_stats ON b.id = read_stats.book_id
         LEFT JOIN (
             SELECT t.user_id, sec.book_id, COUNT(*) as thoughts_count
             FROM thoughts t
             JOIN sections sec ON t.section_id = sec.id
-            WHERE t.user_id = ?
+            WHERE t.user_id = %s
             GROUP BY sec.book_id
         ) thought_stats ON b.id = thought_stats.book_id
-        WHERE sub.user_id = ?
+        WHERE sub.user_id = %s
         ORDER BY sub.created_at DESC
     ''', (user_id, user_id, user_id))
     rows = [dict(row) for row in cursor.fetchall()]
@@ -1686,7 +1530,7 @@ def admin_add_subscription(user_id, book_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT OR IGNORE INTO subscriptions (user_id, book_id) VALUES (?, ?)',
+        'INSERT IGNORE INTO subscriptions (user_id, book_id) VALUES (%s, %s)',
         (user_id, book_id)
     )
     conn.commit()
@@ -1698,7 +1542,7 @@ def admin_remove_subscription(user_id, book_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'DELETE FROM subscriptions WHERE user_id = ? AND book_id = ?',
+        'DELETE FROM subscriptions WHERE user_id = %s AND book_id = %s',
         (user_id, book_id)
     )
     conn.commit()
@@ -1712,7 +1556,7 @@ def create_text_segments(section_id):
     cursor = conn.cursor()
     
     # 获取节内容和点评
-    cursor.execute('SELECT content FROM sections WHERE id = ?', (section_id,))
+    cursor.execute('SELECT content FROM sections WHERE id = %s', (section_id,))
     row = cursor.fetchone()
     if not row:
         conn.close()
@@ -1724,7 +1568,7 @@ def create_text_segments(section_id):
     text_len = len(text)
     
     # 获取点评（按 start_char 排序）
-    cursor.execute('SELECT id, start_char, end_char FROM annotations WHERE section_id = ? ORDER BY start_char', (section_id,))
+    cursor.execute('SELECT id, start_char, end_char FROM annotations WHERE section_id = %s ORDER BY start_char', (section_id,))
     annotations = [dict(r) for r in cursor.fetchall()]
     
     # 确定分割点：在点评的 start_char 和 end_char 处切割（与 generate_segmented_audio 保持一致）
@@ -1732,7 +1576,7 @@ def create_text_segments(section_id):
     split_points = sorted(set([0] + [ann['start_char'] for ann in annotations if ann.get('start_char') is not None] + [ann['end_char'] for ann in annotations if ann.get('end_char') is not None] + [text_len]))
     
     # 删除旧的 text_segments
-    cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
+    cursor.execute('DELETE FROM text_segments WHERE section_id = %s', (section_id,))
     
     # 创建新的 text_segments
     for i in range(len(split_points) - 1):
@@ -1744,7 +1588,7 @@ def create_text_segments(section_id):
         word_count = len(seg_content)
         # end_char 存储为 end（不包含的边界，与 annotation end_char 语义一致）
         cursor.execute(
-            'INSERT INTO text_segments (section_id, segment_number, content, start_char, end_char, word_count) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO text_segments (section_id, segment_number, content, start_char, end_char, word_count) VALUES (%s, %s, %s, %s, %s, %s)',
             (section_id, i, seg_content, start, end, word_count)
         )
     
@@ -1756,7 +1600,7 @@ def get_text_segments(section_id):
     """获取一节的所有 text_segments，按 segment_number 排序"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM text_segments WHERE section_id = ? ORDER BY segment_number', (section_id,))
+    cursor.execute('SELECT * FROM text_segments WHERE section_id = %s ORDER BY segment_number', (section_id,))
     segments = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return segments
@@ -1765,7 +1609,7 @@ def get_text_segment(segment_id):
     """获取单个 text_segment"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM text_segments WHERE id = ?', (segment_id,))
+    cursor.execute('SELECT * FROM text_segments WHERE id = %s', (segment_id,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -1775,7 +1619,7 @@ def update_text_segment_audio(segment_id, audio_path, audio_duration, char_timel
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE text_segments SET audio_path = ?, audio_duration = ?, char_timeline = ? WHERE id = ?',
+        'UPDATE text_segments SET audio_path = %s, audio_duration = %s, char_timeline = %s WHERE id = %s',
         (audio_path, audio_duration, char_timeline, segment_id)
     )
     conn.commit()
@@ -1785,7 +1629,7 @@ def delete_text_segments_by_section(section_id):
     """删除一节的所有 text_segments"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
+    cursor.execute('DELETE FROM text_segments WHERE section_id = %s', (section_id,))
     conn.commit()
     conn.close()
 
@@ -1797,22 +1641,22 @@ def create_insert_points(section_id):
     cursor = conn.cursor()
     
     # 获取点评（包含 annotation_index）
-    cursor.execute('SELECT id, annotation_index, start_char, end_char, original_text, comment, audio_path, audio_duration FROM annotations WHERE section_id = ? ORDER BY start_char', (section_id,))
+    cursor.execute('SELECT id, annotation_index, start_char, end_char, original_text, comment, audio_path, audio_duration FROM annotations WHERE section_id = %s ORDER BY start_char', (section_id,))
     annotations = [dict(r) for r in cursor.fetchall()]
     
     # 获取小结
-    cursor.execute('SELECT summary, summary_audio_path, summary_audio_duration FROM sections WHERE id = ?', (section_id,))
+    cursor.execute('SELECT summary, summary_audio_path, summary_audio_duration FROM sections WHERE id = %s', (section_id,))
     sec_row = cursor.fetchone()
     summary = sec_row['summary'] if sec_row else None
     summary_audio_path = sec_row['summary_audio_path'] if sec_row else None
     summary_audio_duration = sec_row['summary_audio_duration'] if sec_row else 0
     
     # 获取 text_segments
-    cursor.execute('SELECT id, end_char FROM text_segments WHERE section_id = ? ORDER BY segment_number', (section_id,))
+    cursor.execute('SELECT id, end_char FROM text_segments WHERE section_id = %s ORDER BY segment_number', (section_id,))
     segments = [dict(r) for r in cursor.fetchall()]
     
     # 删除旧的 insert_points
-    cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (section_id,))
+    cursor.execute('DELETE FROM insert_points WHERE section_id = %s', (section_id,))
     
     # 为每个 annotation 创建 insert_point
     for ann in annotations:
@@ -1828,7 +1672,7 @@ def create_insert_points(section_id):
         
         cursor.execute(
             '''INSERT INTO insert_points (section_id, segment_id, point_order, point_type, annotation_id, annotation_index, quote_text, quote_start_char, quote_end_char, comment, audio_path, audio_duration)
-               VALUES (?, ?, ?, 'annotation', ?, ?, ?, ?, ?, ?, ?, ?)''',
+               VALUES (%s, %s, %s, 'annotation', %s, %s, %s, %s, %s, %s, %s, %s)''',
             (section_id, target_segment_id, ann['start_char'], ann['id'], ann.get('annotation_index'), ann['original_text'], ann['start_char'], ann['end_char'], ann['comment'], ann.get('audio_path'), ann.get('audio_duration', 0))
         )
     
@@ -1837,14 +1681,14 @@ def create_insert_points(section_id):
         last_segment = segments[-1]
         cursor.execute(
             '''INSERT INTO insert_points (section_id, segment_id, point_order, point_type, comment, audio_path, audio_duration)
-               VALUES (?, ?, 999999, 'summary', ?, ?, ?)''',
+               VALUES (%s, %s, 999999, 'summary', %s, %s, %s)''',
             (section_id, last_segment['id'], summary, summary_audio_path, summary_audio_duration)
         )
     
     conn.commit()
     # 统计创建的 insert_points 数量
-    cursor.execute('SELECT COUNT(*) FROM insert_points WHERE section_id = ?', (section_id,))
-    count = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) as cnt FROM insert_points WHERE section_id = %s', (section_id,))
+    count = cursor.fetchone()['cnt']
     conn.close()
     return count
 
@@ -1856,7 +1700,7 @@ def get_insert_points_by_section(section_id):
         SELECT ip.*, ts.segment_number
         FROM insert_points ip
         JOIN text_segments ts ON ip.segment_id = ts.id
-        WHERE ip.section_id = ?
+        WHERE ip.section_id = %s
         ORDER BY ts.segment_number, ip.point_order
     ''', (section_id,))
     points = [dict(row) for row in cursor.fetchall()]
@@ -1867,7 +1711,7 @@ def get_insert_points_by_segment(segment_id):
     """获取一个 text_segment 后的所有插入点"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM insert_points WHERE segment_id = ? ORDER BY point_order', (segment_id,))
+    cursor.execute('SELECT * FROM insert_points WHERE segment_id = %s ORDER BY point_order', (segment_id,))
     points = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return points
@@ -1877,7 +1721,7 @@ def update_insert_point_audio(insert_point_id, audio_path, audio_duration):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE insert_points SET audio_path = ?, audio_duration = ? WHERE id = ?',
+        'UPDATE insert_points SET audio_path = %s, audio_duration = %s WHERE id = %s',
         (audio_path, audio_duration, insert_point_id)
     )
     conn.commit()
@@ -1888,7 +1732,7 @@ def update_insert_point_quote_audio(insert_point_id, quote_audio_path, quote_aud
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'UPDATE insert_points SET quote_audio_path = ?, quote_audio_duration = ? WHERE id = ?',
+        'UPDATE insert_points SET quote_audio_path = %s, quote_audio_duration = %s WHERE id = %s',
         (quote_audio_path, quote_audio_duration, insert_point_id)
     )
     conn.commit()
@@ -1898,7 +1742,7 @@ def delete_insert_points_by_section(section_id):
     """删除一节的所有 insert_points"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (section_id,))
+    cursor.execute('DELETE FROM insert_points WHERE section_id = %s', (section_id,))
     conn.commit()
     conn.close()
 
@@ -1910,11 +1754,11 @@ def get_section_playback_plan(section_id):
     cursor = conn.cursor()
     
     # 获取所有 text_segments
-    cursor.execute('SELECT * FROM text_segments WHERE section_id = ? ORDER BY segment_number', (section_id,))
+    cursor.execute('SELECT * FROM text_segments WHERE section_id = %s ORDER BY segment_number', (section_id,))
     segments = [dict(row) for row in cursor.fetchall()]
     
     # 获取所有 insert_points
-    cursor.execute('SELECT * FROM insert_points WHERE section_id = ? ORDER BY point_order', (section_id,))
+    cursor.execute('SELECT * FROM insert_points WHERE section_id = %s ORDER BY point_order', (section_id,))
     all_points = [dict(row) for row in cursor.fetchall()]
     
     # 按 segment_id 分组
@@ -1986,9 +1830,11 @@ def cleanup_duplicate_progress():
     try:
         # 删除重复记录，只保留每个 user_id+book_id 组合的最新记录
         cursor.execute('''
-            DELETE FROM reading_progress WHERE user_id IS NOT NULL AND id NOT IN (
-                SELECT MAX(id) FROM reading_progress WHERE user_id IS NOT NULL GROUP BY user_id, book_id
-            )
+            DELETE rp1 FROM reading_progress rp1
+            INNER JOIN reading_progress rp2 
+            WHERE rp1.user_id = rp2.user_id 
+            AND rp1.book_id = rp2.book_id 
+            AND rp1.id < rp2.id
         ''')
         deleted = cursor.rowcount
         conn.commit()
@@ -2006,7 +1852,7 @@ def update_progress_v2(user_id, book_id, section_id, segment_id, text_position, 
     cursor = conn.cursor()
     # 查询之前的断点节
     cursor.execute(
-        'SELECT current_section_id FROM reading_progress WHERE user_id = ? AND book_id = ?',
+        'SELECT current_section_id FROM reading_progress WHERE user_id = %s AND book_id = %s',
         (user_id, book_id)
     )
     old_row = cursor.fetchone()
@@ -2014,23 +1860,23 @@ def update_progress_v2(user_id, book_id, section_id, segment_id, text_position, 
         # 断点移动到了新节，将旧节标记为已读
         old_section_id = old_row['current_section_id']
         cursor.execute(
-            '''INSERT OR REPLACE INTO section_reading_status
+            '''REPLACE INTO section_reading_status
                (user_id, book_id, section_id, status, updated_at)
-               VALUES (?, ?, ?, 'read', ?)''',
+               VALUES (%s, %s, %s, 'read', %s)''',
             (user_id, book_id, old_section_id, datetime.now())
         )
         # 同时将新节标记为在读
         cursor.execute(
-            '''INSERT OR REPLACE INTO section_reading_status
+            '''REPLACE INTO section_reading_status
                (user_id, book_id, section_id, status, updated_at)
-               VALUES (?, ?, ?, 'reading', ?)''',
+               VALUES (%s, %s, %s, 'reading', %s)''',
             (user_id, book_id, section_id, datetime.now())
         )
     # 更新断点
     cursor.execute(
-        '''INSERT OR REPLACE INTO reading_progress
+        '''REPLACE INTO reading_progress
            (user_id, book_id, current_section_id, current_segment_id, current_position, audio_position, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)''',
+           VALUES (%s, %s, %s, %s, %s, %s, %s)''',
         (user_id, book_id, section_id, segment_id, text_position, audio_position, datetime.now())
     )
     conn.commit()
@@ -2041,7 +1887,7 @@ def get_progress_v2(user_id, book_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'SELECT * FROM reading_progress WHERE user_id = ? AND book_id = ? ORDER BY updated_at DESC LIMIT 1',
+        'SELECT * FROM reading_progress WHERE user_id = %s AND book_id = %s ORDER BY updated_at DESC LIMIT 1',
         (user_id, book_id)
     )
     progress = cursor.fetchone()
@@ -2053,17 +1899,17 @@ def check_section_audio_complete(section_id):
     conn = get_db()
     cursor = conn.cursor()
     
-    cursor.execute('SELECT COUNT(*) FROM text_segments WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ""', (section_id,))
-    seg_with_audio = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) as cnt FROM text_segments WHERE section_id = %s AND audio_path IS NOT NULL AND audio_path != ""', (section_id,))
+    seg_with_audio = cursor.fetchone()['cnt']
     
-    cursor.execute('SELECT COUNT(*) FROM text_segments WHERE section_id = ?', (section_id,))
-    seg_total = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) as cnt FROM text_segments WHERE section_id = %s', (section_id,))
+    seg_total = cursor.fetchone()['cnt']
     
-    cursor.execute('SELECT COUNT(*) FROM insert_points WHERE section_id = ? AND audio_path IS NOT NULL AND audio_path != ""', (section_id,))
-    ip_with_audio = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) as cnt FROM insert_points WHERE section_id = %s AND audio_path IS NOT NULL AND audio_path != ""', (section_id,))
+    ip_with_audio = cursor.fetchone()['cnt']
     
-    cursor.execute('SELECT COUNT(*) FROM insert_points WHERE section_id = ?', (section_id,))
-    ip_total = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) as cnt FROM insert_points WHERE section_id = %s', (section_id,))
+    ip_total = cursor.fetchone()['cnt']
     
     conn.close()
     return seg_with_audio == seg_total and ip_with_audio == ip_total
@@ -2079,7 +1925,7 @@ def get_user_total_read_words(user_id):
         SELECT COALESCE(SUM(sec.word_count), 0) as total_words
         FROM section_reading_status srs
         JOIN sections sec ON srs.section_id = sec.id
-        WHERE srs.user_id = ? AND srs.status = 'read'
+        WHERE srs.user_id = %s AND srs.status = 'read'
     ''', (user_id,))
     row = cursor.fetchone()
     conn.close()
@@ -2092,7 +1938,7 @@ def calculate_military_rank(total_words):
     # 查找满足条件的最高等级（min_words <= total_words 的最大 rank_level）
     cursor.execute('''
         SELECT * FROM military_ranks
-        WHERE min_words <= ?
+        WHERE min_words <= %s
         ORDER BY rank_level DESC
         LIMIT 1
     ''', (total_words,))
@@ -2113,7 +1959,7 @@ def get_user_military_rank(user_id):
     cursor = conn.cursor()
     cursor.execute('''
         SELECT * FROM military_ranks
-        WHERE rank_level = ?
+        WHERE rank_level = %s
     ''', (current_rank['rank_level'] + 1,))
     next_rank = cursor.fetchone()
     conn.close()
