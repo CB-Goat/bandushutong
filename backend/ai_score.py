@@ -345,17 +345,16 @@ def call_ai_api(original_text, thought_content, section_content=None,
     else:
         print(f"[AI评分] ARK_API_KEY 未配置，跳过豆包")
     
-    # 3. 降级为规则评分
-    print(f"[AI评分] 所有AI API都失败，使用规则评分")
-    score, reason = evaluate_thought(original_text, thought_content, section_content)
-    return score, f"[规则评分] {reason}"
+    # 3. 所有AI API都失败，返回 None（等待修复机制处理）
+    print(f"[AI评分] 所有AI API都失败，返回无结果")
+    return None, None
 
 
 def rate_thought(original_text, thought_content, section_content=None,
                  book_name='', author='', chapter_title='', section_title=''):
     """
     对思考进行评分（主入口）
-    尝试使用 AI API，失败则使用规则评分
+    尝试使用 AI API，失败则返回 None
     """
     try:
         score, reason = call_ai_api(
@@ -365,5 +364,5 @@ def rate_thought(original_text, thought_content, section_content=None,
         )
         return score, reason
     except Exception as e:
-        print(f"[AI评分] 评分失败，使用规则评分: {e}")
-        return evaluate_thought(original_text, thought_content, section_content)
+        print(f"[AI评分] 评分异常: {e}")
+        return None, None

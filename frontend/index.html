@@ -5863,14 +5863,19 @@
                     cancelBtn.disabled = false;
                     
                     if (data.thought_id) {
-                        // 显示 AI 评分（星级）
-                        var aiScore = data.ai_score || 0;
-                        var stars = '';
-                        for (var i = 0; i < 3; i++) {
-                            stars += (i < aiScore) ? '⭐' : '☆';
-                        }
+                        var aiScore = data.ai_score;
                         var scoreReason = data.score_reason || '';
-                        alert('思考已保存\n\nAI评分：' + stars + '（' + aiScore + '星）\n' + scoreReason);
+                        if (aiScore !== null && aiScore !== undefined) {
+                            // 有AI评分结果
+                            var stars = '';
+                            for (var i = 0; i < 3; i++) {
+                                stars += (i < aiScore) ? '⭐' : '☆';
+                            }
+                            alert('思考已保存\n\nAI评分：' + stars + '（' + aiScore + '星）\n理由：' + scoreReason);
+                        } else {
+                            // 无AI评分结果
+                            alert('思考已保存\n\nAI评分：无\n理由：未获得AI结果，请过后查看');
+                        }
                         // 保存退出编辑模式前的播放状态
                         var shouldResume = self._wasPlayingBeforeEdit;
                         thoughtEditor.exitEditMode();
