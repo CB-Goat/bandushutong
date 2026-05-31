@@ -2125,7 +2125,8 @@ def create_thought(section_id):
         end_char=data.get('end_char', 0),
         original_text=original_text,
         content=thought_content,
-        ai_score=ai_score
+        ai_score=ai_score,
+        score_reason=score_reason
     )
     return jsonify({
         'thought_id': thought_id,
@@ -2133,6 +2134,68 @@ def create_thought(section_id):
         'score_reason': score_reason,
         'message': '思考已保存'
     })
+
+@api_bp.route('/sections/<int:section_id>/thoughts/repair', methods=['POST'])
+def repair_unscored_thoughts(section_id):
+    """修复未评分的思考（异步，用户进入节时调用）"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'error': '未登录'}), 401
+    
+    # 获取未评分的思考
+    from backend.database import get_unscored_thoughts_by_section, update_thought_ai_score, get_thought_by_id
+    from backend.ai_score import rate_thought
+    
+    unscored = get_unscored_thoughts_by_section(section_id, int(user_id))
+    if not unscored:
+        return jsonify({'repaired': 0, 'message': '无待修复思考'})
+    
+    # 获取上下文信息
+    section = get_section(section_id)
+    book_name = ''
+    author = ''
+    chapter_title = ''
+    section_title = ''
+    section_content = ''
+    if section:
+        section_content = section.get('content', '')
+        section_title = section.get('title', '')
+        book_id = section.get('book_id')
+        if book_id:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('SELECT title, author FROM books WHERE id = ?', (book_id,))
+            book_row = cursor.fetchone()
+            conn.close()
+            if book_row:
+                book_name = book_row['title'] or ''
+                author = book_row['author'] or ''
+        if section.get('chapter_id'):
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('SELECT title FROM chapters WHERE id = ?', (section['chapter_id'],))
+            ch_row = cursor.fetchone()
+            conn.close()
+            if ch_row:
+                chapter_title = ch_row['title'] or ''
+    
+    # 异步修复（这里用同步，因为请求数量通常很少）
+    repaired_count = 0
+    for thought in unscored:
+        try:
+            ai_score, score_reason = rate_thought(
+                thought['original_text'], thought['content'], section_content,
+                book_name=book_name, author=author,
+                chapter_title=chapter_title, section_title=section_title
+            )
+            update_thought_ai_score(thought['id'], ai_score, score_reason)
+            repaired_count += 1
+            print(f"[修复思考] thought_id={thought['id']}, score={ai_score}, reason={score_reason}")
+        except Exception as e:
+            print(f"[修复思考] thought_id={thought['id']} 失败: {e}")
+    
+    return jsonify({'repaired': repaired_count, 'message': f'已修复{repaired_count}条思考'})
 
 @api_bp.route('/thoughts/<int:thought_id>', methods=['DELETE'])
 def remove_thought(thought_id):

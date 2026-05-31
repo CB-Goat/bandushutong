@@ -243,6 +243,7 @@ def init_db():
             original_text TEXT NOT NULL,
             content TEXT NOT NULL,
             ai_score INTEGER DEFAULT NULL,
+            score_reason TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (section_id) REFERENCES sections(id)
@@ -339,6 +340,10 @@ def init_db():
         pass
     try:
         cursor.execute('ALTER TABLE thoughts ADD COLUMN ai_score INTEGER DEFAULT NULL')
+    except:
+        pass
+    try:
+        cursor.execute('ALTER TABLE thoughts ADD COLUMN score_reason TEXT DEFAULT NULL')
     except:
         pass
 
@@ -840,24 +845,27 @@ def reject_subscription_request(request_id):
 
 # ===== 思考（用户个人点评）=====
 
-def add_thought(user_id, section_id, start_char, end_char, original_text, content, ai_score=None):
+def add_thought(user_id, section_id, start_char, end_char, original_text, content, ai_score=None, score_reason=None):
     """添加思考"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        'INSERT INTO thoughts (user_id, section_id, start_char, end_char, original_text, content, ai_score) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        (user_id, section_id, start_char, end_char, original_text, content, ai_score)
+        'INSERT INTO thoughts (user_id, section_id, start_char, end_char, original_text, content, ai_score, score_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        (user_id, section_id, start_char, end_char, original_text, content, ai_score, score_reason)
     )
     thought_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return thought_id
 
-def update_thought_ai_score(thought_id, ai_score):
+def update_thought_ai_score(thought_id, ai_score, score_reason=None):
     """更新思考的AI评分"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE thoughts SET ai_score = ? WHERE id = ?', (ai_score, thought_id))
+    if score_reason:
+        cursor.execute('UPDATE thoughts SET ai_score = ?, score_reason = ? WHERE id = ?', (ai_score, score_reason, thought_id))
+    else:
+        cursor.execute('UPDATE thoughts SET ai_score = ? WHERE id = ?', (ai_score, thought_id))
     conn.commit()
     conn.close()
 
@@ -900,6 +908,24 @@ def update_thought(thought_id, user_id, content):
     cursor.execute('UPDATE thoughts SET content = ? WHERE id = ? AND user_id = ?', (content, thought_id, user_id))
     conn.commit()
     conn.close()
+
+def get_unscored_thoughts_by_section(section_id, user_id):
+    """获取某节未评分的思考（ai_score为NULL）"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM thoughts WHERE section_id = ? AND user_id = ? AND ai_score IS NULL', (section_id, user_id))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_thought_by_id(thought_id):
+    """根据ID获取思考"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM thoughts WHERE id = ?', (thought_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 # ==================== 书籍相关操作 ====================
 
