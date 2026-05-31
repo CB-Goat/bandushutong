@@ -5356,16 +5356,6 @@
                 }
                 document.getElementById('progressFill').style.width = '100%';
                 
-                // 恢复名言赏析内容
-                var analysisContent = document.getElementById('analysisContent');
-                if (analysisContent && state._quoteHtml) {
-                    analysisContent.innerHTML = state._quoteHtml;
-                }
-                // 切换回名言赏析tab
-                if (typeof analysisManager !== 'undefined') {
-                    analysisManager.showTab('famous');
-                }
-                
                 if (section && state.currentBook && state.currentUser) {
                     // 播放完毕，保存书签到本节内容末尾位置
                     if (typeof reader !== 'undefined' && reader._totalChars > 0) {
