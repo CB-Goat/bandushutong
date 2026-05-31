@@ -1159,13 +1159,11 @@
     <div id="profileCard" style="display:none;position:absolute;top:50px;right:10px;background:#2d2d1e;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 0;min-width:160px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
         <!-- 军衔信息 -->
         <div id="profileCardRank" style="padding:8px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:8px;">
-            <div style="display:flex;align-items:center;gap:8px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="color:#f0c040;font-size:13px;">军衔：</span>
                 <span id="profileCardRankIcon" style="font-size:20px;">🎖️</span>
-                <div>
-                    <div id="profileCardRankName" style="color:#e8e0c8;font-size:14px;font-weight:bold;">-</div>
-                    <div id="profileCardRankTitle" style="color:#999;font-size:11px;">-</div>
-                </div>
             </div>
+            <div id="profileCardRankName" style="color:#e8e0c8;font-size:14px;font-weight:bold;margin-top:2px;">-</div>
             <div style="margin-top:6px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
                 <div id="profileCardRankProgress" style="height:100%;background:linear-gradient(90deg,#8b4513,#cd853f);width:0%;transition:width 0.3s;"></div>
             </div>
@@ -7114,7 +7112,6 @@
             }
             document.getElementById('profileCardRank').style.display = 'block';
             document.getElementById('profileCardRankName').textContent = rank.current_rank.rank_name;
-            document.getElementById('profileCardRankTitle').textContent = rank.current_rank.title || '';
             // 进度条
             var progress = rank.progress || 0;
             document.getElementById('profileCardRankProgress').style.width = progress + '%';
