@@ -4655,10 +4655,16 @@
                 }
                 
                 // 播放完成后，从当前标签开始恢复轮巡（不跳回名言赏析）
-                // 使用 startRotationFromCurrent 而不是 startRotationFrom，确保当前标签显示10秒后才切换
                 if (typeof analysisManager !== 'undefined') {
                     analysisManager.stopRotation();
-                    analysisManager.startRotationFromCurrent();
+                    // 先显示当前标签内容，确保界面和 currentTab 一致
+                    analysisManager.showTab(analysisManager.currentTab);
+                    // 延迟10秒后再启动轮巡，让用户有时间看到当前标签内容
+                    setTimeout(function() {
+                        if (typeof analysisManager !== 'undefined') {
+                            analysisManager.startRotationFrom(analysisManager.currentTab);
+                        }
+                    }, 10000);
                 }
                 
                 // 停止并清理点评音频
@@ -4952,19 +4958,21 @@
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
                     }
-                    // 隐藏点评显示区域并恢复名言赏析内容
+                    // 隐藏点评显示区域
                     var ad = document.getElementById('annotationDisplay');
                     if (ad) ad.classList.remove('active');
-                    var ac = document.getElementById('analysisContent');
-                    if (ac && state._quoteHtml) {
-                        ac.innerHTML = state._quoteHtml;
-                    }
-                    // 更新 summary tab 的状态为已播放
+                    // 更新 summary tab 的内容和状态为已播放（保持显示小结内容，不恢复名言赏析）
                     if (typeof analysisManager !== 'undefined') {
                         var tab = analysisManager.tabs.find(function(t) { return t.id === 'summary'; });
                         if (tab) {
                             tab._played = true;
                             tab._commentText = commentText;
+                            tab.content = commentText;  // 更新内容为完整文本
+                            // 更新 analysisContent 显示小结完整内容
+                            var ac = document.getElementById('analysisContent');
+                            if (ac) {
+                                ac.innerHTML = '<div class="comment-text">' + commentText + '</div>';
+                            }
                         }
                     }
                     // 进入下一步
