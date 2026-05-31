@@ -140,23 +140,37 @@ def _call_glm_flash(original_text, thought_content, api_key,
 
     print(f"[AI评分] 调用GLM API: model=glm-4.7-flash, prompt长度={len(prompt)}")
     
-    response = requests.post(
-        'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-        headers={
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {api_key}'
-        },
-        json={
-            'model': 'glm-4.7-flash',
-            'messages': [
-                {'role': 'user', 'content': prompt}
-            ],
-            'temperature': 0.3
-        },
-        timeout=30
-    )
+    # 添加重试机制（针对429限流）
+    max_retries = 3
+    retry_delay = 1  # 秒
     
-    print(f"[AI评分] GLM API 响应状态: {response.status_code}")
+    for attempt in range(max_retries):
+        response = requests.post(
+            'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {api_key}'
+            },
+            json={
+                'model': 'glm-4.7-flash',
+                'messages': [
+                    {'role': 'user', 'content': prompt}
+                ],
+                'temperature': 0.3
+            },
+            timeout=30
+        )
+        
+        print(f"[AI评分] GLM API 响应状态: {response.status_code} (尝试 {attempt + 1}/{max_retries})")
+        
+        if response.status_code != 429:
+            break  # 不是限流错误，跳出重试
+        
+        if attempt < max_retries - 1:
+            print(f"[AI评分] 遇到限流(429)，{retry_delay}秒后重试...")
+            import time
+            time.sleep(retry_delay)
+            retry_delay *= 2  # 指数退避
     
     if response.status_code == 200:
         result = response.json()
