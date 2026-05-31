@@ -1159,11 +1159,11 @@
     <div id="profileCard" style="display:none;position:absolute;top:50px;right:10px;background:#2d2d1e;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 0;min-width:160px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
         <!-- 军衔信息 -->
         <div id="profileCardRank" style="padding:8px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:8px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="color:#f0c040;font-size:13px;">军衔：</span>
-                <span id="profileCardRankIcon" style="font-size:20px;">🎖️</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <span style="color:#f0c040;font-size:13px;white-space:nowrap;">军衔：</span>
+                <span id="profileCardRankName" style="color:#e8e0c8;font-size:14px;font-weight:bold;">-</span>
+                <img id="profileCardRankIcon" src="ranks/rank_1.png" style="height:20px;margin-left:auto;" alt="肩章">
             </div>
-            <div id="profileCardRankName" style="color:#e8e0c8;font-size:14px;font-weight:bold;margin-top:2px;">-</div>
             <div style="margin-top:6px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
                 <div id="profileCardRankProgress" style="height:100%;background:linear-gradient(90deg,#8b4513,#cd853f);width:0%;transition:width 0.3s;"></div>
             </div>
@@ -7115,17 +7115,9 @@
             // 进度条
             var progress = rank.progress || 0;
             document.getElementById('profileCardRankProgress').style.width = progress + '%';
-            // 肩章图标 - 使用emoji或图片
-            var iconMap = {
-                'private': '🔰', 'private_first': '⭐',
-                'sergeant_1': '🎖️', 'sergeant_2': '🎖️', 'sergeant_3': '🎖️',
-                'sergeant_4': '🎖️', 'sergeant_5': '🎖️', 'sergeant_6': '🎖️', 'sergeant_7': '🎖️',
-                '2lt': '⚔️', '1lt': '⚔️', 'cpt': '⚔️',
-                'maj': '🏅', 'ltc': '🏅', 'col': '🏅', 'sen_col': '🏅',
-                'bg': '👑', 'mg': '👑', 'lg': '👑', 'marshal': '👑'
-            };
-            var icon = iconMap[rank.current_rank.icon] || '🎖️';
-            document.getElementById('profileCardRankIcon').textContent = icon;
+            // 肩章图标 - 使用肩章图片
+            var level = iconToLevel[rank.current_rank.icon] || 1;
+            document.getElementById('profileCardRankIcon').src = 'ranks/rank_' + level + '.png';
         }
 
         function startDeviceCheck() {
