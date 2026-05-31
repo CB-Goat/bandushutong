@@ -1101,7 +1101,9 @@ def wechat_login():
     
     # 移除敏感信息
     user.pop('password', None)
-    return jsonify({'user': user})
+    # 获取用户军衔信息
+    military_rank = get_user_military_rank(user['id'])
+    return jsonify({'user': user, 'military_rank': military_rank})
 
 @api_bp.route('/auth/login', methods=['POST'])
 def login():
@@ -1149,7 +1151,9 @@ def login():
     
     user = get_user(user['id'])
     user.pop('password', None)
-    return jsonify({'user': user})
+    # 获取用户军衔信息
+    military_rank = get_user_military_rank(user['id'])
+    return jsonify({'user': user, 'military_rank': military_rank})
 
 @api_bp.route('/auth/register', methods=['POST'])
 def register():
@@ -1173,7 +1177,9 @@ def register():
     user_id = create_user(phone=phone, password=password, device_id=device_id, device_info=device_info, role='user')
     user = get_user(user_id)
     user.pop('password', None)
-    return jsonify({'user': user, 'message': '注册成功'})
+    # 获取用户军衔信息（新用户为初始等级）
+    military_rank = get_user_military_rank(user_id)
+    return jsonify({'user': user, 'military_rank': military_rank, 'message': '注册成功'})
 
 @api_bp.route('/auth/bind-phone', methods=['POST'])
 def bind_phone():
@@ -1194,7 +1200,9 @@ def bind_phone():
     update_user_phone(user_id, phone, password if password else None)
     user = get_user(user_id)
     user.pop('password', None)
-    return jsonify({'user': user, 'message': '绑定成功'})
+    # 获取用户军衔信息
+    military_rank = get_user_military_rank(user_id)
+    return jsonify({'user': user, 'military_rank': military_rank, 'message': '绑定成功'})
 
 @api_bp.route('/auth/check', methods=['GET'])
 def check_auth():
@@ -1206,7 +1214,9 @@ def check_auth():
     if not user:
         return jsonify({'error': '用户不存在'}), 401
     user.pop('password', None)
-    return jsonify({'user': user})
+    # 获取用户军衔信息
+    military_rank = get_user_military_rank(int(user_id))
+    return jsonify({'user': user, 'military_rank': military_rank})
 
 @api_bp.route('/users/<int:user_id>/profile', methods=['PUT'])
 def update_profile(user_id):

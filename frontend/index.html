@@ -1156,7 +1156,20 @@
         </div>
     </nav>
     <!-- 个人中心卡片 -->
-    <div id="profileCard" style="display:none;position:absolute;top:50px;right:10px;background:#2d2d1e;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 0;min-width:140px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
+    <div id="profileCard" style="display:none;position:absolute;top:50px;right:10px;background:#2d2d1e;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 0;min-width:160px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
+        <!-- 军衔信息 -->
+        <div id="profileCardRank" style="padding:8px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span id="profileCardRankIcon" style="font-size:20px;">🎖️</span>
+                <div>
+                    <div id="profileCardRankName" style="color:#e8e0c8;font-size:14px;font-weight:bold;">-</div>
+                    <div id="profileCardRankTitle" style="color:#999;font-size:11px;">-</div>
+                </div>
+            </div>
+            <div style="margin-top:6px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
+                <div id="profileCardRankProgress" style="height:100%;background:linear-gradient(90deg,#8b4513,#cd853f);width:0%;transition:width 0.3s;"></div>
+            </div>
+        </div>
         <div id="profileCardAdmin" style="display:none;padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="showPage('adminPage');toggleProfileCard();">⚙️ 管理</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="showUserPage();toggleProfileCard();">👤 用户</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="logout();toggleProfileCard();">🚪 退出</div>
@@ -6938,7 +6951,7 @@
                     // 清除换机状态
                     transferCodeState = {userId: null, phone: null, password: null};
                     hideTransferCodeInput();
-                    onLoginSuccess(data.user);
+                    onLoginSuccess(data.user, data.military_rank);
                 } else if (data.need_transfer_code) {
                     // 需要换机校验码
                     transferCodeState.userId = data.user_id;
@@ -7019,7 +7032,7 @@
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.user) {
                     hideRegister();
-                    onLoginSuccess(data.user);
+                    onLoginSuccess(data.user, data.military_rank);
                 } else {
                     errEl.textContent = data.error || '注册失败'; errEl.style.display = 'block';
                 }
@@ -7038,7 +7051,7 @@
                         state.currentUser = data.user;
                         document.getElementById('bindPhoneModal').style.display = 'flex';
                     } else {
-                        onLoginSuccess(data.user);
+                        onLoginSuccess(data.user, data.military_rank);
                     }
                 }
             });
@@ -7065,7 +7078,7 @@
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.user) {
                     document.getElementById('bindPhoneModal').style.display = 'none';
-                    onLoginSuccess(data.user);
+                    onLoginSuccess(data.user, data.military_rank);
                 } else {
                     errEl.textContent = data.error || '绑定失败'; errEl.style.display = 'block';
                 }
@@ -7075,8 +7088,9 @@
         // 设备检测定时器
         var deviceCheckInterval = null;
 
-        function onLoginSuccess(user) {
+        function onLoginSuccess(user, militaryRank) {
             state.currentUser = user;
+            state.militaryRank = militaryRank || null;
             localStorage.setItem('userId', user.id);
             // 存储当前设备ID到localStorage用于后续比对
             localStorage.setItem('boundDeviceId', getDeviceId());
@@ -7084,10 +7098,37 @@
             document.getElementById('profileBtn').style.display = '';
             document.getElementById('profileCardAdmin').style.display = (user.role === 'admin') ? 'block' : 'none';
             document.getElementById('loginNavBtn').style.display = 'none';
+            // 更新个人中心卡片军衔信息
+            updateProfileCardRank(militaryRank);
             showPage('homePage');
             loadBooks();
             // 启动设备检测
             startDeviceCheck();
+        }
+
+        // 更新个人中心卡片军衔显示
+        function updateProfileCardRank(rank) {
+            if (!rank || !rank.current_rank) {
+                document.getElementById('profileCardRank').style.display = 'none';
+                return;
+            }
+            document.getElementById('profileCardRank').style.display = 'block';
+            document.getElementById('profileCardRankName').textContent = rank.current_rank.rank_name;
+            document.getElementById('profileCardRankTitle').textContent = rank.current_rank.title || '';
+            // 进度条
+            var progress = rank.progress || 0;
+            document.getElementById('profileCardRankProgress').style.width = progress + '%';
+            // 肩章图标 - 使用emoji或图片
+            var iconMap = {
+                'private': '🔰', 'private_first': '⭐',
+                'sergeant_1': '🎖️', 'sergeant_2': '🎖️', 'sergeant_3': '🎖️',
+                'sergeant_4': '🎖️', 'sergeant_5': '🎖️', 'sergeant_6': '🎖️', 'sergeant_7': '🎖️',
+                '2lt': '⚔️', '1lt': '⚔️', 'cpt': '⚔️',
+                'maj': '🏅', 'ltc': '🏅', 'col': '🏅', 'sen_col': '🏅',
+                'bg': '👑', 'mg': '👑', 'lg': '👑', 'marshal': '👑'
+            };
+            var icon = iconMap[rank.current_rank.icon] || '🎖️';
+            document.getElementById('profileCardRankIcon').textContent = icon;
         }
 
         function startDeviceCheck() {
@@ -7154,7 +7195,7 @@
             if (userId) {
                 fetch(API_BASE + '/auth/check?user_id=' + userId).then(function(r) { return r.json(); }).then(function(data) {
                     if (data.user) {
-                        onLoginSuccess(data.user);
+                        onLoginSuccess(data.user, data.military_rank);
                     } else {
                         showPage('publicPage');
                         loadPublicBooks();
