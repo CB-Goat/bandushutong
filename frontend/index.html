@@ -4204,6 +4204,14 @@
                 // 暂停主线音频，避免和点评音频冲突
                 this.audio.pause();
                 
+                // 禁用+思考按钮，置灰
+                var thoughtBtn = document.getElementById('editAnnotationBtn');
+                if (thoughtBtn) {
+                    thoughtBtn.disabled = true;
+                    thoughtBtn.style.opacity = '0.4';
+                    thoughtBtn.style.cursor = 'not-allowed';
+                }
+                
                 // 保存当前 insert_point 段
                 this._currentInsertPoint = seg;
                 this._insertPointStep = 1;
@@ -4648,6 +4656,15 @@
                 
                 this._insertPointStep = 0;
                 this._currentInsertPoint = null;
+                
+                // 恢复主线状态，允许+思考按钮
+                state.isPlayingAnnotation = false;
+                var thoughtBtn = document.getElementById('editAnnotationBtn');
+                if (thoughtBtn) {
+                    thoughtBtn.disabled = false;
+                    thoughtBtn.style.opacity = '1';
+                    thoughtBtn.style.cursor = 'pointer';
+                }
                 
                 // 调用全局结束处理
                 this._onSegmentEnd();
