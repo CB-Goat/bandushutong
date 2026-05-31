@@ -186,8 +186,14 @@ def call_ai_api(original_text, thought_content, section_content=None,
     """
     glm_api_key = os.environ.get('GLM_API_KEY', '')
     
+    # 调试日志：检查 API Key 是否配置
+    print(f"[AI评分] GLM_API_KEY 配置状态: {'已配置' if glm_api_key else '未配置'}")
+    if glm_api_key:
+        print(f"[AI评分] GLM_API_KEY 前8位: {glm_api_key[:8]}...")
+    
     if glm_api_key:
         try:
+            print(f"[AI评分] 开始调用 GLM-4.7-Flash API...")
             score, reason = _call_glm_flash(
                 original_text, thought_content, glm_api_key,
                 book_name=book_name, author=author,
@@ -197,9 +203,14 @@ def call_ai_api(original_text, thought_content, section_content=None,
             print(f"[AI评分] GLM-4.7-Flash 评分成功: {score}分 - {reason}")
             return score, f"[AI评分] {reason}"
         except Exception as e:
-            print(f"[AI评分] GLM API 调用失败: {e}，降级为规则评分")
+            print(f"[AI评分] GLM API 调用失败: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print(f"[AI评分] GLM_API_KEY 未配置，跳过 API 调用")
     
     # 降级为规则评分
+    print(f"[AI评分] 使用规则评分")
     score, reason = evaluate_thought(original_text, thought_content, section_content)
     return score, f"[规则评分] {reason}"
 
