@@ -3924,6 +3924,35 @@
                     thoughtEditor.updateAllLanternsState();
                 }
             },
+            
+            // 恢复播放（不重置位置，用于思考完成后恢复）
+            resume: function() {
+                if (this.isPlaying) return;  // 已经在播放
+                var self = this;
+                // 根据当前播放队列位置恢复
+                if (this._currentSegment && this._currentSegment.type === 'text_segment' && this.audio) {
+                    // 原文段：直接恢复 audio 播放
+                    this.audio.play().then(function() {
+                        self.isPlaying = true;
+                        state.isPlaying = true;
+                        document.getElementById('playBtn').textContent = '\u23F8';
+                    }).catch(function(e) {
+                        console.log('resume 播放失败:', e);
+                    });
+                } else if (this._annotationAudio && this._annotationAudio.src) {
+                    // 点评/小结段：恢复 annotationAudio 播放
+                    this._annotationAudio.play().then(function() {
+                        self.isPlaying = true;
+                        state.isPlaying = true;
+                        document.getElementById('playBtn').textContent = '\u23F8';
+                    }).catch(function(e) {
+                        console.log('resume 点评播放失败:', e);
+                    });
+                } else {
+                    // 没有当前段，从头播放
+                    this.play();
+                }
+            },
 
             stop: function() {
                 this.audio.pause();
@@ -5789,9 +5818,9 @@
                         thoughtEditor.exitEditMode();
                         thoughtEditor._closeModal();
                         thoughtEditor.loadThoughts();
-                        // 如果之前在播放，恢复播放
+                        // 如果之前在播放，恢复播放（不重置位置）
                         if (shouldResume) {
-                            player.play();
+                            player.resume();
                         }
                     } else {
                         alert(data.error || '保存失败');
