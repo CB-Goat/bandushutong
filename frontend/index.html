@@ -1838,12 +1838,7 @@
                     // 恢复导航栏标题为书名+作者
                     if (state.currentBook) {
                         var book = state.currentBook;
-                        document.getElementById('navbarIcon').style.display = 'none';
-                        var iconHtml = book.icon_path 
-                            ? '<img src="' + book.icon_path + '" style="width:20px;height:26px;border-radius:3px;object-fit:fill;margin-right:0.5em;vertical-align:middle;">'
-                            : '';
-                        document.getElementById('navbarTitle').innerHTML = iconHtml + '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
-                            (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
+                        document.getElementById('navbarTitle').textContent = (book.title || '') + (book.author ? ' - ' + book.author : '');
                     }
                     showPage('catalogPage');
                     if (state.currentBook) {
@@ -1878,12 +1873,8 @@
 
         // ===== 目录页 =====
         function openBookCatalog(bookId, title, iconPath) {
-            // 先同步设置标题和图标，避免闪烁
-            document.getElementById('navbarIcon').style.display = 'none';
-            var iconHtml = iconPath 
-                ? '<img src="' + iconPath + '" style="width:20px;height:26px;border-radius:3px;object-fit:fill;margin-right:0.5em;vertical-align:middle;">'
-                : '';
-            document.getElementById('navbarTitle').innerHTML = iconHtml + title;
+            // 先同步设置标题，左侧保持项目logo
+            document.getElementById('navbarTitle').textContent = title;
             showPage('catalogPage');
             showBookCatalog(bookId);
         }
@@ -1902,13 +1893,8 @@
                 state.currentProgressV2 = bookData.progress_v2 || null;
                 console.log('showCatalog: bookData.progress =', JSON.stringify(bookData.progress));
 
-                // 设置导航栏标题和图标
-                document.getElementById('navbarIcon').style.display = 'none';
-                var iconHtml = book.icon_path 
-                    ? '<img src="' + book.icon_path + '" style="width:20px;height:26px;border-radius:3px;object-fit:fill;margin-right:0.5em;vertical-align:middle;">'
-                    : '';
-                document.getElementById('navbarTitle').innerHTML = iconHtml + '<span style="font-size:16px;">' + (book.title || '') + '</span>' +
-                    (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
+                // 设置导航栏标题
+                document.getElementById('navbarTitle').textContent = (book.title || '') + (book.author ? ' - ' + book.author : '');
 
                 // 获取阅读状态和统计
                 var stResp = await fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + state.currentUser.id);
