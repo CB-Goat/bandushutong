@@ -286,7 +286,7 @@ def init_db():
             UNIQUE KEY unique_section_segment (section_id, segment_number)
         )
     ''')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_text_segments_section ON text_segments(section_id)')
+    cursor.execute('CREATE INDEX idx_text_segments_section ON text_segments(section_id)')
 
     # 插入点表：点评/小结绑定到对应段
     cursor.execute('''
@@ -313,8 +313,8 @@ def init_db():
             FOREIGN KEY (annotation_id) REFERENCES annotations(id) ON DELETE SET NULL
         )
     ''')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_insert_points_section ON insert_points(section_id)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_insert_points_segment ON insert_points(segment_id)')
+    cursor.execute('CREATE INDEX idx_insert_points_section ON insert_points(section_id)')
+    cursor.execute('CREATE INDEX idx_insert_points_segment ON insert_points(segment_id)')
 
     # 军衔等级配置表
     cursor.execute('''
