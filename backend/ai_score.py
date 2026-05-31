@@ -138,6 +138,8 @@ def _call_glm_flash(original_text, thought_content, api_key,
 请严格按以下JSON格式返回（不要包含其他文字）：
 {{"score": 0-3的整数, "reason": "简短的评审意见（30字以内）"}}"""
 
+    print(f"[AI评分] 调用GLM API: model=glm-4.7-flash, prompt长度={len(prompt)}")
+    
     response = requests.post(
         'https://open.bigmodel.cn/api/paas/v4/chat/completions',
         headers={
@@ -154,9 +156,12 @@ def _call_glm_flash(original_text, thought_content, api_key,
         timeout=30
     )
     
+    print(f"[AI评分] GLM API 响应状态: {response.status_code}")
+    
     if response.status_code == 200:
         result = response.json()
         content = result['choices'][0]['message']['content'].strip()
+        print(f"[AI评分] GLM API 返回内容: {content[:200]}...")
         
         # 尝试解析 JSON
         try:
@@ -166,15 +171,20 @@ def _call_glm_flash(original_text, thought_content, api_key,
                 score = int(data.get('score', 1))
                 reason = data.get('reason', 'AI 评分')
                 score = max(0, min(3, score))
+                print(f"[AI评分] JSON解析成功: score={score}, reason={reason}")
                 return score, reason
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"[AI评分] JSON解析失败: {e}")
             pass
         
         # 降级：提取数字
         match = re.search(r'[0123]', content)
         if match:
             score = int(match.group())
+            print(f"[AI评分] 提取数字成功: score={score}")
             return score, "AI 评分"
+    else:
+        print(f"[AI评分] GLM API 错误响应: {response.text[:200]}")
     
     raise Exception(f"GLM API 返回错误: status={response.status_code}")
 
