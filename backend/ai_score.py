@@ -203,18 +203,115 @@ def _call_glm_flash(original_text, thought_content, api_key,
     raise Exception(f"GLM API 返回错误: status={response.status_code}")
 
 
+def _call_doubao(original_text, thought_content, api_key,
+                 book_name='', author='', chapter_title='', section_title='', section_content=''):
+    """
+    调用豆包 Doubao-Seed-2.0-mini API 进行评分（备用）
+    """
+    from openai import OpenAI
+    import json
+    
+    # 构建上下文信息
+    context_info = f"书名：《{book_name}》"
+    if author:
+        context_info += f"，作者：{author}"
+    if chapter_title:
+        context_info += f"，所属章节：{chapter_title}"
+    if section_title:
+        context_info += f"，当前节：{section_title}"
+    
+    # 截取节内容（避免过长）
+    section_excerpt = ''
+    if section_content:
+        if len(section_content) > 1500:
+            section_excerpt = section_content[:1500] + '...'
+        else:
+            section_excerpt = section_content
+    
+    prompt = f"""你是一位资深的文学评论家和阅读指导专家。请对一位读者的阅读思考进行专业评审。
+
+## 背景信息
+{context_info}
+
+## 当前节内容
+{section_excerpt}
+
+## 读者引用的原文
+"{original_text}"
+
+## 读者的思考
+"{thought_content}"
+
+## 评审要求
+请结合以下维度进行评审：
+1. **准确性**：思考是否正确理解了原文的含义
+2. **贴合度**：思考是否与书籍的主题思想、作者的创作背景相贴合
+3. **思考深度**：思考是否有独到见解，是否展现了深层次的理解和感悟
+
+## 评分标准
+- 0分：不正确，和文章内容不符
+- 1分：基本正确，符合文章内容
+- 2分：正确且有一定深度
+- 3分：正确且很有深度，对文章理解深刻
+
+请严格按以下JSON格式返回（不要包含其他文字）：
+{{"score": 0-3的整数, "reason": "简短的评审意见（30字以内）"}}"""
+
+    print(f"[AI评分] 调用豆包 API: model=doubao-seed-2-0-mini-260428")
+    
+    client = OpenAI(
+        base_url="https://ark.cn-beijing.volces.com/api/v3",
+        api_key=api_key,
+    )
+    
+    response = client.chat.completions.create(
+        model="doubao-seed-2-0-mini-260428",
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.3,
+        timeout=30
+    )
+    
+    content = response.choices[0].message.content.strip()
+    print(f"[AI评分] 豆包 API 返回内容: {content[:200]}...")
+    
+    # 尝试解析 JSON
+    try:
+        json_match = __import__('re').search(r'\{[^}]+\}', content)
+        if json_match:
+            data = json.loads(json_match.group())
+            score = int(data.get('score', 1))
+            reason = data.get('reason', 'AI 评分')
+            score = max(0, min(3, score))
+            print(f"[AI评分] 豆包 JSON解析成功: score={score}, reason={reason}")
+            return score, reason
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"[AI评分] 豆包 JSON解析失败: {e}")
+    
+    # 降级：提取数字
+    match = __import__('re').search(r'[0123]', content)
+    if match:
+        score = int(match.group())
+        print(f"[AI评分] 豆包 提取数字成功: score={score}")
+        return score, "AI 评分"
+    
+    raise Exception("豆包 API 返回格式错误")
+
+
 def call_ai_api(original_text, thought_content, section_content=None,
                 book_name='', author='', chapter_title='', section_title=''):
     """
-    调用智谱 GLM-4.7-Flash API 进行评分（免费）
+    调用 AI API 进行评分（优先GLM，失败则尝试豆包，最后降级规则评分）
     """
     glm_api_key = os.environ.get('GLM_API_KEY', '')
+    doubao_api_key = os.environ.get('ARK_API_KEY', '')
     
-    # 调试日志：检查 API Key 是否配置
+    # 调试日志：检查 API Key 配置
     print(f"[AI评分] GLM_API_KEY 配置状态: {'已配置' if glm_api_key else '未配置'}")
-    if glm_api_key:
-        print(f"[AI评分] GLM_API_KEY 前8位: {glm_api_key[:8]}...")
+    print(f"[AI评分] ARK_API_KEY(豆包) 配置状态: {'已配置' if doubao_api_key else '未配置'}")
     
+    # 1. 尝试 GLM
     if glm_api_key:
         try:
             print(f"[AI评分] 开始调用 GLM-4.7-Flash API...")
@@ -228,13 +325,28 @@ def call_ai_api(original_text, thought_content, section_content=None,
             return score, f"[AI评分] {reason}"
         except Exception as e:
             print(f"[AI评分] GLM API 调用失败: {type(e).__name__}: {e}")
-            import traceback
-            traceback.print_exc()
     else:
-        print(f"[AI评分] GLM_API_KEY 未配置，跳过 API 调用")
+        print(f"[AI评分] GLM_API_KEY 未配置，跳过 GLM")
     
-    # 降级为规则评分
-    print(f"[AI评分] 使用规则评分")
+    # 2. GLM 失败，尝试豆包
+    if doubao_api_key:
+        try:
+            print(f"[AI评分] GLM 失败，尝试调用豆包 API...")
+            score, reason = _call_doubao(
+                original_text, thought_content, doubao_api_key,
+                book_name=book_name, author=author,
+                chapter_title=chapter_title, section_title=section_title,
+                section_content=section_content or ''
+            )
+            print(f"[AI评分] 豆包评分成功: {score}分 - {reason}")
+            return score, f"[AI评分] {reason}"
+        except Exception as e:
+            print(f"[AI评分] 豆包 API 调用失败: {type(e).__name__}: {e}")
+    else:
+        print(f"[AI评分] ARK_API_KEY 未配置，跳过豆包")
+    
+    # 3. 降级为规则评分
+    print(f"[AI评分] 所有AI API都失败，使用规则评分")
     score, reason = evaluate_thought(original_text, thought_content, section_content)
     return score, f"[规则评分] {reason}"
 
