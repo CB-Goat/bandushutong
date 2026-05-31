@@ -4655,9 +4655,10 @@
                 }
                 
                 // 播放完成后，从当前标签开始恢复轮巡（不跳回名言赏析）
+                // 使用 startRotationFromCurrent 而不是 startRotationFrom，确保当前标签显示10秒后才切换
                 if (typeof analysisManager !== 'undefined') {
                     analysisManager.stopRotation();
-                    analysisManager.startRotationFrom(analysisManager.currentTab);
+                    analysisManager.startRotationFromCurrent();
                 }
                 
                 // 停止并清理点评音频
