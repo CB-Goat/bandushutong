@@ -4216,8 +4216,10 @@
                 var self = this;
                 console.log('进入_playInsertPoint: annotation_id=' + seg.annotation_id + ' quote_start=' + seg.quote_start_char + ' quote_end=' + seg.quote_end_char);
                 
-                // 暂停主线音频，避免和点评音频冲突
+                // 暂停并清理主线音频，避免和点评音频冲突
                 this.audio.pause();
+                this.audio.src = '';  // 清空音频源，防止 onended 重复触发
+                this.audio.removeAttribute('src');
                 
                 // 禁用+思考按钮，置灰
                 var thoughtBtn = document.getElementById('editAnnotationBtn');
