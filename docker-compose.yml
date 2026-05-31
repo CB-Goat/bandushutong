@@ -8,23 +8,11 @@ services:
     volumes:
       # 音频文件挂载
       - /www/dk_project/wwwroot/lit.handy.xin/audio_files:/app/audio_files
+      # 环境变量文件挂载
+      - /www/dk_project/wwwroot/lit.handy.xin/.env:/app/.env:ro
     environment:
       - FLASK_ENV=production
       - TZ=Asia/Shanghai
-      # MySQL 数据库配置
-      - DB_HOST=172.17.0.1
-      - DB_PORT=3306
-      - DB_USER=reader
-      - DB_PASSWORD=F6iMctiDMxG2eEzR
-      - DB_NAME=reading_companion
-      # 百度TTS
-      - BAIDU_TTS_API_KEY=5C1mYCjk9zlC3MSKEqSiBda5
-      - BAIDU_TTS_APP_ID=123256829
-      - BAIDU_TTS_SECRET_KEY=RahMny13dc3lncCiWD1wnL9FpFJh63Dv
-      # GLM API
-      - GLM_API_KEY=480c326a8b3341f99d2c88ec40b8f0c8.FlC8SmwPoUL5SVou
-      # 豆包API
-      - ARK_API_KEY=ark-c7519db2-0585-45f5-b710-8dc28c65a262-ac5df
     dns:
       - 223.5.5.5
       - 8.8.8.8
