@@ -103,14 +103,14 @@ def reimport_section_core(section_id, content, annotations, title='', summary=''
         # 1. 清除节的历史数据
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('DELETE FROM annotations WHERE section_id = ?', (section_id,))
-        cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
-        cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (section_id,))
-        cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = ?', (section_id,))
+        cursor.execute('DELETE FROM annotations WHERE section_id = %s', (section_id,))
+        cursor.execute('DELETE FROM text_segments WHERE section_id = %s', (section_id,))
+        cursor.execute('DELETE FROM insert_points WHERE section_id = %s', (section_id,))
+        cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = %s', (section_id,))
         if title:
-            cursor.execute('UPDATE sections SET title = ? WHERE id = ?', (title, section_id))
+            cursor.execute('UPDATE sections SET title = %s WHERE id = %s', (title, section_id))
         if summary:
-            cursor.execute('UPDATE sections SET summary = ? WHERE id = ?', (summary, section_id))
+            cursor.execute('UPDATE sections SET summary = %s WHERE id = %s', (summary, section_id))
         conn.commit()
         conn.close()
         print(f"[reimport_core] 节 {section_id}: 历史数据已清除")
@@ -122,7 +122,7 @@ def reimport_section_core(section_id, content, annotations, title='', summary=''
             for idx, anno in enumerate(annotations):
                 cursor.execute(
                     '''INSERT INTO annotations (section_id, annotation_index, start_char, end_char, original_text, comment)
-                       VALUES (?, ?, ?, ?, ?, ?)''',
+                       VALUES (%s, %s, %s, %s, %s, %s)''',
                     (section_id, idx + 1, anno.get('start_char', 0), anno.get('end_char', 0),
                      anno.get('original_text', ''), anno.get('comment', ''))
                 )
@@ -261,10 +261,10 @@ def list_public_books():
     # 附加总字数和点评总数
     for book in books:
         bid = book['id']
-        cursor.execute('SELECT COALESCE(SUM(word_count),0) as total_words FROM sections WHERE book_id=?', (bid,))
+        cursor.execute('SELECT COALESCE(SUM(word_count),0) as total_words FROM sections WHERE book_id=%s', (bid,))
         book['total_words'] = cursor.fetchone()['total_words']
-        cursor.execute('''SELECT COUNT(*) as cnt FROM annotations a 
-                          JOIN sections s ON a.section_id = s.id WHERE s.book_id=?''', (bid,))
+        cursor.execute('''SELECT COUNT(*) as cnt FROM annotations a
+                          JOIN sections s ON a.section_id = s.id WHERE s.book_id=%s''', (bid,))
         book['total_annotations'] = cursor.fetchone()['cnt']
     conn.close()
     return jsonify({'books': books})
@@ -283,10 +283,10 @@ def list_books():
         # 获取总字数和点评总数
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT COALESCE(SUM(word_count),0) as total_words FROM sections WHERE book_id=?', (bid,))
+        cursor.execute('SELECT COALESCE(SUM(word_count),0) as total_words FROM sections WHERE book_id=%s', (bid,))
         book['total_words'] = cursor.fetchone()['total_words']
-        cursor.execute('''SELECT COUNT(*) as cnt FROM annotations a 
-                          JOIN sections s ON a.section_id = s.id WHERE s.book_id=?''', (bid,))
+        cursor.execute('''SELECT COUNT(*) as cnt FROM annotations a
+                          JOIN sections s ON a.section_id = s.id WHERE s.book_id=%s''', (bid,))
         book['total_annotations'] = cursor.fetchone()['cnt']
         conn.close()
     return jsonify({'books': books})
@@ -360,16 +360,16 @@ def upload_book():
             from backend.database import get_db
             conn = get_db()
             cursor = conn.cursor()
-            cursor.execute('UPDATE books SET file_path = ? WHERE id = ?', (filepath, book_id))
+            cursor.execute('UPDATE books SET file_path = %s WHERE id = %s', (filepath, book_id))
             conn.commit()
             conn.close()
             # 删除旧的章节、节、点评，重新导入
             from backend.database import get_db as _get_db
             _conn = _get_db()
             _c = _conn.cursor()
-            _c.execute('DELETE FROM annotations WHERE section_id IN (SELECT id FROM sections WHERE book_id=?)', (book_id,))
-            _c.execute('DELETE FROM sections WHERE book_id=?', (book_id,))
-            _c.execute('DELETE FROM chapters WHERE book_id=?', (book_id,))
+            _c.execute('DELETE FROM annotations WHERE section_id IN (SELECT id FROM sections WHERE book_id=%s)', (book_id,))
+            _c.execute('DELETE FROM sections WHERE book_id=%s', (book_id,))
+            _c.execute('DELETE FROM chapters WHERE book_id=%s', (book_id,))
             _conn.commit()
             _conn.close()
         else:
@@ -389,7 +389,7 @@ def upload_book():
                 from backend.database import get_db
                 conn = get_db()
                 cursor = conn.cursor()
-                cursor.execute('UPDATE books SET file_path = ? WHERE id = ?', (filepath, book_id))
+                cursor.execute('UPDATE books SET file_path = %s WHERE id = %s', (filepath, book_id))
                 conn.commit()
                 conn.close()
                 old_chapters = get_chapters_by_book(book_id)
@@ -398,9 +398,9 @@ def upload_book():
                 from backend.database import get_db as _get_db
                 _conn = _get_db()
                 _c = _conn.cursor()
-                _c.execute('DELETE FROM annotations WHERE section_id IN (SELECT id FROM sections WHERE book_id=?)', (book_id,))
-                _c.execute('DELETE FROM sections WHERE book_id=?', (book_id,))
-                _c.execute('DELETE FROM chapters WHERE book_id=?', (book_id,))
+                _c.execute('DELETE FROM annotations WHERE section_id IN (SELECT id FROM sections WHERE book_id=%s)', (book_id,))
+                _c.execute('DELETE FROM sections WHERE book_id=%s', (book_id,))
+                _c.execute('DELETE FROM chapters WHERE book_id=%s', (book_id,))
                 _conn.commit()
                 _conn.close()
             else:
@@ -443,7 +443,7 @@ def upload_book():
                 from backend.database import get_db
                 conn = get_db()
                 cursor = conn.cursor()
-                cursor.execute('UPDATE sections SET summary = ? WHERE id = ?', (sec['summary'], sec_id))
+                cursor.execute('UPDATE sections SET summary = %s WHERE id = %s', (sec['summary'], sec_id))
                 conn.commit()
                 conn.close()
 
@@ -678,7 +678,7 @@ def get_book_tts_status(book_id):
     from backend.database import get_db
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT tts_status, tts_progress, total_sections FROM books WHERE id = ?', (book_id,))
+    cursor.execute('SELECT tts_status, tts_progress, total_sections FROM books WHERE id = %s', (book_id,))
     row = cursor.fetchone()
     conn.close()
     if row:
@@ -758,10 +758,10 @@ def fix_section_audio(section_id):
     conn = get_db()
     cursor = conn.cursor()
     # 缺失的 text_segments
-    cursor.execute("SELECT id, start_char, end_char FROM text_segments WHERE section_id = ? AND (audio_path IS NULL OR audio_path = '') ORDER BY start_char", (section_id,))
+    cursor.execute("SELECT id, start_char, end_char FROM text_segments WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '') ORDER BY start_char", (section_id,))
     missing_segs = [dict(row) for row in cursor.fetchall()]
     # 缺失的 insert_points
-    cursor.execute("SELECT id, point_type, comment FROM insert_points WHERE section_id = ? AND (audio_path IS NULL OR audio_path = '')", (section_id,))
+    cursor.execute("SELECT id, point_type, comment FROM insert_points WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '')", (section_id,))
     missing_ips = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
@@ -791,7 +791,7 @@ def fix_section_audio(section_id):
                             audio_path = raw_path
                         conn = get_db()
                         cursor = conn.cursor()
-                        cursor.execute("UPDATE text_segments SET audio_path = ? WHERE id = ?", (audio_path, seg['id']))
+                        cursor.execute("UPDATE text_segments SET audio_path = %s WHERE id = %s", (audio_path, seg['id']))
                         conn.commit()
                         conn.close()
                         fixed += 1
@@ -825,7 +825,7 @@ def fix_section_audio(section_id):
                             audio_path = raw_path
                         conn = get_db()
                         cursor = conn.cursor()
-                        cursor.execute("UPDATE insert_points SET audio_path = ? WHERE id = ?", (audio_path, ip['id']))
+                        cursor.execute("UPDATE insert_points SET audio_path = %s WHERE id = %s", (audio_path, ip['id']))
                         conn.commit()
                         conn.close()
                         fixed += 1
@@ -1446,7 +1446,7 @@ def admin_update_book_public(book_id):
     from backend.database import get_db
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE books SET is_public=? WHERE id=?', (is_public, book_id))
+    cursor.execute('UPDATE books SET is_public=%s WHERE id=%s', (is_public, book_id))
     conn.commit()
     conn.close()
     return jsonify({'message': '公版设置更新成功', 'is_public': is_public})
@@ -1490,7 +1490,7 @@ def admin_upload_book_icon(book_id):
     from backend.database import get_db
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE books SET icon_path=? WHERE id=?', (icon_path, book_id))
+    cursor.execute('UPDATE books SET icon_path=%s WHERE id=%s', (icon_path, book_id))
     conn.commit()
     conn.close()
     
@@ -1528,7 +1528,7 @@ def admin_add_quote():
     from backend.database import get_db
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO quotes (content, author, source) VALUES (?, ?, ?)',
+    cursor.execute('INSERT INTO quotes (content, author, source) VALUES (%s, %s, %s)',
                    (content, data.get('author', ''), data.get('source', '')))
     conn.commit()
     quote_id = cursor.lastrowid
@@ -1545,7 +1545,7 @@ def admin_update_quote(quote_id):
     from backend.database import get_db
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('UPDATE quotes SET content=?, author=?, source=? WHERE id=?',
+    cursor.execute('UPDATE quotes SET content=%s, author=%s, source=%s WHERE id=%s',
                    (content, data.get('author', ''), data.get('source', ''), quote_id))
     conn.commit()
     conn.close()
@@ -1557,8 +1557,8 @@ def admin_delete_quote(quote_id):
     from backend.database import get_db
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM quotes WHERE id=?', (quote_id,))
-    cursor.execute('DELETE FROM quote_usage WHERE quote_id=?', (quote_id,))
+    cursor.execute('DELETE FROM quotes WHERE id=%s', (quote_id,))
+    cursor.execute('DELETE FROM quote_usage WHERE quote_id=%s', (quote_id,))
     conn.commit()
     conn.close()
     return jsonify({'message': '删除成功'})
@@ -1577,7 +1577,7 @@ def admin_import_quotes():
     for q in quotes:
         content = q.get('content', '').strip()
         if content:
-            cursor.execute('INSERT INTO quotes (content, author, source) VALUES (?, ?, ?)',
+            cursor.execute('INSERT INTO quotes (content, author, source) VALUES (%s, %s, %s)',
                            (content, q.get('author', ''), q.get('source', '')))
             count += 1
     conn.commit()
@@ -1611,17 +1611,17 @@ def get_random_quote():
                 SELECT id, content, author, source FROM quotes 
                 WHERE id NOT IN (
                     SELECT quote_id FROM quote_usage 
-                    WHERE book_id=? AND user_id=?
+                    WHERE book_id=%s AND user_id=%s
                 )
-                ORDER BY RANDOM() LIMIT ?
+                ORDER BY RANDOM() LIMIT %s
             ''', (book_id, user_id, count))
             rows = cursor.fetchall()
             # 如果未用过的名言不够，随机选择
             if len(rows) < count:
-                cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT ?', (count,))
+                cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT %s', (count,))
                 rows = cursor.fetchall()
         else:
-            cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT ?', (count,))
+            cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT %s', (count,))
             rows = cursor.fetchall()
 
         results = []
@@ -1632,7 +1632,7 @@ def get_random_quote():
                 try:
                     cursor.execute('''
                         INSERT INTO quote_usage (quote_id, book_id, section_id, user_id)
-                        VALUES (?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s)
                     ''', (row[0], book_id, section_id, user_id))
                 except Exception as insert_err:
                     # 外键约束错误或其他插入错误，忽略
@@ -1815,7 +1815,7 @@ def admin_reimport_chapter(book_id, chapter_id):
         from backend.database import get_db
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT id, section_number FROM sections WHERE chapter_id=?', (chapter_id,))
+        cursor.execute('SELECT id, section_number FROM sections WHERE chapter_id=%s', (chapter_id,))
         existing_sections = {row[1]: row[0] for row in cursor.fetchall()}  # section_number -> section_id
         conn.close()
 
@@ -1833,14 +1833,14 @@ def admin_reimport_chapter(book_id, chapter_id):
                 conn = get_db()
                 cursor = conn.cursor()
                 # 删除旧的点评
-                cursor.execute('DELETE FROM annotations WHERE section_id = ?', (sec_id,))
+                cursor.execute('DELETE FROM annotations WHERE section_id = %s', (sec_id,))
                 # 删除旧的 text_segments 和 insert_points（级联删除）
-                cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (sec_id,))
-                cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (sec_id,))
+                cursor.execute('DELETE FROM text_segments WHERE section_id = %s', (sec_id,))
+                cursor.execute('DELETE FROM insert_points WHERE section_id = %s', (sec_id,))
                 # 清除音频相关字段
-                cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = ?', (sec_id,))
+                cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = %s', (sec_id,))
                 # 更新小节内容
-                cursor.execute('UPDATE sections SET title = ?, content = ?, summary = ?, word_count = ? WHERE id = ?',
+                cursor.execute('UPDATE sections SET title = %s, content = %s, summary = %s, word_count = %s WHERE id = %s',
                               (title, content, summary, word_count, sec_id))
                 conn.commit()
                 conn.close()
@@ -1857,7 +1857,7 @@ def admin_reimport_chapter(book_id, chapter_id):
                 if summary:
                     conn = get_db()
                     cursor = conn.cursor()
-                    cursor.execute('UPDATE sections SET summary = ? WHERE id = ?', (summary, sec_id))
+                    cursor.execute('UPDATE sections SET summary = %s WHERE id = %s', (summary, sec_id))
                     conn.commit()
                     conn.close()
 
@@ -1870,7 +1870,7 @@ def admin_reimport_chapter(book_id, chapter_id):
                 for idx, anno in enumerate(annotations):
                     cursor.execute(
                         '''INSERT INTO annotations (section_id, annotation_index, start_char, end_char, original_text, comment)
-                           VALUES (?, ?, ?, ?, ?, ?)''',
+                           VALUES (%s, %s, %s, %s, %s, %s)''',
                         (sec_id, idx + 1, anno.get('start_char', 0), anno.get('end_char', 0),
                          anno.get('original_text', ''), anno.get('comment', ''))
                     )
@@ -1880,7 +1880,7 @@ def admin_reimport_chapter(book_id, chapter_id):
         # 更新章节统计
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*), COALESCE(SUM(word_count), 0) FROM sections WHERE chapter_id=?', (chapter_id,))
+        cursor.execute('SELECT COUNT(*), COALESCE(SUM(word_count), 0) FROM sections WHERE chapter_id=%s', (chapter_id,))
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -1889,7 +1889,7 @@ def admin_reimport_chapter(book_id, chapter_id):
         # 更新书籍总小节数
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM sections WHERE book_id=?', (book_id,))
+        cursor.execute('SELECT COUNT(*) FROM sections WHERE book_id=%s', (book_id,))
         total_sections = cursor.fetchone()[0]
         conn.close()
         update_book_sections_count(book_id, total_sections)
@@ -1972,13 +1972,13 @@ def admin_reimport_section(book_id, section_id):
         from backend.database import get_db
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('DELETE FROM annotations WHERE section_id = ?', (section_id,))
+        cursor.execute('DELETE FROM annotations WHERE section_id = %s', (section_id,))
         # 删除旧的 text_segments 和 insert_points
-        cursor.execute('DELETE FROM text_segments WHERE section_id = ?', (section_id,))
-        cursor.execute('DELETE FROM insert_points WHERE section_id = ?', (section_id,))
+        cursor.execute('DELETE FROM text_segments WHERE section_id = %s', (section_id,))
+        cursor.execute('DELETE FROM insert_points WHERE section_id = %s', (section_id,))
         # 清除音频相关字段
-        cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = ?', (section_id,))
-        cursor.execute('UPDATE sections SET title = ?, content = ?, summary = ?, word_count = ? WHERE id = ?',
+        cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = %s', (section_id,))
+        cursor.execute('UPDATE sections SET title = %s, content = %s, summary = %s, word_count = %s WHERE id = %s',
                       (title, content, summary, word_count, section_id))
         conn.commit()
         conn.close()
@@ -1991,7 +1991,7 @@ def admin_reimport_section(book_id, section_id):
             for idx, anno in enumerate(annotations):
                 cursor.execute(
                     '''INSERT INTO annotations (section_id, annotation_index, start_char, end_char, original_text, comment)
-                       VALUES (?, ?, ?, ?, ?, ?)''',
+                       VALUES (%s, %s, %s, %s, %s, %s)''',
                     (section_id, idx + 1, anno.get('start_char', 0), anno.get('end_char', 0),
                      anno.get('original_text', ''), anno.get('comment', ''))
                 )
@@ -2001,7 +2001,7 @@ def admin_reimport_section(book_id, section_id):
         # 更新章节统计
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*), COALESCE(SUM(word_count), 0) FROM sections WHERE chapter_id=?', (chapter_id,))
+        cursor.execute('SELECT COUNT(*), COALESCE(SUM(word_count), 0) FROM sections WHERE chapter_id=%s', (chapter_id,))
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -2010,7 +2010,7 @@ def admin_reimport_section(book_id, section_id):
         # 更新书籍总小节数
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM sections WHERE book_id=?', (book_id,))
+        cursor.execute('SELECT COUNT(*) FROM sections WHERE book_id=%s', (book_id,))
         total_sections = cursor.fetchone()[0]
         conn.close()
         update_book_sections_count(book_id, total_sections)
@@ -2094,7 +2094,7 @@ def create_thought(section_id):
         if book_id:
             conn = get_db()
             cursor = conn.cursor()
-            cursor.execute('SELECT title, author FROM books WHERE id = ?', (book_id,))
+            cursor.execute('SELECT title, author FROM books WHERE id = %s', (book_id,))
             book_row = cursor.fetchone()
             conn.close()
             if book_row:
@@ -2104,7 +2104,7 @@ def create_thought(section_id):
         if section.get('chapter_id'):
             conn = get_db()
             cursor = conn.cursor()
-            cursor.execute('SELECT title FROM chapters WHERE id = ?', (section['chapter_id'],))
+            cursor.execute('SELECT title FROM chapters WHERE id = %s', (section['chapter_id'],))
             ch_row = cursor.fetchone()
             conn.close()
             if ch_row:
@@ -2165,7 +2165,7 @@ def repair_unscored_thoughts(section_id):
         if book_id:
             conn = get_db()
             cursor = conn.cursor()
-            cursor.execute('SELECT title, author FROM books WHERE id = ?', (book_id,))
+            cursor.execute('SELECT title, author FROM books WHERE id = %s', (book_id,))
             book_row = cursor.fetchone()
             conn.close()
             if book_row:
@@ -2174,7 +2174,7 @@ def repair_unscored_thoughts(section_id):
         if section.get('chapter_id'):
             conn = get_db()
             cursor = conn.cursor()
-            cursor.execute('SELECT title FROM chapters WHERE id = ?', (section['chapter_id'],))
+            cursor.execute('SELECT title FROM chapters WHERE id = %s', (section['chapter_id'],))
             ch_row = cursor.fetchone()
             conn.close()
             if ch_row:
