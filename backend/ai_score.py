@@ -329,7 +329,7 @@ def call_ai_api(original_text, thought_content, section_content=None,
                 section_content=section_content or ''
             )
             print(f"[AI评分] GLM-4.7-Flash 评分成功: {score}分 - {reason}")
-            return score, f"[AI评分] {reason}"
+            return score, reason
         except Exception as e:
             print(f"[AI评分] GLM API 调用失败: {type(e).__name__}: {e}")
     else:
@@ -346,7 +346,7 @@ def call_ai_api(original_text, thought_content, section_content=None,
                 section_content=section_content or ''
             )
             print(f"[AI评分] 豆包评分成功: {score}分 - {reason}")
-            return score, f"[AI评分] {reason}"
+            return score, reason
         except Exception as e:
             print(f"[AI评分] 豆包 API 调用失败: {type(e).__name__}: {e}")
     else:
