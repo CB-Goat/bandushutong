@@ -85,10 +85,10 @@ def _calculate_overlap(text1, text2):
     return intersection / union
 
 
-def _call_deepseek(original_text, thought_content, api_key,
-                   book_name='', author='', chapter_title='', section_title='', section_content=''):
+def _call_glm_flash(original_text, thought_content, api_key,
+                    book_name='', author='', chapter_title='', section_title='', section_content=''):
     """
-    调用 DeepSeek API 进行评分
+    调用智谱 GLM-4.7-Flash API 进行评分（免费）
     """
     import requests
     
@@ -139,13 +139,13 @@ def _call_deepseek(original_text, thought_content, api_key,
 {{"score": 0-3的整数, "reason": "简短的评审意见（30字以内）"}}"""
 
     response = requests.post(
-        'https://api.deepseek.com/chat/completions',
+        'https://open.bigmodel.cn/api/paas/v4/chat/completions',
         headers={
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {api_key}'
         },
         json={
-            'model': 'deepseek-chat',
+            'model': 'glm-4.7-flash',
             'messages': [
                 {'role': 'user', 'content': prompt}
             ],
@@ -160,7 +160,6 @@ def _call_deepseek(original_text, thought_content, api_key,
         
         # 尝试解析 JSON
         try:
-            # 提取 JSON 部分（可能被 markdown 包裹）
             json_match = re.search(r'\{[^}]+\}', content)
             if json_match:
                 data = json.loads(json_match.group())
@@ -177,29 +176,28 @@ def _call_deepseek(original_text, thought_content, api_key,
             score = int(match.group())
             return score, "AI 评分"
     
-    raise Exception(f"API 返回错误: status={response.status_code}")
+    raise Exception(f"GLM API 返回错误: status={response.status_code}")
 
 
 def call_ai_api(original_text, thought_content, section_content=None,
                 book_name='', author='', chapter_title='', section_title=''):
     """
-    调用外部 AI API 进行评分
+    调用智谱 GLM-4.7-Flash API 进行评分（免费）
     """
-    # 检查是否配置了 DeepSeek API Key
-    deepseek_api_key = os.environ.get('DEEPSEEK_API_KEY', '')
+    glm_api_key = os.environ.get('GLM_API_KEY', '')
     
-    if deepseek_api_key:
+    if glm_api_key:
         try:
-            score, reason = _call_deepseek(
-                original_text, thought_content, deepseek_api_key,
+            score, reason = _call_glm_flash(
+                original_text, thought_content, glm_api_key,
                 book_name=book_name, author=author,
                 chapter_title=chapter_title, section_title=section_title,
                 section_content=section_content or ''
             )
-            print(f"[AI评分] DeepSeek 评分成功: {score}分 - {reason}")
+            print(f"[AI评分] GLM-4.7-Flash 评分成功: {score}分 - {reason}")
             return score, reason
         except Exception as e:
-            print(f"[AI评分] DeepSeek API 调用失败: {e}，降级为规则评分")
+            print(f"[AI评分] GLM API 调用失败: {e}，降级为规则评分")
     
     # 降级为规则评分
     return evaluate_thought(original_text, thought_content, section_content)
