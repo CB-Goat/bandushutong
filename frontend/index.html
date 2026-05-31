@@ -5551,6 +5551,10 @@
             },
 
             enterEditMode: function() {
+                // 如果正在播放点评或小结，不允许进入思考编辑
+                if (state.isPlayingAnnotation) {
+                    return;
+                }
                 // 如果正在播放，先暂停
                 if (state.isPlaying) {
                     player.pause();
