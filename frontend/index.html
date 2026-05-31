@@ -1472,6 +1472,20 @@
             }
         </style>
 
+        <!-- AI评分结果弹窗 -->
+        <div id="thoughtResultModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1001;justify-content:center;align-items:center;" onclick="this.style.display='none'">
+            <div style="background:white;border-radius:12px;padding:24px;width:85%;max-width:320px;text-align:center;animation:rankUpBounce 0.3s ease;" onclick="event.stopPropagation()">
+                <div style="font-size:20px;margin-bottom:12px;">✅ 思考已保存</div>
+                <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin-bottom:12px;">
+                    <div style="font-size:13px;color:#666;margin-bottom:8px;">AI评分</div>
+                    <div id="resultScore" style="font-size:24px;margin-bottom:8px;">-</div>
+                    <div style="font-size:12px;color:#888;">理由</div>
+                    <div id="resultReason" style="font-size:14px;color:#333;margin-top:4px;">-</div>
+                </div>
+                <div style="font-size:12px;color:#999;">3秒后自动关闭</div>
+            </div>
+        </div>
+
         <div id="thoughtDetailModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;" onclick="thoughtEditor.closeDetailModal()">
             <div class="modal-content" style="background:white;border-radius:12px;padding:24px;width:90%;max-width:500px;" onclick="event.stopPropagation()">
                 <h3 style="margin:0 0 16px;color:#333;">🏮 我的思考</h3>
@@ -5839,6 +5853,9 @@
                 var originalText = document.getElementById('thoughtOriginalText').textContent;
                 var self = this;
                 
+                // 标志位：防止超时后重复处理
+                this._saveCompleted = false;
+                
                 // 禁用按钮，显示AI评分中状态
                 var saveBtn = document.querySelector('#thoughtModalOverlay .btn-primary');
                 var cancelBtn = document.querySelector('#thoughtModalOverlay .btn:not(.btn-primary)');
@@ -5857,11 +5874,13 @@
                 
                 // 30秒超时处理
                 var timeoutId = setTimeout(function() {
+                    if (self._saveCompleted) return;  // 已完成，忽略
+                    self._saveCompleted = true;
                     clearInterval(countdownInterval);
                     saveBtn.textContent = originalSaveText;
                     saveBtn.disabled = false;
                     cancelBtn.disabled = false;
-                    alert('思考已保存\n\nAI评分：无\n[理由] 未获得AI结果，请过后查看');
+                    self._showResultModal(null, null);
                     var shouldResume = self._wasPlayingBeforeEdit;
                     thoughtEditor.exitEditMode();
                     thoughtEditor._closeModal();
@@ -5877,6 +5896,8 @@
                         original_text: originalText, content: content
                     })
                 }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (self._saveCompleted) return;  // 已超时，忽略响应
+                    self._saveCompleted = true;
                     clearTimeout(timeoutId);
                     clearInterval(countdownInterval);
                     saveBtn.textContent = originalSaveText;
@@ -5884,32 +5905,18 @@
                     cancelBtn.disabled = false;
                     
                     if (data.thought_id) {
-                        var aiScore = data.ai_score;
-                        var scoreReason = data.score_reason || '';
-                        if (aiScore !== null && aiScore !== undefined) {
-                            // 有AI评分结果
-                            var stars = '';
-                            for (var i = 0; i < 3; i++) {
-                                stars += (i < aiScore) ? '⭐' : '☆';
-                            }
-                            alert('思考已保存\n\nAI评分：' + stars + '（' + aiScore + '星）\n理由：' + scoreReason);
-                        } else {
-                            // 无AI评分结果
-                            alert('思考已保存\n\nAI评分：无\n理由：未获得AI结果，请过后查看');
-                        }
-                        // 保存退出编辑模式前的播放状态
+                        self._showResultModal(data.ai_score, data.score_reason);
                         var shouldResume = self._wasPlayingBeforeEdit;
                         thoughtEditor.exitEditMode();
                         thoughtEditor._closeModal();
                         thoughtEditor.loadThoughts();
-                        // 如果之前在播放，恢复播放（不重置位置）
-                        if (shouldResume) {
-                            player.resume();
-                        }
+                        if (shouldResume) player.resume();
                     } else {
                         alert(data.error || '保存失败');
                     }
                 }).catch(function(e) {
+                    if (self._saveCompleted) return;  // 已超时，忽略
+                    self._saveCompleted = true;
                     clearTimeout(timeoutId);
                     clearInterval(countdownInterval);
                     saveBtn.textContent = originalSaveText;
@@ -5917,6 +5924,33 @@
                     cancelBtn.disabled = false;
                     alert('保存失败: ' + e);
                 });
+            },
+            
+            // 显示AI评分结果弹窗（美化版）
+            _showResultModal: function(aiScore, scoreReason) {
+                var self = this;
+                var modal = document.getElementById('thoughtResultModal');
+                var scoreEl = document.getElementById('resultScore');
+                var reasonEl = document.getElementById('resultReason');
+                
+                if (aiScore !== null && aiScore !== undefined) {
+                    var stars = '';
+                    for (var i = 0; i < 3; i++) {
+                        stars += (i < aiScore) ? '⭐' : '☆';
+                    }
+                    scoreEl.innerHTML = stars + ' <span style="font-size:14px;color:#666;">（' + aiScore + '星）</span>';
+                    reasonEl.textContent = scoreReason || '';
+                } else {
+                    scoreEl.innerHTML = '<span style="color:#999;">无</span>';
+                    reasonEl.textContent = '未获得AI结果，请过后查看';
+                }
+                
+                modal.style.display = 'flex';
+                
+                // 3秒后自动关闭
+                setTimeout(function() {
+                    modal.style.display = 'none';
+                }, 3000);
             },
 
             _closeModal: function() {
