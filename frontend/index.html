@@ -1146,18 +1146,21 @@
     <!-- 导航栏 -->
     <nav class="navbar" style="display:flex;justify-content:space-between;align-items:center;position:relative;">
         <div style="display:flex;align-items:center;">
-            <button class="back-btn" id="backBtn" style="display:none">返回</button>
             <img id="navbarIcon" src="favicon.png" style="width:28px;height:28px;border-radius:4px;margin-left:10px;">
         </div>
         <h1 id="navbarTitle" style="flex:1;text-align:center;margin:0;padding:0 10px;">悦读小将</h1>
         <div style="display:flex;gap:8px;align-items:center;">
-            <button class="navbar-btn" id="adminBtn" onclick="showPage('adminPage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">⚙️ 管理</button>
-            <button class="navbar-btn" id="userBtn" onclick="showUserPage()" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">👤 用户</button>
-            <button class="navbar-btn" id="homeBtn" onclick="showPage('homePage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">返回</button>
-            <button class="navbar-btn" id="logoutBtn" onclick="logout()" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">退出</button>
+            <button class="navbar-btn" id="homeBtn" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">返回</button>
+            <button class="navbar-btn" id="profileBtn" onclick="toggleProfileCard()" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">个人</button>
             <button class="navbar-btn" id="loginNavBtn" onclick="showPage('loginPage')" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#e8e0c8;padding:8px 15px;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;">登录</button>
         </div>
     </nav>
+    <!-- 个人中心卡片 -->
+    <div id="profileCard" style="display:none;position:absolute;top:50px;right:10px;background:#2d2d1e;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 0;min-width:140px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
+        <div id="profileCardAdmin" style="display:none;padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="showPage('adminPage');toggleProfileCard();">⚙️ 管理</div>
+        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="showUserPage();toggleProfileCard();">👤 用户</div>
+        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="logout();toggleProfileCard();">🚪 退出</div>
+    </div>
 
     <div class="container">
         <!-- 登录页 -->
@@ -1818,12 +1821,13 @@
         }
 
         function setupEventListeners() {
-            document.getElementById('backBtn').addEventListener('click', function() {
+            document.getElementById('homeBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 // 根据当前页面决定返回位置
                 var readerPage = document.getElementById('readerPage');
                 if (readerPage.classList.contains('active')) {
                     // 阅读页 → 返回目录页
-                    // 先保存位置，再停止播放器
                     var currentPos = reader._currentPosition || 0;
                     console.log('返回按钮：保存位置', currentPos);
                     if (currentPos > 0) {
@@ -1842,12 +1846,11 @@
                             (book.author ? ' <small style="font-size:12px;">' + book.author + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</small>' : '');
                     }
                     showPage('catalogPage');
-                    // 重新加载目录数据以刷新阅读状态
                     if (state.currentBook) {
                         showBookCatalog(state.currentBook.id);
                     }
                 } else {
-                    // 目录页 → 返回书架
+                    // 目录页/管理页/用户页 → 返回书架
                     showPage('homePage');
                 }
             });
@@ -2238,8 +2241,6 @@
                         // 进入阅读页前重置播放器状态
                         player._resetPlayerState();
                         showPage('readerPage');
-                        // 确保阅读页隐藏用户按钮
-                        document.getElementById('userBtn').style.display = 'none';
                         // 如果有目标节ID，跳转到指定节
                         if (state._targetSectionId) {
                             for (var i = 0; i < state.currentSections.length; i++) {
@@ -7088,15 +7089,9 @@
             localStorage.setItem('userId', user.id);
             // 存储当前设备ID到localStorage用于后续比对
             localStorage.setItem('boundDeviceId', getDeviceId());
-            // 显示用户按钮
-            document.getElementById('userBtn').style.display = '';
-            // 系统用户显示管理按钮
-            if (user.role === 'admin') {
-                document.getElementById('adminBtn').style.display = '';
-            } else {
-                document.getElementById('adminBtn').style.display = 'none';
-            }
-            document.getElementById('logoutBtn').style.display = '';
+            // 显示个人按钮
+            document.getElementById('profileBtn').style.display = '';
+            document.getElementById('profileCardAdmin').style.display = (user.role === 'admin') ? 'block' : 'none';
             document.getElementById('loginNavBtn').style.display = 'none';
             showPage('homePage');
             loadBooks();
@@ -7132,6 +7127,20 @@
             }
         }
 
+        function toggleProfileCard() {
+            var card = document.getElementById('profileCard');
+            card.style.display = (card.style.display === 'none' || card.style.display === '') ? 'block' : 'none';
+        }
+
+        // 点击页面其他区域关闭个人中心卡片
+        document.addEventListener('click', function(e) {
+            var card = document.getElementById('profileCard');
+            var btn = document.getElementById('profileBtn');
+            if (card.style.display === 'block' && !card.contains(e.target) && e.target !== btn) {
+                card.style.display = 'none';
+            }
+        });
+
         function logout() {
             stopDeviceCheck();
             // 停止音频播放
@@ -7141,9 +7150,8 @@
             state.currentUser = null;
             localStorage.removeItem('userId');
             localStorage.removeItem('boundDeviceId');
-            document.getElementById('adminBtn').style.display = 'none';
-            document.getElementById('userBtn').style.display = 'none';
-            document.getElementById('logoutBtn').style.display = 'none';
+            document.getElementById('profileBtn').style.display = 'none';
+            document.getElementById('profileCard').style.display = 'none';
             document.getElementById('loginPhone').value = '';
             document.getElementById('loginPassword').value = '';
             showPage('publicPage');
@@ -7413,39 +7421,37 @@
             document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById(pageId).classList.add('active');
 
+            // 隐藏个人中心卡片
+            document.getElementById('profileCard').style.display = 'none';
+
             // 离开阅读页时隐藏灯笼
             if (pageId !== 'readerPage') {
                 var container = document.getElementById('thoughtLanternsContainer');
                 if (container) container.style.display = 'none';
             }
 
-            // 阅读页面：隐藏管理按钮和用户按钮，设置标题
+            // 阅读页面：隐藏个人按钮，显示返回按钮
             if (pageId === 'readerPage') {
-                // 阅读页隐藏管理按钮和用户按钮
-                document.getElementById('adminBtn').style.display = 'none';
-                document.getElementById('userBtn').style.display = 'none';
-                // 显示返回按钮
-                document.getElementById('backBtn').style.display = 'block';
+                document.getElementById('profileBtn').style.display = 'none';
+                document.getElementById('homeBtn').style.display = '';
                 // 显示灯笼容器（如果有的话）
                 var container = document.getElementById('thoughtLanternsContainer');
                 if (container) {
                     container.style.display = 'flex';
-                    // 更新位置
                     if (thoughtEditor._updateLanternContainerPosition) {
                         thoughtEditor._updateLanternContainerPosition();
                     }
                 }
                 // 标题已在 openBook 中设置
             } else if (pageId === 'catalogPage') {
-                // 目录页显示返回按钮，隐藏管理按钮和用户按钮
-                document.getElementById('backBtn').style.display = 'block';
-                document.getElementById('adminBtn').style.display = 'none';
-                document.getElementById('userBtn').style.display = 'none';
+                // 目录页：显示返回按钮，隐藏个人按钮
+                document.getElementById('homeBtn').style.display = '';
+                document.getElementById('profileBtn').style.display = 'none';
                 // 标题由 showBookCatalog 设置，这里不覆盖
-                return; // 不执行下面的标题重置
+                return;
             } else {
                 // 其他页面隐藏返回按钮
-                document.getElementById('backBtn').style.display = 'none';
+                document.getElementById('homeBtn').style.display = 'none';
                 // 非阅读页恢复默认标题
                 document.getElementById('navbarTitle').textContent = '悦读小将';
                 // 恢复项目图标
@@ -7455,42 +7461,32 @@
                 navIcon.style.width = '28px';
                 navIcon.style.height = '28px';
                 navIcon.style.objectFit = '';
-                // 书架页显示管理按钮（系统用户）
-                if (pageId === 'homePage' && state.currentUser && state.currentUser.role === 'admin') {
-                    document.getElementById('adminBtn').style.display = '';
-                } else {
-                    document.getElementById('adminBtn').style.display = 'none';
-                }
             }
 
-            // 管理页面显示"返回书架"按钮，隐藏管理按钮和用户按钮
+            // 管理页面显示"返回书架"按钮
             if (pageId === 'adminPage') {
                 document.getElementById('homeBtn').style.display = '';
-                document.getElementById('adminBtn').style.display = 'none';
-                document.getElementById('userBtn').style.display = 'none';
-                // 管理页面全宽显示
+                document.getElementById('profileBtn').style.display = 'none';
                 document.querySelector('.container').classList.add('admin-active');
                 switchAdminTab('userManage');
             } else if (pageId === 'userPage') {
-                // 用户页面显示返回书架按钮，隐藏用户按钮
+                // 用户页面显示返回书架按钮
                 document.getElementById('homeBtn').style.display = '';
-                document.getElementById('adminBtn').style.display = 'none';
-                document.getElementById('userBtn').style.display = 'none';
+                document.getElementById('profileBtn').style.display = 'none';
                 document.querySelector('.container').classList.remove('admin-active');
             } else if (pageId === 'publicPage') {
                 // 公开浏览页：显示登录按钮，隐藏其他
                 document.getElementById('homeBtn').style.display = 'none';
-                document.getElementById('adminBtn').style.display = 'none';
-                document.getElementById('userBtn').style.display = 'none';
-                document.getElementById('logoutBtn').style.display = 'none';
+                document.getElementById('profileBtn').style.display = 'none';
                 document.getElementById('loginNavBtn').style.display = '';
                 document.querySelector('.container').classList.remove('admin-active');
             } else {
-                // 其他页面（书架、目录等）显示用户按钮
-                document.getElementById('homeBtn').style.display = 'none';
+                // 其他页面（书架等）显示个人按钮
                 document.querySelector('.container').classList.remove('admin-active');
                 if (state.currentUser) {
-                    document.getElementById('userBtn').style.display = '';
+                    document.getElementById('profileBtn').style.display = '';
+                    // 管理员显示管理选项
+                    document.getElementById('profileCardAdmin').style.display = (state.currentUser.role === 'admin') ? 'block' : 'none';
                 }
             }
 
