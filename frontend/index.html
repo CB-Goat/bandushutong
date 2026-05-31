@@ -4657,14 +4657,8 @@
                 // 播放完成后，从当前标签开始恢复轮巡（不跳回名言赏析）
                 if (typeof analysisManager !== 'undefined') {
                     analysisManager.stopRotation();
-                    // 先显示当前标签内容，确保界面和 currentTab 一致
                     analysisManager.showTab(analysisManager.currentTab);
-                    // 延迟10秒后再启动轮巡，让用户有时间看到当前标签内容
-                    setTimeout(function() {
-                        if (typeof analysisManager !== 'undefined') {
-                            analysisManager.startRotationFrom(analysisManager.currentTab);
-                        }
-                    }, 10000);
+                    analysisManager.startRotationFrom(analysisManager.currentTab);
                 }
                 
                 // 停止并清理点评音频
