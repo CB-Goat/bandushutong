@@ -4436,8 +4436,8 @@
                     if (audioDuration > 0 && charCount > 0 && analysisContent) {
                         var currentTime = self._annotationAudio.currentTime;
                         var progress = currentTime / audioDuration;
-                        // 计算当前进度对应的字符索引
-                        var currentCharIdx = Math.floor(progress * charCount);
+                        // 计算当前进度对应的字符索引（提前3个字符显示）
+                        var currentCharIdx = Math.min(Math.floor(progress * charCount) + 3, charCount);
                         // 确保不超过范围
                         currentCharIdx = Math.min(currentCharIdx, charCount);
                         // 只显示新增的字符
@@ -4916,7 +4916,8 @@
                     if (audioDuration > 0 && charCount > 0) {
                         var currentTime = self._annotationAudio.currentTime;
                         var progress = currentTime / audioDuration;
-                        var currentCharIdx = Math.floor(progress * charCount);
+                        // 提前3个字符显示
+                        var currentCharIdx = Math.min(Math.floor(progress * charCount) + 3, charCount);
                         currentCharIdx = Math.min(currentCharIdx, charCount);
                         for (var i = lastCharIdx; i < currentCharIdx; i++) {
                             if (commentChars[i]) {

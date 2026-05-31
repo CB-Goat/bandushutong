@@ -16,47 +16,29 @@ import re
 
 def evaluate_thought(original_text, thought_content, section_content=None):
     """
-    对思考进行 AI 评分
-    
-    参数：
-    - original_text: 思考引用的原文
-    - thought_content: 思考内容
-    - section_content: 完整的小节内容（可选，用于更准确的评分）
-    
-    返回：
-    - score: 0-3 的评分
-    - reason: 评分理由
+    对思考进行 AI 评分（规则评分，作为降级方案）
     """
-    
-    # 检查思考内容是否为空
     if not thought_content or not thought_content.strip():
         return 0, "思考内容为空"
     
-    # 检查思考是否引用了原文
     if not original_text or not original_text.strip():
         return 1, "缺少引用原文"
     
-    # 简单的规则评分
     score, reason = _rule_based_evaluation(original_text, thought_content, section_content)
-    
     return score, reason
 
 
 def _rule_based_evaluation(original_text, thought_content, section_content):
-    """
-    基于规则的评分逻辑
-    """
+    """基于规则的评分逻辑（降级方案）"""
     original_lower = original_text.lower()
     thought_lower = thought_content.lower()
     
-    # 长度检查
     if len(thought_content.strip()) < 5:
         return 1, "思考内容过短"
     
     if len(thought_content.strip()) > 200:
         return 2, "思考内容较长，有一定深度"
     
-    # 检查是否包含思考关键词
     thinking_keywords = [
         '觉得', '认为', '想象', '感受', '如果', '可能', '也许',
         '为什么', '怎么', '是否', '可是', '但是', '然而',
@@ -66,12 +48,10 @@ def _rule_based_evaluation(original_text, thought_content, section_content):
     
     thinking_count = sum(1 for kw in thinking_keywords if kw in thought_lower)
     
-    # 检查是否重复原文（不好）
     overlap_ratio = _calculate_overlap(original_lower, thought_lower)
     if overlap_ratio > 0.7:
         return 1, "思考内容重复原文较多，缺乏独立思考"
     
-    # 深度关键词
     depth_keywords = [
         '深刻', '理解', '感悟', '启发', '道理', '意义', '价值',
         '品质', '性格', '心理', '成长', '变化', '关系', '对比',
@@ -80,7 +60,6 @@ def _rule_based_evaluation(original_text, thought_content, section_content):
     
     depth_count = sum(1 for kw in depth_keywords if kw in thought_lower)
     
-    # 评分逻辑
     if thinking_count >= 3 and depth_count >= 2:
         return 3, "思考深刻，有独到见解"
     elif thinking_count >= 2 and depth_count >= 1:
@@ -95,65 +74,70 @@ def _calculate_overlap(text1, text2):
     """计算两个文本的重叠度"""
     if not text1 or not text2:
         return 0
-    
-    # 简单的字符集重叠
     set1 = set(text1)
     set2 = set(text2)
-    
     if not set1 or not set2:
         return 0
-    
     intersection = len(set1 & set2)
     union = len(set1 | set2)
-    
     if union == 0:
         return 0
-    
     return intersection / union
 
 
-def call_ai_api(original_text, thought_content, section_content=None):
-    """
-    调用外部 AI API 进行评分（预留接口）
-    
-    目前使用规则评分，后续可扩展为真正的 AI 评分
-    """
-    # 优先使用规则评分（简单快速）
-    score, reason = evaluate_thought(original_text, thought_content, section_content)
-    
-    # 如果配置了 AI API，可以在这里调用
-    # 例如：DeepSeek、OpenAI 等
-    deepseek_api_key = os.environ.get('DEEPSEEK_API_KEY', '')
-    
-    if deepseek_api_key:
-        try:
-            score, reason = _call_deepseek(original_text, thought_content, deepseek_api_key)
-        except Exception as e:
-            print(f"[AI评分] DeepSeek API 调用失败: {e}")
-    
-    return score, reason
-
-
-def _call_deepseek(original_text, thought_content, api_key):
+def _call_deepseek(original_text, thought_content, api_key,
+                   book_name='', author='', chapter_title='', section_title='', section_content=''):
     """
     调用 DeepSeek API 进行评分
     """
     import requests
     
-    prompt = f"""请对以下阅读思考进行评分（0-3分）：
+    # 构建上下文信息
+    context_info = f"书名：《{book_name}》"
+    if author:
+        context_info += f"，作者：{author}"
+    if chapter_title:
+        context_info += f"，所属章节：{chapter_title}"
+    if section_title:
+        context_info += f"，当前节：{section_title}"
+    
+    # 截取节内容（避免过长）
+    section_excerpt = ''
+    if section_content:
+        if len(section_content) > 1500:
+            section_excerpt = section_content[:1500] + '...'
+        else:
+            section_excerpt = section_content
+    
+    prompt = f"""你是一位资深的文学评论家和阅读指导专家。请对一位读者的阅读思考进行专业评审。
 
-原文：{original_text}
+## 背景信息
+{context_info}
 
-思考：{thought_content}
+## 当前节内容
+{section_excerpt}
 
-评分标准：
+## 读者引用的原文
+"{original_text}"
+
+## 读者的思考
+"{thought_content}"
+
+## 评审要求
+请结合以下维度进行评审：
+1. **准确性**：思考是否正确理解了原文的含义
+2. **贴合度**：思考是否与书籍的主题思想、作者的创作背景相贴合
+3. **思考深度**：思考是否有独到见解，是否展现了深层次的理解和感悟
+
+## 评分标准
 - 0分：不正确，和文章内容不符
 - 1分：基本正确，符合文章内容
 - 2分：正确且有一定深度
 - 3分：正确且很有深度，对文章理解深刻
 
-请只返回一个数字（0、1、2 或 3），不要其他文字。"""
-    
+请严格按以下JSON格式返回（不要包含其他文字）：
+{{"score": 0-3的整数, "reason": "简短的评审意见（30字以内）"}}"""
+
     response = requests.post(
         'https://api.deepseek.com/chat/completions',
         headers={
@@ -165,7 +149,7 @@ def _call_deepseek(original_text, thought_content, api_key):
             'messages': [
                 {'role': 'user', 'content': prompt}
             ],
-            'temperature': 0.1
+            'temperature': 0.3
         },
         timeout=30
     )
@@ -174,22 +158,65 @@ def _call_deepseek(original_text, thought_content, api_key):
         result = response.json()
         content = result['choices'][0]['message']['content'].strip()
         
-        # 提取数字
+        # 尝试解析 JSON
+        try:
+            # 提取 JSON 部分（可能被 markdown 包裹）
+            json_match = re.search(r'\{[^}]+\}', content)
+            if json_match:
+                data = json.loads(json_match.group())
+                score = int(data.get('score', 1))
+                reason = data.get('reason', 'AI 评分')
+                score = max(0, min(3, score))
+                return score, reason
+        except (json.JSONDecodeError, ValueError):
+            pass
+        
+        # 降级：提取数字
         match = re.search(r'[0123]', content)
         if match:
             score = int(match.group())
             return score, "AI 评分"
     
-    raise Exception("API 返回格式错误")
+    raise Exception(f"API 返回错误: status={response.status_code}")
 
 
-def rate_thought(original_text, thought_content, section_content=None):
+def call_ai_api(original_text, thought_content, section_content=None,
+                book_name='', author='', chapter_title='', section_title=''):
+    """
+    调用外部 AI API 进行评分
+    """
+    # 检查是否配置了 DeepSeek API Key
+    deepseek_api_key = os.environ.get('DEEPSEEK_API_KEY', '')
+    
+    if deepseek_api_key:
+        try:
+            score, reason = _call_deepseek(
+                original_text, thought_content, deepseek_api_key,
+                book_name=book_name, author=author,
+                chapter_title=chapter_title, section_title=section_title,
+                section_content=section_content or ''
+            )
+            print(f"[AI评分] DeepSeek 评分成功: {score}分 - {reason}")
+            return score, reason
+        except Exception as e:
+            print(f"[AI评分] DeepSeek API 调用失败: {e}，降级为规则评分")
+    
+    # 降级为规则评分
+    return evaluate_thought(original_text, thought_content, section_content)
+
+
+def rate_thought(original_text, thought_content, section_content=None,
+                 book_name='', author='', chapter_title='', section_title=''):
     """
     对思考进行评分（主入口）
     尝试使用 AI API，失败则使用规则评分
     """
     try:
-        score, reason = call_ai_api(original_text, thought_content, section_content)
+        score, reason = call_ai_api(
+            original_text, thought_content, section_content,
+            book_name=book_name, author=author,
+            chapter_title=chapter_title, section_title=section_title
+        )
         return score, reason
     except Exception as e:
         print(f"[AI评分] 评分失败，使用规则评分: {e}")

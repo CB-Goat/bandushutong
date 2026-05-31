@@ -2079,8 +2079,43 @@ def create_thought(section_id):
     original_text = data.get('original_text', '')
     thought_content = data.get('content', '')
     
-    # AI 评分
-    ai_score, score_reason = rate_thought(original_text, thought_content)
+    # 获取完整上下文信息用于 AI 评分
+    section = get_section(section_id)
+    book_name = ''
+    author = ''
+    chapter_title = ''
+    section_title = ''
+    section_content = ''
+    if section:
+        section_content = section.get('content', '')
+        section_title = section.get('title', '')
+        # 获取书籍信息
+        book_id = section.get('book_id')
+        if book_id:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('SELECT title, author FROM books WHERE id = ?', (book_id,))
+            book_row = cursor.fetchone()
+            conn.close()
+            if book_row:
+                book_name = book_row['title'] or ''
+                author = book_row['author'] or ''
+        # 获取章节标题
+        if section.get('chapter_id'):
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('SELECT title FROM chapters WHERE id = ?', (section['chapter_id'],))
+            ch_row = cursor.fetchone()
+            conn.close()
+            if ch_row:
+                chapter_title = ch_row['title'] or ''
+    
+    # AI 评分（传入完整上下文）
+    ai_score, score_reason = rate_thought(
+        original_text, thought_content, section_content,
+        book_name=book_name, author=author,
+        chapter_title=chapter_title, section_title=section_title
+    )
     print(f"[思考评分] 用户 {user_id} 的思考评分: {ai_score} - {score_reason}")
     
     thought_id = add_thought(
