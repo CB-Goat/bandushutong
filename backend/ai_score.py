@@ -195,12 +195,13 @@ def call_ai_api(original_text, thought_content, section_content=None,
                 section_content=section_content or ''
             )
             print(f"[AI评分] GLM-4.7-Flash 评分成功: {score}分 - {reason}")
-            return score, reason
+            return score, f"[AI评分] {reason}"
         except Exception as e:
             print(f"[AI评分] GLM API 调用失败: {e}，降级为规则评分")
     
     # 降级为规则评分
-    return evaluate_thought(original_text, thought_content, section_content)
+    score, reason = evaluate_thought(original_text, thought_content, section_content)
+    return score, f"[规则评分] {reason}"
 
 
 def rate_thought(original_text, thought_content, section_content=None,
