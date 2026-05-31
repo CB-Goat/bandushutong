@@ -1,0 +1,39 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: reading-companion-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=your_root_password
+      - MYSQL_DATABASE=reading_companion
+      - MYSQL_USER=reading_user
+      - MYSQL_PASSWORD=reading_pass
+    volumes:
+      - /www/dk_project/wwwroot/lit.handy.xin/mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  backend:
+    build: .
+    container_name: reading-companion-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      # 音频文件挂载
+      - /www/dk_project/wwwroot/lit.handy.xin/audio_files:/app/audio_files
+    environment:
+      - FLASK_ENV=production
+      - TZ=Asia/Shanghai
+      # MySQL 数据库配置
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=reading_user
+      - DB_PASSWORD=reading_pass
+      - DB_NAME=reading_companion
+    dns:
+      - 223.5.5.5
+      - 8.8.8.8
+    depends_on:
+      - mysql
