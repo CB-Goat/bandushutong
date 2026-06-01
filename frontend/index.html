@@ -1260,8 +1260,12 @@
         </div>
         
         <!-- 用户中心页面 -->
-        <div class="page" id="userPage" style="overflow-y: auto; height: 100vh;">
+        <!-- 用户信息页 -->
+        <div class="page" id="userInfoPage" style="overflow-y: auto; height: 100vh;">
             <div style="max-width:500px;margin:20px auto;padding:20px;">
+                <div style="margin-bottom:15px;">
+                    <button onclick="showUserHome()" style="padding:8px 16px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;">← 返回</button>
+                </div>
                 <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);margin-bottom:20px;">
                     <h3 style="margin:0 0 20px;color:#333;">个人信息</h3>
                     <div style="display:flex;align-items:center;margin-bottom:20px;">
@@ -1347,8 +1351,15 @@
                     </div>
                     <button onclick="saveProfile()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">保存个人信息</button>
                 </div>
-                
-                <!-- 修改密码 -->
+            </div>
+        </div>
+
+        <!-- 密码安全页 -->
+        <div class="page" id="userPasswordPage" style="overflow-y: auto; height: 100vh;">
+            <div style="max-width:500px;margin:20px auto;padding:20px;">
+                <div style="margin-bottom:15px;">
+                    <button onclick="showUserHome()" style="padding:8px 16px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;">← 返回</button>
+                </div>
                 <div id="passwordSection" style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);margin-bottom:20px;">
                     <h3 style="margin:0 0 20px;color:#333;">修改密码</h3>
                     <div id="oldPasswordDiv" style="margin-bottom:15px;">
@@ -1377,7 +1388,7 @@
                 </div>
 
                 <!-- 换机校验码 -->
-                <div id="transferCodeSection" style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);margin-bottom:20px;">
+                <div id="transferCodeSection" style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
                     <h3 style="margin:0 0 20px;color:#333;">换机校验码</h3>
                     <p style="font-size:13px;color:#666;margin-bottom:15px;">在新设备上输入此验证码可登录您的账号（1分钟内有效）</p>
                     <div id="transferCodeDisplay" style="display:none;margin-bottom:15px;padding:15px;background:#f5f5f5;border-radius:8px;text-align:center;">
@@ -1386,8 +1397,15 @@
                     </div>
                     <button onclick="generateTransferCode()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">生成换机校验码</button>
                 </div>
-                
-                <!-- 留言 -->
+            </div>
+        </div>
+
+        <!-- 留言反馈页 -->
+        <div class="page" id="userMessagePage" style="overflow-y: auto; height: 100vh;">
+            <div style="max-width:500px;margin:20px auto;padding:20px;">
+                <div style="margin-bottom:15px;">
+                    <button onclick="showUserHome()" style="padding:8px 16px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;">← 返回</button>
+                </div>
                 <div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
                     <h3 style="margin:0 0 20px;color:#333;">留言反馈</h3>
                     <div style="margin-bottom:15px;">
@@ -1397,6 +1415,31 @@
                     
                     <!-- 留言记录 -->
                     <div id="messageList" style="margin-top:20px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 用户中心首页（显示军功勋章） -->
+        <div class="page" id="userPage" style="overflow-y: auto; height: 100vh;">
+            <div style="max-width:500px;margin:20px auto;padding:20px;">
+                <div style="margin-bottom:15px;">
+                    <button onclick="showPage('homePage')" style="padding:8px 16px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;">← 返回书架</button>
+                </div>
+
+                <!-- 军功章 -->
+                <div id="meritsCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
+                    <h3 style="margin:0 0 12px;color:#FFD700;font-size:15px;">🏅 我的军功</h3>
+                    <div id="meritsList" style="display:flex;flex-wrap:wrap;gap:10px;">
+                        <div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无军功</div>
+                    </div>
+                </div>
+
+                <!-- 勋章 -->
+                <div id="medalsCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
+                    <h3 style="margin:0 0 12px;color:#FFD700;font-size:15px;">🎖️ 我的勋章</h3>
+                    <div id="medalsList" style="display:flex;flex-wrap:wrap;gap:10px;">
+                        <div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无勋章</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -7302,39 +7345,32 @@
         }
 
         function showUserPage() {
+            showUserHome();
+        }
+
+        // 用户中心首页（显示军功勋章）
+        function showUserHome() {
             showPage('userPage');
-            loadUserProfile();
-            loadMilitaryRank();
             loadUserMerits();
             loadUserMedals();
-            loadUserMessages();
         }
 
         // 导航到用户页面指定区域
         function goToUserInfo() {
-            showUserPage();
-            setTimeout(function() {
-                var el = document.getElementById('userProfileCard');
-                if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
-            }, 100);
+            showPage('userInfoPage');
+            loadUserProfile();
+            loadMilitaryRank();
             toggleProfileCard();
         }
 
         function goToPassword() {
-            showUserPage();
-            setTimeout(function() {
-                var el = document.getElementById('passwordSection');
-                if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
-            }, 100);
+            showPage('userPasswordPage');
             toggleProfileCard();
         }
 
         function goToMessage() {
-            showUserPage();
-            setTimeout(function() {
-                var el = document.getElementById('messageSection');
-                if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
-            }, 100);
+            showPage('userMessagePage');
+            loadUserMessages();
             toggleProfileCard();
         }
 
