@@ -233,7 +233,13 @@ def wechat_handler():
                 elif event == 'CLICK':
                     # 菜单点击事件
                     event_key = root.find('EventKey').text
-                    if event_key == 'start_reading':
+                    if event_key == 'welcome':
+                        return _make_text_reply(to_user, from_user,
+                            '🎉 欢迎来到悦读小将！\n\n'
+                            '这里是专为儿童设计的课外阅读辅助工具。\n'
+                            '帮助孩子养成阅读习惯，提升阅读能力。\n\n'
+                            '点击"悦读小将"开始阅读之旅吧！')
+                    elif event_key == 'start_reading':
                         # 返回带用户openid的链接
                         url = f"https://lit.handy.xin/?wechat_openid={from_user}"
                         return _make_text_reply(to_user, from_user, 
@@ -241,7 +247,7 @@ def wechat_handler():
                     elif event_key == 'help':
                         return _make_text_reply(to_user, from_user,
                             '📖 悦读小将使用帮助\n\n'
-                            '1. 点击"开始阅读"进入系统\n'
+                            '1. 点击"悦读小将"进入系统\n'
                             '2. 首次使用需绑定手机号\n'
                             '3. 选择书籍开始阅读\n'
                             '4. 阅读后可提交思考获得AI评分\n'

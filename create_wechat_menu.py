@@ -36,7 +36,12 @@ MENU_CONFIG = {
     "button": [
         {
             "type": "click",
-            "name": "开始阅读",
+            "name": "欢迎语",
+            "key": "welcome"
+        },
+        {
+            "type": "click",
+            "name": "悦读小将",
             "key": "start_reading"
         },
         {
