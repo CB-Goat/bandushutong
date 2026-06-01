@@ -17,7 +17,8 @@ def _load_env_file():
         os.path.join(os.path.dirname(__file__), '.env'),
         os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'),
         '/opt/bandushutong/.env',
-        '/opt/bandushutong/backend/.env'
+        '/opt/bandushutong/backend/.env',
+        '/www/dk_project/wwwroot/lit.handy.xin/.env'
     ]
     for env_path in env_paths:
         if os.path.exists(env_path):
