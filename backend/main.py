@@ -27,6 +27,11 @@ CURRENT_VERSION = '#328'
 # 注册 API 蓝图
 app.register_blueprint(api_bp, url_prefix='/api')
 
+@app.route('/api/health')
+def health_check():
+    """健康检查接口"""
+    return jsonify({'status': 'ok', 'version': CURRENT_VERSION})
+
 @app.route('/')
 def index():
     """提供前端首页"""

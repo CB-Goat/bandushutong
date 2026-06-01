@@ -191,16 +191,26 @@ def wechat_handler():
         nonce = request.args.get('nonce', '')
         echostr = request.args.get('echostr', '')
         
+        # 记录验证请求日志
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        logging.info(f"WeChat verify: signature={signature}, timestamp={timestamp}, nonce={nonce}, echostr={echostr}")
+        logging.info(f"Using TOKEN: {WECHAT_TOKEN}")
+        
         # 验证签名
         tmp_list = [WECHAT_TOKEN, timestamp, nonce]
         tmp_list.sort()
         tmp_str = ''.join(tmp_list)
         tmp_hash = hashlib.sha1(tmp_str.encode('utf-8')).hexdigest()
         
+        logging.info(f"Calculated hash: {tmp_hash}, Expected: {signature}")
+        
         if tmp_hash == signature:
+            logging.info("WeChat verification success")
             return echostr
         else:
-            return 'invalid', 403
+            logging.warning("WeChat verification failed")
+            return 'invalid signature', 403
     
     else:
         # 处理微信消息
