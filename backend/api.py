@@ -66,6 +66,8 @@ api_bp = Blueprint('api', __name__)
 
 # 微信公众号配置（需要在环境变量中设置）
 WECHAT_TOKEN = os.environ.get('WECHAT_TOKEN', 'reading2026')  # 公众号Token
+WECHAT_APPID = os.environ.get('WECHAT_APPID', 'wx6032ec9465fc7483')
+WECHAT_APPSECRET = os.environ.get('WECHAT_APPSECRET', '')
 
 # 文件上传目录
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), '..', 'books')
@@ -233,9 +235,18 @@ def wechat_handler():
                     event_key = root.find('EventKey').text
                     if event_key == 'start_reading':
                         # 返回带用户openid的链接
-                        url = f"{request.host_url}?wechat_openid={from_user}"
+                        url = f"https://lit.handy.xin/?wechat_openid={from_user}"
                         return _make_text_reply(to_user, from_user, 
                             f'点击链接进入悦读小将：\n{url}')
+                    elif event_key == 'help':
+                        return _make_text_reply(to_user, from_user,
+                            '📖 悦读小将使用帮助\n\n'
+                            '1. 点击"开始阅读"进入系统\n'
+                            '2. 首次使用需绑定手机号\n'
+                            '3. 选择书籍开始阅读\n'
+                            '4. 阅读后可提交思考获得AI评分\n'
+                            '5. 累计阅读可提升军衔等级\n\n'
+                            '如有问题请留言反馈～')
             
             # 默认回复
             return _make_text_reply(to_user, from_user, '收到消息，请使用菜单功能。')
@@ -1716,6 +1727,62 @@ def health_db():
         })
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)}), 500
+
+# ===== 微信公众号菜单管理 =====
+
+@api_bp.route('/admin/wechat/create-menu', methods=['POST'])
+def admin_create_wechat_menu():
+    """创建微信公众号自定义菜单"""
+    import requests as req
+    appid = request.json.get('appid', WECHAT_APPID) if request.is_json else WECHAT_APPID
+    appsecret = request.json.get('appsecret', WECHAT_APPSECRET) if request.is_json else WECHAT_APPSECRET
+    
+    if not appsecret:
+        return jsonify({'error': '请提供AppSecret'}), 400
+    
+    # 1. 获取access_token
+    token_url = f"https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={appid}&secret={appsecret}"
+    try:
+        token_resp = req.get(token_url, timeout=10)
+        token_data = token_resp.json()
+        if 'access_token' not in token_data:
+            return jsonify({'error': f'获取token失败: {token_data.get("errmsg", "未知错误")}'})
+        access_token = token_data['access_token']
+    except Exception as e:
+        return jsonify({'error': f'获取token异常: {str(e)}'}), 500
+    
+    # 2. 删除旧菜单
+    try:
+        req.get(f"https://api.weixin.qq.com/cgi-bin/menu/delete?access_token={access_token}", timeout=10)
+    except:
+        pass
+    
+    # 3. 创建新菜单
+    menu_config = {
+        "button": [
+            {
+                "type": "click",
+                "name": "开始阅读",
+                "key": "start_reading"
+            },
+            {
+                "type": "click",
+                "name": "使用帮助",
+                "key": "help"
+            }
+        ]
+    }
+    
+    menu_url = f"https://api.weixin.qq.com/cgi-bin/menu/create?access_token={access_token}"
+    try:
+        menu_resp = req.post(menu_url, json=menu_config, headers={'Content-Type': 'application/json'}, timeout=10)
+        menu_data = menu_resp.json()
+        if menu_data.get('errcode') == 0:
+            return jsonify({'message': '菜单创建成功', 'menu': menu_config})
+        else:
+            return jsonify({'error': f'菜单创建失败: {menu_data.get("errmsg", "未知错误")}'}), 500
+    except Exception as e:
+        return jsonify({'error': f'菜单创建异常: {str(e)}'}), 500
 
 @api_bp.route('/admin/quotes/parse-word', methods=['POST'])
 def admin_parse_word_quotes():
