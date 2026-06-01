@@ -2059,18 +2059,20 @@ MERIT_TYPES = ['一等功', '二等功', '三等功', '嘉奖']
 MERIT_PRIORITY = {'一等功': 4, '二等功': 3, '三等功': 2, '嘉奖': 1}
 
 def _determine_merit(thought_count, three_star_rate, two_star_rate, one_star_rate):
-    """根据思考量和星级率判定军功类型"""
+    """根据思考量和星级率判定军功类型
+    星率统计：≥x星（如3星率包含3星，2星率包含2星和3星，1星率包含1、2、3星）
+    """
     # 一等功：3星率 >= 50%，思考量 >= 350
     if thought_count >= 350 and three_star_rate >= 0.5:
         return '一等功'
-    # 二等功：2星率 >= 30%，思考量 >= 250
-    if thought_count >= 250 and two_star_rate >= 0.3:
+    # 二等功：3星率 >= 30%，思考量 >= 250
+    if thought_count >= 250 and three_star_rate >= 0.3:
         return '二等功'
-    # 三等功：1星率 >= 50%，思考量 >= 150
-    if thought_count >= 150 and one_star_rate >= 0.5:
+    # 三等功：2星率 >= 50%，思考量 >= 150
+    if thought_count >= 150 and two_star_rate >= 0.5:
         return '三等功'
-    # 嘉奖：思考量 >= 50
-    if thought_count >= 50:
+    # 嘉奖：1星率 >= 80%，思考量 >= 50
+    if thought_count >= 50 and one_star_rate >= 0.8:
         return '嘉奖'
     return None
 
