@@ -1169,8 +1169,10 @@
             </div>
         </div>
         <div id="profileCardAdmin" style="display:none;padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="showPage('adminPage');toggleProfileCard();">⚙️ 管理</div>
-        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="showUserPage();toggleProfileCard();">👤 用户</div>
-        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="logout();toggleProfileCard();">🚪 退出</div>
+        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToUserInfo();">👤 用户信息</div>
+        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToPassword();">🔐 密码安全</div>
+        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToMessage();">💬 我要留言</div>
+        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="logout();toggleProfileCard();">🚪 退出</div>
     </div>
 
     <div class="container">
@@ -7306,6 +7308,34 @@
             loadUserMerits();
             loadUserMedals();
             loadUserMessages();
+        }
+
+        // 导航到用户页面指定区域
+        function goToUserInfo() {
+            showUserPage();
+            setTimeout(function() {
+                var el = document.getElementById('userProfileCard');
+                if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+            }, 100);
+            toggleProfileCard();
+        }
+
+        function goToPassword() {
+            showUserPage();
+            setTimeout(function() {
+                var el = document.getElementById('passwordSection');
+                if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+            }, 100);
+            toggleProfileCard();
+        }
+
+        function goToMessage() {
+            showUserPage();
+            setTimeout(function() {
+                var el = document.getElementById('messageSection');
+                if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+            }, 100);
+            toggleProfileCard();
         }
 
         // 加载军功章
