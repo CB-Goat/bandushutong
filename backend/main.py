@@ -43,6 +43,12 @@ def serve_ranks(filename):
     ranks_dir = os.path.join(FRONTEND_DIR, 'ranks')
     return send_from_directory(ranks_dir, filename)
 
+@app.route('/medals/<path:filename>')
+def serve_medals(filename):
+    """提供军功勋章图片"""
+    medals_dir = os.path.join(FRONTEND_DIR, 'medals')
+    return send_from_directory(medals_dir, filename)
+
 @app.route('/favicon.png')
 def serve_favicon():
     """提供网站图标"""
