@@ -7709,7 +7709,7 @@
                 document.getElementById('profileBtn').style.display = 'none';
                 document.querySelector('.container').classList.add('admin-active');
                 switchAdminTab('userManage');
-            } else if (pageId === 'userPage') {
+            } else if (pageId === 'userPage' || pageId === 'userInfoPage' || pageId === 'userPasswordPage' || pageId === 'userMessagePage') {
                 // 用户页面显示返回书架按钮
                 document.getElementById('homeBtn').style.display = '';
                 document.getElementById('profileBtn').style.display = 'none';
