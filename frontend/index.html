@@ -1727,25 +1727,25 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td style="padding:10px;border:1px solid #dee2e6;color:#FFD700;font-weight:bold;">🥇 一等功</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/merit_1.png" style="height:24px;vertical-align:middle;" alt="一等功"> <span style="color:#FFD700;font-weight:bold;">一等功</span></td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">≥ 350</td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">3星率 ≥ 50%</td>
                                     <td style="padding:10px;border:1px solid #dee2e6;color:#666;">仅统计3星</td>
                                 </tr>
                                 <tr style="background:#f8f9fa;">
-                                    <td style="padding:10px;border:1px solid #dee2e6;color:#C0C0C0;font-weight:bold;">🥈 二等功</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/merit_2.png" style="height:24px;vertical-align:middle;" alt="二等功"> <span style="color:#C0C0C0;font-weight:bold;">二等功</span></td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">≥ 250</td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">3星率 ≥ 30%</td>
                                     <td style="padding:10px;border:1px solid #dee2e6;color:#666;">仅统计3星</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:10px;border:1px solid #dee2e6;color:#CD7F32;font-weight:bold;">🥉 三等功</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/merit_3.png" style="height:24px;vertical-align:middle;" alt="三等功"> <span style="color:#CD7F32;font-weight:bold;">三等功</span></td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">≥ 150</td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">2星率 ≥ 50%</td>
                                     <td style="padding:10px;border:1px solid #dee2e6;color:#666;">统计≥2星（2星+3星）</td>
                                 </tr>
                                 <tr style="background:#f8f9fa;">
-                                    <td style="padding:10px;border:1px solid #dee2e6;color:#8B4513;font-weight:bold;">🎖️ 嘉奖</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/merit_4.png" style="height:24px;vertical-align:middle;" alt="嘉奖"> <span style="color:#8B4513;font-weight:bold;">嘉奖</span></td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">≥ 50</td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">1星率 ≥ 80%</td>
                                     <td style="padding:10px;border:1px solid #dee2e6;color:#666;">统计≥1星（1星+2星+3星）</td>
@@ -1767,15 +1767,15 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td style="padding:10px;border:1px solid #dee2e6;color:#FFD700;font-weight:bold;">⭐ 红星勋章</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/medal_red_star.png" style="height:24px;vertical-align:middle;" alt="红星勋章"> <span style="color:#FFD700;font-weight:bold;">红星勋章</span></td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">100</td>
                                 </tr>
                                 <tr style="background:#f8f9fa;">
-                                    <td style="padding:10px;border:1px solid #dee2e6;color:#FFD700;font-weight:bold;">🚩 红旗勋章</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/medal_red_flag.png" style="height:24px;vertical-align:middle;" alt="红旗勋章"> <span style="color:#FFD700;font-weight:bold;">红旗勋章</span></td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">200</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:10px;border:1px solid #dee2e6;color:#FFD700;font-weight:bold;">🎖️ 八一勋章</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/medal_bayi.png" style="height:24px;vertical-align:middle;" alt="八一勋章"> <span style="color:#FFD700;font-weight:bold;">八一勋章</span></td>
                                     <td style="padding:10px;border:1px solid #dee2e6;">300</td>
                                 </tr>
                             </tbody>
@@ -7322,14 +7322,14 @@
                     }
                     // 按优先级排序：一等功 > 二等功 > 三等功 > 嘉奖
                     var order = ['一等功', '二等功', '三等功', '嘉奖'];
-                    var icons = {'一等功': '🥇', '二等功': '🥈', '三等功': '🥉', '嘉奖': '🎖️'};
+                    var icons = {'一等功': 'medals/merit_1.png', '二等功': 'medals/merit_2.png', '三等功': 'medals/merit_3.png', '嘉奖': 'medals/merit_4.png'};
                     var colors = {'一等功': '#FFD700', '二等功': '#C0C0C0', '三等功': '#CD7F32', '嘉奖': '#8B4513'};
                     var html = '';
                     order.forEach(function(type) {
                         if (merits[type]) {
                             html += '<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;">'
-                                + '<div style="font-size:24px;">' + (icons[type] || '🎖️') + '</div>'
-                                + '<div style="font-size:12px;color:' + (colors[type] || '#fff') + ';font-weight:bold;margin-top:2px;">' + type + '</div>'
+                                + '<img src="' + (icons[type] || 'medals/merit_4.png') + '" style="height:36px;display:block;margin:0 auto;" alt="' + type + '">'
+                                + '<div style="font-size:12px;color:' + (colors[type] || '#fff') + ';font-weight:bold;margin-top:4px;">' + type + '</div>'
                                 + '<div style="font-size:11px;color:rgba(255,255,255,0.6);">×' + merits[type] + '</div>'
                                 + '</div>';
                         }
@@ -7355,12 +7355,12 @@
                         container.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无勋章</div>';
                         return;
                     }
-                    var icons = {'红星勋章': '⭐', '红旗勋章': '🚩', '八一勋章': '🎖️'};
+                    var icons = {'红星勋章': 'medals/medal_red_star.png', '红旗勋章': 'medals/medal_red_flag.png', '八一勋章': 'medals/medal_bayi.png'};
                     var html = '';
                     medals.forEach(function(m) {
                         html += '<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;">'
-                            + '<div style="font-size:24px;">' + (icons[m.medal_type] || '🎖️') + '</div>'
-                            + '<div style="font-size:12px;color:#FFD700;font-weight:bold;margin-top:2px;">' + m.medal_type + '</div>'
+                            + '<img src="' + (icons[m.medal_type] || 'medals/medal_red_star.png') + '" style="height:36px;display:block;margin:0 auto;" alt="' + m.medal_type + '">'
+                            + '<div style="font-size:12px;color:#FFD700;font-weight:bold;margin-top:4px;">' + m.medal_type + '</div>'
                             + '</div>';
                     });
                     container.innerHTML = html;
