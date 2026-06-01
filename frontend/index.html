@@ -1570,7 +1570,7 @@
                 <div class="admin-tab" onclick="switchAdminTab('subManage')">订阅管理</div>
                 <div class="admin-tab" onclick="switchAdminTab('commentManage')">评论管理</div>
                 <div class="admin-tab" onclick="switchAdminTab('msgManage')">留言管理</div>
-                <div class="admin-tab" onclick="switchAdminTab('rankManage')">军衔管理</div>
+                <div class="admin-tab" onclick="switchAdminTab('rankManage')">军衔军功</div>
             </div>
             
             <!-- Tab Content: User Management -->
@@ -1711,6 +1711,76 @@
                     <h3>🎖️ 军衔等级管理</h3>
                     <p style="color:#666;font-size:13px;margin-bottom:15px;">所有军衔等级及对应的累计阅读字数要求</p>
                     <div id="adminRankList" style="overflow-x:auto;"></div>
+                </div>
+                <div class="admin-card" style="margin-top:20px;">
+                    <h3>🏅 军功评定规则</h3>
+                    <p style="color:#666;font-size:13px;margin-bottom:15px;">每满50个已评分思考进行一次统计，按星级率判定军功类型（取最高）</p>
+                    <div style="background:#f8f9fa;border-radius:8px;padding:15px;">
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead>
+                                <tr style="background:#e9ecef;">
+                                    <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">军功</th>
+                                    <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">思考量</th>
+                                    <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">星级要求</th>
+                                    <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">星率统计说明</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#FFD700;font-weight:bold;">🥇 一等功</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">≥ 350</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">3星率 ≥ 50%</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#666;">仅统计3星</td>
+                                </tr>
+                                <tr style="background:#f8f9fa;">
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#C0C0C0;font-weight:bold;">🥈 二等功</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">≥ 250</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">3星率 ≥ 30%</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#666;">仅统计3星</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#CD7F32;font-weight:bold;">🥉 三等功</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">≥ 150</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">2星率 ≥ 50%</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#666;">统计≥2星（2星+3星）</td>
+                                </tr>
+                                <tr style="background:#f8f9fa;">
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#8B4513;font-weight:bold;">🎖️ 嘉奖</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">≥ 50</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">1星率 ≥ 80%</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#666;">统计≥1星（1星+2星+3星）</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="admin-card" style="margin-top:20px;">
+                    <h3>🏆 勋章评定规则</h3>
+                    <p style="color:#666;font-size:13px;margin-bottom:15px;">按累积3星数达标颁发，最高可拥有三枚</p>
+                    <div style="background:#f8f9fa;border-radius:8px;padding:15px;">
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead>
+                                <tr style="background:#e9ecef;">
+                                    <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">勋章</th>
+                                    <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">3星累积数</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#FFD700;font-weight:bold;">⭐ 红星勋章</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">100</td>
+                                </tr>
+                                <tr style="background:#f8f9fa;">
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#FFD700;font-weight:bold;">🚩 红旗勋章</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">200</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px;border:1px solid #dee2e6;color:#FFD700;font-weight:bold;">🎖️ 八一勋章</td>
+                                    <td style="padding:10px;border:1px solid #dee2e6;">300</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
