@@ -1184,6 +1184,22 @@
                         <div id="wechatNickname" style="font-size:16px;color:#333;font-weight:bold;"></div>
                         <div style="font-size:12px;color:#999;margin-top:5px;">微信登录</div>
                     </div>
+
+                    <!-- 军功章 -->
+                    <div id="meritsCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
+                        <h3 style="margin:0 0 12px;color:#FFD700;font-size:15px;">🏅 我的军功</h3>
+                        <div id="meritsList" style="display:flex;flex-wrap:wrap;gap:10px;">
+                            <div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无军功</div>
+                        </div>
+                    </div>
+
+                    <!-- 勋章 -->
+                    <div id="medalsCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
+                        <h3 style="margin:0 0 12px;color:#FFD700;font-size:15px;">🎖️ 我的勋章</h3>
+                        <div id="medalsList" style="display:flex;flex-wrap:wrap;gap:10px;">
+                            <div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无勋章</div>
+                        </div>
+                    </div>
                     
                     <div style="margin-bottom:15px;">
                         <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">手机号码</label>
@@ -7217,7 +7233,73 @@
             showPage('userPage');
             loadUserProfile();
             loadMilitaryRank();
+            loadUserMerits();
+            loadUserMedals();
             loadUserMessages();
+        }
+
+        // 加载军功章
+        function loadUserMerits() {
+            if (!state.currentUser) return;
+            fetch(API_BASE + '/users/' + state.currentUser.id + '/merits')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var merits = data.merits || {};
+                    var container = document.getElementById('meritsList');
+                    if (!merits || Object.keys(merits).length === 0) {
+                        container.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无军功</div>';
+                        return;
+                    }
+                    // 按优先级排序：一等功 > 二等功 > 三等功 > 嘉奖
+                    var order = ['一等功', '二等功', '三等功', '嘉奖'];
+                    var icons = {'一等功': '🥇', '二等功': '🥈', '三等功': '🥉', '嘉奖': '🎖️'};
+                    var colors = {'一等功': '#FFD700', '二等功': '#C0C0C0', '三等功': '#CD7F32', '嘉奖': '#8B4513'};
+                    var html = '';
+                    order.forEach(function(type) {
+                        if (merits[type]) {
+                            html += '<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;">'
+                                + '<div style="font-size:24px;">' + (icons[type] || '🎖️') + '</div>'
+                                + '<div style="font-size:12px;color:' + (colors[type] || '#fff') + ';font-weight:bold;margin-top:2px;">' + type + '</div>'
+                                + '<div style="font-size:11px;color:rgba(255,255,255,0.6);">×' + merits[type] + '</div>'
+                                + '</div>';
+                        }
+                    });
+                    container.innerHTML = html;
+                    // 显示新获得军功通知
+                    if (data.new_merits && data.new_merits.length > 0) {
+                        var names = data.new_merits.map(function(m) { return m.merit_type; });
+                        showToast('🎉 获得新军功：' + names.join('、'));
+                    }
+                });
+        }
+
+        // 加载勋章
+        function loadUserMedals() {
+            if (!state.currentUser) return;
+            fetch(API_BASE + '/users/' + state.currentUser.id + '/medals')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var medals = data.medals || [];
+                    var container = document.getElementById('medalsList');
+                    if (!medals || medals.length === 0) {
+                        container.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无勋章</div>';
+                        return;
+                    }
+                    var icons = {'红星勋章': '⭐', '红旗勋章': '🚩', '八一勋章': '🎖️'};
+                    var html = '';
+                    medals.forEach(function(m) {
+                        html += '<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;">'
+                            + '<div style="font-size:24px;">' + (icons[m.medal_type] || '🎖️') + '</div>'
+                            + '<div style="font-size:12px;color:#FFD700;font-weight:bold;margin-top:2px;">' + m.medal_type + '</div>'
+                            + '</div>';
+                    });
+                    container.innerHTML = html;
+                    // 显示新获得勋章通知
+                    if (data.new_medals && data.new_medals.length > 0) {
+                        var names = data.new_medals.map(function(m) { return m.medal_type; });
+                        showToast('🎉 获得新勋章：' + names.join('、'));
+                    }
+                });
         }
 
         function loadUserProfile() {

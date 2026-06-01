@@ -367,6 +367,34 @@ def init_db():
         ])
         print("军衔等级数据初始化完成")
 
+    # 军功章表：记录用户获得的军功
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_merits (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            merit_type VARCHAR(20) NOT NULL,
+            batch INT NOT NULL DEFAULT 1,
+            thought_count INT NOT NULL,
+            three_star_rate FLOAT,
+            two_star_rate FLOAT,
+            one_star_rate FLOAT,
+            awarded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_user_type_batch (user_id, merit_type, batch)
+        )
+    ''')
+
+    # 勋章表：记录用户获得的勋章
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_medals (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            medal_type VARCHAR(20) NOT NULL,
+            total_three_stars INT NOT NULL,
+            awarded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_user_medal (user_id, medal_type)
+        )
+    ''')
+
     conn.commit()
     conn.close()
     print("数据库初始化完成")
@@ -2022,6 +2050,192 @@ def get_user_military_rank(user_id):
         'next_rank_min_words': next_min_words,
         'progress': round(progress, 1),
     }
+
+
+# ===== 军功系统 =====
+
+# 军功类型及阈值
+MERIT_TYPES = ['一等功', '二等功', '三等功', '嘉奖']
+MERIT_PRIORITY = {'一等功': 4, '二等功': 3, '三等功': 2, '嘉奖': 1}
+
+def _determine_merit(thought_count, three_star_rate, two_star_rate, one_star_rate):
+    """根据思考量和星级率判定军功类型"""
+    # 一等功：3星率 >= 50%，思考量 >= 350
+    if thought_count >= 350 and three_star_rate >= 0.5:
+        return '一等功'
+    # 二等功：2星率 >= 30%，思考量 >= 250
+    if thought_count >= 250 and two_star_rate >= 0.3:
+        return '二等功'
+    # 三等功：1星率 >= 50%，思考量 >= 150
+    if thought_count >= 150 and one_star_rate >= 0.5:
+        return '三等功'
+    # 嘉奖：思考量 >= 50
+    if thought_count >= 50:
+        return '嘉奖'
+    return None
+
+def check_and_award_merits(user_id):
+    """
+    检查并颁发军功章。
+    每满50个已评分思考进行一次统计，按星级率判定军功类型。
+    返回新颁发的军功列表。
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 获取用户所有已评分的思考
+    cursor.execute('''
+        SELECT ai_score FROM thoughts
+        WHERE user_id = %s AND ai_score IS NOT NULL AND ai_score > 0
+        ORDER BY id ASC
+    ''', (user_id,))
+    scored_thoughts = cursor.fetchall()
+
+    if not scored_thoughts:
+        conn.close()
+        return []
+
+    total_count = len(scored_thoughts)
+    # 计算已统计到的最大批次
+    max_batch = total_count // 50
+
+    # 获取已颁发的最大批次
+    cursor.execute('''
+        SELECT merit_type, MAX(batch) as max_batch
+        FROM user_merits WHERE user_id = %s
+        GROUP BY merit_type
+    ''', (user_id,))
+    awarded = {}
+    for row in cursor.fetchall():
+        awarded[row['merit_type']] = row['max_batch']
+
+    new_merits = []
+
+    for batch in range(1, max_batch + 1):
+        # 该批次包含第 (batch-1)*50+1 到 batch*50 个思考
+        start_idx = (batch - 1) * 50
+        end_idx = batch * 50
+        batch_thoughts = scored_thoughts[start_idx:end_idx]
+        batch_count = len(batch_thoughts)
+
+        # 统计星级率
+        three_stars = sum(1 for t in batch_thoughts if t['ai_score'] == 3)
+        two_stars = sum(1 for t in batch_thoughts if t['ai_score'] == 2)
+        one_stars = sum(1 for t in batch_thoughts if t['ai_score'] == 1)
+
+        three_star_rate = three_stars / batch_count if batch_count > 0 else 0
+        two_star_rate = (two_stars + three_stars) / batch_count if batch_count > 0 else 0  # 2星率包含2星和3星
+        one_star_rate = (one_stars + two_stars + three_stars) / batch_count if batch_count > 0 else 0  # 1星率包含1、2、3星
+
+        thought_count = batch * 50  # 该批次对应的累计思考量
+        merit_type = _determine_merit(thought_count, three_star_rate, two_star_rate, one_star_rate)
+
+        if merit_type and batch > awarded.get(merit_type, 0):
+            try:
+                cursor.execute('''
+                    INSERT INTO user_merits (user_id, merit_type, batch, thought_count, three_star_rate, two_star_rate, one_star_rate)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ''', (user_id, merit_type, batch, thought_count, three_star_rate, two_star_rate, one_star_rate))
+                new_merits.append({
+                    'merit_type': merit_type,
+                    'batch': batch,
+                    'thought_count': thought_count,
+                    'three_star_rate': round(three_star_rate * 100, 1),
+                    'two_star_rate': round(two_star_rate * 100, 1),
+                    'one_star_rate': round(one_star_rate * 100, 1),
+                })
+            except:
+                pass  # 已存在则跳过
+
+    conn.commit()
+    conn.close()
+    return new_merits
+
+
+# ===== 勋章系统 =====
+
+MEDAL_TYPES = [
+    {'type': '红星勋章', 'min_three_stars': 100, 'icon': 'red_star'},
+    {'type': '红旗勋章', 'min_three_stars': 200, 'icon': 'red_flag'},
+    {'type': '八一勋章', 'min_three_stars': 300, 'icon': 'bayi'},
+]
+
+def check_and_award_medals(user_id):
+    """
+    检查并颁发勋章。
+    按累积3星数达标则颁发对应勋章。
+    返回新颁发的勋章列表。
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 获取用户累积3星数
+    cursor.execute('''
+        SELECT COUNT(*) as cnt FROM thoughts
+        WHERE user_id = %s AND ai_score = 3
+    ''', (user_id,))
+    total_three_stars = cursor.fetchone()['cnt']
+
+    # 获取已拥有的勋章
+    cursor.execute('SELECT medal_type FROM user_medals WHERE user_id = %s', (user_id,))
+    owned = set(row['medal_type'] for row in cursor.fetchall())
+
+    new_medals = []
+
+    for medal in MEDAL_TYPES:
+        if medal['type'] not in owned and total_three_stars >= medal['min_three_stars']:
+            try:
+                cursor.execute('''
+                    INSERT INTO user_medals (user_id, medal_type, total_three_stars)
+                    VALUES (%s, %s, %s)
+                ''', (user_id, medal['type'], total_three_stars))
+                new_medals.append({
+                    'medal_type': medal['type'],
+                    'icon': medal['icon'],
+                    'total_three_stars': total_three_stars,
+                })
+            except:
+                pass
+
+    conn.commit()
+    conn.close()
+    return new_medals
+
+
+def get_user_merits(user_id):
+    """获取用户所有军功章统计"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT merit_type, COUNT(*) as count
+        FROM user_merits WHERE user_id = %s
+        GROUP BY merit_type
+    ''', (user_id,))
+    result = {}
+    for row in cursor.fetchall():
+        result[row['merit_type']] = row['count']
+    conn.close()
+    return result
+
+
+def get_user_medals(user_id):
+    """获取用户所有勋章"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT medal_type, total_three_stars, awarded_at
+        FROM user_medals WHERE user_id = %s
+        ORDER BY awarded_at ASC
+    ''', (user_id,))
+    medals = []
+    for row in cursor.fetchall():
+        medals.append({
+            'medal_type': row['medal_type'],
+            'total_three_stars': row['total_three_stars'],
+            'awarded_at': str(row['awarded_at']),
+        })
+    conn.close()
+    return medals
 
 
 if __name__ == '__main__':

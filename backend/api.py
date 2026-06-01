@@ -52,6 +52,8 @@ from backend.database import (
     get_user_by_phone as _get_user_by_phone,
     # 军衔等级系统
     get_user_military_rank,
+    # 军功勋章系统
+    check_and_award_merits, check_and_award_medals, get_user_merits, get_user_medals,
     get_db,
 )
 from backend.text_parser import parse_file, get_book_title
@@ -1251,6 +1253,24 @@ def change_password(user_id):
     update_user_password(user_id, new_password)
     return jsonify({'message': '密码修改成功'})
 
+# ===== 军功勋章 API =====
+
+@api_bp.route('/users/<int:user_id>/merits', methods=['GET'])
+def get_merits(user_id):
+    """获取用户军功章统计"""
+    # 先检查并颁发新军功
+    new_merits = check_and_award_merits(user_id)
+    merits = get_user_merits(user_id)
+    return jsonify({'merits': merits, 'new_merits': new_merits})
+
+@api_bp.route('/users/<int:user_id>/medals', methods=['GET'])
+def get_medals(user_id):
+    """获取用户勋章"""
+    # 先检查并颁发新勋章
+    new_medals = check_and_award_medals(user_id)
+    medals = get_user_medals(user_id)
+    return jsonify({'medals': medals, 'new_medals': new_medals})
+
 # ===== 设备换机 API =====
 
 @api_bp.route('/users/<int:user_id>/transfer-code', methods=['POST'])
@@ -2138,11 +2158,16 @@ def create_thought(section_id):
         ai_score=ai_score,
         score_reason=score_reason
     )
+    # 检查军功和勋章
+    new_merits = check_and_award_merits(int(user_id))
+    new_medals = check_and_award_medals(int(user_id))
     return jsonify({
         'thought_id': thought_id,
         'ai_score': ai_score,
         'score_reason': score_reason,
-        'message': '思考已保存'
+        'message': '思考已保存',
+        'new_merits': new_merits,
+        'new_medals': new_medals,
     })
 
 @api_bp.route('/sections/<int:section_id>/thoughts/repair', methods=['POST'])
