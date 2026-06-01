@@ -1545,7 +1545,7 @@ def admin_get_quotes():
     quotes = cursor.fetchall()
     conn.close()
     return jsonify([{
-        'id': q[0], 'content': q[1], 'author': q[2], 'source': q[3], 'created_at': q[4]
+        'id': q['id'], 'content': q['content'], 'author': q['author'], 'source': q['source'], 'created_at': str(q['created_at'])
     } for q in quotes])
 
 @api_bp.route('/admin/quotes', methods=['POST'])
