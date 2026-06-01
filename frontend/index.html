@@ -6324,7 +6324,7 @@
                             '<td>' + (book.total_words || 0) + '</td>' +
                             '<td>' + (book.total_annotations || 0) + '</td>' +
                             '<td>' + publicBadge + '</td>' +
-                            '<td>' + (book.subscription_price ? '￥' + book.subscription_price.toFixed(2) : '-') + '</td>' +
+                            '<td>' + (book.subscription_price ? '￥' + parseFloat(book.subscription_price).toFixed(2) : '-') + '</td>' +
                             '<td>' + (book.subscription_count || 0) + '</td>' +
                             '<td>' +
                             '<button class="admin-inline-btn" onclick="admin.editBook(' + book.id + ')">编辑</button> ' +
