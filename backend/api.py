@@ -65,7 +65,7 @@ import xml.etree.ElementTree as ET
 api_bp = Blueprint('api', __name__)
 
 # 微信公众号配置（需要在环境变量中设置）
-WECHAT_TOKEN = os.environ.get('WECHAT_TOKEN', 'bandushutong2024')  # 公众号Token
+WECHAT_TOKEN = os.environ.get('WECHAT_TOKEN', 'reading2026')  # 公众号Token
 
 # 文件上传目录
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), '..', 'books')
