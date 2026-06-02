@@ -65,15 +65,20 @@ def get_access_token():
     if _cached_token and time.time() < _token_expire_time:
         return _cached_token
     
-    if not BAIDU_TTS_APP_ID or not BAIDU_TTS_API_KEY or not BAIDU_TTS_SECRET_KEY:
+    # 每次从环境变量读取最新值（解决模块加载顺序问题）
+    app_id = os.environ.get('BAIDU_TTS_APP_ID', '')
+    api_key = os.environ.get('BAIDU_TTS_API_KEY', '')
+    secret_key = os.environ.get('BAIDU_TTS_SECRET_KEY', '')
+    
+    if not app_id or not api_key or not secret_key:
         print("警告：未配置百度 TTS 密钥")
         return None
     
     try:
         params = {
             'grant_type': 'client_credentials',
-            'client_id': BAIDU_TTS_API_KEY,
-            'client_secret': BAIDU_TTS_SECRET_KEY
+            'client_id': api_key,
+            'client_secret': secret_key
         }
         response = requests.post(BAIDU_TOKEN_URL, params=params, timeout=10)
         result = response.json()
