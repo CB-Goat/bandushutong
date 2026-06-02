@@ -1539,7 +1539,7 @@ def admin_update_book_public(book_id):
 
 @api_bp.route('/admin/books/<int:book_id>/icon', methods=['POST'])
 def admin_upload_book_icon(book_id):
-    """上传书籍图标"""
+    """上传书籍图标（自动压缩）"""
     book = get_book(book_id)
     if not book:
         return jsonify({'error': '书籍不存在'}), 404
@@ -1577,22 +1577,54 @@ def admin_upload_book_icon(book_id):
         # 构建完整的保存路径
         full_path = os.path.join(icons_dir, f'book_{book_id}.png')
         
-        # 保存文件
-        file.save(full_path)
-        print(f"[ICON UPLOAD] 图标保存成功: {full_path}")
+        # 图片压缩配置
+        TARGET_WIDTH = 64
+        TARGET_HEIGHT = 80
+        MAX_FILE_SIZE = 5 * 1024 * 1024  # 最大5MB
         
-        # 尝试用 Pillow 压缩，失败则忽略
-        try:
-            from PIL import Image
-            img = Image.open(full_path)
-            if img.mode not in ('RGBA', 'RGB'):
-                img = img.convert('RGBA')
-            img_resized = img.resize((64, 80), Image.Resampling.LANCZOS)
-            img_resized.save(full_path, 'PNG', optimize=True)
-            print(f"[ICON UPLOAD] 图标压缩完成")
-        except Exception as e:
-            print(f"[ICON UPLOAD] Pillow压缩失败（忽略）: {e}")
-            # Pillow 不可用时直接使用原图
+        # 检查文件大小
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        if file_size > MAX_FILE_SIZE:
+            return jsonify({'error': f'文件大小超过限制（最大5MB）'}), 400
+        
+        # 使用 Pillow 处理图片（内存中直接处理，不保存原图）
+        from PIL import Image
+        import io
+        
+        # 从文件流读取图片
+        img = Image.open(file.stream)
+        
+        # 处理透明通道
+        if img.mode not in ('RGBA', 'RGB'):
+            img = img.convert('RGBA')
+        
+        # 保持宽高比缩放
+        original_width, original_height = img.size
+        ratio = min(TARGET_WIDTH / original_width, TARGET_HEIGHT / original_height)
+        new_width = int(original_width * ratio)
+        new_height = int(original_height * ratio)
+        
+        # 高质量缩放
+        img_resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # 创建新画布，居中放置缩放后的图片
+        if img.mode == 'RGBA':
+            new_img = Image.new('RGBA', (TARGET_WIDTH, TARGET_HEIGHT), (255, 255, 255, 0))
+        else:
+            new_img = Image.new('RGB', (TARGET_WIDTH, TARGET_HEIGHT), (255, 255, 255))
+        
+        offset_x = (TARGET_WIDTH - new_width) // 2
+        offset_y = (TARGET_HEIGHT - new_height) // 2
+        new_img.paste(img_resized, (offset_x, offset_y))
+        
+        # 保存压缩后的图片
+        new_img.save(full_path, 'PNG', optimize=True, quality=85)
+        
+        # 获取压缩前后大小信息
+        compressed_size = os.path.getsize(full_path)
+        print(f"[ICON UPLOAD] 图标压缩完成: {file_size} bytes -> {compressed_size} bytes ({(compressed_size/file_size*100):.1f}%)")
         
         # 更新数据库
         from backend.database import get_db
@@ -1602,7 +1634,12 @@ def admin_upload_book_icon(book_id):
         conn.commit()
         conn.close()
         
-        return jsonify({'message': '图标上传成功', 'icon_path': icon_path})
+        return jsonify({
+            'message': '图标上传成功', 
+            'icon_path': icon_path,
+            'original_size': file_size,
+            'compressed_size': compressed_size
+        })
     
     except Exception as e:
         print(f"[ICON UPLOAD] 上传失败: {e}")

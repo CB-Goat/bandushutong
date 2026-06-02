@@ -2,13 +2,18 @@
 
 FROM python:3.9-slim
 
+# 配置国内 apt 源（直接写入完整配置，确保生效）
+RUN echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie main contrib non-free" > /etc/apt/sources.list && \
+    echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-updates main contrib non-free" >> /etc/apt/sources.list && \
+    echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian-security/ trixie-security main contrib non-free" >> /etc/apt/sources.list
+
 # 安装 ffmpeg（用于音频合并）
 RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
 WORKDIR /app
 
-# 安装依赖
+# 安装依赖（已使用清华 pip 源）
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
