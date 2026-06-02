@@ -503,31 +503,46 @@ def upload_book():
             ch_total_words = sum(len(s.get('content', '')) for s in ch_sections)
             update_chapter_info(ch_id, len(ch_sections), ch_total_words)
 
-        # 原文导入完成，开始生成音频（使用统一核心函数）
-        _set_import_status(book_id, 'generating', '音频生成开始')
-        failed_count = 0
-        total_count = len(sections)
+        # 原文导入完成，音频生成改为后台异步处理
+        def generate_audio_async(book_id, sections, section_id_map):
+            """后台异步生成音频"""
+            try:
+                _set_import_status(book_id, 'generating', '音频生成开始')
+                failed_count = 0
+                total_count = len(sections)
+                
+                for i, sec in enumerate(sections):
+                    sec_id = section_id_map.get(sec['section_number'])
+                    if not sec_id:
+                        continue
+                    result = reimport_section_core(
+                        section_id=sec_id,
+                        content=sec.get('content', ''),
+                        annotations=sec.get('annotations', []),
+                        title=sec.get('title', ''),
+                        summary=sec.get('summary', '')
+                    )
+                    if not result['success']:
+                        failed_count += 1
+                        print(f"[upload] 节 {sec_id} 音频生成失败: {result['error']}")
+                    _set_import_status(book_id, 'generating', f'音频生成中 {i+1}/{total_count}')
+                
+                if failed_count == 0:
+                    _set_import_status(book_id, 'done', f'音频生成完成 {total_count}/{total_count}')
+                else:
+                    _set_import_status(book_id, 'tts_error', f'音频生成完成，{failed_count}个节失败')
+            except Exception as e:
+                print(f"[upload] 音频生成异常: {e}")
+                _set_import_status(book_id, 'error', f'音频生成异常: {str(e)}')
         
-        for i, sec in enumerate(sections):
-            sec_id = section_id_map.get(sec['section_number'])
-            if not sec_id:
-                continue
-            result = reimport_section_core(
-                section_id=sec_id,
-                content=sec.get('content', ''),
-                annotations=sec.get('annotations', []),
-                title=sec.get('title', ''),
-                summary=sec.get('summary', '')
-            )
-            if not result['success']:
-                failed_count += 1
-                print(f"[upload] 节 {sec_id} 音频生成失败: {result['error']}")
-            _set_import_status(book_id, 'generating', f'音频生成中 {i+1}/{total_count}')
-        
-        if failed_count == 0:
-            _set_import_status(book_id, 'done', f'音频生成完成 {total_count}/{total_count}')
-        else:
-            _set_import_status(book_id, 'tts_error', f'音频生成完成，{failed_count}个节失败')
+        # 启动后台线程生成音频
+        import threading
+        audio_thread = threading.Thread(
+            target=generate_audio_async,
+            args=(book_id, sections, section_id_map),
+            daemon=True
+        )
+        audio_thread.start()
 
         return jsonify({
             'message': '更新成功' if is_update else '上传成功',
