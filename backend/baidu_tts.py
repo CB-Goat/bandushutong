@@ -518,7 +518,7 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
                             quote_duration = quote_audio['audio_duration']
                             # 更新 insert_points 表的 quote_audio_path
                             cursor.execute(
-                                "UPDATE insert_points SET quote_audio_path = ?, quote_audio_duration = ? WHERE section_id = ? AND annotation_id = ?",
+                                "UPDATE insert_points SET quote_audio_path = %s, quote_audio_duration = %s WHERE section_id = %s AND annotation_id = %s",
                                 (quote_audio_path, quote_duration, section_id, ann['id'])
                             )
                             print(f"[TTS] 引用音频生成完成: {quote_audio_path}, 时长 {quote_duration:.1f}s")
@@ -546,7 +546,7 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
                             conn = get_db()
                             cursor = conn.cursor()
                             cursor.execute(
-                                "UPDATE insert_points SET audio_path = ?, audio_duration = ? WHERE section_id = ? AND annotation_index = ?",
+                                "UPDATE insert_points SET audio_path = %s, audio_duration = %s WHERE section_id = %s AND annotation_index = %s",
                                 (ann_audio['audio_path'], ann_audio['audio_duration'], section_id, ann['annotation_index'])
                             )
                             conn.commit()
@@ -603,7 +603,7 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
                     conn = get_db()
                     cursor = conn.cursor()
                     cursor.execute(
-                        "UPDATE insert_points SET audio_path = ?, audio_duration = ? WHERE section_id = ? AND point_type = 'summary'",
+                        "UPDATE insert_points SET audio_path = %s, audio_duration = %s WHERE section_id = %s AND point_type = 'summary'",
                         (summary_audio['audio_path'], summary_audio['audio_duration'], section_id)
                     )
                     conn.commit()
@@ -619,7 +619,7 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
         conn = get_db()
         cursor = conn.cursor()
         # 获取该节的所有 text_segments，按 segment_number 排序
-        cursor.execute('SELECT id, segment_number FROM text_segments WHERE section_id = ? ORDER BY segment_number', (section_id,))
+        cursor.execute('SELECT id, segment_number FROM text_segments WHERE section_id = %s ORDER BY segment_number', (section_id,))
         db_segments = {row['segment_number']: row['id'] for row in cursor.fetchall()}
         # 更新每个 original 类型段的 audio_path 和 char_timeline
         for seg in audio_segments:
@@ -628,7 +628,7 @@ def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, v
                 if seg_num in db_segments:
                     char_timeline_json = json.dumps(seg['char_timeline']) if seg.get('char_timeline') else None
                     cursor.execute(
-                        'UPDATE text_segments SET audio_path = ?, audio_duration = ?, char_timeline = ? WHERE id = ?',
+                        'UPDATE text_segments SET audio_path = %s, audio_duration = %s, char_timeline = %s WHERE id = %s',
                         (seg['audio_path'], seg['audio_duration'], char_timeline_json, db_segments[seg_num])
                     )
                     print(f"[TTS] 更新 text_segments id={db_segments[seg_num]} audio_path={seg['audio_path']} char_timeline长度={len(seg.get('char_timeline', []))}")
