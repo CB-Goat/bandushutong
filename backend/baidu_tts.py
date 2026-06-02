@@ -70,6 +70,8 @@ def get_access_token():
     api_key = os.environ.get('BAIDU_TTS_API_KEY', '')
     secret_key = os.environ.get('BAIDU_TTS_SECRET_KEY', '')
     
+    print(f"[TTS-DEBUG] 获取token - APP_ID: {app_id[:4]}***, API_KEY: {api_key[:4]}***, SECRET_KEY: {secret_key[:4]}***")
+    
     if not app_id or not api_key or not secret_key:
         print("警告：未配置百度 TTS 密钥")
         return None
@@ -80,8 +82,12 @@ def get_access_token():
             'client_id': api_key,
             'client_secret': secret_key
         }
+        print(f"[TTS-DEBUG] 请求URL: {BAIDU_TOKEN_URL}")
+        print(f"[TTS-DEBUG] 请求参数: grant_type=client_credentials, client_id={api_key}, client_secret={secret_key[:4]}***")
         response = requests.post(BAIDU_TOKEN_URL, params=params, timeout=10)
+        print(f"[TTS-DEBUG] 响应状态码: {response.status_code}")
         result = response.json()
+        print(f"[TTS-DEBUG] 响应内容: {result}")
         
         if 'access_token' in result:
             _cached_token = result['access_token']
