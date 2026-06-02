@@ -7645,7 +7645,12 @@
                 data.messages.forEach(function(msg) {
                     var div = document.createElement('div');
                     div.style.cssText = 'border-top:1px solid #eee;padding:15px 0;';
-                    div.innerHTML = '<div style="font-size:13px;color:#666;margin-bottom:8px;">' + msg.created_at + '</div>' +
+                    // 格式化时间 yyyy-mm-dd HH:MM
+                    var timeStr = msg.created_at ? (function(d) {
+                        var pad = function(n) { return n < 10 ? '0' + n : n; };
+                        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+                    })(new Date(msg.created_at)) : '';
+                    div.innerHTML = '<div style="font-size:13px;color:#666;margin-bottom:8px;">' + timeStr + '</div>' +
                         '<div style="font-size:15px;color:#333;">' + msg.content + '</div>';
                     if (msg.admin_reply) {
                         div.innerHTML += '<div style="margin-top:10px;padding:10px;background:#f5f5f5;border-radius:6px;">' +
