@@ -1732,9 +1732,25 @@
                 <div class="admin-card"><p style="color:#999;text-align:center;padding:30px;">评论管理功能开发中...</p></div>
             </div>
             
-            <!-- Tab Content: Message Management (placeholder) -->
+            <!-- Tab Content: Message Management -->
             <div id="adminTab_msgManage" class="admin-tab-content" style="display:none;">
-                <div class="admin-card"><p style="color:#999;text-align:center;padding:30px;">留言管理功能开发中...</p></div>
+                <div class="admin-card">
+                    <h3>💬 留言管理</h3>
+                    <div style="margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                        <button class="btn btn-primary" onclick="loadAdminMessages()">刷新列表</button>
+                        <span id="msgCount" style="color:#666;font-size:13px;"></span>
+                    </div>
+                    <div class="admin-search-bar" style="margin-bottom:15px;">
+                        <input type="text" id="msgSearchKeyword" placeholder="搜索用户/内容" onkeyup="if(event.key==='Enter')loadAdminMessages()">
+                        <select id="msgFilter" onchange="loadAdminMessages()" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                            <option value="">全部状态</option>
+                            <option value="pending">待回复</option>
+                            <option value="replied">已回复</option>
+                        </select>
+                        <button onclick="loadAdminMessages()">搜索</button>
+                    </div>
+                    <div id="adminMessageList" style="max-height:600px;overflow-y:auto;"></div>
+                </div>
             </div>
 
             <!-- Tab Content: Rank Management -->
@@ -7993,6 +8009,120 @@
                     // 保存名言HTML，点评结束后恢复
                     state._quoteHtml = html;
                 });
+        }
+
+        // ===== 留言管理 =====
+        var adminMessagesCache = [];
+
+        function loadAdminMessages() {
+            var keyword = document.getElementById('msgSearchKeyword').value.trim().toLowerCase();
+            var filter = document.getElementById('msgFilter').value;
+            var list = document.getElementById('adminMessageList');
+            var countEl = document.getElementById('msgCount');
+
+            list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">加载中...</div>';
+
+            fetch(API_BASE + '/admin/messages')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var messages = data.messages || [];
+                    adminMessagesCache = messages;
+
+                    // 过滤
+                    if (keyword) {
+                        messages = messages.filter(function(m) {
+                            return (m.wechat_nickname || '').toLowerCase().includes(keyword) ||
+                                   (m.phone || '').includes(keyword) ||
+                                   (m.content || '').toLowerCase().includes(keyword) ||
+                                   (m.admin_reply || '').toLowerCase().includes(keyword);
+                        });
+                    }
+                    if (filter === 'pending') {
+                        messages = messages.filter(function(m) { return !m.admin_reply; });
+                    } else if (filter === 'replied') {
+                        messages = messages.filter(function(m) { return !!m.admin_reply; });
+                    }
+
+                    // 统计
+                    var pending = adminMessagesCache.filter(function(m) { return !m.admin_reply; }).length;
+                    countEl.textContent = '共 ' + adminMessagesCache.length + ' 条留言，待回复 ' + pending + ' 条';
+
+                    if (messages.length === 0) {
+                        list.innerHTML = '<div style="color:#999;padding:30px;text-align:center;">暂无留言</div>';
+                        return;
+                    }
+
+                    var html = '<div style="display:flex;flex-direction:column;gap:15px;">';
+                    messages.forEach(function(msg) {
+                        var time = msg.created_at ? new Date(msg.created_at).toLocaleString('zh-CN') : '';
+                        var replyTime = msg.replied_at ? new Date(msg.replied_at).toLocaleString('zh-CN') : '';
+                        var isPending = !msg.admin_reply;
+
+                        html += '<div style="background:#f8f9fa;border-radius:12px;padding:15px;border-left:4px solid ' + (isPending ? '#ffc107' : '#28a745') + ';">';
+                        html += '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">';
+                        html += '<div>';
+                        html += '<div style="font-weight:bold;color:#333;">' + (msg.wechat_nickname || '用户' + (msg.phone ? ' ' + msg.phone.slice(-4) : '')) + '</div>';
+                        html += '<div style="font-size:12px;color:#999;margin-top:2px;">' + time + '</div>';
+                        html += '</div>';
+                        html += '<span style="padding:3px 10px;border-radius:12px;font-size:12px;background:' + (isPending ? '#ffc107' : '#28a745') + ';color:white;">' + (isPending ? '待回复' : '已回复') + '</span>';
+                        html += '</div>';
+
+                        // 用户留言
+                        html += '<div style="background:white;padding:12px;border-radius:8px;margin-bottom:10px;">';
+                        html += '<div style="color:#666;font-size:13px;margin-bottom:8px;">用户留言：</div>';
+                        html += '<div style="color:#333;line-height:1.6;">' + msg.content.replace(/\n/g, '<br>') + '</div>';
+                        html += '</div>';
+
+                        // 管理员回复
+                        html += '<div style="background:#e8f5e9;padding:12px;border-radius:8px;margin-bottom:10px;">';
+                        html += '<div style="color:#2e7d32;font-size:13px;margin-bottom:8px;">管理员回复' + (replyTime ? ' (' + replyTime + ')' : '') + '：</div>';
+                        if (msg.admin_reply) {
+                            html += '<div style="color:#333;line-height:1.6;">' + msg.admin_reply.replace(/\n/g, '<br>') + '</div>';
+                        } else {
+                            html += '<div style="color:#999;font-style:italic;">暂无回复</div>';
+                        }
+                        html += '</div>';
+
+                        // 回复框
+                        html += '<div style="display:flex;gap:10px;align-items:end;">';
+                        html += '<textarea id="reply_' + msg.id + '" rows="2" placeholder="输入回复内容..." style="flex:1;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:none;font-family:inherit;">' + (msg.admin_reply || '') + '</textarea>';
+                        html += '<button onclick="submitMessageReply(' + msg.id + ')" class="btn btn-primary" style="white-space:nowrap;">' + (msg.admin_reply ? '更新回复' : '提交回复') + '</button>';
+                        html += '</div>';
+
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    list.innerHTML = html;
+                })
+                .catch(function(e) {
+                    list.innerHTML = '<div style="color:red;padding:20px;text-align:center;">加载失败: ' + e.message + '</div>';
+                });
+        }
+
+        function submitMessageReply(messageId) {
+            var reply = document.getElementById('reply_' + messageId).value.trim();
+            if (!reply) {
+                alert('请输入回复内容');
+                return;
+            }
+
+            fetch(API_BASE + '/admin/messages/' + messageId + '/reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reply: reply })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    alert('回复失败: ' + data.error);
+                } else {
+                    alert('回复成功');
+                    loadAdminMessages();
+                }
+            })
+            .catch(function(e) {
+                alert('回复失败: ' + e.message);
+            });
         }
 
         // User Management
