@@ -1971,8 +1971,12 @@
                 e.preventDefault();
                 e.stopPropagation();
                 // 根据当前页面决定返回位置
+                var loginPage = document.getElementById('loginPage');
                 var readerPage = document.getElementById('readerPage');
-                if (readerPage.classList.contains('active')) {
+                if (loginPage.classList.contains('active')) {
+                    // 登录页 → 返回公开浏览页
+                    showPage('publicPage');
+                } else if (readerPage.classList.contains('active')) {
                     // 阅读页 → 返回目录页
                     var currentPos = reader._currentPosition || 0;
                     console.log('返回按钮：保存位置', currentPos);
@@ -7728,6 +7732,12 @@
                 document.getElementById('homeBtn').style.display = 'none';
                 document.getElementById('profileBtn').style.display = 'none';
                 document.getElementById('loginNavBtn').style.display = '';
+                document.querySelector('.container').classList.remove('admin-active');
+            } else if (pageId === 'loginPage') {
+                // 登录页：显示返回按钮，点击返回公开浏览页
+                document.getElementById('homeBtn').style.display = '';
+                document.getElementById('profileBtn').style.display = 'none';
+                document.getElementById('loginNavBtn').style.display = 'none';
                 document.querySelector('.container').classList.remove('admin-active');
             } else {
                 // 其他页面（书架等）显示个人按钮
