@@ -1433,9 +1433,9 @@
         </div>
 
         <!-- 公开浏览页（登录前可见） -->
-        <div class="page active" id="publicPage" style="display:flex;flex-direction:column;height:calc(100vh - 140px);overflow:hidden;">
+        <div class="page active" id="publicPage" style="position:fixed;top:50px;left:0;right:0;bottom:140px;overflow:hidden;">
             <!-- 书籍列表区域（可滚动） -->
-            <div style="flex:1;overflow-y:auto;padding:20px;">
+            <div style="height:100%;overflow-y:auto;padding:20px;">
                 <div style="max-width:500px;margin:0 auto;">
                     <div class="book-list" id="publicBookList"></div>
                     <div id="publicEmptyState" style="display:none;text-align:center;padding:40px 0;color:#999;">
