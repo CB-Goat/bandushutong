@@ -284,7 +284,7 @@ def list_public_books():
     from backend.database import get_db
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('''SELECT id, title, author, author_nationality, version, total_sections, total_chapters, is_public
+    cursor.execute('''SELECT id, title, author, author_nationality, version, total_sections, total_chapters, is_public, icon_path
                       FROM books WHERE is_public=1 ORDER BY id DESC''')
     books = [dict(row) for row in cursor.fetchall()]
     # 附加总字数和点评总数
