@@ -7695,6 +7695,23 @@
             document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById(pageId).classList.add('active');
 
+            // 控制公开浏览页的书籍列表和宣传区域显示
+            var publicPromo = document.getElementById('publicPromotion');
+            var publicPage = document.getElementById('publicPage');
+            if (pageId === 'loginPage') {
+                // 登录页：隐藏书籍列表和宣传区域
+                publicPage.style.display = 'none';
+                if (publicPromo) publicPromo.style.display = 'none';
+            } else if (pageId === 'publicPage') {
+                // 公开浏览页：显示书籍列表和宣传区域
+                publicPage.style.display = 'flex';
+                if (publicPromo) publicPromo.style.display = 'block';
+            } else {
+                // 其他页（已登录）：隐藏公共区域
+                publicPage.style.display = 'none';
+                if (publicPromo) publicPromo.style.display = 'none';
+            }
+
             // 隐藏个人中心卡片
             document.getElementById('profileCard').style.display = 'none';
 
