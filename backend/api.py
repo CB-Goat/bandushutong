@@ -1537,44 +1537,91 @@ def admin_upload_book_icon(book_id):
     
     import os
     
-    # api.py 在 backend/ 下，项目根目录是上一级
+    # 从环境变量获取书籍图标存储路径
+    # 优先使用环境变量配置，支持 Docker 挂载目录
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    icons_dir = os.path.join(project_root, 'frontend', 'book_icons')
-    os.makedirs(icons_dir, exist_ok=True)
+    icons_path_env = os.environ.get('BOOK_ICONS_PATH', '')
     
-    # 保存原始文件
-    icon_path = f'book_icons/book_{book_id}.png'
-    full_path = os.path.join(project_root, 'frontend', icon_path)
-    file.save(full_path)
+    if icons_path_env and os.path.isabs(icons_path_env):
+        # 使用绝对路径配置（适用于 Docker 挂载场景）
+        icons_dir = icons_path_env
+        # 数据库中存储相对路径，便于前端访问
+        icon_path = f'book_icons/book_{book_id}.png'
+    else:
+        # 默认路径：frontend/book_icons
+        icons_dir = os.path.join(project_root, 'frontend', 'book_icons')
+        icon_path = f'book_icons/book_{book_id}.png'
     
-    # 尝试用 Pillow 压缩，失败则忽略
     try:
-        from PIL import Image
-        img = Image.open(full_path)
-        if img.mode not in ('RGBA', 'RGB'):
-            img = img.convert('RGBA')
-        img_resized = img.resize((64, 80), Image.Resampling.LANCZOS)
-        img_resized.save(full_path, 'PNG', optimize=True)
-    except Exception:
-        pass  # Pillow 不可用时直接使用原图
+        # 确保目录存在
+        os.makedirs(icons_dir, exist_ok=True)
+        
+        # 检查目录是否可写
+        if not os.access(icons_dir, os.W_OK):
+            return jsonify({'error': f'图标目录不可写: {icons_dir}'}), 500
+        
+        # 构建完整的保存路径
+        full_path = os.path.join(icons_dir, f'book_{book_id}.png')
+        
+        # 保存文件
+        file.save(full_path)
+        print(f"[ICON UPLOAD] 图标保存成功: {full_path}")
+        
+        # 尝试用 Pillow 压缩，失败则忽略
+        try:
+            from PIL import Image
+            img = Image.open(full_path)
+            if img.mode not in ('RGBA', 'RGB'):
+                img = img.convert('RGBA')
+            img_resized = img.resize((64, 80), Image.Resampling.LANCZOS)
+            img_resized.save(full_path, 'PNG', optimize=True)
+            print(f"[ICON UPLOAD] 图标压缩完成")
+        except Exception as e:
+            print(f"[ICON UPLOAD] Pillow压缩失败（忽略）: {e}")
+            # Pillow 不可用时直接使用原图
+        
+        # 更新数据库
+        from backend.database import get_db
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE books SET icon_path=%s WHERE id=%s', (icon_path, book_id))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': '图标上传成功', 'icon_path': icon_path})
     
-    # 更新数据库
-    from backend.database import get_db
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute('UPDATE books SET icon_path=%s WHERE id=%s', (icon_path, book_id))
-    conn.commit()
-    conn.close()
-    
-    return jsonify({'message': '图标上传成功', 'icon_path': icon_path})
+    except Exception as e:
+        print(f"[ICON UPLOAD] 上传失败: {e}")
+        return jsonify({'error': f'上传失败: {str(e)}'}), 500
 
 @api_bp.route('/book_icons/<path:filename>', methods=['GET'])
 def serve_book_icon(filename):
-    """提供书籍图标"""
+    """提供书籍图标（支持环境变量配置路径）"""
     from flask import send_from_directory
-    from backend.database import get_db
-    icons_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', 'book_icons')
-    return send_from_directory(icons_dir, filename)
+    
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    icons_path_env = os.environ.get('BOOK_ICONS_PATH', '')
+    
+    if icons_path_env and os.path.isabs(icons_path_env):
+        # 使用环境变量配置的绝对路径
+        icons_dir = icons_path_env
+    else:
+        # 默认路径
+        icons_dir = os.path.join(project_root, 'frontend', 'book_icons')
+    
+    # 确保目录存在
+    os.makedirs(icons_dir, exist_ok=True)
+    
+    icon_path = os.path.join(icons_dir, filename)
+    if os.path.exists(icon_path):
+        return send_from_directory(icons_dir, filename)
+    else:
+        # 返回默认图标
+        default_icons_dir = os.path.join(project_root, 'frontend', 'book_icons')
+        default_icon_path = os.path.join(default_icons_dir, 'default.png')
+        if os.path.exists(default_icon_path):
+            return send_from_directory(default_icons_dir, 'default.png')
+        return '', 404
 
 # ===== 名言管理 API =====
 @api_bp.route('/admin/quotes', methods=['GET'])

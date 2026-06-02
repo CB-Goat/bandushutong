@@ -4,17 +4,37 @@ services:
     container_name: reading-companion-backend
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "${FLASK_PORT:-5000}:5000"
     volumes:
-      # 音频文件挂载
-      - /www/dk_project/wwwroot/lit.handy.xin/audio_files:/app/audio_files
-      # 书籍图标挂载（持久化存储）
-      - /www/dk_project/wwwroot/lit.handy.xin/book_icons:/app/frontend/book_icons
-      # 环境变量文件挂载
-      - /www/dk_project/wwwroot/lit.handy.xin/.env:/app/.env:ro
+      # 音频文件挂载（使用双引号包裹避免 YAML 解析错误）
+      - "${HOST_AUDIO_PATH:-/www/dk_project/wwwroot/lit.handy.xin/audio_files}:${CONTAINER_AUDIO_PATH:-/app/audio_files}"
+      # 书籍图标挂载（使用双引号包裹避免 YAML 解析错误）
+      - "${HOST_ICONS_PATH:-/www/dk_project/wwwroot/lit.handy.xin/book_icons}:${CONTAINER_ICONS_PATH:-/app/frontend/book_icons}"
+      # 环境变量文件挂载（使用双引号包裹避免 YAML 解析错误）
+      - "${HOST_ENV_PATH:-/www/dk_project/wwwroot/lit.handy.xin/.env}:${CONTAINER_ENV_PATH:-/app/.env}:ro"
     environment:
-      - FLASK_ENV=production
+      - FLASK_ENV=${FLASK_ENV:-production}
       - TZ=Asia/Shanghai
+      # 容器内路径配置（传递给应用程序）
+      - BOOK_ICONS_PATH=${CONTAINER_ICONS_PATH:-/app/frontend/book_icons}
+      - AUDIO_FILES_PATH=${CONTAINER_AUDIO_PATH:-/app/audio_files}
+      # 数据库配置
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-reading_companion}
+      # AI 服务配置
+      - GLM_API_KEY=${GLM_API_KEY}
+      - ARK_API_KEY=${ARK_API_KEY}
+      # 百度 TTS 配置
+      - BAIDU_TTS_API_KEY=${BAIDU_TTS_API_KEY}
+      - BAIDU_TTS_APP_ID=${BAIDU_TTS_APP_ID}
+      - BAIDU_TTS_SECRET_KEY=${BAIDU_TTS_SECRET_KEY}
+      # 微信公众号配置
+      - WECHAT_TOKEN=${WECHAT_TOKEN}
+      - WECHAT_APPID=${WECHAT_APPID}
+      - WECHAT_APPSECRET=${WECHAT_APPSECRET}
     dns:
       - 223.5.5.5
       - 8.8.8.8
