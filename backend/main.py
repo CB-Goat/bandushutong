@@ -62,12 +62,12 @@ def serve_book_icons(filename):
     if os.path.exists(icon_path):
         return send_from_directory(icons_dir, filename)
     else:
-        # 返回默认书籍图标
-        default_icon = os.path.join(FRONTEND_DIR, 'favicon.png')
+        # 返回默认书籍图标（优先用目录内的 default.png，否则用 favicon.png）
+        default_icon = os.path.join(icons_dir, 'default.png')
         if os.path.exists(default_icon):
-            return send_from_directory(FRONTEND_DIR, 'favicon.png')
-        else:
-            return '', 404
+            return send_from_directory(icons_dir, 'default.png')
+        # 返回空 200 避免前端报错
+        return '', 200
 
 @app.route('/bookmark-icon.png')
 def serve_bookmark_icon():
