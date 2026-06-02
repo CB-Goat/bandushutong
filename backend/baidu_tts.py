@@ -8,6 +8,7 @@ import json
 import time
 import hashlib
 import requests
+import subprocess
 from datetime import datetime
 
 # 尝试从 .env 文件加载环境变量
