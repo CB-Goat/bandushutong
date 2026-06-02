@@ -56,18 +56,18 @@ def serve_favicon():
 
 @app.route('/book_icons/<path:filename>')
 def serve_book_icons(filename):
-    """提供书籍图标，不存在时返回默认图标"""
-    icons_dir = os.path.join(FRONTEND_DIR, 'book_icons')
-    icon_path = os.path.join(icons_dir, filename)
-    if os.path.exists(icon_path):
-        return send_from_directory(icons_dir, filename)
+    """提供书籍图标，支持环境变量配置路径"""
+    icons_path_env = os.environ.get('BOOK_ICONS_PATH')
+    if icons_path_env and os.path.exists(icons_path_env):
+        icons_dir = icons_path_env
     else:
-        # 返回默认书籍图标（优先用目录内的 default.png，否则用 favicon.png）
-        default_icon = os.path.join(icons_dir, 'default.png')
-        if os.path.exists(default_icon):
-            return send_from_directory(icons_dir, 'default.png')
-        # 返回空 200 避免前端报错
-        return '', 200
+        icons_dir = os.path.join(FRONTEND_DIR, 'book_icons')
+    if os.path.exists(os.path.join(icons_dir, filename)):
+        return send_from_directory(icons_dir, filename)
+    default_icon = os.path.join(icons_dir, 'default.png')
+    if os.path.exists(default_icon):
+        return send_from_directory(icons_dir, 'default.png')
+    return '', 200
 
 @app.route('/bookmark-icon.png')
 def serve_bookmark_icon():
