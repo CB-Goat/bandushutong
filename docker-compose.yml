@@ -8,6 +8,8 @@ services:
     volumes:
       # 音频文件挂载
       - /www/dk_project/wwwroot/lit.handy.xin/audio_files:/app/audio_files
+      # 书籍图标挂载（持久化存储）
+      - /www/dk_project/wwwroot/lit.handy.xin/book_icons:/app/frontend/book_icons
       # 环境变量文件挂载
       - /www/dk_project/wwwroot/lit.handy.xin/.env:/app/.env:ro
     environment:
