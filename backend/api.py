@@ -287,9 +287,23 @@ def list_public_books():
     cursor.execute('''SELECT id, title, author, author_nationality, version, total_sections, total_chapters, is_public, icon_path
                       FROM books WHERE is_public=1 ORDER BY id DESC''')
     books = [dict(row) for row in cursor.fetchall()]
-    # 附加总字数和点评总数
+    
+    # 验证图标文件是否存在
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for book in books:
         bid = book['id']
+        icon_path = book.get('icon_path')
+        if icon_path:
+            # 检查默认路径
+            full_path = os.path.join(project_root, 'frontend', icon_path)
+            if not os.path.exists(full_path):
+                # 检查环境变量配置的路径
+                env_path = os.environ.get('BOOK_ICONS_PATH')
+                if env_path:
+                    full_path = os.path.join(env_path, os.path.basename(icon_path))
+                if not os.path.exists(full_path):
+                    book['icon_path'] = None
+        
         cursor.execute('SELECT COALESCE(SUM(word_count),0) as total_words FROM sections WHERE book_id=%s', (bid,))
         book['total_words'] = cursor.fetchone()['total_words']
         cursor.execute('''SELECT COUNT(*) as cnt FROM annotations a
