@@ -113,7 +113,7 @@ def get_access_token():
         return None
 
 
-def call_baidu_tts(text, token, speed=5, person=3):
+def call_baidu_tts(text, token, speed=5, person=4001):
     """调用单次百度 TTS API，返回音频字节数据或 None"""
     params = {
         'tok': token,
@@ -264,7 +264,7 @@ def is_configured():
 
 # ==================== 内部核心：长文本 TTS 合成 ====================
 
-def _synthesize_long_text(output_filename, text, token, speed=5, person=3):
+def _synthesize_long_text(output_filename, text, token, speed=5, person=4001):
     """
     内部通用函数：长文本 → 自动分段调TTS → 合并为一个 MP3 文件。
 
@@ -328,7 +328,7 @@ def _synthesize_long_text(output_filename, text, token, speed=5, person=3):
 
 # ==================== 固定音频（开场白/结束语）====================
 
-def text_to_speech_long(text, section_id=None, speed=5, person=3):
+def text_to_speech_long(text, section_id=None, speed=5, person=4001):
     """
     轻量级长文本合成（用于 TTS 预览/修复端点，不参与主流程）。
     按 TTS 字符限制分段，逐段调 API，返回文件路径列表。
@@ -401,7 +401,7 @@ def ensure_fixed_audio_files(speed=5):
     return True
 
 
-def generate_fixed_audio_files(speed=5, person=3):
+def generate_fixed_audio_files(speed=5, person=4001):
     """生成系统固定音频文件（男声女声各一套）
 
     已废弃：启动时请使用 ensure_fixed_audio_files()（带存在检查，不重复生成）。
@@ -414,8 +414,8 @@ def generate_fixed_audio_files_by_voice(voice_type='male', speed=5):
     """生成系统固定音频文件
 
     voice_type 实际指「点评/固定语使用的音色」（与原文互补）：
-        'male':   person=3(度逍遥男声), 后缀 '_male'
-        'female': person=5(度小娇女声), 后缀 '_female'
+        'male':   person=4001(度逍遥男声-精品), 后缀 '_male'
+        'female': person=5001(度小娇女声-精品), 后缀 '_female'
 
     前端选择逻辑：
         原文 voice_type='male'   → 点评用女声 → 找 *_female.mp3
@@ -425,7 +425,7 @@ def generate_fixed_audio_files_by_voice(voice_type='male', speed=5):
     if not token:
         return False
 
-    person = 3 if voice_type == 'male' else 5
+    person = 4001 if voice_type == 'male' else 5001
     suffix = f'_{voice_type}'
 
     files = {
@@ -470,7 +470,7 @@ def get_fixed_audio_path(filename, voice_type='male'):
 
 # ==================== 业务音频生成函数 ====================
 
-def generate_text_segment_audio(book_id, section_id, seg_idx, text, speed=5, person=3):
+def generate_text_segment_audio(book_id, section_id, seg_idx, text, speed=5, person=4001):
     """
     为单个原文段（text_segment）生成音频。
 
@@ -499,7 +499,7 @@ def generate_text_segment_audio(book_id, section_id, seg_idx, text, speed=5, per
     return result
 
 
-def generate_annotations_audio(book_id, section_id, ann_idx, comment_text, speed=5, person=3):
+def generate_annotations_audio(book_id, section_id, ann_idx, comment_text, speed=5, person=4001):
     """
     为单条点评的评论内容生成音频。
 
@@ -521,7 +521,7 @@ def generate_annotations_audio(book_id, section_id, ann_idx, comment_text, speed
     return result
 
 
-def generate_summary_audio(book_id, section_id, summary_text, speed=5, person=3):
+def generate_summary_audio(book_id, section_id, summary_text, speed=5, person=4001):
     """
     为小结生成音频。
 
@@ -545,7 +545,7 @@ def generate_summary_audio(book_id, section_id, summary_text, speed=5, person=3)
 
 # ==================== 主入口：整节音频生成 ====================
 
-def generate_section_audio_v2(book_id, section_id, speed=5, person=3):
+def generate_section_audio_v2(book_id, section_id, speed=5, person=4001):
     """
     新版整节音频生成（唯一入口）。
 
@@ -584,7 +584,7 @@ def generate_section_audio_v2(book_id, section_id, speed=5, person=3):
 
     # 确定声音配置
     # 原文用 person（传入值），点评用互补音色
-    comment_person = 5 if person == 3 else 3
+    comment_person = 5001 if person == 4001 else 4001
 
     # 3. 为每个原文段生成音频，并记录 segment_id → 音频信息 映射
     print(f"[TTS v2] 节 {section_id}: 开始生成 {len(segments)} 个原文段音频...")
@@ -650,7 +650,7 @@ def generate_section_audio_v2(book_id, section_id, speed=5, person=3):
     return True
 
 
-def generate_book_audio(book_id, person=3, speed=5):
+def generate_book_audio(book_id, person=4001, speed=5):
     """
     为书籍的所有节预生成音频（后台线程调用）。
     遍历每节，调用 generate_section_audio_v2()。

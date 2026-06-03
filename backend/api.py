@@ -156,7 +156,7 @@ def reimport_section_core(section_id, content, annotations, title='', summary=''
         audio_success = generate_section_audio_v2(
             book_id, section_id,
             speed=5,
-            person=3  # person=3 度逍遥（原文男声）
+            person=4001  # person=4001 度逍遥精品男声
         )
 
         if audio_success:
@@ -662,7 +662,7 @@ def generate_section_audio_api(section_id):
         return jsonify({'error': '节不存在'}), 404
 
     book_id = section.get('book_id')
-    success = generate_section_audio_v2(book_id, section_id, speed=5, person=3)
+    success = generate_section_audio_v2(book_id, section_id, speed=5, person=4001)
 
     if success:
         return jsonify({
@@ -686,7 +686,7 @@ def generate_segmented_audio_api(section_id):
         book_id = section.get('book_id')
         print(f"[TTS] 开始为节 {section_id} 生成分段音频 (book={book_id})...")
 
-        success = generate_section_audio_v2(book_id, section_id, speed=5, person=3)
+        success = generate_section_audio_v2(book_id, section_id, speed=5, person=4001)
 
         if success:
             return jsonify({
@@ -2287,7 +2287,7 @@ def admin_reimport_chapter(book_id, chapter_id):
                     sec_num = ws['section_number']
                     print(f"[Async Chapter Audio] 节 #{sec_num} (id={sec_id}): 开始生成音频 {i+1}/{len(pairs)}")
                     try:
-                        success = generate_section_audio_v2(bid, sec_id, speed=5, person=3)
+                        success = generate_section_audio_v2(bid, sec_id, speed=5, person=4001)
                         if success:
                             print(f"[Async Chapter Audio] 节 #{sec_num} (id={sec_id}): 音频生成完成")
                         else:
@@ -2434,7 +2434,7 @@ def admin_reimport_section(book_id, section_id):
             from backend.baidu_tts import generate_section_audio_v2
             try:
                 print(f"[Async Section Audio] 节 {sid}: 开始生成音频")
-                success = generate_section_audio_v2(bid, sid, speed=5, person=3)
+                success = generate_section_audio_v2(bid, sid, speed=5, person=4001)
                 if success:
                     print(f"[Async Section Audio] 节 {sid}: 音频生成完成")
                 else:
