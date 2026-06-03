@@ -359,22 +359,32 @@ def text_to_speech_long(text, section_id=None, speed=5, person=3):
 
 
 def generate_fixed_audio_files(speed=5, person=3):
-    """生成系统固定音频文件（默认男声）"""
-    return generate_fixed_audio_files_by_voice('male', speed)
+    """生成系统固定音频文件（男声女声各一套）
+
+    固定语的音色必须与点评/小结内容的音色一致（与原文互补）。
+    同时生成两套确保无论书籍设置什么 voice_type 都能正确匹配。
+    """
+    generate_fixed_audio_files_by_voice('female', speed)  # 女声版 *_female.mp3（原文男声时使用）
+    generate_fixed_audio_files_by_voice('male', speed)    # 男声版 *_male.mp3（原文女声时使用）
 
 
 def generate_fixed_audio_files_by_voice(voice_type='male', speed=5):
-    """生成系统固定音频文件（男声/女声各一套）
+    """生成系统固定音频文件
 
-    voice_type='male': person=3(度逍遥男声)
-    voice_type='female': person=5(度小娇女声)
+    voice_type 实际指「点评/固定语使用的音色」（与原文互补）：
+        'male':   person=3(度逍遥男声), 后缀 '_male'
+        'female': person=5(度小娇女声), 后缀 '_female'
+
+    前端选择逻辑：
+        原文 voice_type='male'   → 点评用女声 → 找 *_female.mp3
+        原文 voice_type='female' → 点评用男声 → 找 *_male.mp3
     """
     token = get_access_token()
     if not token:
         return False
 
-    person = 5 if voice_type == 'female' else 3
-    suffix = '_female' if voice_type == 'male' else ''
+    person = 3 if voice_type == 'male' else 5
+    suffix = f'_{voice_type}'
 
     files = {
         f'annotation_opening{suffix}.mp3': '我们来看下这里：',
