@@ -114,6 +114,26 @@ def get_mp3_duration(filepath):
         return None
 
 
+def get_ffprobe_duration(filepath):
+    """用 ffprobe 获取音频时长（秒），作为纯 Python MP3 解析的兜底"""
+    try:
+        if not os.path.exists(filepath):
+            return None
+        cmd = [
+            'ffprobe', '-v', 'quiet',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            filepath
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        if result.returncode == 0 and result.stdout.strip():
+            return round(float(result.stdout.strip()), 3)
+        return None
+    except Exception as e:
+        print(f"[FIX] ffprobe 获取时长失败 {os.path.basename(filepath)}: {e}")
+        return None
+
+
 def find_tts_chunk_files(section_id):
     """
     查找该节的 TTS 分块音频文件（旧模式：section_{id}_*.mp3）。
@@ -156,6 +176,11 @@ def find_tts_chunk_files(section_id):
 
     for fp in files:
         d = get_mp3_duration(fp)
+        print(f"[FIX] DEBUG: get_mp3_duration('{os.path.basename(fp)}') = {d}")
+        if not d or d <= 0:
+            # 纯 Python 解析失败，用 ffmpeg/ffprobe 兜底
+            d = get_ffprobe_duration(fp)
+            print(f"[FIX] DEBUG: ffprobe 兜底 '{os.path.basename(fp)}' = {d}")
         if d and d > 0:
             results.append((fp, d))
 
