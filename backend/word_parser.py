@@ -405,13 +405,15 @@ class WordStructureParser:
         - Heading 2 = 章
         - Heading 3 = 节（阅读单元）
         - 如果只有 Heading 2 没有 Heading 3，则 Heading 2 作为节
-        - 标题直接使用 Word 原生文本（para.text），不自行拼接编号
+        - 标题 = Word 自动编号（如有）+ para.text，与 Word 显示绝对一致
         - chapter_number / section_number 仅用于内部排序
         """
         chapters = []
         sections = []
         chapter_number = 0
         section_number = 0
+        chapter_counter = 0   # 章自动编号计数器（仅对带编号的Heading 2递增）
+        section_counter = 0   # 节自动编号计数器（每章重置）
         current_chapter_title = None
         
         # 先检查是否有 Heading 3
@@ -430,12 +432,21 @@ class WordStructureParser:
                 continue
             
             elif style == 'Heading 2':
-                # 新章节开始，重置节序号
+                # 新章节开始，重置节序号和节编号计数器
                 section_number = 0
+                section_counter = 0
                 chapter_number += 1
 
-                # 标题直接使用 Word 原生文本（含原生编号），系统不再自行拼接编号
-                title = text
+                # 解析 Word 自动编号，与 para.text 拼接成完整标题
+                num_fmt = self._get_auto_number_text(para)
+                if num_fmt:
+                    lvlText, numFmt, start = num_fmt
+                    chapter_counter += 1
+                    auto_num_text = self._format_number_text(lvlText, numFmt, chapter_counter)
+                    title = f"{auto_num_text} {text}" if text else auto_num_text
+                    print(f"[Parser] 章编号: {auto_num_text} -> 标题: {title}")
+                else:
+                    title = text
 
                 if has_h3:
                     # 有 Heading 3 时，Heading 2 是章
@@ -461,8 +472,16 @@ class WordStructureParser:
                 # 节标题
                 section_number += 1
 
-                # 标题直接使用 Word 原生文本（含原生编号），系统不再自行拼接编号
-                title = text
+                # 解析 Word 自动编号，与 para.text 拼接成完整标题
+                num_fmt = self._get_auto_number_text(para)
+                if num_fmt:
+                    lvlText, numFmt, start = num_fmt
+                    section_counter += 1
+                    auto_num_text = self._format_number_text(lvlText, numFmt, section_counter)
+                    title = f"{auto_num_text} {text}" if text else auto_num_text
+                    print(f"[Parser] 节编号: {auto_num_text} -> 标题: {title}")
+                else:
+                    title = text
 
                 section = self._create_section(
                     section_number=section_number,
