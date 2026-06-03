@@ -2973,8 +2973,12 @@
                     segmentId = player._currentSegment.id;
                     textPosition = pos - player._currentSegment.start_char;
                     audioPosition = player.currentTime || 0;
+                } else if (typeof player !== 'undefined' && player._lastTextSegmentId > 0) {
+                    // 非文本段（点评/小结播放中）：用最后已知文本段位置兜底
+                    segmentId = player._lastTextSegmentId;
+                    audioPosition = player._lastTextAudioPos || 0;
+                    textPosition = pos; // 全局文字位置
                 } else {
-                    // 非文本段（点评/小结播放中），使用全局位置作为 text_position
                     textPosition = pos;
                     segmentId = 0;
                 }
@@ -3485,14 +3489,21 @@
             _annotationAudio: null,     // 独立的点评音频元素，避免和主线音频冲突
             _isFinishing: false,       // 防重复调用标志
             _allTimers: [],             // 存储所有定时器ID，便于统一清理
+            _lastTextSegmentId: 0,      // 最后一次文本段的 segment_id（断点保存兜底）
+            _lastTextAudioPos: 0,       // 最后一次文本段的 audio.currentTime（断点保存兜底）
 
             init: function() {
                 var self = this;
                 // 初始化独立的点评音频元素
                 this._annotationAudio = new Audio();
-                
+
                 this.audio.ontimeupdate = function() {
                     self.currentTime = self.audio.currentTime;
+                    // 追踪最后已知的文本段位置（断点保存兜底用）
+                    if (self._currentSegment && self._currentSegment.type === 'text_segment' && self.audio.currentTime > 0.5) {
+                        self._lastTextSegmentId = self._currentSegment.id;
+                        self._lastTextAudioPos = self.audio.currentTime;
+                    }
                     self._updateDisplayByTime();
                 };
                 this.audio.onended = function() {
@@ -4081,9 +4092,13 @@
                                 if (resumeTime === 0 && progressV2.current_position > 0) {
                                     // 从 charTimeline 查找对应时间的音频时间
                                     var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
-                                    if (this.charTimeline && this.charTimeline.length > textPos) {
-                                        resumeTime = this.charTimeline[textPos];
-                                        console.log('断点恢复: 从 charTimeline 计算音频时间', textPos, '->', resumeTime, '秒');
+                                    var targetSeg = this.audioSegments[targetSegIdx];
+                                    // 转换为段内相对偏移（textPosition 可能是全局位置）
+                                    var segOffset = textPos - (targetSeg.start_char || 0);
+                                    if (segOffset < 0) segOffset = 0;
+                                    if (this.charTimeline && this.charTimeline.length > segOffset) {
+                                        resumeTime = this.charTimeline[segOffset];
+                                        console.log('断点恢复: 从 charTimeline 计算音频时间', 'global=', textPos, 'segOffset=', segOffset, '->', resumeTime, '秒');
                                     }
                                 }
                                 this._resumeTimeInSegment = resumeTime;
@@ -8885,6 +8900,10 @@
                             segmentId = player._currentSegment.id;
                             textPosition = pos - player._currentSegment.start_char;
                             audioPosition = player.currentTime || 0;
+                        } else if (player._lastTextSegmentId > 0) {
+                            // 非文本段时用最后已知文本段位置兜底
+                            segmentId = player._lastTextSegmentId;
+                            audioPosition = player._lastTextAudioPos || 0;
                         }
                         var payload = JSON.stringify({
                             book_id: state.currentBook.id,
