@@ -1853,22 +1853,18 @@ def _row_to_dict(row, columns):
 def get_section_playback_plan(section_id):
     """获取一节的完整播放计划：text_segments + insert_points 交错排列"""
     import json
+    import pymysql
     conn = get_db()
-    cursor = conn.cursor()
+    # 必须使用 DictCursor，否则返回元组无法正确处理字段
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
     
     # 获取所有 text_segments
     cursor.execute('SELECT * FROM text_segments WHERE section_id = %s ORDER BY segment_number', (section_id,))
-    seg_columns = [desc[0] for desc in cursor.description]
-    segments = []
-    for row in cursor.fetchall():
-        segments.append(_row_to_dict(row, seg_columns))
+    segments = cursor.fetchall()
     
     # 获取所有 insert_points
     cursor.execute('SELECT * FROM insert_points WHERE section_id = %s ORDER BY point_order', (section_id,))
-    point_columns = [desc[0] for desc in cursor.description]
-    all_points = []
-    for row in cursor.fetchall():
-        all_points.append(_row_to_dict(row, point_columns))
+    all_points = cursor.fetchall()
     
     # 按 segment_id 分组
     points_by_segment = {}
