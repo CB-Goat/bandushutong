@@ -1732,7 +1732,7 @@
                                         <select id="fixSectionId" style="width:100%;padding:6px;" disabled>
                                             <option value="">请选择节...</option>
                                         </select>
-                                        <p style="font-size:11px;color:#999;margin:4px 0 0;">加载中...</p>
+                                        <p id="fixSectionLoadingHint" style="font-size:11px;color:#999;margin:4px 0 0;">加载中...</p>
                                     </div>
                                 </div>
                             </div>
@@ -6743,27 +6743,39 @@
             showFixCharTimelineModal: function() {
                 var modal = document.getElementById('fixCharTimelineModal');
                 var select = document.getElementById('fixSectionId');
+                var loadingHint = document.getElementById('fixSectionLoadingHint');
                 var bookId = state.adminCurrentBookId;
-                
+
                 modal.classList.add('active');
-                
+
                 // 清空并禁用下拉框
                 select.innerHTML = '<option value="">加载中...</option>';
                 select.disabled = true;
-                
+                if (loadingHint) loadingHint.textContent = '正在加载节列表...';
+
                 // 加载节列表
-                fetch(API_BASE + '/books/' + bookId + '/sections?simple=1').then(function(r) { return r.json(); }).then(function(sections) {
+                fetch(API_BASE + '/books/' + bookId + '/sections').then(function(r) { return r.json(); }).then(function(sections) {
                     select.innerHTML = '<option value="">请选择节...</option>';
-                    sections.forEach(function(sec) {
-                        var option = document.createElement('option');
-                        option.value = sec.id;
-                        option.textContent = '第' + sec.section_number + '节 - ' + (sec.title || '无标题');
-                        select.appendChild(option);
-                    });
-                }).catch(function() {
+                    if (sections && sections.length > 0) {
+                        sections.forEach(function(sec) {
+                            var option = document.createElement('option');
+                            option.value = sec.id;
+                            option.textContent = '第' + sec.section_number + '节 - ' + (sec.title || '无标题');
+                            select.appendChild(option);
+                        });
+                        // 加载完成后，如果选中的是"指定节"则启用下拉框
+                        if (document.getElementById('fixOptionSection').checked) {
+                            select.disabled = false;
+                        }
+                        if (loadingHint) loadingHint.textContent = '共 ' + sections.length + ' 节';
+                    } else {
+                        if (loadingHint) loadingHint.textContent = '该书暂无节';
+                    }
+                }).catch(function(err) {
                     select.innerHTML = '<option value="">加载失败</option>';
+                    if (loadingHint) loadingHint.textContent = '加载失败：' + (err.message || '网络错误');
                 });
-                
+
                 // 绑定单选按钮事件
                 document.getElementById('fixOptionAll').onchange = function() {
                     document.getElementById('fixSectionId').disabled = true;
