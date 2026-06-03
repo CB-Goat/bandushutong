@@ -1710,36 +1710,33 @@
                         </div>
                         <div style="text-align:right;margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
                             <button class="btn" onclick="admin.backToBookList()">返回列表</button>
-                            <button class="btn btn-warning" onclick="admin.showFixCharTimelineModal()">🔊 修复音频时间轴</button>
+                            <button class="btn btn-warning" onclick="admin.toggleFixCharTimeline()">🔊 修复音频时间轴</button>
                             <button class="btn btn-danger" onclick="adminDeleteBook()">删除此书</button>
                             <button class="btn btn-primary" onclick="adminSaveBook()">保存修改</button>
                         </div>
                     </div>
-                    <!-- Fix Char Timeline Modal -->
-                    <div class="modal" id="fixCharTimelineModal">
-                        <div class="modal-content" style="max-width:520px;">
-                            <h3>🔊 修复音频时间轴</h3>
-                            <p style="color:#666;margin-bottom:12px;">此操作将修复书籍中所有已有音频但缺少字符时间轴的段落，<strong>不会重新生成音频</strong>，不会产生额外的 TTS 费用。</p>
-                            <div style="display:flex;flex-direction:column;gap:12px;">
-                                <div style="display:flex;align-items:center;gap:12px;">
-                                    <input type="radio" id="fixOptionAll" name="fixOption" value="all" checked>
-                                    <label for="fixOptionAll">修复整本书的所有节</label>
-                                </div>
-                                <div style="display:flex;align-items:flex-start;gap:12px;">
-                                    <input type="radio" id="fixOptionSection" name="fixOption" value="section">
-                                    <div style="flex:1;">
-                                        <label for="fixOptionSection" style="display:block;margin-bottom:4px;">修复指定节：</label>
-                                        <select id="fixSectionId" style="width:100%;padding:6px;" disabled>
-                                            <option value="">请选择节...</option>
-                                        </select>
-                                        <p id="fixSectionLoadingHint" style="font-size:11px;color:#999;margin:4px 0 0;">加载中...</p>
-                                    </div>
+                    <!-- Fix Char Timeline Panel (inline, toggleable) -->
+                    <div class="admin-card" id="fixCharTimelinePanel" style="display:none;">
+                        <h3>🔊 修复音频时间轴</h3>
+                        <p style="color:#666;margin-bottom:12px;">此操作将修复书籍中所有已有音频但缺少字符时间轴的段落，<strong>不会重新生成音频</strong>，不会产生额外的 TTS 费用。</p>
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <input type="radio" id="fixOptionAll" name="fixOption" value="all" checked>
+                                <label for="fixOptionAll">修复整本书的所有节</label>
+                            </div>
+                            <div style="display:flex;align-items:flex-start;gap:12px;">
+                                <input type="radio" id="fixOptionSection" name="fixOption" value="section">
+                                <div style="flex:1;">
+                                    <label for="fixOptionSection" style="display:block;margin-bottom:4px;">修复指定节：</label>
+                                    <select id="fixSectionId" style="width:100%;padding:6px;" disabled>
+                                        <option value="">请选择节...</option>
+                                    </select>
+                                    <p id="fixSectionLoadingHint" style="font-size:11px;color:#999;margin:4px 0 0;">加载中...</p>
                                 </div>
                             </div>
-                            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
-                                <button class="btn" onclick="admin.closeFixCharTimelineModal()">取消</button>
-                                <button class="btn btn-primary" onclick="admin.executeFixCharTimeline()">确认修复</button>
-                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+                            <button class="btn btn-primary" onclick="admin.executeFixCharTimeline()">确认修复</button>
                         </div>
                     </div>
                     <!-- Chapter Management -->
@@ -6751,11 +6748,23 @@
                 }
             },
 
-            showFixCharTimelineModal: function() {
-                var modal = document.getElementById('fixCharTimelineModal');
+            toggleFixCharTimeline: function() {
+                var panel = document.getElementById('fixCharTimelinePanel');
+                var btn = document.querySelector('[onclick*="toggleFixCharTimeline"]');
+                if (panel.style.display === 'none') {
+                    panel.style.display = '';
+                    if (btn) btn.classList.add('btn-active');
+                    // 首次展开时加载节列表
+                    admin.loadFixSectionList();
+                } else {
+                    panel.style.display = 'none';
+                    if (btn) btn.classList.remove('btn-active');
+                }
+            },
+
+            loadFixSectionList: function() {
                 var select = document.getElementById('fixSectionId');
                 var bookId = state.adminCurrentBookId;
-                modal.classList.add('active');
 
                 // 清空并禁用下拉框
                 select.innerHTML = '<option value="">加载中...</option>';
@@ -6798,11 +6807,7 @@
                     document.getElementById('fixSectionId').disabled = false;
                 };
             },
-            
-            closeFixCharTimelineModal: function() {
-                document.getElementById('fixCharTimelineModal').classList.remove('active');
-            },
-            
+
             executeFixCharTimeline: function() {
                 var bookId = state.adminCurrentBookId;
                 var option = document.querySelector('input[name="fixOption"]:checked').value;
@@ -6821,7 +6826,7 @@
                     }).then(function(r) { return r.json(); }).then(function(data) {
                         if (data.success) {
                             alert('修复完成！');
-                            admin.closeFixCharTimelineModal();
+                            document.getElementById('fixCharTimelinePanel').style.display = 'none';
                         } else {
                             alert('修复失败：' + (data.error || '未知错误'));
                         }
@@ -6835,7 +6840,7 @@
                     }).then(function(r) { return r.json(); }).then(function(data) {
                         if (data.success) {
                             alert('修复完成！');
-                            admin.closeFixCharTimelineModal();
+                            document.getElementById('fixCharTimelinePanel').style.display = 'none';
                         } else {
                             alert('修复失败：' + (data.error || '未知错误'));
                         }
