@@ -85,7 +85,7 @@ def reimport_section_core(section_id, content, annotations, title='', summary=''
         get_annotations_by_section, create_text_segments, create_insert_points,
         get_section
     )
-    from backend.baidu_tts import generate_section_audio_v2, is_configured
+    from backend.baidu_tts import generate_section_audio_v2, is_configured, voice_type_to_person
 
     result = {'success': False, 'audio_segments_count': 0, 'error': ''}
 
@@ -152,11 +152,12 @@ def reimport_section_core(section_id, content, annotations, title='', summary=''
             return result
 
         # 4. 调用新版 v2 音频生成（内部自动完成：创建分段 + TTS + 更新DB）
-        print(f"[reimport_core] 节 {section_id}: 开始生成音频 (book={book_id})...")
+        print(f"[reimport_core] 节 {section_id}: 开始生成音频 (book={book_id}, voice={voice_type})...")
+        from backend.baidu_tts import voice_type_to_person
         audio_success = generate_section_audio_v2(
             book_id, section_id,
             speed=5,
-            person=5003  # person=5003 精品度逍遥男声
+            person=voice_type_to_person(voice_type)
         )
 
         if audio_success:
@@ -662,7 +663,11 @@ def generate_section_audio_api(section_id):
         return jsonify({'error': '节不存在'}), 404
 
     book_id = section.get('book_id')
-    success = generate_section_audio_v2(book_id, section_id, speed=5, person=5003)
+    from backend.database import get_book
+    from backend.baidu_tts import voice_type_to_person
+    book = get_book(book_id)
+    vt = book.get('voice_type', 'male') if book else 'male'
+    success = generate_section_audio_v2(book_id, section_id, speed=5, person=voice_type_to_person(vt))
 
     if success:
         return jsonify({
@@ -676,17 +681,19 @@ def generate_section_audio_api(section_id):
 def generate_segmented_audio_api(section_id):
     """为节生成分段音频（新版v2，统一入口）"""
     try:
-        from backend.database import get_section
-        from backend.baidu_tts import generate_section_audio_v2
+        from backend.database import get_section, get_book
+        from backend.baidu_tts import generate_section_audio_v2, voice_type_to_person
 
         section = get_section(section_id)
         if not section:
             return jsonify({'error': '节不存在'}), 404
 
         book_id = section.get('book_id')
-        print(f"[TTS] 开始为节 {section_id} 生成分段音频 (book={book_id})...")
+        book = get_book(book_id)
+        vt = book.get('voice_type', 'male') if book else 'male'
+        print(f"[TTS] 开始为节 {section_id} 生成分段音频 (book={book_id}, voice={vt})...")
 
-        success = generate_section_audio_v2(book_id, section_id, speed=5, person=5003)
+        success = generate_section_audio_v2(book_id, section_id, speed=5, person=voice_type_to_person(vt))
 
         if success:
             return jsonify({
@@ -2278,16 +2285,17 @@ def admin_reimport_chapter(book_id, chapter_id):
         update_book_sections_count(book_id, total_sections)
 
         # ===== 后台异步生成音频 =====
-        def _reimport_chapter_audio_async(bid, pairs):
+        def _reimport_chapter_audio_async(bid, pairs, voice_type='male'):
             """后台线程：为更新后的章节逐节生成音频"""
-            from backend.baidu_tts import generate_section_audio_v2, is_configured
+            from backend.baidu_tts import generate_section_audio_v2, is_configured, voice_type_to_person
+            person = voice_type_to_person(voice_type)
             try:
                 for i, (ws, ds) in enumerate(pairs):
                     sec_id = ds['id']
                     sec_num = ws['section_number']
                     print(f"[Async Chapter Audio] 节 #{sec_num} (id={sec_id}): 开始生成音频 {i+1}/{len(pairs)}")
                     try:
-                        success = generate_section_audio_v2(bid, sec_id, speed=5, person=5003)
+                        success = generate_section_audio_v2(bid, sec_id, speed=5, person=person)
                         if success:
                             print(f"[Async Chapter Audio] 节 #{sec_num} (id={sec_id}): 音频生成完成")
                         else:
@@ -2299,9 +2307,13 @@ def admin_reimport_chapter(book_id, chapter_id):
                 print(f"[Async Chapter Audio] 线程异常: {e}")
 
         import threading
+        # 获取书籍音色配置，传给后台音频线程
+        from backend.database import get_book
+        _book = get_book(book_id)
+        _book_voice = (_book.get('voice_type', 'male') if _book else 'male')
         audio_thread = threading.Thread(
             target=_reimport_chapter_audio_async,
-            args=(book_id, matched_pairs),
+            args=(book_id, matched_pairs, _book_voice),
             daemon=True
         )
         audio_thread.start()
@@ -2429,12 +2441,13 @@ def admin_reimport_section(book_id, section_id):
         update_book_sections_count(book_id, total_sections)
 
         # ===== 后台异步生成音频 =====
-        def _reimport_section_audio_async(bid, sid):
+        def _reimport_section_audio_async(bid, sid, voice_type='male'):
             """后台线程：为更新的单节生成音频"""
-            from backend.baidu_tts import generate_section_audio_v2
+            from backend.baidu_tts import generate_section_audio_v2, voice_type_to_person
+            person = voice_type_to_person(voice_type)
             try:
-                print(f"[Async Section Audio] 节 {sid}: 开始生成音频")
-                success = generate_section_audio_v2(bid, sid, speed=5, person=5003)
+                print(f"[Async Section Audio] 节 {sid}: 开始生成音频 (person={person})")
+                success = generate_section_audio_v2(bid, sid, speed=5, person=person)
                 if success:
                     print(f"[Async Section Audio] 节 {sid}: 音频生成完成")
                 else:
@@ -2443,9 +2456,12 @@ def admin_reimport_section(book_id, section_id):
                 print(f"[Async Section Audio] 节 {sid} 异常: {e}")
 
         import threading
+        from backend.database import get_book
+        _sbook = get_book(book_id)
+        _svt = (_sbook.get('voice_type', 'male') if _sbook else 'male')
         audio_thread = threading.Thread(
             target=_reimport_section_audio_async,
-            args=(book_id, section_id),
+            args=(book_id, section_id, _svt),
             daemon=True
         )
         audio_thread.start()
