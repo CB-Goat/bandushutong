@@ -3560,6 +3560,7 @@
                 this._insertPointStep = 0;
                 this._hasPlayed = false;
                 this.isPlaying = false;
+                this._clearAllTimers();
                 // 暂停并重置音频，但不设置空src避免触发error
                 this.audio.pause();
                 this.audio.removeAttribute('src');
@@ -4466,7 +4467,10 @@
                 this.audio.pause();
                 this.audio.src = '';  // 清空音频源，防止 onended 重复触发
                 this.audio.removeAttribute('src');
-                
+
+                // 重置点评音频元素，彻底清除旧的事件监听器（addEventListener 残留会导致重复/错乱触发）
+                this._resetAnnotationAudio();
+
                 // 禁用+思考按钮，置灰
                 var thoughtBtn = document.getElementById('editAnnotationBtn');
                 if (thoughtBtn) {
@@ -4479,7 +4483,7 @@
                 this._currentInsertPoint = seg;
                 this._insertPointStep = 1;
                 this._isFinishing = false;  // 重置防重复调用标志
-                this._allTimers = [];         // 清空定时器列表
+                this._clearAllTimers();      // 彻底清理所有旧定时器，防止上一个点评的超时残留干扰当前点评
                 
                 // 显示点评UI（annotation 类型）
                 if (seg.point_type === 'annotation') {
@@ -5548,6 +5552,7 @@
                 // 清理多步骤播放状态
                 if (this._insertPointStep > 0) {
                     this._stopCommentTextAnimation();
+                    this._clearAllTimers();
                     this._insertPointStep = 0;
                     this._currentInsertPoint = null;
                 }
