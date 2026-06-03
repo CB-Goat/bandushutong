@@ -1718,7 +1718,7 @@
                     <!-- Fix Char Timeline Modal -->
                     <div class="modal" id="fixCharTimelineModal">
                         <div class="modal-content" style="max-width:520px;">
-                            <h3>🔊 修复音频时间轴 [v2]</h3>
+                            <h3>🔊 修复音频时间轴</h3>
                             <p style="color:#666;margin-bottom:12px;">此操作将修复书籍中所有已有音频但缺少字符时间轴的段落，<strong>不会重新生成音频</strong>，不会产生额外的 TTS 费用。</p>
                             <div style="display:flex;flex-direction:column;gap:12px;">
                                 <div style="display:flex;align-items:center;gap:12px;">
@@ -6741,12 +6741,9 @@
             },
 
             showFixCharTimelineModal: function() {
-                alert('[DEBUG v2] showFixCharTimelineModal 被调用！如果看到此弹窗，说明新代码已生效。');
                 var modal = document.getElementById('fixCharTimelineModal');
                 var select = document.getElementById('fixSectionId');
                 var bookId = state.adminCurrentBookId;
-
-                console.log('[FixTimeline] bookId:', bookId);
                 modal.classList.add('active');
 
                 // 清空并禁用下拉框
@@ -6758,12 +6755,9 @@
 
                 // 加载节列表
                 var url = API_BASE + '/books/' + bookId + '/sections';
-                console.log('[FixTimeline] 请求:', url);
                 fetch(url).then(function(r) {
-                    console.log('[FixTimeline] 响应状态:', r.status);
                     return r.json();
                 }).then(function(sections) {
-                    console.log('[FixTimeline] 返回数据:', sections, '类型:', typeof sections, Array.isArray(sections) ? '数组长度=' + sections.length : '非数组');
                     select.innerHTML = '<option value="">请选择节...</option>';
                     if (Array.isArray(sections) && sections.length > 0) {
                         sections.forEach(function(sec) {
@@ -6781,7 +6775,6 @@
                         if (hintEl) hintEl.textContent = '该书暂无节（或该书籍无独立小节）';
                     }
                 }).catch(function(err) {
-                    console.error('[FixTimeline] 请求失败:', err);
                     select.innerHTML = '<option value="">加载失败</option>';
                     if (hintEl) hintEl.textContent = '加载失败：' + (err.message || '网络错误');
                 });
