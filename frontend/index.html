@@ -3678,7 +3678,21 @@
                 for (var i = 0; i < this.audioSegments.length; i++) {
                     var seg = this.audioSegments[i];
                     if (seg.type === 'text_segment') {
-                        console.log('  段' + i + ': 文本段 id=' + seg.id + ' chars ' + seg.start_char + '-' + seg.end_char);
+                        var tlInfo = '无';
+                        if (seg.char_timeline) {
+                            if (typeof seg.char_timeline === 'string') {
+                                try {
+                                    var parsed = JSON.parse(seg.char_timeline);
+                                    tlInfo = 'JSON字符串(' + parsed.length + ')';
+                                } catch (e) {
+                                    tlInfo = '无效JSON';
+                                }
+                            } else if (Array.isArray(seg.char_timeline)) {
+                                tlInfo = '数组(' + seg.char_timeline.length + ')';
+                            }
+                        }
+                        console.log('  段' + i + ': 文本段 id=' + seg.id + ' chars ' + seg.start_char + '-' + seg.end_char + 
+                            ' char_timeline=' + tlInfo + ' audio_duration=' + (seg.audio_duration || 0));
                     } else if (seg.type === 'insert_point') {
                         console.log('  段' + i + ': ' + seg.point_type + ' id=' + seg.id);
                     }
@@ -5590,11 +5604,34 @@
                 if (!this._hasPlayed && this.currentTime < 0.5) return;
                 if (this.currentTime > 0.5) this._hasPlayed = true;
                 
-                if (!this._currentSegment || this._currentSegment.type !== 'text_segment') return;
+                // 调试：检查 _currentSegment 状态
+                if (!this._currentSegment) {
+                    console.log('[更新显示] 跳过: _currentSegment 为空');
+                    return;
+                }
+                if (this._currentSegment.type !== 'text_segment') {
+                    console.log('[更新显示] 跳过: 非文本段, type=' + this._currentSegment.type);
+                    return;
+                }
                 
                 var seg = this._currentSegment;
                 var segTimeline = seg.char_timeline;
-                if (!segTimeline || segTimeline.length === 0) return;
+                // 调试：检查 char_timeline 状态
+                if (!segTimeline) {
+                    console.log('[更新显示] 跳过: char_timeline 为 null/undefined, segment_id=' + seg.id);
+                    return;
+                }
+                if (segTimeline.length === 0) {
+                    console.log('[更新显示] 跳过: char_timeline 长度为 0, segment_id=' + seg.id);
+                    return;
+                }
+                // 调试：首次进入时打印 char_timeline 信息
+                if (!this._timelineChecked) {
+                    this._timelineChecked = true;
+                    console.log('[更新显示] char_timeline 检查通过: segment_id=' + seg.id + 
+                        ', 长度=' + segTimeline.length + 
+                        ', currentTime=' + this.currentTime.toFixed(2) + 's');
+                }
                 
                 // 如果 char_timeline 是字符串，解析为 JSON
                 if (typeof segTimeline === 'string') {
