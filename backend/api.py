@@ -2103,18 +2103,19 @@ def admin_reimport_chapter(book_id, chapter_id):
         # 更新章节统计
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*), COALESCE(SUM(word_count), 0) FROM sections WHERE chapter_id=%s', (chapter_id,))
+        cursor.execute('SELECT COUNT(*) as cnt, COALESCE(SUM(word_count), 0) as total_words FROM sections WHERE chapter_id=%s', (chapter_id,))
         row = cursor.fetchone()
         conn.close()
         if row:
-            update_chapter_info(chapter_id, row[0], row[1])
+            update_chapter_info(chapter_id, row['cnt'], row['total_words'])
 
         # 更新书籍总小节数
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM sections WHERE book_id=%s', (book_id,))
-        total_sections = cursor.fetchone()[0]
+        cursor.execute('SELECT COUNT(*) as cnt FROM sections WHERE book_id=%s', (book_id,))
+        row = cursor.fetchone()
         conn.close()
+        total_sections = row['cnt'] if row else 0
         update_book_sections_count(book_id, total_sections)
 
         # 为更新的节重新创建分段数据并生成分段TTS音频（使用统一核心函数）
@@ -2224,18 +2225,19 @@ def admin_reimport_section(book_id, section_id):
         # 更新章节统计
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*), COALESCE(SUM(word_count), 0) FROM sections WHERE chapter_id=%s', (chapter_id,))
+        cursor.execute('SELECT COUNT(*) as cnt, COALESCE(SUM(word_count), 0) as total_words FROM sections WHERE chapter_id=%s', (chapter_id,))
         row = cursor.fetchone()
         conn.close()
         if row:
-            update_chapter_info(chapter_id, row[0], row[1])
+            update_chapter_info(chapter_id, row['cnt'], row['total_words'])
 
         # 更新书籍总小节数
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM sections WHERE book_id=%s', (book_id,))
-        total_sections = cursor.fetchone()[0]
+        cursor.execute('SELECT COUNT(*) as cnt FROM sections WHERE book_id=%s', (book_id,))
+        row = cursor.fetchone()
         conn.close()
+        total_sections = row['cnt'] if row else 0
         update_book_sections_count(book_id, total_sections)
 
         # 为更新的节重新创建分段数据并生成分段TTS音频（使用统一核心函数）
