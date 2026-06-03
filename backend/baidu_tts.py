@@ -1,6 +1,17 @@
 """
 悦读小将 - 百度 TTS 语音合成服务
-支持 Web Speech API 降级到百度云端 TTS
+
+统一文件命名规范（v10 重构）：
+  原文段：segment_{book_id}_{section_id}_{seg_idx}.mp3
+  点评内容：annotations_{book_id}_{section_id}_{idx}.mp3
+  小结内容：summary_{book_id}_{section_id}.mp3
+  固定音频：annotation_opening_male.mp3 等（不变）
+
+音频生成流程（两阶段切割）：
+  第1层：按点评边界（start_char/end_char）→ 将原文切成 N 段 text_segments
+  第2层：若某段超过 TTS 字数限制(~500字符) → 再按句子分子块，分别调TTS后拼接
+
+入口函数：generate_section_audio_v2(book_id, section_id)
 """
 
 import os
@@ -58,25 +69,27 @@ _cached_token = ''
 _token_expire_time = 0
 
 
+# ==================== 基础工具函数 ====================
+
 def get_access_token():
     """获取百度 API access_token"""
     global _cached_token, _token_expire_time
-    
+
     # 如果 token 还没过期，直接返回
     if _cached_token and time.time() < _token_expire_time:
         return _cached_token
-    
+
     # 每次从环境变量读取最新值（解决模块加载顺序问题）
     app_id = os.environ.get('BAIDU_TTS_APP_ID', '')
     api_key = os.environ.get('BAIDU_TTS_API_KEY', '')
     secret_key = os.environ.get('BAIDU_TTS_SECRET_KEY', '')
-    
+
     print(f"[TTS-DEBUG] 获取token - APP_ID: {app_id[:4]}***, API_KEY: {api_key[:4]}***, SECRET_KEY: {secret_key[:4]}***")
-    
+
     if not app_id or not api_key or not secret_key:
         print("警告：未配置百度 TTS 密钥")
         return None
-    
+
     try:
         params = {
             'grant_type': 'client_credentials',
@@ -84,12 +97,9 @@ def get_access_token():
             'client_secret': secret_key
         }
         print(f"[TTS-DEBUG] 请求URL: {BAIDU_TOKEN_URL}")
-        print(f"[TTS-DEBUG] 请求参数: grant_type=client_credentials, client_id={api_key}, client_secret={secret_key[:4]}***")
         response = requests.post(BAIDU_TOKEN_URL, params=params, timeout=10)
-        print(f"[TTS-DEBUG] 响应状态码: {response.status_code}")
         result = response.json()
-        print(f"[TTS-DEBUG] 响应内容: {result}")
-        
+
         if 'access_token' in result:
             _cached_token = result['access_token']
             _token_expire_time = time.time() + result.get('expires_in', 2592000) - 600
@@ -103,87 +113,39 @@ def get_access_token():
         return None
 
 
-def text_to_speech(text, section_id=None, speed=5, pitch=5, volume=5, person=3):
-    """
-    调用百度 TTS 合成语音
-    
-    参数:
-        text: 要合成的文本（最多1024字节）
-        section_id: 小节ID（用于缓存文件名）
-        speed: 语速 0-15，默认5
-        pitch: 音调 0-15，默认5
-        volume: 音量 0-15，默认5
-        person: 发音人选择
-            0: 普通女声
-            1: 普通男声（默认）
-            3: 情感合成-度逍遥
-            4: 情感合成-度丫丫
-            5: 情感合成-度小娇
-            103: 情感合成-度米朵
-            106: 情感合成-度小萌
-            111: 情感合成-度小甜
-    
-    返回:
-        audio_path: 音频文件路径，失败返回 None
-    """
-    token = get_access_token()
-    if not token:
-        return None
-    
-    # 百度 TTS 单次最多 1024 字节，需要分段
-    # 先尝试直接合成
+def call_baidu_tts(text, token, speed=5, person=3):
+    """调用单次百度 TTS API，返回音频字节数据或 None"""
+    params = {
+        'tok': token,
+        'tex': text,
+        'per': person,
+        'spd': speed,
+        'pit': 5,
+        'vol': 5,
+        'aue': 3,  # MP3 格式
+        'cuid': 'bandushutong_app',
+        'lan': 'zh',
+        'ctp': 1
+    }
     try:
-        params = {
-            'tok': token,
-            'tex': text,
-            'per': person,
-            'spd': speed,
-            'pit': pitch,
-            'vol': volume,
-            'aue': 3,  # MP3 格式
-            'cuid': 'bandushutong_app',
-            'lan': 'zh',
-            'ctp': 1
-        }
-        
         response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
-        
         content_type = response.headers.get('Content-Type', '')
-        
         if 'audio' in content_type:
-            # 成功返回音频
-            if section_id:
-                filename = f'section_{section_id}.mp3'
-                filepath = os.path.join(AUDIO_DIR, filename)
-                with open(filepath, 'wb') as f:
-                    f.write(response.content)
-                return f'audio_files/{filename}'
-            else:
-                # 临时文件
-                filename = f'temp_{int(time.time())}.mp3'
-                filepath = os.path.join(AUDIO_DIR, filename)
-                with open(filepath, 'wb') as f:
-                    f.write(response.content)
-                return f'audio_files/{filename}'
+            return response.content
         else:
-            # 返回了错误信息
-            result = response.json()
-            print(f"百度 TTS 错误: {result}")
+            print(f"[TTS] call_baidu_tts 错误: {response.text}")
             return None
-            
     except Exception as e:
-        print(f"百度 TTS 异常: {e}")
+        print(f"[TTS] call_baidu_tts 异常: {e}")
         return None
 
 
-def text_to_speech_long(text, section_id=None, speed=5, pitch=5, volume=5, person=3):
+def _split_text_for_tts(text):
     """
-    合成长文本（自动分段合成）
-    百度 TTS 单次最多 1024 字节（约 500 个中文字符）
-    
-    返回: 音频文件路径列表
+    将长文本按 TTS 字符限制分段。
+    按 UTF-8 字节数 (~900 bytes) 或句号分割。
+    返回: [segment_text, ...]
     """
-    # 按句号分段，每段不超过 500 字符
     segments = []
     current = ''
     for char in text:
@@ -194,20 +156,105 @@ def text_to_speech_long(text, section_id=None, speed=5, pitch=5, volume=5, perso
             current = ''
     if current.strip():
         segments.append(current.strip())
-    
-    if not segments:
+    return segments
+
+
+def _merge_mp3_files(mp3_file_list, output_path):
+    """
+    用 ffmpeg concat demuxer 合并多个 MP3 文件。
+    单个文件时直接重命名。
+    返回: 成功 bool
+    """
+    if not mp3_file_list:
+        return False
+
+    if len(mp3_file_list) == 1:
+        try:
+            os.rename(mp3_file_list[0], output_path)
+            return True
+        except Exception as e:
+            print(f"[TTS] 重命名失败: {e}")
+            return False
+
+    # 多文件用 ffmpeg concat
+    try:
+        list_file = output_path + '_list.txt'
+        with open(list_file, 'w', encoding='utf-8') as f:
+            for fp in mp3_file_list:
+                f.write(f"file '{fp}'\n")
+        subprocess.run(
+            ['ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+             '-i', list_file, '-c', 'copy', output_path],
+            capture_output=True, timeout=60
+        )
+        # 清理临时文件
+        for fp in mp3_file_list:
+            if os.path.exists(fp) and fp != output_path:
+                os.remove(fp)
+        if os.path.exists(list_file):
+            os.remove(list_file)
+        return True
+    except Exception as e:
+        print(f"[TTS] ffmpeg 合并失败: {e}")
+        return False
+
+
+def _measure_duration(filepath):
+    """用 ffprobe 获取音频时长（秒），失败则返回 0"""
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'quiet',
+             '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1',
+             filepath],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return round(float(result.stdout.strip()), 3)
+    except Exception as e:
+        print(f"[TTS] 测量时长失败 {os.path.basename(filepath)}: {e}")
+    return 0
+
+
+def build_char_timeline(text, duration):
+    """
+    构建字符时间轴（考虑标点符号停顿权重）。
+    返回: [t0, t1, t2, ..., tN]，每个元素是该字符的时间点（秒）
+    """
+    if not text or duration <= 0:
         return []
-    
-    # 合成每段
-    audio_paths = []
-    for i, seg in enumerate(segments):
-        path = text_to_speech(seg, 
-                              section_id=f'{section_id}_{i}' if section_id else None,
-                              speed=speed, pitch=pitch, volume=volume, person=person)
-        if path:
-            audio_paths.append(path)
-    
-    return audio_paths
+
+    char_weights = []
+    for char in text:
+        if char in '。！？；：':
+            char_weights.append(3.0)
+        elif char in '，、':
+            char_weights.append(2.0)
+        elif char in '""''（）【】《》':
+            char_weights.append(1.5)
+        else:
+            char_weights.append(1.0)
+
+    total_weight = sum(char_weights)
+    if total_weight <= 0:
+        return []
+
+    accumulated_weight = 0
+    timeline = []
+    for w in char_weights:
+        t = (accumulated_weight / total_weight) * duration
+        timeline.append(round(t, 3))
+        accumulated_weight += w
+    return timeline
+
+
+def get_audio_duration_and_timeline(audio_path, text):
+    """获取音频时长和构建字符时间轴（组合操作）"""
+    dur = _measure_duration(audio_path)
+    if dur <= 0:
+        dur = len(text) / 200 * 60  # 估算 fallback
+    tl = build_char_timeline(text, dur)
+    return dur, tl
 
 
 def is_configured():
@@ -215,641 +262,339 @@ def is_configured():
     return bool(BAIDU_TTS_APP_ID and BAIDU_TTS_API_KEY and BAIDU_TTS_SECRET_KEY)
 
 
-def generate_section_audio_with_timeline(text, section_id, speed=5, person=3):
-    """
-    生成节的完整音频并计算字符时间轴
-    
-    返回: {
-        'audio_path': 音频文件路径,
-        'audio_duration': 音频时长（秒）,
-        'char_timeline': [每个字符显示的时间点数组]
-    }
-    """
-    import subprocess
-    import math
-    
-    token = get_access_token()
-    if not token:
-        return None
-    
-    # 去掉换行符，统一使用显示索引（与前端 _allChars 一致）
-    text = text.replace('\n', '')
-    
-    # 分段处理（每段约 500 字符）
-    segments = []
-    current = ''
-    for char in text:
-        current += char
-        if len(current.encode('utf-8')) >= 900 or char in '。！？\n':
-            if current.strip():
-                segments.append(current.strip())
-            current = ''
-    if current.strip():
-        segments.append(current.strip())
-    
-    if not segments:
-        return None
-    
-    # 计算每段对应的字符范围（strip后）
-    char_ranges = []
-    char_pos = 0
-    for seg in segments:
-        seg_chars = len(seg)  # strip后的长度
-        char_ranges.append((char_pos, char_pos + seg_chars))
-        char_pos += seg_chars
-    
-    # 合成所有段，同时记录每段时长
-    audio_files = []
-    segment_durations = []  # 每段音频的实际时长
-    
-    for i, seg in enumerate(segments):
-        params = {
-            'tok': token,
-            'tex': seg,
-            'per': person,
-            'spd': speed,
-            'pit': 5,
-            'vol': 5,
-            'aue': 3,
-            'cuid': 'bandushutong_app',
-            'lan': 'zh',
-            'ctp': 1
-        }
-        
-        try:
-            response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
-            content_type = response.headers.get('Content-Type', '')
-            
-            if 'audio' in content_type:
-                filename = f'section_{section_id}_{i}.mp3'
-                filepath = os.path.join(AUDIO_DIR, filename)
-                with open(filepath, 'wb') as f:
-                    f.write(response.content)
-                audio_files.append(filepath)
-                
-                # 获取该段音频的实际时长
-                seg_duration = 0
-                try:
-                    dur_result = subprocess.run(
-                        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                         '-of', 'default=noprint_wrappers=1:nokey=1', filepath],
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
-                    seg_duration = float(dur_result.stdout.strip())
-                except:
-                    # 估算：按每分钟200字
-                    seg_duration = len(seg) / 200 * 60
-                segment_durations.append(seg_duration)
-            else:
-                print(f"段 {i} 合成失败: {response.text}")
-                return None
-        except Exception as e:
-            print(f"段 {i} 合成异常: {e}")
-            return None
-    
-    # 合并音频文件（使用 Python 直接拼接，避免 ffmpeg 兼容问题）
-    final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
-    
-    if len(audio_files) == 1:
-        os.rename(audio_files[0], final_path)
-        print(f"[TTS] 单段音频，直接重命名")
-    else:
-        print(f"[TTS] 开始合并 {len(audio_files)} 个音频段...")
-        try:
-            list_file = os.path.join(AUDIO_DIR, f'section_{section_id}_list.txt')
-            with open(list_file, 'w') as f:
-                for af in audio_files:
-                    f.write(f"file '{af}'\n")
-            subprocess.run(
-                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60
-            )
-            for af in audio_files:
-                if os.path.exists(af):
-                    os.remove(af)
-            if os.path.exists(list_file):
-                os.remove(list_file)
-            print(f"[TTS] 合并成功: {final_path}")
-        except Exception as e:
-            print(f"[TTS] 合并异常: {e}")
-            return None
-    
-    # 用ffprobe测量合并后文件的实际时长（MP3直接拼接后时长不等于各段之和）
-    audio_duration = 0
-    try:
-        dur_result = subprocess.run(
-            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        audio_duration = float(dur_result.stdout.strip())
-    except:
-        audio_duration = sum(segment_durations)
-    
-    if audio_duration <= 0:
-        audio_duration = sum(segment_durations)
-    
-    # 基于每段实际时长构建精确字符时间轴（不含换行符，与前端一致）
-    char_timeline = []
-    for seg_idx, seg in enumerate(segments):
-        start_char = char_ranges[seg_idx][0]
-        end_char = char_ranges[seg_idx][1]
-        seg_text = text[start_char:end_char]
-        seg_dur = segment_durations[seg_idx] if seg_idx < len(segment_durations) else 1
-        
-        # 该段之前的累计时长
-        time_offset = sum(segment_durations[:seg_idx])
-        
-        # 该段内每个字符的时间点（跳过换行符）
-        visible_chars = [c for c in seg_text if c != '\n']
-        seg_len = len(visible_chars)
-        if seg_len > 0 and seg_dur > 0:
-            # 计算每个字符的时间权重（标点符号权重更高）
-            char_weights = []
-            for char in visible_chars:
-                if char in '。！？；：':  # 长停顿
-                    char_weights.append(3.0)
-                elif char in '，、':  # 短停顿
-                    char_weights.append(2.0)
-                elif char in '""''（）【】《》':  # 中等停顿
-                    char_weights.append(1.5)
-                else:
-                    char_weights.append(1.0)
-            
-            total_weight = sum(char_weights)
-            accumulated_weight = 0
-            for j in range(seg_len):
-                t = time_offset + (accumulated_weight / total_weight) * seg_dur
-                char_timeline.append(round(t, 3))
-                accumulated_weight += char_weights[j]
-    
-    print(f"[TTS] 时间轴构建完成: {len(char_timeline)} 个字符, 总时长 {audio_duration:.1f}s")
-    
-    return {
-        'audio_path': f'/api/audio/section_{section_id}.mp3',
-        'audio_duration': audio_duration,
-        'char_timeline': char_timeline
-    }
+# ==================== 内部核心：长文本 TTS 合成 ====================
 
-
-def generate_segmented_audio(text, section_id, annotations, speed=5, person=3, voice_type='male'):
+def _synthesize_long_text(output_filename, text, token, speed=5, person=3):
     """
-    按点评边界分割原文为多段，每段独立生成音频。
-    
-    voice_type='male': 原文用person=3(度逍遥男声), 点评用person=4(度丫丫女声)
-    voice_type='female': 原文用person=4(度丫丫女声), 点评用person=3(度逍遥男声)
-    
+    内部通用函数：长文本 → 自动分段调TTS → 合并为一个 MP3 文件。
+
     参数:
-        text: 原文内容
-        section_id: 节ID
-        annotations: 该节的点评列表，按 end_char 排序
-        speed: 语速
-        person: 音色（被voice_type覆盖）
-        voice_type: 'male' 或 'female'
-    
-    返回: {
-        'audio_segments': [
-            {
-                'type': 'original',
-                'audio_path': '/api/audio/segment_{section_id}_0.mp3',
-                'audio_duration': 10.5,
-                'start_char': 0,
-                'end_char': 80,
-                'char_timeline': [0.0, 0.1, ...]  # 该段内每个字符的时间点
-            },
-            {
-                'type': 'annotation',
-                'annotation_id': 119,
-                'audio_path': '/api/audio/annotation_119.mp3',
-                'audio_duration': 5.0
-            },
-            ...
-        ],
-        'audio_path': '/api/audio/section_{section_id}.mp3',  # 完整合并音频（兼容）
-        'audio_duration': 75.3,
-        'char_timeline': [...]  # 完整时间轴（兼容）
+        output_filename: 最终输出的文件名（不含路径），如 'segment_4_662_0.mp3'
+        text: 要合成的完整文本（可能很长）
+        token: 已有的 access_token
+        speed, person: TTS 参数
+
+    返回:
+        {'audio_path': '/api/audio/{output_filename}', 'audio_duration': 秒}
+        或 None（失败）
+    """
+    if not text or len(text.strip()) == 0:
+        return None
+
+    # 分段
+    parts = _split_text_for_tts(text)
+    if not parts:
+        return None
+
+    output_path = os.path.join(AUDIO_DIR, output_filename)
+
+    # 单段不需要合并
+    if len(parts) == 1:
+        audio_data = call_baidu_tts(parts[0], token, speed=speed, person=person)
+        if not audio_data:
+            print(f"[TTS] 单段 TTS 合成失败: {output_filename}")
+            return None
+        with open(output_path, 'wb') as f:
+            f.write(audio_data)
+        dur = _measure_duration(output_path)
+        return {
+            'audio_path': f'/api/audio/{output_filename}',
+            'audio_duration': dur
+        }
+
+    # 多段：逐个合成再合并
+    temp_files = []
+    for i, part in enumerate(parts):
+        audio_data = call_baidu_tts(part, token, speed=speed, person=person)
+        if not audio_data:
+            print(f"[TTS] 子段 {i}/{len(parts)} TTS 合成失败")
+            return None
+        temp_path = os.path.join(AUDIO_DIR, f'_tmp_{output_filename}_{i}.mp3')
+        with open(temp_path, 'wb') as f:
+            f.write(audio_data)
+        temp_files.append(temp_path)
+
+    success = _merge_mp3_files(temp_files, output_path)
+    if not success:
+        print(f"[TTS] 合并失败: {output_filename}")
+        return None
+
+    dur = _measure_duration(output_path)
+    return {
+        'audio_path': f'/api/audio/{output_filename}',
+        'audio_duration': dur
     }
+
+
+# ==================== 固定音频（开场白/结束语）====================
+
+def text_to_speech_long(text, section_id=None, speed=5, person=3):
+    """
+    轻量级长文本合成（用于 TTS 预览/修复端点，不参与主流程）。
+    按 TTS 字符限制分段，逐段调 API，返回文件路径列表。
+
+    注意：此函数保留是为了兼容 api.py 中的预览/修复端点。
+    主音频生成请使用 generate_section_audio_v2()。
     """
     token = get_access_token()
     if not token:
-        return None
-    
-    # 根据voice_type选择声音
-    # male: 原文用person=3(度逍遥), 点评用person=5(度小娇)
-    # female: 原文用person=5(度小娇), 点评用person=3(度逍遥)
-    original_person = 3 if voice_type == 'male' else 5
-    comment_person = 5 if voice_type == 'male' else 3
-    person = original_person  # 覆盖传入的person参数
-    
-    # 去掉换行符，统一使用显示索引（与前端 _allChars 一致）
-    text = text.replace('\n', '')
-    
-    # 1. 确定分割点：按点评的 start_char 和 end_char 分割
-    # 建立 start_char 和 end_char 到点评的映射
-    ann_by_start_char = {}
-    ann_by_end_char = {}
-    for ann in annotations:
-        if ann.get('start_char') is not None:
-            ann_by_start_char[ann['start_char']] = ann
-        if ann.get('end_char') is not None:
-            ann_by_end_char[ann['end_char']] = ann
-    
-    # 获取所有唯一的分割点（包括0、所有点评的start_char和end_char、文本结尾）
-    split_points = sorted(set([0] + list(ann_by_start_char.keys()) + list(ann_by_end_char.keys()) + [len(text)]))
-    
-    print(f"[TTS] 分割点: {split_points}")
-    print(f"[TTS] 点评映射: {list(ann_by_end_char.keys())}")
-    
-    # 2. 为每段原文生成独立音频
-    audio_segments = []
-    full_timeline = []
-    full_duration = 0
-    
-    for seg_idx in range(len(split_points) - 1):
-        start_char = split_points[seg_idx]
-        next_point = split_points[seg_idx + 1]
-        # Python切片是左闭右开的，text[start:next]包含start到next-1
-        seg_text = text[start_char:next_point]
-        # 段的实际结束字符是next_point-1（最后一个包含的字符）
-        actual_end_char = next_point - 1
-        
-        print(f"[TTS] 处理段 {seg_idx}: chars {start_char}-{actual_end_char}, 长度 {len(seg_text)}")
-        
-        if not seg_text.strip():
-            print(f"[TTS] 段 {seg_idx} 为空，跳过")
+        return []
+
+    parts = _split_text_for_tts(text)
+    if not parts:
+        return []
+
+    audio_paths = []
+    for i, part in enumerate(parts):
+        audio_data = call_baidu_tts(part, token, speed=speed, person=person)
+        if not audio_data:
             continue
-        
-        # 为该段生成音频
-        # 传入actual_end_char确保段的结束位置正确（next_point-1）
-        seg_result = _generate_single_segment_audio(
-            seg_text, section_id, seg_idx, start_char, actual_end_char, speed, person, token
-        )
-        
-        if seg_result:
-            audio_segments.append(seg_result)
-            # 加上前面所有原文段的时间偏移
-            time_offset = full_duration
-            for t in seg_result['char_timeline']:
-                full_timeline.append(round(t + time_offset, 3))
-            full_duration += seg_result['audio_duration']
-            print(f"[TTS] 段 {seg_idx} 音频生成成功: {seg_result['audio_path']}")
-        else:
-            print(f"[TTS] 段 {seg_idx} 音频生成失败，跳过")
-            # 继续生成其他段，而不是直接返回None
-        
-        # 查找该段结束位置对应的点评（使用next_point，因为ann_by_end_char的key是点评的end_char）
-        if next_point in ann_by_end_char:
-            ann = ann_by_end_char[next_point]
-            print(f"[TTS] 段 {seg_idx} 结束后有点评 id={ann['id']}")
-            # 为点评生成音频
-            comment = ann.get('comment', '')
-            original_text = ann.get('original_text', '')
-            if comment or original_text:
-                # 生成引用原文音频（quote）
-                if original_text:
-                    try:
-                        from backend.database import get_db
-                        conn = get_db()
-                        cursor = conn.cursor()
-                        # 为引用原文生成音频（使用原文声音original_person）
-                        # 使用 quote_{id} 作为文件名，避免与点评音频冲突
-                        quote_audio = _generate_quote_audio(ann['id'], original_text, person=original_person, speed=speed)
-                        if quote_audio:
-                            quote_audio_path = quote_audio['audio_path']
-                            quote_duration = quote_audio['audio_duration']
-                            # 更新 insert_points 表的 quote_audio_path
-                            cursor.execute(
-                                "UPDATE insert_points SET quote_audio_path = %s, quote_audio_duration = %s WHERE section_id = %s AND annotation_id = %s",
-                                (quote_audio_path, quote_duration, section_id, ann['id'])
-                            )
-                            print(f"[TTS] 引用音频生成完成: {quote_audio_path}, 时长 {quote_duration:.1f}s")
-                        conn.commit()
-                        conn.close()
-                    except Exception as e:
-                        print(f"[TTS] 生成引用音频失败: {e}")
-                # 生成点评音频（comment）
-                # 使用comment_person（男女互补）
-                if comment:
-                    ann_audio = generate_annotation_audio(ann['id'], '', comment, person=comment_person, speed=speed)
-                    if ann_audio:
-                        audio_segments.append({
-                            'type': 'annotation',
-                            'annotation_id': ann['id'],
-                            'audio_path': ann_audio['audio_path'],
-                            'audio_duration': ann_audio['audio_duration']
-                        })
-                        full_duration += ann_audio['audio_duration']
-                        # 更新数据库中的点评音频信息（annotations表 + insert_points表）
-                        try:
-                            from backend.database import update_annotation_audio, get_db
-                            update_annotation_audio(ann['id'], ann_audio['audio_path'], ann_audio['audio_duration'])
-                            # 同时更新 insert_points 表的 audio_path
-                            conn = get_db()
-                            cursor = conn.cursor()
-                            cursor.execute(
-                                "UPDATE insert_points SET audio_path = %s, audio_duration = %s WHERE section_id = %s AND annotation_index = %s",
-                                (ann_audio['audio_path'], ann_audio['audio_duration'], section_id, ann['annotation_index'])
-                            )
-                            conn.commit()
-                            conn.close()
-                        except Exception as e:
-                            print(f"[TTS] 更新点评音频到数据库失败: {e}")
-        else:
-            print(f"[TTS] 段 {seg_idx} 结束后无点评")
-    
-    # 3. 合并所有段为完整音频（兼容旧模式）
-    final_path = os.path.join(AUDIO_DIR, f'section_{section_id}.mp3')
-    original_segments = [s for s in audio_segments if s['type'] == 'original']
-    seg_files = []
-    for seg in original_segments:
-        # 从 audio_path 提取文件名
-        filename = seg['audio_path'].split('/')[-1]
+        filename = f'section_{section_id}_{i}.mp3' if section_id else f'preview_{int(time.time())}_{i}.mp3'
         filepath = os.path.join(AUDIO_DIR, filename)
-        if os.path.exists(filepath):
-            seg_files.append(filepath)
-    
-    if seg_files:
-        try:
-            list_file = os.path.join(AUDIO_DIR, f'section_{section_id}_merge_list.txt')
-            with open(list_file, 'w') as f:
-                for sf in seg_files:
-                    f.write(f"file '{sf}'\n")
-            subprocess.run(
-                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60
-            )
-            if os.path.exists(list_file):
-                os.remove(list_file)
-            print(f"[TTS] 合并分段音频完成: {final_path}")
-        except Exception as e:
-            print(f"[TTS] 合并分段音频失败: {e}")
-    
-    # 4. 添加小结段（如果有）
-    # 从数据库获取小结内容
-    try:
-        from backend.database import get_section, get_db
-        section = get_section(section_id)
-        if section and section.get('summary'):
-            # 使用comment_person（男女互补）
-            summary_audio = generate_summary_audio(section_id, section['summary'], person=comment_person, speed=speed)
-            if summary_audio:
-                audio_segments.append({
-                    'type': 'summary',
-                    'audio_path': summary_audio['audio_path'],
-                    'audio_duration': summary_audio['audio_duration']
-                })
-                full_duration += summary_audio['audio_duration']
-                # 更新 insert_points 表中小结的 audio_path
-                try:
-                    conn = get_db()
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "UPDATE insert_points SET audio_path = %s, audio_duration = %s WHERE section_id = %s AND point_type = 'summary'",
-                        (summary_audio['audio_path'], summary_audio['audio_duration'], section_id)
-                    )
-                    conn.commit()
-                    conn.close()
-                except Exception as e:
-                    print(f"[TTS] 更新小结音频到insert_points失败: {e}")
-    except Exception as e:
-        print(f"[TTS] 小结音频生成失败: {e}")
-    
-    # 5. 更新 text_segments 表的 audio_path
-    try:
-        from backend.database import get_db
-        conn = get_db()
-        cursor = conn.cursor()
-        # 获取该节的所有 text_segments，按 segment_number 排序
-        cursor.execute('SELECT id, segment_number FROM text_segments WHERE section_id = %s ORDER BY segment_number', (section_id,))
-        db_segments = {row['segment_number']: row['id'] for row in cursor.fetchall()}
-        # 更新每个 original 类型段的 audio_path 和 char_timeline
-        for seg in audio_segments:
-            if seg['type'] == 'original':
-                seg_num = seg.get('segment_number', 0)
-                if seg_num in db_segments:
-                    char_timeline_json = json.dumps(seg['char_timeline']) if seg.get('char_timeline') else None
-                    cursor.execute(
-                        'UPDATE text_segments SET audio_path = %s, audio_duration = %s, char_timeline = %s WHERE id = %s',
-                        (seg['audio_path'], seg['audio_duration'], char_timeline_json, db_segments[seg_num])
-                    )
-                    print(f"[TTS] 更新 text_segments id={db_segments[seg_num]} audio_path={seg['audio_path']} char_timeline长度={len(seg.get('char_timeline', []))}")
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print(f"[TTS] 更新 text_segments 音频路径失败: {e}")
-    
-    return {
-        'audio_segments': audio_segments,
-        'audio_path': f'/api/audio/section_{section_id}.mp3',
-        'audio_duration': full_duration,
-        'char_timeline': full_timeline
+        with open(filepath, 'wb') as f:
+            f.write(audio_data)
+        audio_paths.append(f'audio_files/{filename}')
+
+    return audio_paths
+
+
+def generate_fixed_audio_files(speed=5, person=3):
+    """生成系统固定音频文件（默认男声）"""
+    return generate_fixed_audio_files_by_voice('male', speed)
+
+
+def generate_fixed_audio_files_by_voice(voice_type='male', speed=5):
+    """生成系统固定音频文件（男声/女声各一套）
+
+    voice_type='male': person=3(度逍遥男声)
+    voice_type='female': person=5(度小娇女声)
+    """
+    token = get_access_token()
+    if not token:
+        return False
+
+    person = 5 if voice_type == 'female' else 3
+    suffix = '_female' if voice_type == 'male' else ''
+
+    files = {
+        f'annotation_opening{suffix}.mp3': '我们来看下这里：',
+        f'annotation_closing{suffix}.mp3': '回到原文',
+        f'summary_opening{suffix}.mp3': '这篇内容已读完，我们回顾一下：',
+        f'summary_closing{suffix}.mp3': '小结之外有其他思考，请添加到右上角。'
     }
 
+    for filename, text in files.items():
+        audio_path = os.path.join(AUDIO_DIR, filename)
+        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
+            print(f"[TTS] 固定音频已存在: {filename}")
+            continue
 
-def _generate_single_segment_audio(text, section_id, seg_idx, start_char, actual_end_char, speed, person, token):
+        result = call_baidu_tts(text, token, speed=speed, person=person)
+        if result:
+            with open(audio_path, 'wb') as f:
+                f.write(result)
+            print(f"[TTS] 生成固定音频: {filename}")
+        else:
+            print(f"[TTS] 生成固定音频失败: {filename}")
+
+    return True
+
+
+def get_fixed_audio_path(filename, voice_type='male'):
+    """获取固定音频文件的 URL 路径"""
+    suffix = '_female' if voice_type == 'female' else '_male'
+
+    # 先尝试带后缀的文件
+    audio_path = os.path.join(AUDIO_DIR, filename.replace('.mp3', f'{suffix}.mp3'))
+    if os.path.exists(audio_path):
+        return f'/api/audio/{filename.replace(".mp3", f"{suffix}.mp3")}'
+
+    # 回退到旧版文件名（兼容旧数据）
+    audio_path = os.path.join(AUDIO_DIR, filename)
+    if os.path.exists(audio_path):
+        return f'/api/audio/{filename}'
+    return None
+
+
+# ==================== 业务音频生成函数 ====================
+
+def generate_text_segment_audio(book_id, section_id, seg_idx, text, speed=5, person=3):
     """
-    为单段文本生成音频，返回分段信息。
-    
-    参数:
-        text: 该段的原始文本
-        section_id: 节ID
-        seg_idx: 段索引
-        start_char: 该段在原文中的起始字符位置（包含）
-        actual_end_char: 该段在原文中的结束字符位置（包含）
-        speed: 语速
-        person: 音色
-        token: 百度TTS token
-    
-    返回: {
-        'type': 'original',
-        'audio_path': '/api/audio/segment_{section_id}_{seg_idx}.mp3',
-        'audio_duration': 10.5,
-        'start_char': 0,
-        'end_char': 79,  # 注意：这是包含的结束位置
-        'char_timeline': [0.0, 0.1, ...]
-    } 或 None
+    为单个原文段（text_segment）生成音频。
+
+    文件命名：segment_{book_id}_{section_id}_{seg_idx}.mp3
+    例：book=4, section=662, idx=0 → segment_4_662_0.mp3
+
+    返回:
+        {'audio_path': str, 'audio_duration': float, 'char_timeline': [float]}
+        或 None
     """
-    import subprocess
-    
-    # 按 TTS 限制分段（每段约 500 字符）
-    # 注意：保留原始文本，不要 strip()，否则字符数会不匹配
-    sub_segments = []
-    current = ''
-    for char in text:
-        current += char
-        if len(current.encode('utf-8')) >= 900 or char in '。！？\n':
-            if current:
-                sub_segments.append(current)
-            current = ''
-    if current:
-        sub_segments.append(current)
-    
-    if not sub_segments:
+    token = get_access_token()
+    if not token:
         return None
-    
-    # 计算每段对应的字符范围（相对于该段的起始位置）
-    char_ranges = []
-    char_pos = 0
-    for seg in sub_segments:
-        seg_chars = len(seg)
-        char_ranges.append((char_pos, char_pos + seg_chars))
-        char_pos += seg_chars
-    
-    # 合成所有子段
-    audio_files = []
-    segment_durations = []
-    
-    for i, seg in enumerate(sub_segments):
-        params = {
-            'tok': token,
-            'tex': seg,
-            'per': person,
-            'spd': speed,
-            'pit': 5,
-            'vol': 5,
-            'aue': 3,
-            'cuid': 'bandushutong_app',
-            'lan': 'zh',
-            'ctp': 1
-        }
-        
-        try:
-            response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
-            content_type = response.headers.get('Content-Type', '')
-            
-            if 'audio' in content_type:
-                filename = f'segment_{section_id}_{seg_idx}_{i}.mp3'
-                filepath = os.path.join(AUDIO_DIR, filename)
-                with open(filepath, 'wb') as f:
-                    f.write(response.content)
-                audio_files.append(filepath)
-                
-                seg_duration = 0
-                try:
-                    dur_result = subprocess.run(
-                        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                         '-of', 'default=noprint_wrappers=1:nokey=1', filepath],
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
-                    seg_duration = float(dur_result.stdout.strip())
-                except:
-                    seg_duration = len(seg) / 200 * 60
-                segment_durations.append(seg_duration)
-            else:
-                error_text = response.text[:200] if response.text else '无错误信息'
-                print(f"[TTS] 子段 {seg_idx}-{i} 合成失败: status={response.status_code}, content-type={content_type}, error={error_text}")
-                return None
-        except Exception as e:
-            print(f"[TTS] 子段 {seg_idx}-{i} 合成异常: {type(e).__name__}: {e}")
-            return None
-    
-    # 合并子段为该段的完整音频（使用ffmpeg正确合并MP3）
-    final_filename = f'segment_{section_id}_{seg_idx}.mp3'
-    final_path = os.path.join(AUDIO_DIR, final_filename)
-    
-    if len(audio_files) == 1:
-        os.rename(audio_files[0], final_path)
-    else:
-        # 使用ffmpeg concat demuxer正确合并MP3文件
-        list_file = os.path.join(AUDIO_DIR, f'segment_{section_id}_{seg_idx}_list.txt')
-        with open(list_file, 'w') as f:
-            for af in audio_files:
-                f.write(f"file '{af}'\n")
-        try:
-            subprocess.run(
-                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30
-            )
-            for af in audio_files:
-                if os.path.exists(af):
-                    os.remove(af)
-            if os.path.exists(list_file):
-                os.remove(list_file)
-        except Exception as e:
-            print(f"[TTS] ffmpeg合并失败: {e}, 降级为直接拼接")
-            with open(final_path, 'wb') as outfile:
-                for af in audio_files:
-                    with open(af, 'rb') as infile:
-                        outfile.write(infile.read())
-            for af in audio_files:
-                os.remove(af)
-            if os.path.exists(list_file):
-                os.remove(list_file)
-    
-    # 用ffprobe测量合并后文件的实际时长（MP3直接拼接后时长不等于各段之和）
-    seg_total_duration = 0
-    try:
-        dur_result = subprocess.run(
-            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+
+    output_filename = f'segment_{book_id}_{section_id}_{seg_idx}.mp3'
+    result = _synthesize_long_text(output_filename, text, token, speed, person)
+    if not result:
+        return None
+
+    # 构建字符时间轴
+    audio_path = os.path.join(AUDIO_DIR, output_filename)
+    _, char_timeline = get_audio_duration_and_timeline(audio_path, text)
+
+    result['char_timeline'] = char_timeline
+    print(f"[TTS] 原文段音频完成: {output_filename}, {result['audio_duration']:.1f}s, {len(char_timeline)}个时间点")
+    return result
+
+
+def generate_annotations_audio(book_id, section_id, ann_idx, comment_text, speed=5, person=3):
+    """
+    为单条点评的评论内容生成音频。
+
+    文件命名：annotations_{book_id}_{section_id}_{ann_idx}.mp3
+    例：book=4, section=662, idx=0 → annotations_4_662_0.mp3
+
+    返回:
+        {'audio_path': str, 'audio_duration': float}
+        或 None
+    """
+    token = get_access_token()
+    if not token:
+        return None
+
+    output_filename = f'annotations_{book_id}_{section_id}_{ann_idx}.mp3'
+    result = _synthesize_long_text(output_filename, comment_text, token, speed, person)
+    if result:
+        print(f"[TTS] 点评音频完成: {output_filename}, {result['audio_duration']:.1f}s")
+    return result
+
+
+def generate_summary_audio(book_id, section_id, summary_text, speed=5, person=3):
+    """
+    为小结生成音频。
+
+    文件命名：summary_{book_id}_{section_id}.mp3
+    例：book=4, section=662 → summary_4_662.mp3
+
+    返回:
+        {'audio_path': str, 'audio_duration': float}
+        或 None
+    """
+    token = get_access_token()
+    if not token:
+        return None
+
+    output_filename = f'summary_{book_id}_{section_id}.mp3'
+    result = _synthesize_long_text(output_filename, summary_text, token, speed, person)
+    if result:
+        print(f"[TTS] 小结音频完成: {output_filename}, {result['audio_duration']:.1f}s")
+    return result
+
+
+# ==================== 主入口：整节音频生成 ====================
+
+def generate_section_audio_v2(book_id, section_id, speed=5, person=3):
+    """
+    新版整节音频生成（唯一入口）。
+
+    完整流程：
+    1. 创建 text_segments（按点评边界切分原文为 N 段）
+    2. 创建 insert_points（将点评/小结绑定到对应段后面）
+    3. 对每个 text_segment 调用 TTS → segment_{book_id}_{section_id}_{seg_idx}.mp3
+    4. 对每条点评评论调 TTS → annotations_{book_id}_{section_id}_{idx}.mp3
+    5. 对小结调 TTS → summary_{book_id}_{section_id}.mp3
+    6. 写回数据库（text_segments.audio_path/char_timeline + insert_points.audio_path）
+
+    参数:
+        book_id: 书籍 ID（用于文件命名）
+        section_id: 节 ID
+        speed: 语速 0-15
+        person: 发音人（原文使用）
+
+    返回: True（成功）或 False（失败）
+    """
+    from backend.database import (
+        create_text_segments, create_insert_points,
+        get_text_segments, get_insert_points_by_segment,
+        update_text_segment_audio, update_insert_point_audio
+    )
+
+    # 0. 生成固定音频文件
+    generate_fixed_audio_files(speed, person)
+
+    # 1. 创建/刷新 text_segments 和 insert_points
+    create_text_segments(section_id)
+    create_insert_points(section_id)
+
+    # 2. 获取该节所有 text_segments
+    segments = get_text_segments(section_id)
+    if not segments:
+        print(f"[TTS v2] 节 {section_id} 没有文本段")
+        return False
+
+    # 确定声音配置
+    # 原文用 person（传入值），点评用互补音色
+    comment_person = 5 if person == 3 else 3
+
+    # 3. 为每个原文段生成音频
+    print(f"[TTS v2] 节 {section_id}: 开始生成 {len(segments)} 个原文段音频...")
+    for seg in segments:
+        seg_idx = seg.get('segment_number', 0)
+        print(f"[TTS v2]   生成原文段 #{seg_idx} (id={seg['id']}, {seg.get('word_count', '?')}字)")
+        result = generate_text_segment_audio(
+            book_id, section_id, seg_idx, seg['content'], speed, person
         )
-        seg_total_duration = float(dur_result.stdout.strip())
-    except:
-        seg_total_duration = sum(segment_durations)
-    
-    if seg_total_duration <= 0:
-        seg_total_duration = sum(segment_durations)
-    
-    # 构建该段的字符时间轴（相对于该段音频的起始时间）
-    char_timeline = []
-    for sub_idx, seg in enumerate(sub_segments):
-        sub_start = char_ranges[sub_idx][0]
-        sub_end = char_ranges[sub_idx][1]
-        sub_len = sub_end - sub_start
-        sub_dur = segment_durations[sub_idx] if sub_idx < len(segment_durations) else 1
-        time_offset = sum(segment_durations[:sub_idx])
-        
-        if sub_len > 0 and sub_dur > 0:
-            # 计算每个字符的时间权重（标点符号权重更高）
-            char_weights = []
-            for j in range(sub_len):
-                char = seg[j] if j < len(seg) else ''
-                # 标点符号权重更高，模拟停顿
-                if char in '。！？；：':  # 长停顿
-                    char_weights.append(3.0)
-                elif char in '，、':  # 短停顿
-                    char_weights.append(2.0)
-                elif char in '""''（）【】《》':  # 中等停顿
-                    char_weights.append(1.5)
-                else:
-                    char_weights.append(1.0)
-            
-            total_weight = sum(char_weights)
-            accumulated_weight = 0
-            for j in range(sub_len):
-                t = time_offset + (accumulated_weight / total_weight) * sub_dur
-                char_timeline.append(round(t, 3))
-                accumulated_weight += char_weights[j]
-    
-    # 使用传入的actual_end_char，确保段的结束位置正确
-    # 验证actual_end_char与text长度是否匹配
-    expected_end = start_char + len(text) - 1
-    if actual_end_char != expected_end:
-        print(f"[TTS] 警告: 分段 {seg_idx} actual_end_char({actual_end_char}) != expected({expected_end})")
-    
-    print(f"[TTS] 分段 {seg_idx} 完成: chars {start_char}-{actual_end_char}, 时长 {seg_total_duration:.1f}s")
-    
-    return {
-        'type': 'original',
-        'segment_number': seg_idx,
-        'audio_path': f'/api/audio/segment_{section_id}_{seg_idx}.mp3',
-        'audio_duration': seg_total_duration,
-        'start_char': start_char,
-        'end_char': actual_end_char,
-        'char_timeline': char_timeline
-    }
+        if result:
+            update_text_segment_audio(
+                seg['id'],
+                result['audio_path'],
+                result['audio_duration'],
+                json.dumps(result['char_timeline']) if result.get('char_timeline') else None
+            )
+            print(f"[TTS v2]   原文段 #{seg_idx} 完成: {result['audio_duration']:.1f}s")
+        else:
+            print(f"[TTS v2]   原文段 #{seg_idx} 生成失败!")
+
+    # 4. 为每个插入点生成音频（点评 + 小结）
+    ann_idx = 0  # 点评序号，用于文件命名
+    for seg in segments:
+        insert_points = get_insert_points_by_segment(seg['id'])
+        for ip in insert_points:
+            if ip['point_type'] == 'annotation':
+                print(f"[TTS v2]   生成点评 #{ann_idx} (id={ip['id']}) 音频")
+                # 点评的 comment 是评论内容
+                comment_text = ip.get('comment', '') or ''
+                result = generate_annotations_audio(
+                    book_id, section_id, ann_idx, comment_text, speed, comment_person
+                )
+                if result and result.get('audio_path'):
+                    update_insert_point_audio(ip['id'], result['audio_path'], result['audio_duration'])
+                    print(f"[TTS v2]   点评 #{ann_idx} 完成: {result['audio_duration']:.1f}s")
+                ann_idx += 1
+
+            elif ip['point_type'] == 'summary':
+                print(f"[TTS v2]   生成小结 (id={ip['id']}) 音频")
+                comment_text = ip.get('comment', '') or ''
+                result = generate_summary_audio(book_id, section_id, comment_text, speed, comment_person)
+                if result and result.get('audio_path'):
+                    update_insert_point_audio(ip['id'], result['audio_path'], result['audio_duration'])
+                    print(f"[TTS v2]   小结完成: {result['audio_duration']:.1f}s")
+
+    print(f"[TTS v2] 节 {section_id} 全部完成 (book={book_id})")
+    return True
 
 
 def generate_book_audio(book_id, person=3, speed=5):
     """
-    为书籍的所有节预生成音频（后台线程调用）
-    新版：基于 text_segments + insert_points 架构
+    为书籍的所有节预生成音频（后台线程调用）。
+    遍历每节，调用 generate_section_audio_v2()。
     """
     import sys
     import threading
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from backend.database import get_sections_by_book, update_book_tts_status, check_section_audio_complete
+    from backend.database import (
+        get_sections_by_book, update_book_tts_status, check_section_audio_complete
+    )
 
     def _generate():
         if not is_configured():
@@ -883,16 +628,11 @@ def generate_book_audio(book_id, person=3, speed=5):
                 continue
 
             try:
-                # 使用新版音频生成（基于 text_segments + insert_points）
-                result = generate_section_audio_v2(section_id, speed=speed, person=person)
-                if result:
-                    done_count += 1
-                    update_book_tts_status(book_id, 'generating', f'{done_count}/{total}')
-                    print(f"[TTS] 节 {section_id} 全部完成 ({done_count}/{total})")
-                else:
-                    done_count += 1
-                    update_book_tts_status(book_id, 'generating', f'{done_count}/{total}')
-                    print(f"[TTS] 节 {section_id} 失败")
+                result = generate_section_audio_v2(book_id, section_id, speed=speed, person=person)
+                done_count += 1
+                update_book_tts_status(book_id, 'generating', f'{done_count}/{total}')
+                status_msg = '成功' if result else '失败'
+                print(f"[TTS] 节 {section_id} {status_msg} ({done_count}/{total})")
             except Exception as e:
                 done_count += 1
                 update_book_tts_status(book_id, 'generating', f'{done_count}/{total}')
@@ -911,647 +651,13 @@ def generate_book_audio(book_id, person=3, speed=5):
     return True
 
 
-def generate_annotation_audio(annotation_id, original_text, comment, person=3, speed=5):
-    """
-    生成点评音频
-    格式：点评内容（不再重复读原文，因为原文已经在触发点评前播放过了）
-    
-    返回: {'audio_path': 路径, 'audio_duration': 时长} 或 None
-    """
-    import subprocess
-    
-    token = get_access_token()
-    if not token:
-        return None
-    
-    # 构建点评文本（不包含原文引用，避免重复）
-    text = f"{comment}"
-    
-    # 分段处理
-    segments = []
-    current = ''
-    for char in text:
-        current += char
-        if len(current.encode('utf-8')) >= 900 or char in '。！？\n':
-            if current.strip():
-                segments.append(current.strip())
-            current = ''
-    if current.strip():
-        segments.append(current.strip())
-    
-    if not segments:
-        return None
-    
-    # 合成所有段
-    audio_files = []
-    segment_durations = []
-    
-    for i, seg in enumerate(segments):
-        params = {
-            'tok': token,
-            'tex': seg,
-            'per': person,
-            'spd': speed,
-            'pit': 5,
-            'vol': 5,
-            'aue': 3,
-            'cuid': 'bandushutong_app',
-            'lan': 'zh',
-            'ctp': 1
-        }
-        
-        try:
-            response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
-            content_type = response.headers.get('Content-Type', '')
-            
-            if 'audio' in content_type:
-                filename = f'annotation_{annotation_id}_{i}.mp3'
-                filepath = os.path.join(AUDIO_DIR, filename)
-                with open(filepath, 'wb') as f:
-                    f.write(response.content)
-                audio_files.append(filepath)
-                
-                # 获取该段音频的实际时长
-                seg_duration = 0
-                try:
-                    dur_result = subprocess.run(
-                        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                         '-of', 'default=noprint_wrappers=1:nokey=1', filepath],
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
-                    seg_duration = float(dur_result.stdout.strip())
-                except:
-                    seg_duration = len(seg) / 200 * 60
-                segment_durations.append(seg_duration)
-            else:
-                print(f"[TTS] 点评段 {i} 合成失败: {response.text}")
-                return None
-        except Exception as e:
-            print(f"[TTS] 点评段 {i} 合成异常: {e}")
-            return None
-    
-    # 合并音频文件
-    final_path = os.path.join(AUDIO_DIR, f'annotation_{annotation_id}.mp3')
-    
-    if len(audio_files) == 1:
-        os.rename(audio_files[0], final_path)
-    else:
-        try:
-            list_file = os.path.join(AUDIO_DIR, f'annotation_{annotation_id}_list.txt')
-            with open(list_file, 'w') as f:
-                for af in audio_files:
-                    f.write(f"file '{af}'\n")
-            subprocess.run(
-                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30
-            )
-            for af in audio_files:
-                if os.path.exists(af):
-                    os.remove(af)
-            if os.path.exists(list_file):
-                os.remove(list_file)
-        except Exception as e:
-            print(f"[TTS] 点评音频合并异常: {e}")
-            return None
-    
-    # 用ffprobe测量合并后文件的实际时长
-    audio_duration = 0
-    try:
-        dur_result = subprocess.run(
-            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        audio_duration = float(dur_result.stdout.strip())
-    except:
-        audio_duration = sum(segment_durations)
-    if audio_duration <= 0:
-        audio_duration = sum(segment_durations)
-    print(f"[TTS] 点评音频生成完成: annotation_{annotation_id}.mp3, 时长 {audio_duration:.1f}s")
-    
-    return {
-        'audio_path': f'/api/audio/annotation_{annotation_id}.mp3',
-        'audio_duration': audio_duration
-    }
-
-
-def _generate_quote_audio(annotation_id, original_text, person=3, speed=5):
-    """
-    生成引用原文音频
-    格式：直接朗读原文，不加前缀
-    
-    返回: {'audio_path': 路径, 'audio_duration': 时长} 或 None
-    """
-    import subprocess
-    
-    token = get_access_token()
-    if not token:
-        return None
-    
-    # 直接使用原文
-    text = original_text
-    
-    # 分段处理
-    segments = []
-    current = ''
-    for char in text:
-        current += char
-        if len(current.encode('utf-8')) >= 900 or char in '。！？\n':
-            if current.strip():
-                segments.append(current.strip())
-            current = ''
-    if current.strip():
-        segments.append(current.strip())
-    
-    if not segments:
-        return None
-    
-    # 合成所有段
-    audio_files = []
-    segment_durations = []
-    
-    for i, seg in enumerate(segments):
-        params = {
-            'tok': token,
-            'tex': seg,
-            'per': person,
-            'spd': speed,
-            'pit': 5,
-            'vol': 5,
-            'aue': 3,
-            'cuid': 'bandushutong_app',
-            'lan': 'zh',
-            'ctp': 1
-        }
-        
-        try:
-            response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
-            content_type = response.headers.get('Content-Type', '')
-            
-            if 'audio' in content_type:
-                filename = f'quote_{annotation_id}_{i}.mp3'
-                filepath = os.path.join(AUDIO_DIR, filename)
-                with open(filepath, 'wb') as f:
-                    f.write(response.content)
-                audio_files.append(filepath)
-                
-                # 获取该段音频的实际时长
-                seg_duration = 0
-                try:
-                    dur_result = subprocess.run(
-                        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                         '-of', 'default=noprint_wrappers=1:nokey=1', filepath],
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
-                    seg_duration = float(dur_result.stdout.strip())
-                except:
-                    seg_duration = len(seg) / 200 * 60
-                segment_durations.append(seg_duration)
-            else:
-                print(f"[TTS] 引用段 {i} 合成失败: {response.text}")
-                return None
-        except Exception as e:
-            print(f"[TTS] 引用段 {i} 合成异常: {e}")
-            return None
-    
-    # 合并音频文件
-    final_path = os.path.join(AUDIO_DIR, f'quote_{annotation_id}.mp3')
-    
-    if len(audio_files) == 1:
-        os.rename(audio_files[0], final_path)
-    else:
-        try:
-            list_file = os.path.join(AUDIO_DIR, f'quote_{annotation_id}_list.txt')
-            with open(list_file, 'w') as f:
-                for af in audio_files:
-                    f.write(f"file '{af}'\n")
-            subprocess.run(
-                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30
-            )
-            for af in audio_files:
-                if os.path.exists(af):
-                    os.remove(af)
-            if os.path.exists(list_file):
-                os.remove(list_file)
-        except Exception as e:
-            print(f"[TTS] 引用音频合并异常: {e}")
-            return None
-    
-    # 用ffprobe测量合并后文件的实际时长
-    audio_duration = 0
-    try:
-        dur_result = subprocess.run(
-            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        audio_duration = float(dur_result.stdout.strip())
-    except:
-        audio_duration = sum(segment_durations)
-    if audio_duration <= 0:
-        audio_duration = sum(segment_durations)
-    print(f"[TTS] 引用音频生成完成: quote_{annotation_id}.mp3, 时长 {audio_duration:.1f}s")
-    
-    return {
-        'audio_path': f'/api/audio/quote_{annotation_id}.mp3',
-        'audio_duration': audio_duration
-    }
-
-
-def generate_summary_audio(section_id, summary, person=3, speed=5):
-    """
-    生成小结音频
-    格式："让我们回顾一下本篇内容" + 小结内容
-    
-    返回: {'audio_path': 路径, 'audio_duration': 时长} 或 None
-    """
-    import subprocess
-    
-    token = get_access_token()
-    if not token:
-        return None
-    
-    # 构建小结文本
-    text = f"让我们回顾一下本篇内容。{summary}"
-    
-    # 分段处理
-    segments = []
-    current = ''
-    for char in text:
-        current += char
-        if len(current.encode('utf-8')) >= 900 or char in '。！？\n':
-            if current.strip():
-                segments.append(current.strip())
-            current = ''
-    if current.strip():
-        segments.append(current.strip())
-    
-    if not segments:
-        return None
-    
-    # 合成所有段
-    audio_files = []
-    segment_durations = []
-    
-    for i, seg in enumerate(segments):
-        params = {
-            'tok': token,
-            'tex': seg,
-            'per': person,
-            'spd': speed,
-            'pit': 5,
-            'vol': 5,
-            'aue': 3,
-            'cuid': 'bandushutong_app',
-            'lan': 'zh',
-            'ctp': 1
-        }
-        
-        try:
-            response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
-            content_type = response.headers.get('Content-Type', '')
-            
-            if 'audio' in content_type:
-                filename = f'summary_{section_id}_{i}.mp3'
-                filepath = os.path.join(AUDIO_DIR, filename)
-                with open(filepath, 'wb') as f:
-                    f.write(response.content)
-                audio_files.append(filepath)
-                
-                # 获取该段音频的实际时长
-                seg_duration = 0
-                try:
-                    dur_result = subprocess.run(
-                        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                         '-of', 'default=noprint_wrappers=1:nokey=1', filepath],
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
-                    seg_duration = float(dur_result.stdout.strip())
-                except:
-                    seg_duration = len(seg) / 200 * 60
-                segment_durations.append(seg_duration)
-            else:
-                print(f"[TTS] 小结段 {i} 合成失败: {response.text}")
-                return None
-        except Exception as e:
-            print(f"[TTS] 小结段 {i} 合成异常: {e}")
-            return None
-    
-    # 合并音频文件
-    final_path = os.path.join(AUDIO_DIR, f'summary_{section_id}.mp3')
-    
-    if len(audio_files) == 1:
-        os.rename(audio_files[0], final_path)
-    else:
-        try:
-            list_file = os.path.join(AUDIO_DIR, f'summary_{section_id}_list.txt')
-            with open(list_file, 'w') as f:
-                for af in audio_files:
-                    f.write(f"file '{af}'\n")
-            subprocess.run(
-                ['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', list_file, '-c', 'copy', final_path],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30
-            )
-            for af in audio_files:
-                if os.path.exists(af):
-                    os.remove(af)
-            if os.path.exists(list_file):
-                os.remove(list_file)
-        except Exception as e:
-            print(f"[TTS] 小结音频合并异常: {e}")
-            return None
-    
-    # 用ffprobe测量合并后文件的实际时长
-    audio_duration = 0
-    try:
-        dur_result = subprocess.run(
-            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-             '-of', 'default=noprint_wrappers=1:nokey=1', final_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        audio_duration = float(dur_result.stdout.strip())
-    except:
-        audio_duration = sum(segment_durations)
-    if audio_duration <= 0:
-        audio_duration = sum(segment_durations)
-    print(f"[TTS] 小结音频生成完成: summary_{section_id}.mp3, 时长 {audio_duration:.1f}s")
-    
-    return {
-        'audio_path': f'/api/audio/summary_{section_id}.mp3',
-        'audio_duration': audio_duration
-    }
-
-
-# ==================== 新版音频生成辅助函数 ====================
-
-def call_baidu_tts(text, token, speed=5, person=3):
-    """调用百度 TTS API，返回音频字节数据"""
-    params = {
-        'tok': token,
-        'tex': text,
-        'per': person,
-        'spd': speed,
-        'pit': 5,
-        'vol': 5,
-        'aue': 3,
-        'cuid': 'bandushutong_app',
-        'lan': 'zh',
-        'ctp': 1
-    }
-    try:
-        response = requests.post(BAIDU_TTS_URL, params=params, timeout=30)
-        content_type = response.headers.get('Content-Type', '')
-        if 'audio' in content_type:
-            return response.content
-        else:
-            print(f"[TTS] call_baidu_tts 错误: {response.text}")
-            return None
-    except Exception as e:
-        print(f"[TTS] call_baidu_tts 异常: {e}")
-        return None
-
-
-def get_audio_duration_and_timeline(audio_path, text):
-    """获取音频时长和字符时间轴"""
-    import subprocess
-
-    # 获取音频时长
-    audio_duration = 0
-    try:
-        dur_result = subprocess.run(
-            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-             '-of', 'default=noprint_wrappers=1:nokey=1', audio_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        audio_duration = float(dur_result.stdout.strip())
-    except:
-        audio_duration = len(text) / 200 * 60
-
-    # 构建字符时间轴（考虑标点符号停顿）
-    char_timeline = []
-    text_len = len(text)
-    if text_len > 0 and audio_duration > 0:
-        # 计算每个字符的时间权重
-        char_weights = []
-        for char in text:
-            if char in '。！？；：':  # 长停顿
-                char_weights.append(3.0)
-            elif char in '，、':  # 短停顿
-                char_weights.append(2.0)
-            elif char in '""''（）【】《》':  # 中等停顿
-                char_weights.append(1.5)
-            else:
-                char_weights.append(1.0)
-        
-        total_weight = sum(char_weights)
-        accumulated_weight = 0
-        for j in range(text_len):
-            t = (accumulated_weight / total_weight) * audio_duration
-            char_timeline.append(round(t, 3))
-            accumulated_weight += char_weights[j]
-
-    return audio_duration, char_timeline
-
-
-# ==================== 新版音频生成（基于 text_segments） ====================
-
-def generate_text_segment_audio(text, segment_id, speed=5, person=3):
-    """为单个 text_segment 生成音频"""
-    token = get_access_token()
-    if not token:
-        return None
-    
-    if not text or len(text.strip()) == 0:
-        return None
-    
-    # 调用百度TTS
-    result = call_baidu_tts(text, token, speed=speed, person=person)
-    if not result:
-        return None
-
-    audio_path = os.path.join(AUDIO_DIR, f'segment_{segment_id}.mp3')
-    with open(audio_path, 'wb') as f:
-        f.write(result)
-
-    # 获取音频时长和字符时间轴
-    audio_duration, char_timeline = get_audio_duration_and_timeline(audio_path, text)
-
-    return {
-        'audio_path': f'/api/audio/segment_{segment_id}.mp3',
-        'audio_duration': audio_duration,
-        'char_timeline': char_timeline
-    }
-
-def generate_fixed_audio_files(speed=5, person=3):
-    """生成系统固定音频文件（开场白、结束语）- 默认男声"""
-    return generate_fixed_audio_files_by_voice('male', speed)
-
-def generate_fixed_audio_files_by_voice(voice_type='male', speed=5):
-    """生成系统固定音频文件（男声女声各一套）
-    
-    voice_type='male': person=3(度逍遥男声)
-    voice_type='female': person=4(度丫丫女声)
-    """
-    token = get_access_token()
-    if not token:
-        return False
-    
-    # 根据声音类型选择person参数
-    # person=3 是度逍遥，person=5 是度小娇
-    person = 5 if voice_type == 'female' else 3
-    
-    # 根据声音类型选择文件名后缀
-    suffix = '_female' if voice_type == 'female' else '_male'
-    
-    files = {
-        f'annotation_opening{suffix}.mp3': '我们来看下这里：',
-        f'annotation_closing{suffix}.mp3': '回到原文',
-        f'summary_opening{suffix}.mp3': '这篇内容已读完，我们回顾一下：',
-        f'summary_closing{suffix}.mp3': '小结之外有其他思考，请添加到右上角。'
-    }
-    
-    for filename, text in files.items():
-        audio_path = os.path.join(AUDIO_DIR, filename)
-        # 如果已存在且不为空，跳过
-        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
-            print(f"[TTS] 固定音频已存在: {filename}")
-            continue
-        
-        result = call_baidu_tts(text, token, speed=speed, person=person)
-        if result:
-            with open(audio_path, 'wb') as f:
-                f.write(result)
-            print(f"[TTS] 生成固定音频: {filename}")
-        else:
-            print(f"[TTS] 生成固定音频失败: {filename}")
-    
-    return True
-
-def get_fixed_audio_path(filename, voice_type='male'):
-    """获取固定音频文件的URL路径
-    
-    voice_type: 'male' 或 'female'
-    """
-    suffix = '_female' if voice_type == 'female' else '_male'
-    
-    # 先尝试带后缀的文件
-    audio_path = os.path.join(AUDIO_DIR, filename.replace('.mp3', f'{suffix}.mp3'))
-    if os.path.exists(audio_path):
-        return f'/api/audio/{filename.replace(".mp3", f"{suffix}.mp3")}'
-    
-    # 回退到旧版文件名（兼容旧数据）
-    audio_path = os.path.join(AUDIO_DIR, filename)
-    if os.path.exists(audio_path):
-        return f'/api/audio/{filename}'
-    return None
-
-def generate_insert_point_audio(quote_text, comment_text, insert_point_id, speed=5, person=3):
-    """为单个 insert_point 生成两个音频：引用音频 + 评论音频"""
-    token = get_access_token()
-    if not token:
-        return None
-
-    result = {
-        'quote_audio_path': None,
-        'quote_audio_duration': 0,
-        'comment_audio_path': None,
-        'comment_audio_duration': 0
-    }
-
-    # 1. 生成引用音频
-    if quote_text and len(quote_text.strip()) > 0:
-        quote_result = call_baidu_tts(quote_text, token, speed=speed, person=person)
-        if quote_result:
-            quote_audio_path = os.path.join(AUDIO_DIR, f'insert_point_{insert_point_id}_quote.mp3')
-            with open(quote_audio_path, 'wb') as f:
-                f.write(quote_result)
-            result['quote_audio_duration'], _ = get_audio_duration_and_timeline(quote_audio_path, quote_text)
-            result['quote_audio_path'] = f'/api/audio/insert_point_{insert_point_id}_quote.mp3'
-            print(f"[TTS] 点评 {insert_point_id} 引用音频完成: {result['quote_audio_duration']:.1f}s")
-
-    # 2. 生成评论音频
-    if comment_text and len(comment_text.strip()) > 0:
-        comment_result = call_baidu_tts(comment_text, token, speed=speed, person=person)
-        if comment_result:
-            comment_audio_path = os.path.join(AUDIO_DIR, f'insert_point_{insert_point_id}_comment.mp3')
-            with open(comment_audio_path, 'wb') as f:
-                f.write(comment_result)
-            result['comment_audio_duration'], _ = get_audio_duration_and_timeline(comment_audio_path, comment_text)
-            result['comment_audio_path'] = f'/api/audio/insert_point_{insert_point_id}_comment.mp3'
-            print(f"[TTS] 点评 {insert_point_id} 评论音频完成: {result['comment_audio_duration']:.1f}s")
-
-    return result
-
-def generate_section_audio_v2(section_id, speed=5, person=3):
-    """新版整节音频生成：基于 text_segments 和 insert_points"""
-    from database import (
-        create_text_segments, create_insert_points,
-        get_text_segments, get_insert_points_by_segment,
-        update_text_segment_audio, update_insert_point_audio,
-        update_insert_point_quote_audio
-    )
-
-    # 0. 生成固定音频文件
-    generate_fixed_audio_files(speed, person)
-
-    # 1. 创建 text_segments 和 insert_points
-    create_text_segments(section_id)
-    create_insert_points(section_id)
-
-    # 2. 获取 text_segments
-    segments = get_text_segments(section_id)
-    if not segments:
-        print(f"[TTS v2] 节 {section_id} 没有文本段")
-        return False
-
-    # 3. 逐个生成段音频
-    for seg in segments:
-        print(f"[TTS v2] 生成段 {seg['id']} 音频 ({seg['word_count']}字)")
-        result = generate_text_segment_audio(seg['content'], seg['id'], speed, person)
-        if result:
-            update_text_segment_audio(
-                seg['id'],
-                result['audio_path'],
-                result['audio_duration'],
-                json.dumps(result['char_timeline']) if result.get('char_timeline') else None
-            )
-            print(f"[TTS v2] 段 {seg['id']} 完成: {result['audio_duration']:.1f}s")
-        else:
-            print(f"[TTS v2] 段 {seg['id']} 生成失败")
-
-    # 4. 逐个生成插入点音频（引用音频 + 评论音频）
-    for seg in segments:
-        insert_points = get_insert_points_by_segment(seg['id'])
-        
-        for ip in insert_points:
-            if ip['point_type'] == 'annotation':
-                print(f"[TTS v2] 生成点评 {ip['id']} 音频")
-                result = generate_insert_point_audio(ip['quote_text'], ip['comment'], ip['id'], speed, person)
-                if result:
-                    # 更新引用音频
-                    if result['quote_audio_path']:
-                        update_insert_point_quote_audio(ip['id'], result['quote_audio_path'], result['quote_audio_duration'])
-                    # 更新评论音频
-                    if result['comment_audio_path']:
-                        update_insert_point_audio(ip['id'], result['comment_audio_path'], result['comment_audio_duration'])
-                    print(f"[TTS v2] 点评 {ip['id']} 完成: 引用{result['quote_audio_duration']:.1f}s + 评论{result['comment_audio_duration']:.1f}s")
-            elif ip['point_type'] == 'summary':
-                print(f"[TTS v2] 生成小结 {ip['id']} 音频")
-                # 小结只有评论音频
-                result = generate_insert_point_audio(None, ip['comment'], ip['id'], speed, person)
-                if result and result['comment_audio_path']:
-                    update_insert_point_audio(ip['id'], result['comment_audio_path'], result['comment_audio_duration'])
-                    print(f"[TTS v2] 小结 {ip['id']} 完成: {result['comment_audio_duration']:.1f}s")
-
-    return True
-
-
 if __name__ == '__main__':
     if is_configured():
         print("百度 TTS 已配置")
-        result = text_to_speech("你好，这是一个测试。", section_id=999)
-        print(f"测试结果: {result}")
+        token = get_access_token()
+        if token:
+            result = _synthesize_long_text('test_tts.mp3', "你好，这是一个测试。", token)
+            print(f"测试结果: {result}")
     else:
         print("百度 TTS 未配置，请设置环境变量:")
         print("  BAIDU_TTS_APP_ID")

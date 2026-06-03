@@ -85,19 +85,29 @@ def reimport_section_core(section_id, content, annotations, title='', summary=''
         get_annotations_by_section, create_text_segments, create_insert_points,
         get_section
     )
-    from backend.baidu_tts import generate_segmented_audio, is_configured
+    from backend.baidu_tts import generate_section_audio_v2, is_configured
 
     result = {'success': False, 'audio_segments_count': 0, 'error': ''}
+
+    # 获取 book_id（用于文件命名）
+    book_id = None
+    try:
+        section = get_section(section_id)
+        if section:
+            book_id = section.get('book_id')
+    except Exception as e:
+        print(f"[reimport_core] 获取book_id失败: {e}")
     
     # 如果没有传入voice_type，从数据库获取
     if not voice_type or voice_type not in ['male', 'female']:
         try:
-            section = get_section(section_id)
+            if not section:
+                section = get_section(section_id)
             if section:
-                book_id = section.get('book_id')
-                if book_id:
+                bid = section.get('book_id') or book_id
+                if bid:
                     from backend.database import get_book
-                    book = get_book(book_id)
+                    book = get_book(bid)
                     if book:
                         voice_type = book.get('voice_type', 'male')
         except Exception as e:
@@ -141,36 +151,20 @@ def reimport_section_core(section_id, content, annotations, title='', summary=''
             print(f"[reimport_core] 节 {section_id}: TTS未配置")
             return result
 
-        # 4. 重新创建分段数据
-        seg_count = create_text_segments(section_id)
-        ip_count = create_insert_points(section_id)
-        print(f"[reimport_core] 节 {section_id}: 创建 {seg_count} 个text_segments, {ip_count} 个insert_points")
-
-        # 5. 重新加载点评（获取正确的id）
-        db_annotations = get_annotations_by_section(section_id)
-        print(f"[reimport_core] 节 {section_id}: 从数据库加载 {len(db_annotations)} 个点评")
-
-        # 6. 生成分段音频
-        print(f"[reimport_core] 节 {section_id}: 开始生成音频...")
-        audio_result = generate_segmented_audio(
-            content,
-            section_id,
-            annotations=db_annotations,
+        # 4. 调用新版 v2 音频生成（内部自动完成：创建分段 + TTS + 更新DB）
+        print(f"[reimport_core] 节 {section_id}: 开始生成音频 (book={book_id})...")
+        audio_success = generate_section_audio_v2(
+            book_id, section_id,
             speed=5,
-            person=1,  # person=1 是男声（原文用男声）
-            voice_type=voice_type
+            person=3  # person=3 度逍遥（原文男声）
         )
 
-        if audio_result:
-            update_section_audio_timeline(section_id, audio_result['audio_duration'],
-                                          audio_result['char_timeline'], audio_result['audio_path'])
-            if audio_result.get('audio_segments'):
-                update_section_audio_segments(section_id, audio_result['audio_segments'])
+        if audio_success:
             result['success'] = True
-            result['audio_segments_count'] = len(audio_result.get('audio_segments', []))
-            print(f"[reimport_core] 节 {section_id}: 音频生成完成, {result['audio_segments_count']} 段")
+            result['audio_segments_count'] = -1  # v2 内部处理段数，返回True即全部成功
+            print(f"[reimport_core] 节 {section_id}: 音频生成完成")
         else:
-            result['error'] = '音频生成返回None'
+            result['error'] = 'v2音频生成返回False'
             print(f"[reimport_core] 节 {section_id}: 音频生成失败")
 
     except Exception as e:
@@ -659,88 +653,45 @@ def get_section_audio_timeline_api(section_id):
 
 @api_bp.route('/sections/<int:section_id>/generate-audio', methods=['POST'])
 def generate_section_audio_api(section_id):
-    """为节生成音频和时间轴"""
-    from backend.database import get_section, update_section_audio_timeline
-    from backend.baidu_tts import generate_section_audio_with_timeline
-    
+    """为节生成音频（新版v2，统一入口）"""
+    from backend.database import get_section
+    from backend.baidu_tts import generate_section_audio_v2
+
     section = get_section(section_id)
     if not section:
         return jsonify({'error': '节不存在'}), 404
-    
-    result = generate_section_audio_with_timeline(
-        section['content'], 
-        section_id,
-        speed=5,
-        person=1  # person=1 是男声（原文用男声）
-    )
-    
-    if result:
-        update_section_audio_timeline(
-            section_id,
-            result['audio_duration'],
-            result['char_timeline'],
-            result['audio_path']
-        )
+
+    book_id = section.get('book_id')
+    success = generate_section_audio_v2(book_id, section_id, speed=5, person=3)
+
+    if success:
         return jsonify({
             'success': True,
-            'audio_path': result['audio_path'],
-            'audio_duration': result['audio_duration']
+            'message': '音频生成完成'
         })
     else:
         return jsonify({'error': '音频生成失败'}), 500
 
 @api_bp.route('/sections/<int:section_id>/generate-segmented-audio', methods=['POST'])
 def generate_segmented_audio_api(section_id):
-    """为节生成分段音频（按点评边界分割）"""
+    """为节生成分段音频（新版v2，统一入口）"""
     try:
-        from backend.database import get_section, update_section_audio_timeline, update_section_audio_segments, get_annotations_by_section, get_book
-        from backend.baidu_tts import generate_segmented_audio
-        
+        from backend.database import get_section
+        from backend.baidu_tts import generate_section_audio_v2
+
         section = get_section(section_id)
         if not section:
             return jsonify({'error': '节不存在'}), 404
-        
-        # 获取书籍的voice_type
-        voice_type = 'male'
-        try:
-            book = get_book(section.get('book_id'))
-            if book:
-                voice_type = book.get('voice_type', 'male')
-        except Exception as e:
-            print(f"[TTS] 获取voice_type失败: {e}")
-        
-        # 获取该节的所有点评
-        annotations = get_annotations_by_section(section_id)
-        # 按 end_char 排序
-        annotations = sorted(annotations, key=lambda a: a.get('end_char', 0))
-        
-        print(f"[TTS] 开始为节 {section_id} 生成分段音频，共 {len(annotations)} 个点评，voice_type={voice_type}")
-        
-        result = generate_segmented_audio(
-            section['content'], 
-            section_id,
-            annotations=annotations,
-            speed=5,
-            person=1,  # person=1 是男声（原文用男声）
-            voice_type=voice_type
-        )
-        
-        if result:
-            update_section_audio_timeline(
-                section_id,
-                result['audio_duration'],
-                result['char_timeline'],
-                result['audio_path']
-            )
-            # 保存分段信息
-            if result.get('audio_segments'):
-                update_section_audio_segments(section_id, result['audio_segments'])
-            
+
+        book_id = section.get('book_id')
+        print(f"[TTS] 开始为节 {section_id} 生成分段音频 (book={book_id})...")
+
+        success = generate_section_audio_v2(book_id, section_id, speed=5, person=3)
+
+        if success:
             return jsonify({
                 'success': True,
-                'audio_path': result['audio_path'],
-                'audio_duration': result['audio_duration'],
-                'segment_count': len(result.get('audio_segments', []))
+                'message': '分段音频生成完成'
             })
         else:
             return jsonify({'error': '分段音频生成失败'}), 500
