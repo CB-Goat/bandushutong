@@ -1883,6 +1883,8 @@ def get_section_playback_plan(section_id):
     for seg in segments:
         # 解析 char_timeline
         char_timeline_raw = seg.get('char_timeline')
+        # 调试：打印原始值
+        print(f"[DB-DEBUG] segment_id={seg.get('id')}, char_timeline_raw_type={type(char_timeline_raw)}, char_timeline_raw={repr(char_timeline_raw)[:200]}")
         char_timeline = _parse_json_or_none(char_timeline_raw)
         if not char_timeline:
             char_timeline = []
