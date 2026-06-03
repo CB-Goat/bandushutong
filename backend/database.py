@@ -1831,13 +1831,22 @@ def delete_insert_points_by_section(section_id):
 
 def _parse_json_or_none(value):
     """安全解析JSON字符串，失败返回None"""
-    if not value:
+    # 调试：打印所有解析尝试
+    if value is None:
+        print(f"[JSON-DEBUG] value is None")
         return None
     if isinstance(value, str):
-        try:
-            return json.loads(value)
-        except:
+        if not value:  # 空字符串
+            print(f"[JSON-DEBUG] value is empty string")
             return None
+        try:
+            result = json.loads(value)
+            print(f"[JSON-DEBUG] 解析成功: 类型={type(result).__name__}, 长度={len(result) if hasattr(result, '__len__') else 'N/A'}")
+            return result
+        except json.JSONDecodeError as e:
+            print(f"[JSON-DEBUG] JSON解析失败: {e}, value={repr(value[:100])}")
+            return None
+    print(f"[JSON-DEBUG] 非字符串类型: {type(value).__name__}")
     return value
 
 def _row_to_dict(row, columns):
