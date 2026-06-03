@@ -358,14 +358,56 @@ def text_to_speech_long(text, section_id=None, speed=5, person=3):
     return audio_paths
 
 
+def ensure_fixed_audio_files(speed=5):
+    """系统启动时检查固定音频文件是否完整，缺失则自动补齐
+
+    固定音频共 8 个文件（男声4个 + 女声4个），供阅读页播放点评/小结时使用。
+    此函数幂等：已存在的文件不会重新生成。
+
+    返回: True（完整或补齐成功） / False（TTS未配置或生成失败）
+    """
+    if not is_configured():
+        print("[TTS] 固定音频跳过: TTS 未配置")
+        return False
+
+    # 两套各4个文件
+    required_files = []
+    for voice in ['male', 'female']:
+        for name in ['annotation_opening', 'annotation_closing', 'summary_opening', 'summary_closing']:
+            required_files.append(f'{name}_{voice}.mp3')
+
+    # 检查哪些缺失
+    missing = [f for f in required_files if not os.path.exists(os.path.join(AUDIO_DIR, f))]
+
+    if not missing:
+        print(f"[TTS] 固定音频已完整 ({len(required_files)} 个文件)")
+        return True
+
+    print(f"[TTS] 固定音频缺失 {len(missing)}/{len(required_files)} 个，开始补齐...")
+
+    # 按音色分组生成（只生成缺失的）
+    for voice in ['male', 'female']:
+        voice_missing = [f for f in missing if f.endswith(f'_{voice}.mp3')]
+        if voice_missing:
+            generate_fixed_audio_files_by_voice(voice, speed)
+
+    # 验证是否全部就位
+    still_missing = [f for f in required_files if not os.path.exists(os.path.join(AUDIO_DIR, f))]
+    if still_missing:
+        print(f"[TTS] 固定音频仍有 {len(still_missing)} 个缺失: {still_missing}")
+        return False
+
+    print(f"[TTS] 固定音频补齐完成 ({len(required_files)} 个文件)")
+    return True
+
+
 def generate_fixed_audio_files(speed=5, person=3):
     """生成系统固定音频文件（男声女声各一套）
 
-    固定语的音色必须与点评/小结内容的音色一致（与原文互补）。
-    同时生成两套确保无论书籍设置什么 voice_type 都能正确匹配。
+    已废弃：启动时请使用 ensure_fixed_audio_files()（带存在检查，不重复生成）。
+    此函数保留仅供向后兼容。
     """
-    generate_fixed_audio_files_by_voice('female', speed)  # 女声版 *_female.mp3（原文男声时使用）
-    generate_fixed_audio_files_by_voice('male', speed)    # 男声版 *_male.mp3（原文女声时使用）
+    ensure_fixed_audio_files(speed)
 
 
 def generate_fixed_audio_files_by_voice(voice_type='male', speed=5):
@@ -529,9 +571,6 @@ def generate_section_audio_v2(book_id, section_id, speed=5, person=3):
         update_text_segment_audio, update_insert_point_audio,
         update_insert_point_quote_audio
     )
-
-    # 0. 生成固定音频文件
-    generate_fixed_audio_files(speed, person)
 
     # 1. 创建/刷新 text_segments 和 insert_points
     create_text_segments(section_id)
