@@ -2,17 +2,18 @@
 """
 修复脚本：为已有音频但 char_timeline 为空的 text_segments 重新生成 char_timeline
 
-特点：
-- 不调用 TTS API（零费用）
-- 不重新生成音频（零时间）
-- 只修复数据库记录
-- 支持从磁盘音频文件读取真实时长（解决 audio_duration=0 的数据问题）
+核心逻辑：
+- 磁盘上的音频文件是按 TTS 字数限制切分的子文件（section_{id}_0.mp3, _1.mp3 ...）
+- text_segments 是按点评边界切的逻辑段
+- 修复方式：读取所有子文件的时长得到总时长，按字符位置比例分配给每个 text_segment
+- 不调用 TTS API（零费用），不重新生成音频（零时间），只修复数据库
 """
 
 import os
 import sys
 import json
 import struct
+import glob as glob_module
 
 # 添加项目路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,21 +34,15 @@ def get_mp3_duration(filepath):
             return None
 
         with open(filepath, 'rb') as f:
-            # 尝试从 ID3v1 标签前的最后一帧计算（适用于 CBR）
-            # 简单方案：搜索 MPEG 帧头
+            # ID3v1 标签检查
             f.seek(-128, 2)
             data = f.read(128)
-
-            # 检查是否有 ID3v1 标签
             has_id3v1 = data[:3] == b'TAG'
             if has_id3v1:
                 f.seek(-256, 2)
             else:
                 f.seek(0)
 
-            # 从文件末尾往前找有效的帧头
-            # 更可靠的方法：扫描文件找第一个有效帧头
-            f.seek(0)
             header = f.read(4)
             if len(header) < 4:
                 return None
@@ -71,23 +66,19 @@ def get_mp3_duration(filepath):
                 else:
                     break
 
-            # 解析帧头
             first_frame_header = header + f.read(4 - len(header))
             if len(first_frame_header) < 4:
                 return None
 
-            b1 = first_frame_header[1] & 0xE0
             version = (first_frame_header[1] >> 3) & 0x03
 
-            # MPEG Version
-            if version in (2, 3):  # v1
-                bitrate_idx = (first_frame_header[2] >> 4) & 0x0F
-                sample_rate_idx = (first_frame_header[3] >> 2) & 0x03
-                padding = (first_frame_header[3] >> 1) & 0x01
-            else:  # v2 / reserved
+            if version not in (2, 3):
                 return None
 
-            # 位率表（kbps）- Layer III
+            bitrate_idx = (first_frame_header[2] >> 4) & 0x0F
+            sample_rate_idx = (first_frame_header[3] >> 2) & 0x03
+            padding = (first_frame_header[3] >> 1) & 0x01
+
             bitrates_v1l3 = [0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0]
             sample_rates_v1 = [44100,48000,32000,0]
 
@@ -97,7 +88,6 @@ def get_mp3_duration(filepath):
             if bitrate == 0 or sample_rate == 0:
                 return None
 
-            # 计算帧长和总时长
             if version == 3:  # MPEG1
                 frame_length = int((144 * bitrate) / sample_rate) + padding
             else:  # MPEG2 / 2.5
@@ -114,7 +104,6 @@ def get_mp3_duration(filepath):
             if num_frames <= 0:
                 return None
 
-            # 每帧采样数
             samples_per_frame = 1152  # MPEG1 Layer III
             duration = (num_frames * samples_per_frame) / float(sample_rate)
 
@@ -125,59 +114,77 @@ def get_mp3_duration(filepath):
         return None
 
 
-def resolve_audio_file_path(audio_path, segment_number=None):
+def find_section_audio_files(section_id):
     """
-    将 API 路径解析为实际的音频文件路径。
-
-    如果 audio_path 在数据库中全部相同（数据问题），
-    则尝试用 segment_number 匹配正确的文件。
+    查找该节的所有音频子文件。
+    
+    匹配两种命名模式：
+      - section_{id}_0.mp3, section_{id}_1.mp3 ... (generate_section_audio_with_timeline 产生的 TTS 分块)
+      - segment_{id}_0.mp3, segment_{id}_1.mp3 ... (generate_segmented_audio 产生的分段音频)
+      
+    返回：[(filepath, duration), ...] 按文件名排序
     """
-    if not audio_path:
-        return None
+    results = []
 
-    # 从 API 路径提取文件名，如 /api/audio/section_662_0.mp3 -> section_662_0.mp3
-    basename = os.path.basename(audio_path)
-    filepath = os.path.join(AUDIO_FILES_DIR, basename)
+    # 模式1：section_{id}_*.mp3（TTS 分块，最常见）
+    pattern1 = os.path.join(AUDIO_FILES_DIR, f'section_{section_id}_*.mp3')
+    files1 = sorted(glob_module.glob(pattern1))
 
-    if os.path.exists(filepath):
-        return filepath
+    # 模式2：segment_{id}_*.mp3（分段音频）
+    pattern2 = os.path.join(AUDIO_FILES_DIR, f'segment_{section_id}_*.mp3')
+    files2 = sorted(glob_module.glob(pattern2))
 
-    # 文件不存在，尝试用 segment_number 推测正确文件名
-    if segment_number is not None and '_' in basename:
-        parts = basename.rsplit('_', 1)
-        if len(parts) == 2:
-            base_name = parts[0]
-            ext = os.path.splitext(parts[1])[1] or '.mp3'
-            guessed_name = base_name + '_' + str(segment_number) + ext
-            guessed_path = os.path.join(AUDIO_FILES_DIR, guessed_name)
-            if os.path.exists(guessed_path):
-                return guessed_path
+    # 模式3：section_{id}.mp3（合并后的单文件）
+    single_file = os.path.join(AUDIO_FILES_DIR, f'section_{section_id}.mp3')
 
-            # 也试试不带扩展名的编号
-            for i in range(20):
-                alt_name = base_name + '_' + str(i) + ext
-                alt_path = os.path.join(AUDIO_FILES_DIR, alt_name)
-                if os.path.exists(alt_path):
-                    return alt_path
+    # 优先使用分块文件（更精确）
+    if files1 and len(files1) > 1:
+        for fp in files1:
+            d = get_mp3_duration(fp)
+            if d and d > 0:
+                results.append((fp, d))
+        print(f"[FIX] 找到 {len(results)} 个 TTS 分块音频 (section_{section_id}_*.mp3)")
+        return results
 
-    return None
+    if files2 and len(files2) > 1:
+        for fp in files2:
+            d = get_mp3_duration(fp)
+            if d and d > 0:
+                results.append((fp, d))
+        print(f"[FIX] 找到 {len(results)} 个分段音频 (segment_{section_id}_*.mp3)")
+        return results
+
+    # 回退到单个合并文件
+    if os.path.exists(single_file):
+        d = get_mp3_duration(single_file)
+        if d and d > 0:
+            results.append((single_file, d))
+            print(f"[FIX] 使用合并音频文件 (section_{section_id}.mp3), 时长={d}s")
+            return results
+
+    print(f"[FIX] ⚠️ 未找到节 {section_id} 的任何音频文件！")
+    return results
 
 
-def rebuild_char_timeline(content, audio_duration):
+def rebuild_char_timeline_for_segment(content, segment_start_time, segment_end_time):
     """
-    基于文本内容和音频时长重新生成 char_timeline
-
+    为单个 text_segment 构建字符时间轴
+    
+    时间轴的起点是 segment_start_time（相对于整节音频的偏移），
+    这样前端的播放进度才能正确对应到完整音频的时间线上。
+    
     参数：
-        content: 文本内容
-        audio_duration: 音频时长（秒）
-
+        content: 该段的文本内容
+        segment_start_time: 该段在完整音频中的起始时间（秒）
+        segment_end_time: 该段在完整音频中的结束时间（秒）
+        
     返回：
-        char_timeline: 字符时间轴数组
+        char_timeline: 字符时间轴数组（每个值是该字符的绝对播放时间点）
     """
-    if not content or audio_duration <= 0:
+    seg_duration = segment_end_time - segment_start_time
+    if not content or seg_duration <= 0:
         return []
 
-    # 去掉换行符，与前端保持一致
     text = content.replace('\n', '')
     text_len = len(text)
 
@@ -187,11 +194,11 @@ def rebuild_char_timeline(content, audio_duration):
     # 计算每个字符的时间权重
     char_weights = []
     for char in text:
-        if char in '。！？；：':  # 长停顿
+        if char in '。！？；：':
             char_weights.append(3.0)
-        elif char in '，、':  # 短停顿
+        elif char in '，、':
             char_weights.append(2.0)
-        elif char in '""''（）【】《》':  # 中等停顿
+        elif char in '""''（）【】《》':
             char_weights.append(1.5)
         else:
             char_weights.append(1.0)
@@ -201,7 +208,7 @@ def rebuild_char_timeline(content, audio_duration):
     char_timeline = []
 
     for j in range(text_len):
-        t = (accumulated_weight / total_weight) * audio_duration
+        t = segment_start_time + (accumulated_weight / total_weight) * seg_duration
         char_timeline.append(round(t, 3))
         accumulated_weight += char_weights[j]
 
@@ -211,12 +218,18 @@ def rebuild_char_timeline(content, audio_duration):
 def fix_section_char_timeline(section_id):
     """
     修复单个节的所有 text_segments 的 char_timeline
+    
+    核心策略：
+    1. 从磁盘找到该节的所有音频子文件
+    2. 计算总时长
+    3. 按 text_segments 的 start/end_char 在总文本中的比例，分配时间
+    4. 为每个 segment 生成 char_timeline（绝对时间，相对于整节音频开头）
     """
     conn = get_db()
     cursor = conn.cursor()
 
     try:
-        # 获取该节的内容（用于计算字符时间轴）
+        # 获取该节的内容
         cursor.execute('SELECT content FROM sections WHERE id = %s', (section_id,))
         section_row = cursor.fetchone()
         if not section_row:
@@ -224,10 +237,36 @@ def fix_section_char_timeline(section_id):
             return False
 
         section_content = section_row.get('content', '')
+        clean_text = section_content.replace('\n', '')
+        total_chars = len(clean_text)
+
+        if total_chars == 0:
+            print(f"[FIX] 节 {section_id} 内容为空")
+            return False
+
+        # 获取该节的所有音频文件及其时长
+        audio_files = find_section_audio_files(section_id)
+        if not audio_files:
+            print(f"[FIX] 节 {section_id} 无可用音频文件")
+            return False
+
+        # 计算总时长
+        total_duration = sum(d for _, d in audio_files)
+        if total_duration <= 0:
+            print(f"[FIX] 节 {section_id} 总音频时长为0")
+            return False
+
+        print(f"[FIX] 节 {section_id}: 文本={total_chars}字, 音频共{len(audio_files)}个文件, "
+              f"总时长={total_duration:.1f}s")
+
+        # 打印每个音频文件的信息
+        for fp, d in audio_files:
+            print(f"[FIX]   📄 {os.path.basename(fp)}: {d}s")
 
         # 获取该节的所有 text_segments
         cursor.execute(
-            'SELECT id, segment_number, content, start_char, end_char, audio_path, audio_duration, char_timeline '
+            'SELECT id, segment_number, content, start_char, end_char, '
+            'audio_path, audio_duration, char_timeline '
             'FROM text_segments WHERE section_id = %s ORDER BY segment_number',
             (section_id,)
         )
@@ -241,77 +280,77 @@ def fix_section_char_timeline(section_id):
         for seg in segments:
             seg_id = seg['id']
             seg_num = seg.get('segment_number', 0)
-            audio_path = seg.get('audio_path', '')
-            audio_duration = float(seg.get('audio_duration') or 0)
-            char_timeline = seg.get('char_timeline', '')
+            char_timeline_raw = seg.get('char_timeline', '')
 
-            # 尝试获取实际音频时长
-            real_duration = audio_duration
-
-            # 如果数据库中的时长为 0，尝试从磁盘文件读取
-            if audio_duration <= 0 and audio_path:
-                resolved_path = resolve_audio_file_path(audio_path, seg_num)
-                if resolved_path:
-                    file_duration = get_mp3_duration(resolved_path)
-                    if file_duration and file_duration > 0:
-                        real_duration = file_duration
-                        print(f"[FIX] segment {seg_id}: 数据库时长={audio_duration}, "
-                              f"从文件读取实际时长={real_duration}s ({os.path.basename(resolved_path)})")
-
-            if not audio_path:
-                print(f"[FIX] 跳过 segment {seg_id}: 无音频路径")
-                continue
-
-            if real_duration <= 0:
-                print(f"[FIX] 跳过 segment {seg_id}: 无法确定音频时长 (db={audio_path})")
-                continue
-
-            # 解析现有的 char_timeline
+            # 解析现有的 char_timeline — 如果已有有效数据则跳过
             existing_timeline = []
-            if char_timeline:
+            if char_timeline_raw:
                 try:
-                    if isinstance(char_timeline, str):
-                        existing_timeline = json.loads(char_timeline)
-                    elif isinstance(char_timeline, list):
-                        existing_timeline = char_timeline
+                    if isinstance(char_timeline_raw, str):
+                        existing_timeline = json.loads(char_timeline_raw)
+                    elif isinstance(char_timeline_raw, list):
+                        existing_timeline = char_timeline_raw
                 except:
                     existing_timeline = []
 
             if existing_timeline and len(existing_timeline) > 0:
-                print(f"[FIX] 跳过 segment {seg_id}: char_timeline 已有 {len(existing_timeline)} 个时间点")
+                print(f"[FIX] 跳过 segment {seg_id}#{seg_num}: 已有 {len(existing_timeline)} 个时间点")
                 continue
 
-            # 获取该段的内容
+            # 获取该段的字符范围和内容
+            start_char = seg.get('start_char', 0)
+            end_char = seg.get('end_char', 0)
             seg_content = seg.get('content', '')
+            
             if not seg_content and section_content:
-                start_char = seg.get('start_char', 0)
-                end_char = seg.get('end_char', 0)
-                seg_content = section_content[start_char:end_char]
+                seg_content = clean_text[start_char:end_char]
 
-            # 重新生成 char_timeline
-            new_timeline = rebuild_char_timeline(seg_content, real_duration)
+            if not seg_content:
+                # 尝试用 char range 提取
+                seg_content = clean_text[start_char:end_char]
+
+            if not seg_content or not seg_content.strip():
+                print(f"[FIX] 跳过 segment {seg_id}#{seg_num}: 内容为空 (start={start_char}, end={end_char})")
+                continue
+            
+            seg_content_clean = seg_content.replace('\n', '')
+            seg_char_count = len(seg_content_clean)
+
+            # 计算该段在整节中的时间范围
+            # 基于字符位置按比例分配（考虑标点符号权重）
+            # 先计算整个文本的权重分布，确定这个段的起止时间
+            seg_start_ratio = start_char / max(total_chars, 1)
+            seg_end_ratio = end_char / max(total_chars, 1)
+            
+            # 用字符数比例作为粗略估算，再微调
+            seg_start_time = seg_start_ratio * total_duration
+            seg_end_time = seg_end_ratio * total_duration
+            seg_duration = seg_end_time - seg_start_time
+
+            if seg_duration <= 0:
+                seg_duration = (seg_char_count / max(total_chars, 1)) * total_duration
+                seg_end_time = seg_start_time + seg_duration
+
+            # 重新生成 char_timeline（使用绝对时间）
+            new_timeline = rebuild_char_timeline_for_segment(
+                seg_content_clean, seg_start_time, seg_end_time
+            )
 
             if new_timeline:
-                # 更新数据库：同时修复 char_timeline 和 audio_duration
-                update_sql = 'UPDATE text_segments SET char_timeline = %s WHERE id = %s'
-                update_params = (json.dumps(new_timeline), seg_id)
-
-                # 如果是从文件读取的时长，顺便更新数据库的 audio_duration
-                if real_duration != audio_duration:
-                    update_sql = ('UPDATE text_segments SET char_timeline = %s, '
-                                 'audio_duration = %s WHERE id = %s')
-                    update_params = (json.dumps(new_timeline), real_duration, seg_id)
-
-                cursor.execute(update_sql, update_params)
+                cursor.execute(
+                    'UPDATE text_segments SET char_timeline = %s, audio_duration = %s WHERE id = %s',
+                    (json.dumps(new_timeline), round(seg_duration, 3), seg_id)
+                )
                 fixed_count += 1
-                duration_note = f" (更新时长 {audio_duration}→{real_duration}s)" if real_duration != audio_duration else ""
-                print(f"[FIX] ✅ 修复 segment {seg_id}: 生成 {len(new_timeline)} 字符时间点, "
-                      f"时长={real_duration}s{duration_note}")
+                print(f"[FIX] ✅ segment {seg_id}#{seg_num}: "
+                      f"chars [{start_char}:{end_char}]={seg_char_count}字, "
+                      f"time [{seg_start_time:.1f}s:{seg_end_time:.1f}s]={seg_duration:.1f}s, "
+                      f"timeline={len(new_timeline)}点")
             else:
-                print(f"[FIX] 跳过 segment {seg_id}: 无法生成 char_timeline")
+                print(f"[FIX] 跳过 segment {seg_id}#: 无法生成 char_timeline")
 
         conn.commit()
-        print(f"[FIX] 节 {section_id} 修复完成，共修复 {fixed_count}/{len(segments)} 个 segments")
+        print(f"\n[FIX] 节 {section_id} 修复完成: {fixed_count}/{len(segments)} segments")
         return True
 
     except Exception as e:
@@ -325,9 +364,7 @@ def fix_section_char_timeline(section_id):
 
 
 def fix_book_char_timeline(book_id):
-    """
-    修复整本书的所有节
-    """
+    """修复整本书的所有节"""
     sections = get_sections_by_book(book_id)
     if not sections:
         print(f"[FIX] 书籍 {book_id} 没有节")
@@ -336,17 +373,17 @@ def fix_book_char_timeline(book_id):
     total_fixed = 0
     for section in sections:
         section_id = section['id']
-        print(f"\n[FIX] 处理节 {section_id}: {section.get('title', '')}")
+        print(f"\n{'='*60}")
+        print(f"[FIX] 处理节 {section_id}: {section.get('title', '')}")
+        print('='*60)
         if fix_section_char_timeline(section_id):
             total_fixed += 1
 
-    print(f"\n[FIX] 书籍 {book_id} 修复完成，共处理 {total_fixed} 个节")
+    print(f"\n[FIX] 书籍 {book_id} 完成, 共处理 {total_fixed} 个节")
 
 
 def fix_all_books():
-    """
-    修复所有书籍
-    """
+    """修复所有书籍"""
     conn = get_db()
     cursor = conn.cursor()
 
@@ -357,9 +394,9 @@ def fix_all_books():
         for book in books:
             book_id = book['id']
             book_title = book.get('title', '未知')
-            print(f"\n" + "="*60)
-            print(f"[FIX] 开始修复书籍: {book_id} - {book_title}")
-            print("="*60)
+            print(f"\n{'#'*60}")
+            print(f"# 修复书籍: {book_id} - {book_title}")
+            print('#'*60)
             fix_book_char_timeline(book_id)
 
     finally:
@@ -368,16 +405,15 @@ def fix_all_books():
 
 def main():
     print("="*60)
-    print("修复脚本：为已有音频的节重新生成 char_timeline")
-    print("特点：不调用 TTS API，不重新生成音频，只修复数据库")
-    print("增强：支持从磁盘音频文件读取真实时长")
+    print("char_timeline 修复工具 v3")
+    print("原理：从磁盘音频文件读取真实时长，按字符位置比例分配给各 segment")
     print("="*60)
 
     if len(sys.argv) < 2:
-        print("\n使用方法：")
-        print(f"  python {sys.argv[0]} all              # 修复所有书籍")
-        print(f"  python {sys.argv[0]} book <book_id>   # 修复指定书籍")
-        print(f"  python {sys.argv[0]} section <section_id> # 修复指定节")
+        print("\n用法:")
+        print(f"  python {sys.argv[0]} all                  # 所有公版书")
+        print(f"  python {sys.argv[0]} book <book_id>       # 指定书籍")
+        print(f"  python {sys.argv[0]} section <section_id>  # 指定节")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -385,13 +421,11 @@ def main():
     if command == 'all':
         fix_all_books()
     elif command == 'book' and len(sys.argv) >= 3:
-        book_id = int(sys.argv[2])
-        fix_book_char_timeline(book_id)
+        fix_book_char_timeline(int(sys.argv[2]))
     elif command == 'section' and len(sys.argv) >= 3:
-        section_id = int(sys.argv[2])
-        fix_section_char_timeline(section_id)
+        fix_section_char_timeline(int(sys.argv[2]))
     else:
-        print("参数错误！")
+        print("参数错误!")
         sys.exit(1)
 
 
