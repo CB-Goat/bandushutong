@@ -126,6 +126,18 @@ def find_tts_chunk_files(section_id):
     pattern = os.path.join(AUDIO_FILES_DIR, f'section_{section_id}_*.mp3')
     files = sorted(glob_module.glob(pattern))
 
+    # 调试：打印实际搜索路径和目录内容
+    print(f"[FIX] DEBUG: AUDIO_FILES_DIR={AUDIO_FILES_DIR}")
+    print(f"[FIX] DEBUG: 搜索模式={pattern}")
+    print(f"[FIX] DEBUG: 目录存在={os.path.isdir(AUDIO_FILES_DIR)}")
+    if os.path.isdir(AUDIO_FILES_DIR):
+        all_mp3s = sorted(glob_module.glob(os.path.join(AUDIO_FILES_DIR, '*.mp3')))
+        print(f"[FIX] DEBUG: 目录下所有MP3文件({len(all_mp3s)}个):")
+        for f in all_mp3s[:20]:
+            print(f"[FIX] DEBUG:   {os.path.basename(f)}")
+        if len(all_mp3s) > 20:
+            print(f"[FIX] DEBUG:   ... 共 {len(all_mp3s)} 个")
+
     for fp in files:
         d = get_mp3_duration(fp)
         if d and d > 0:
