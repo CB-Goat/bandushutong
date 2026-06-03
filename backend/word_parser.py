@@ -405,15 +405,13 @@ class WordStructureParser:
         - Heading 2 = 章
         - Heading 3 = 节（阅读单元）
         - 如果只有 Heading 2 没有 Heading 3，则 Heading 2 作为节
-        - 序号优先从 Word 自动编号获取，其次从标题文本解析，最后自增
-        - 每个新章节开始时重置节序号
+        - 标题直接使用 Word 原生文本（para.text），不自行拼接编号
+        - chapter_number / section_number 仅用于内部排序
         """
         chapters = []
         sections = []
         chapter_number = 0
         section_number = 0
-        chapter_counter = 0   # 章自动编号计数器
-        section_counter = 0   # 节自动编号计数器（每章重置）
         current_chapter_title = None
         
         # 先检查是否有 Heading 3
@@ -434,37 +432,25 @@ class WordStructureParser:
             elif style == 'Heading 2':
                 # 新章节开始，重置节序号
                 section_number = 0
-                section_counter = 0  # 节编号也重置
-                
-                # 获取 Word 自动编号格式
-                num_fmt = self._get_auto_number_text(para)
-                if num_fmt:
-                    lvlText, numFmt, start = num_fmt
-                    chapter_counter += 1
-                    chapter_number = chapter_counter
-                    auto_num_text = self._format_number_text(lvlText, numFmt, chapter_counter)
-                    print(f"[Parser] 章编号: {auto_num_text}")
-                else:
-                    auto_num_text = None
-                    chapter_number += 1
-                
-                # 构建完整标题：自动编号 + 原标题
-                full_title = f"{auto_num_text} {text}" if auto_num_text else text
-                
+                chapter_number += 1
+
+                # 标题直接使用 Word 原生文本（含原生编号），系统不再自行拼接编号
+                title = text
+
                 if has_h3:
                     # 有 Heading 3 时，Heading 2 是章
-                    current_chapter_title = full_title
+                    current_chapter_title = title
                     chapters.append({
                         'chapter_number': chapter_number,
-                        'title': full_title
+                        'title': title
                     })
-                    print(f"[Parser] 章 {chapter_number}: {full_title}")
+                    print(f"[Parser] 章 {chapter_number}: {title}")
                 else:
                     # 没有 Heading 3 时，Heading 2 是节
                     section = self._create_section(
                         section_number=chapter_number,
                         chapter_number=None,
-                        title=full_title,
+                        title=title,
                         para_idx=para_idx,
                         comments=comments,
                         comment_ranges=comment_ranges
@@ -474,24 +460,14 @@ class WordStructureParser:
             elif style == 'Heading 3':
                 # 节标题
                 section_number += 1
-                
-                # 获取 Word 自动编号格式（使用独立的节编号计数器）
-                num_fmt = self._get_auto_number_text(para)
-                if num_fmt:
-                    lvlText, numFmt, start = num_fmt
-                    section_counter += 1
-                    auto_num_text = self._format_number_text(lvlText, numFmt, section_counter)
-                    print(f"[Parser] 节编号: {auto_num_text}")
-                else:
-                    auto_num_text = None
-                
-                # 构建完整标题：自动编号 + 原标题
-                full_title = f"{auto_num_text} {text}" if auto_num_text else text
-                
+
+                # 标题直接使用 Word 原生文本（含原生编号），系统不再自行拼接编号
+                title = text
+
                 section = self._create_section(
                     section_number=section_number,
                     chapter_number=chapter_number if has_h3 else None,
-                    title=full_title,
+                    title=title,
                     para_idx=para_idx,
                     comments=comments,
                     comment_ranges=comment_ranges
