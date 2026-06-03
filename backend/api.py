@@ -2258,18 +2258,6 @@ def admin_reimport_chapter(book_id, chapter_id):
                 conn.commit()
                 conn.close()
 
-            # 重新创建分段数据并生成TTS音频
-            reimport_result = reimport_section_core(
-                section_id=sec_id,
-                content=content,
-                annotations=annotations,
-                title=title,
-                summary=summary
-            )
-            if not reimport_result['success']:
-                failed_sections.append(sec_id)
-                print(f"[reimport_chapter] 节 {sec_id} 处理失败: {reimport_result['error']}")
-
         # 更新章节统计
         conn = get_db()
         cursor = conn.cursor()
@@ -2288,12 +2276,41 @@ def admin_reimport_chapter(book_id, chapter_id):
         total_sections = row['cnt'] if row else 0
         update_book_sections_count(book_id, total_sections)
 
+        # ===== 后台异步生成音频 =====
+        def _reimport_chapter_audio_async(bid, pairs):
+            """后台线程：为更新后的章节逐节生成音频"""
+            from backend.baidu_tts import generate_section_audio_v2, is_configured
+            try:
+                for i, (ws, ds) in enumerate(pairs):
+                    sec_id = ds['id']
+                    sec_num = ws['section_number']
+                    print(f"[Async Chapter Audio] 节 #{sec_num} (id={sec_id}): 开始生成音频 {i+1}/{len(pairs)}")
+                    try:
+                        success = generate_section_audio_v2(bid, sec_id, speed=5, person=3)
+                        if success:
+                            print(f"[Async Chapter Audio] 节 #{sec_num} (id={sec_id}): 音频生成完成")
+                        else:
+                            print(f"[Async Chapter Audio] 节 #{sec_num} (id={sec_id}): 音频生成返回False")
+                    except Exception as e:
+                        print(f"[Async Chapter Audio] 节 #{sec_num} (id={sec_id}) 异常: {e}")
+                print(f"[Async Chapter Audio] 第{chapter_number}章全部音频处理完成")
+            except Exception as e:
+                print(f"[Async Chapter Audio] 线程异常: {e}")
+
+        import threading
+        audio_thread = threading.Thread(
+            target=_reimport_chapter_audio_async,
+            args=(book_id, matched_pairs),
+            daemon=True
+        )
+        audio_thread.start()
+
         section_ids = [ds['id'] for ws, ds in matched_pairs]
         return jsonify({
-            'message': '章节导入成功' + ('（部分音频生成失败）' if failed_sections else ''),
+            'message': '章节导入成功，正在后台生成音频...',
             'section_count': len(matched_pairs),
             'section_ids': section_ids,
-            'failed_sections': failed_sections
+            'async_audio': True
         })
 
     except Exception as e:
@@ -2410,22 +2427,32 @@ def admin_reimport_section(book_id, section_id):
         total_sections = row['cnt'] if row else 0
         update_book_sections_count(book_id, total_sections)
 
-        # 为更新的节重新创建分段数据并生成分段TTS音频（使用统一核心函数）
-        result = reimport_section_core(
-            section_id=section_id,
-            content=content,
-            annotations=matched_section.get('annotations', []),
-            title=title,
-            summary=summary
+        # ===== 后台异步生成音频 =====
+        def _reimport_section_audio_async(bid, sid):
+            """后台线程：为更新的单节生成音频"""
+            from backend.baidu_tts import generate_section_audio_v2
+            try:
+                print(f"[Async Section Audio] 节 {sid}: 开始生成音频")
+                success = generate_section_audio_v2(bid, sid, speed=5, person=3)
+                if success:
+                    print(f"[Async Section Audio] 节 {sid}: 音频生成完成")
+                else:
+                    print(f"[Async Section Audio] 节 {sid}: 音频生成返回False")
+            except Exception as e:
+                print(f"[Async Section Audio] 节 {sid} 异常: {e}")
+
+        import threading
+        audio_thread = threading.Thread(
+            target=_reimport_section_audio_async,
+            args=(book_id, section_id),
+            daemon=True
         )
-        audio_success = result['success']
-        if not audio_success:
-            print(f"[reimport_section] 节 {section_id} 处理失败: {result['error']}")
+        audio_thread.start()
 
         return jsonify({
-            'message': '小节导入成功' + ('' if audio_success else '（音频生成失败）'),
+            'message': '小节导入成功，正在后台生成音频...',
             'section_ids': [section_id],
-            'audio_success': audio_success
+            'async_audio': True
         })
 
     except Exception as e:
