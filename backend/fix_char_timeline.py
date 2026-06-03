@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """
-修复脚本 v6 — 用现有 TTS 音频块重建正确的分段音频文件
+修复脚本 v9 — 用现有 TTS 音频块重建正确的分段音频文件（无裁剪版）
 
 问题根因：
 - 磁盘上有旧模式生成的 section_{id}_*.mp3（按~300字/TTS限制切块）
 - 但数据库期望新模式文件 segment_{id}_{seg_idx}.mp3（按点评边界切块）
 - 两者切分逻辑不同，无法直接一一对应
 
-v6 修复策略（不重新生成 TTS，零费用）：
-1. 读取该节所有 section_{id}_*.mp3 文件，测量每个的时长和估算字符范围
-2. 对每个 text_segment（按点评边界切的逻辑段）：
+v9 修复策略（不重新生成 TTS，零费用，零 MP3 裁剪）：
+1. 用 os.listdir+fnmatch 查找 section_{id}_*.mp3（兼容 Docker overlayFS）
+2. 用 ffprobe 获取时长（百度 TTS 输出的非标准 MP3，纯 Python 解析器不可靠）
+3. 对每个 text_segment（按点评边界切的逻辑段）：
    a. 确定它覆盖了哪些 TTS 块（可能跨越多个块）
-   b. 用 ffmpeg 从相关 TTS 块中裁剪+拼接，重建出 segment_{id}_{seg_idx}.mp3
-   c. 测量新文件的时长
-   d. 生成匹配新文件的 char_timeline（从0开始的相对时间）
-3. 更新数据库：audio_path / audio_duration / char_timeline
+   b. 直接用整个 TTS 块（不做时间裁剪，避免 MP3 帧边界损坏）
+   c. 单块 → 复制；多块 → ffmpeg concat 整块拼接
+   d. 用 ffprobe 测量新文件时长
+   e. 生成匹配新文件的 char_timeline（从0开始的相对时间）
+4. 更新数据库：audio_path / audio_duration / char_timeline
 
 两层切分逻辑：
   第1层：按点评边界 → text_segments（原文段/点评/小结）
@@ -234,73 +236,44 @@ def compute_tts_chunk_char_ranges(total_chars, num_chunks, chunk_durations):
     return ranges
 
 
-def build_segment_audio_ffmpeg(segment_file, chunk_sources):
+def build_segment_audio_ffmpeg(segment_file, chunk_filepaths):
     """
-    用 ffmpeg 从多个 TTS 块中裁剪并拼接，构建一个 text_segment 的完整音频。
-    
+    用 ffmpeg 拼接多个完整 TTS 音频块，构建一个 text_segment 的音频文件。
+
+    v9 策略：不做时间裁剪（MP3 帧边界裁剪容易损坏）。
+    对跨多块的 segment，直接整块拼接。char_timeline 会适配实际时长。
+    百度 TTS 的 MP3 输出非标准格式，get_mp3_duration 不可靠，统一用 ffprobe。
+
     参数：
         segment_file: 输出文件路径
-        chunk_sources: [(chunk_filepath, start_time, end_time), ...]
-                       start_time/end_time 为 None 表示取整个文件
-                       单位：秒
+        chunk_filepaths: [chunk_filepath, ...] 需要拼接的 TTS 块完整文件路径列表
 
     返回：(成功bool, 时长秒数)
     """
-    if not chunk_sources:
+    if not chunk_filepaths:
         return False, 0
 
-    # 如果只有一个源且不需要裁剪，直接复制
-    if len(chunk_sources) == 1 and chunk_sources[0][1] is None:
-        src_fp = chunk_sources[0][0]
+    # 单个源 → 直接复制
+    if len(chunk_filepaths) == 1:
+        src_fp = chunk_filepaths[0]
         try:
             import shutil
             shutil.copy2(src_fp, segment_file)
-            d = get_mp3_duration(segment_file)
-            return True, d or 0
-        except Exception as e:
-            print(f"[FIX] 复制文件失败: {e}")
-
-    # 构建 ffmpeg concat 列表（需要先裁剪的用中间文件）
-    parts_to_concat = []
-    temp_files = []
-
-    try:
-        for i, (src_fp, t_start, t_end) in enumerate(chunk_sources):
-            if t_start is not None and t_end is not None:
-                # 需要时间裁剪
-                temp_fp = segment_file.replace('.mp3', f'_part{i}.mp3')
-                temp_files.append(temp_fp)
-
-                duration = t_end - t_start
-                cmd = [
-                    'ffmpeg', '-y',
-                    '-i', src_fp,
-                    '-ss', str(t_start),
-                    '-t', str(duration),
-                    '-acodec', 'copy',
-                    temp_fp
-                ]
-                result = subprocess.run(cmd, capture_output=True, timeout=30)
-                if result.returncode != 0:
-                    print(f"[FIX] ⚠️ ffmpeg 裁剪失败 (part{i}): {result.stderr.decode()[-100:]}")
-                    continue
-                parts_to_concat.append(temp_fp)
-            else:
-                # 整块使用
-                parts_to_concat.append(src_fp)
-
-        if not parts_to_concat:
-            return False, 0
-
-        # 只有一个部分且就是目标本身
-        if len(parts_to_concat) == 1 and parts_to_concat[0] == segment_file:
+            d = get_ffprobe_duration(segment_file)
+            if d and d > 0:
+                return True, d
+            # ffprobe 也失败，再试 get_mp3_duration
             d = get_mp3_duration(segment_file)
             return bool(d), d or 0
+        except Exception as e:
+            print(f"[FIX] 复制文件失败: {e}")
+            return False, 0
 
-        # 多部分拼接
+    # 多源 → 用 ffmpeg concat demuxer 整块拼接
+    try:
         list_file = segment_file + '.list.txt'
-        with open(list_file, 'w') as f:
-            for pf in parts_to_concat:
+        with open(list_file, 'w', encoding='utf-8') as f:
+            for pf in chunk_filepaths:
                 f.write(f"file '{pf}'\n")
 
         cmd = [
@@ -310,24 +283,25 @@ def build_segment_audio_ffmpeg(segment_file, chunk_sources):
             segment_file
         ]
         result = subprocess.run(cmd, capture_output=True, timeout=60)
+
         if os.path.exists(list_file):
             os.remove(list_file)
 
         if result.returncode != 0:
-            print(f"[FIX] ⚠️ ffmpeg 拼接失败: {result.stderr.decode()[-200:]}")
+            stderr_text = result.stderr.decode('utf-8', errors='replace')
+            print(f"[FIX] ⚠️ ffmpeg concat 失败:\n{stderr_text[-500:]}")
             return False, 0
 
-        duration = get_mp3_duration(segment_file)
-        return bool(duration), duration or 0
+        d = get_ffprobe_duration(segment_file)
+        if not d or d <= 0:
+            d = get_mp3_duration(segment_file)
+        return bool(d and d > 0), d or 0
 
-    finally:
-        # 清理临时文件
-        for tf in temp_files:
-            if os.path.exists(tf) and tf != segment_file:
-                try:
-                    os.remove(tf)
-                except:
-                    pass
+    except Exception as e:
+        print(f"[FIX] build_segment_audio 异常: {e}")
+        import traceback
+        traceback.print_exc()
+        return False, 0
 
 
 def build_char_timeline(content, duration):
@@ -477,10 +451,8 @@ def fix_section_char_timeline(section_id, force=False):
             seg_clean = seg_content.replace('\n', '')
             seg_char_count = len(seg_clean)
 
-            # === 核心：确定这个 segment 跨了哪些 TTS 块 ===
-            chunk_sources = []
-            seg_start_time = None
-            seg_end_time = None
+            # === 核心：确定这个 segment 跨了哪些 TTS 块（整块使用，不做裁剪） ===
+            chunk_filepaths = []
 
             for i, ((fp, _d), (cs, ce), (ts, te)) in enumerate(
                 zip(tts_chunks, chunk_ranges, chunk_time_ranges)):
@@ -493,42 +465,20 @@ def fix_section_char_timeline(section_id, force=False):
                 if overlap_chars <= 0:
                     continue  # 这个 TTS 块与当前 segment 无重叠
 
-                # 计算需要的时间裁剪范围
-                # 该 TTS 块内，segment 占据的比例
-                chunk_total_chars = ce - cs
-                if chunk_total_chars > 0:
-                    ratio_start = (overlap_start - cs) / chunk_total_chars
-                    ratio_end = (overlap_end - cs) / chunk_total_chars
-                else:
-                    ratio_start = 0.0
-                    ratio_end = 1.0
+                # v9: 直接使用整个 TTS 块，不裁剪
+                chunk_filepaths.append(fp)
 
-                # 时间裁剪点（相对于这个 TTS 块的开始时间）
-                t_clip_start = ts + ratio_start * _d
-                t_clip_end = ts + ratio_end * _d
-
-                # 如果几乎占满整个块（>95%），不做裁剪以避免精度损失
-                use_whole = (ratio_start <= 0.01 and ratio_end >= 0.99)
-
-                if use_whole:
-                    chunk_sources.append((fp, None, None))
-                else:
-                    chunk_sources.append((fp, t_clip_start, t_clip_end))
-
-                # 记录 segment 的绝对时间范围
-                if seg_start_time is None:
-                    seg_start_time = t_clip_start if not use_whole else ts
-                seg_end_time = t_clip_end if not use_whole else te
-
-            if not chunk_sources:
+            if not chunk_filepaths:
                 print(f"[FIX] 跳过 segment {seg_id}#{seg_num}: 无匹配的 TTS 块")
                 continue
+
+            print(f"[FIX]   segment {seg_id}#{seg_num}: 匹配 {len(chunk_filepaths)} 个TTS块 → {os.path.basename(segment_filepath)}")
 
             # === 用 ffmpeg 重建该 segment 的音频文件 ===
             segment_filename = f'segment_{section_id}_{seg_num}.mp3'
             segment_filepath = os.path.join(AUDIO_FILES_DIR, segment_filename)
 
-            success, actual_dur = build_segment_audio_ffmpeg(segment_filepath, chunk_sources)
+            success, actual_dur = build_segment_audio_ffmpeg(segment_filepath, chunk_filepaths)
 
             if not success or actual_dur <= 0:
                 print(f"[FIX] ⚠️ segment {seg_id}#{seg_num}: 重建音频失败")
@@ -548,7 +498,7 @@ def fix_section_char_timeline(section_id, force=False):
 
                 changed_path = '' if new_audio_path == old_audio_path else f'路径: {old_audio_path} → {new_audio_path}'
                 fixed_count += 1
-                chunks_used = len(chunk_sources)
+                chunks_used = len(chunk_filepaths)
                 print(f"[FIX] ✅ segment {seg_id}#{seg_num}: "
                       f"字[{start_char}:{end_char}]={seg_char_count}字 → "
                       f"{segment_filename} ({actual_dur:.1f}s, "
