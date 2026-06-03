@@ -3774,14 +3774,19 @@
             _resetAnnotationAudio: function() {
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
-                    // 克隆新元素替换旧元素，清除所有事件监听
+                    this._annotationAudio.src = '';
+                    // 彻底移除旧元素（从DOM中删除并废弃），改用全新 Audio 实例
                     var oldAudio = this._annotationAudio;
-                    var newAudio = oldAudio.cloneNode(false);
                     if (oldAudio.parentNode) {
-                        oldAudio.parentNode.replaceChild(newAudio, oldAudio);
+                        oldAudio.parentNode.removeChild(oldAudio);
                     }
-                    this._annotationAudio = newAudio;
+                    // 断开旧元素引用，让GC回收，确保所有 addEventListener 彻底消失
+                    oldAudio.onended = null;
+                    oldAudio.oncanplay = null;
+                    oldAudio.onerror = null;
+                    oldAudio.ontimeupdate = null;
                 }
+                this._annotationAudio = new Audio();
                 // 重置点评播放状态
                 this._currentInsertPoint = null;
                 this._insertPointStep = 0;
@@ -3791,7 +3796,7 @@
                     clearInterval(this._commentTextAnimationTimer);
                     this._commentTextAnimationTimer = null;
                 }
-                console.log('_resetAnnotationAudio: 已重置');
+                console.log('_resetAnnotationAudio: 已创建全新 Audio 实例');
             },
 
             // 预加载所有音频段，加载完成前禁用播放按钮
@@ -4846,13 +4851,23 @@
             // 完成点评播放
             _finishInsertPoint: function() {
                 var self = this;
-                
+
+                // 诊断：记录调用栈，追踪谁触发了提前结束
+                console.trace('_finishInsertPoint 调用栈（step=' + this._insertPointStep + ', currentTime=' + (this._annotationAudio ? this._annotationAudio.currentTime : 'N/A') + ')');
+
                 // 防重复调用保护
                 if (this._isFinishing) {
                     console.log('_finishInsertPoint: 已标记为完成，跳过重复调用');
                     return;
                 }
-                
+
+                // 防御性检查：如果还在播放引用音频（step=2）且音频未结束，强制继续播放
+                if (this._insertPointStep === 2 && this._annotationAudio && !this._annotationAudio.ended && this._annotationAudio.currentTime < (this._annotationAudio.duration || Infinity)) {
+                    console.log('_finishInsertPoint: 检测到step=2引用音频仍在播放，拒绝提前结束，继续播放');
+                    this._isFinishing = false;
+                    return;
+                }
+
                 // 标记为正在完成，防止重复调用
                 this._isFinishing = true;
                 
