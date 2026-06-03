@@ -1065,11 +1065,11 @@ def get_sections_by_book(book_id):
         SELECT s.*, c.chapter_number, c.title as chapter_title 
         FROM sections s 
         LEFT JOIN chapters c ON s.chapter_id = c.id 
-        WHERE s.book_id = %s 
-        ORDER BY s.section_number
+        WHERE s.book_id = %s
+        ORDER BY c.chapter_number, s.section_number
     ''', (book_id,))
     sections = [dict(row) for row in cursor.fetchall()]
-    
+
     # 计算每节的 start_char 和 end_char（基于内容的累积长度）
     offset = 0
     for sec in sections:
