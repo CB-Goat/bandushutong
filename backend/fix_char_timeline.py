@@ -95,11 +95,14 @@ def fix_section_char_timeline(section_id):
         fixed_count = 0
         for seg in segments:
             seg_id = seg['id']
+            audio_path = seg.get('audio_path', '')
             audio_duration = seg.get('audio_duration', 0)
             char_timeline = seg.get('char_timeline', '')
-            
+
+            print(f"[FIX] DEBUG segment {seg_id}: audio_path={repr(audio_path)[:80]}, audio_duration={repr(audio_duration)}, content_len={len(seg.get('content', '') or '')}")
+
             # 检查是否需要修复：有音频但 char_timeline 为空
-            if seg.get('audio_path') and audio_duration > 0:
+            if audio_path and audio_duration > 0:
                 # 解析现有的 char_timeline
                 existing_timeline = []
                 if char_timeline:
