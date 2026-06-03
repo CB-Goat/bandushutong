@@ -2291,7 +2291,7 @@ def admin_reimport_chapter(book_id, chapter_id):
         section_ids = [ds['id'] for ws, ds in matched_pairs]
         return jsonify({
             'message': '章节导入成功' + ('（部分音频生成失败）' if failed_sections else ''),
-            'section_count': len(matched_sections),
+            'section_count': len(matched_pairs),
             'section_ids': section_ids,
             'failed_sections': failed_sections
         })
