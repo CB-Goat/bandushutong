@@ -907,6 +907,16 @@ def delete_book(book_id):
         DELETE FROM annotations WHERE section_id IN
         (SELECT id FROM sections WHERE book_id = %s)
     ''', (book_id,))
+    # 删除关联的插入点（insert_points）
+    cursor.execute('''
+        DELETE FROM insert_points WHERE section_id IN
+        (SELECT id FROM sections WHERE book_id = %s)
+    ''', (book_id,))
+    # 删除关联的文本段（text_segments）
+    cursor.execute('''
+        DELETE FROM text_segments WHERE section_id IN
+        (SELECT id FROM sections WHERE book_id = %s)
+    ''', (book_id,))
     # 删除关联的节阅读状态
     cursor.execute('DELETE FROM section_reading_status WHERE book_id = %s', (book_id,))
     # 删除关联的小节
