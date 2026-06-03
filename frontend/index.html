@@ -3679,16 +3679,20 @@
                     var seg = this.audioSegments[i];
                     if (seg.type === 'text_segment') {
                         var tlInfo = '无';
-                        if (seg.char_timeline) {
+                        if (seg.char_timeline !== undefined && seg.char_timeline !== null) {
                             if (typeof seg.char_timeline === 'string') {
                                 try {
                                     var parsed = JSON.parse(seg.char_timeline);
                                     tlInfo = 'JSON字符串(' + parsed.length + ')';
+                                    // 关键：解析后立即替换原始值
+                                    this.audioSegments[i].char_timeline = parsed;
                                 } catch (e) {
-                                    tlInfo = '无效JSON';
+                                    tlInfo = '无效JSON: ' + e.message;
                                 }
                             } else if (Array.isArray(seg.char_timeline)) {
                                 tlInfo = '数组(' + seg.char_timeline.length + ')';
+                            } else {
+                                tlInfo = '未知类型: ' + typeof seg.char_timeline;
                             }
                         }
                         console.log('  段' + i + ': 文本段 id=' + seg.id + ' chars ' + seg.start_char + '-' + seg.end_char + 
