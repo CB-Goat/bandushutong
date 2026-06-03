@@ -8743,7 +8743,13 @@
                         btn.disabled = false;
                         return;
                     }
-                    // 同步生成完成，直接刷新
+                    if (data.async_audio) {
+                        // 异步模式：启动轮询跟踪TTS进度
+                        pollTTSProgress(data.section_ids, btn, bookId);
+                        adminShowCatalogStats(bookId);
+                        return;
+                    }
+                    // 同步生成完成（兼容旧逻辑）
                     btn.textContent = '更新';
                     btn.style.background = data.failed_sections && data.failed_sections.length > 0 ? '#e74c3c' : '';
                     btn.disabled = false;
@@ -8786,7 +8792,13 @@
                         btn.disabled = false;
                         return;
                     }
-                    // 同步生成完成，直接刷新
+                    if (data.async_audio) {
+                        // 异步模式：启动轮询跟踪TTS进度
+                        pollTTSProgress(data.section_ids, btn, bookId);
+                        adminShowCatalogStats(bookId);
+                        return;
+                    }
+                    // 同步模式（兼容旧逻辑）
                     btn.textContent = '更新';
                     btn.style.background = data.audio_success ? '' : '#e74c3c';
                     btn.disabled = false;
