@@ -2000,6 +2000,134 @@ def admin_remove_sub():
 
 # ===== 管理员-章节/节重新导入 API =====
 
+import re
+
+def _normalize_section_title(title):
+    """去除标题中的自动编号前缀，返回纯净标题用于模糊匹配
+    
+    处理的格式示例:
+      "第1章 前往尼日尼"     → "前往尼日尼"
+      "第1节 父亲去世了"     → "父亲去世了"
+      "1. 年幼丧父"          → "年幼丧父"
+      "1、年幼丧父"          → "年幼丧父"
+      "一、父亲去世了"       → "父亲去世了"
+      "(1) 父亲去世了"       → "父亲去世了"
+    """
+    if not title:
+        return ''
+    t = title.strip()
+    # 中文数字序号: 第X章/第X节 / X、/ （X）
+    t = re.sub(r'^(第[一二三四五六七八九十百零0-9]+[章节篇])\s*', '', t)
+    t = re.sub(r'^([一二三四五六七八九十百零]+)[、.．:：]\s*', '', t)
+    # 阿拉伯数字序号: 1. / 1、/ (1) / 1) / [1]
+    t = re.sub(r'^(\d+)[、.．:：)\]]\s*', '', t)
+    t = re.sub(r'^[\[(](\d+)[)\]]\s*', '', t)
+    return t.strip()
+
+
+def _match_sections_dual_verify(word_sections, db_sections):
+    """双重校验匹配：section_number + 标题文本
+    
+    Args:
+        word_sections: Word解析后的节列表，每项含 section_number, title
+        db_sections: 数据库现有节列表，每项含 id, section_number, title（同一章节范围内）
+    
+    Returns:
+        {
+            'matched': [(word_sec, db_sec), ...],   # 双重校验通过的对
+            'mismatches': [{                         # 不匹配的详情
+                'type': 'title_mismatch'|'number_not_in_db'|'number_not_in_word',
+                'db': {id, section_number, title} or None,
+                'word': {section_number, title} or None,
+            }, ...]
+        }
+    """
+    # 构建纯净标题的 DB 映射：normalized_title → [db_sec, ...] (可能有重名)
+    db_by_num = {}   # section_number → db_sec
+    db_by_norm = {}  # normalized_title → [db_sec, ...]
+    
+    for ds in db_sections:
+        num = ds['section_number']
+        norm = _normalize_section_title(ds.get('title', ''))
+        db_by_num[num] = ds
+        if norm:
+            db_by_norm.setdefault(norm, []).append(ds)
+    
+    matched = []
+    mismatches = []
+    matched_db_ids = set()  # 已匹配的 DB 节 ID，防止重复
+    
+    for ws in word_sections:
+        w_num = ws.get('section_number')
+        w_title = ws.get('title', '')
+        w_norm = _normalize_section_title(w_title)
+        
+        # 条件1: 序号必须在 DB 中存在
+        if w_num not in db_by_num:
+            mismatches.append({
+                'type': 'number_not_in_db',
+                'db': None,
+                'word': {'section_number': w_num, 'title': w_title, 'norm_title': w_norm},
+            })
+            continue
+        
+        db_sec = db_by_num[w_num]
+        
+        # 条件2: 标题必须匹配（纯净版）
+        db_norm = _normalize_section_title(db_sec.get('title', ''))
+        
+        if not w_norm or not db_norm:
+            # 至少一方无有效标题文本，仅靠序号匹配（降级但允许）
+            if db_sec['id'] not in matched_db_ids:
+                matched.append((ws, db_sec))
+                matched_db_ids.add(db_sec['id'])
+            else:
+                mismatches.append({
+                    'type': 'duplicate_match',
+                    'db': {'id': db_sec['id'], 'section_number': db_sec['section_number'], 'title': db_sec.get('title', '')},
+                    'word': {'section_number': w_num, 'title': w_title},
+                })
+            continue
+        
+        # 模糊匹配：纯净标题包含关系 或 完全一致
+        title_matches = (w_norm == db_norm or 
+                        w_norm in db_norm or 
+                        db_norm in w_norm)
+        
+        if not title_matches:
+            mismatches.append({
+                'type': 'title_mismatch',
+                'db': {'id': db_sec['id'], 'section_number': db_sec['section_number'], 
+                       'title': db_sec.get('title', ''), 'norm_title': db_norm},
+                'word': {'section_number': w_num, 'title': w_title, 'norm_title': w_norm},
+            })
+            continue
+        
+        # 防止同一个 DB 节被多个 Word 节匹配（跨章同序号保护）
+        if db_sec['id'] in matched_db_ids:
+            mismatches.append({
+                'type': 'duplicate_match',
+                'db': {'id': db_sec['id'], 'section_number': db_sec['section_number'], 'title': db_sec.get('title', '')},
+                'word': {'section_number': w_num, 'title': w_title},
+            })
+            continue
+        
+        matched.append((ws, db_sec))
+        matched_db_ids.add(db_sec['id'])
+    
+    # 找出 DB 中有但 Word 里没有的（被删除的节）
+    for ds in db_sections:
+        if ds['id'] not in matched_db_ids:
+            mismatches.append({
+                'type': 'number_not_in_word',
+                'db': {'id': ds['id'], 'section_number': ds['section_number'], 
+                       'title': ds.get('title', '')},
+                'word': None,
+            })
+    
+    return {'matched': matched, 'mismatches': mismatches}
+
+
 @api_bp.route('/admin/books/<int:book_id>/reimport-chapter/<int:chapter_id>', methods=['POST'])
 def admin_reimport_chapter(book_id, chapter_id):
     """重新导入章节：上传 .docx 文件，更新指定章节的所有小节（保持section_id不变）"""
@@ -2031,68 +2159,92 @@ def admin_reimport_chapter(book_id, chapter_id):
         chapter_number = chapter['chapter_number']
 
         # 筛选属于该章节的小节
-        matched_sections = [s for s in sections if s.get('chapter_number') == chapter_number]
-        
-        print(f"[Reimport] Found {len(matched_sections)} sections for chapter {chapter_number}")
-        for s in matched_sections:
-            print(f"[Reimport]   Section {s.get('section_number')}: {len(s.get('annotations', []))} annotations")
+        word_chapter_sections = [s for s in sections if s.get('chapter_number') == chapter_number]
 
-        if not matched_sections:
+        print(f"[Reimport] Found {len(word_chapter_sections)} sections for chapter {chapter_number}")
+        for s in word_chapter_sections:
+            print(f"[Reimport]   Section {s.get('section_number')}: {s.get('title', '?')}")
+
+        if not word_chapter_sections:
             return jsonify({'error': f'文件中未找到第 {chapter_number} 章的小节'}), 400
 
-        # 获取该章节下现有的所有小节
+        # 获取该章节下现有的所有小节（含标题，用于双重校验）
         from backend.database import get_db
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT id, section_number FROM sections WHERE chapter_id=%s', (chapter_id,))
-        existing_sections = {row[1]: row[0] for row in cursor.fetchall()}  # section_number -> section_id
+        cursor.execute('SELECT id, section_number, title FROM sections WHERE chapter_id=%s', (chapter_id,))
+        db_sections = [dict(row) for row in cursor.fetchall()]
         conn.close()
 
-        # 处理每个匹配的小节：更新现有或新增
-        for sec in matched_sections:
-            sec_number = sec['section_number']
-            content = sec.get('content', '')
-            title = sec.get('title', '')
-            summary = sec.get('summary', '')
+        # 双重校验：序号 + 标题
+        result = _match_sections_dual_verify(word_chapter_sections, db_sections)
+
+        if result['mismatches']:
+            # 有不匹配的情况，返回详细错误让管理员确认
+            mismatch_details = []
+            for m in result['mismatches']:
+                if m['type'] == 'title_mismatch':
+                    mismatch_details.append(
+                        f"序号{m['word']['section_number']}标题不匹配: "
+                        f"DB「{m['db']['title']}」 vs Word「{m['word']['title']}」"
+                    )
+                elif m['type'] == 'number_not_in_db':
+                    mismatch_details.append(
+                        f"Word中序号{m['word']['section_number']}「{m['word']['title']}」在数据库中不存在（可能是新增节）"
+                    )
+                elif m['type'] == 'number_not_in_word':
+                    mismatch_details.append(
+                        f"数据库中序号{m['db']['section_number']}「{m['db']['title']}」在Word文件中不存在（可能是已删除节）"
+                    )
+                elif m['type'] == 'duplicate_match':
+                    mismatch_details.append(
+                        f"序号冲突: 多个节匹配到同一数据库节(id={m['db']['id']}, 「{m['db']['title']}」)"
+                    )
+            
+            return jsonify({
+                'error': f'章节结构不一致，共有 {len(result["mismatches"])} 处不匹配，请确认后重试',
+                'match_error': True,
+                'matched_count': len(result['matched']),
+                'mismatch_count': len(result['mismatches']),
+                'mismatches': result['mismatches'],
+                'mismatch_details': mismatch_details
+            }), 409  # Conflict
+
+        # 双重校验全部通过，开始更新
+        matched_pairs = result['matched']
+        existing_sections = {}  # section_number -> section_id (供后续音频生成使用)
+        for ws, ds in matched_pairs:
+            existing_sections[ws['section_number']] = ds['id']
+
+        # 处理每个匹配的小节
+        failed_sections = []
+        for ws, ds in matched_pairs:
+            sec_number = ws['section_number']
+            sec_id = ds['id']
+            content = ws.get('content', '')
+            title = ws.get('title', '')
+            summary = ws.get('summary', '')
             word_count = len(content)
 
-            if sec_number in existing_sections:
-                # 更新现有小节（保持section_id不变）
-                sec_id = existing_sections[sec_number]
-                conn = get_db()
-                cursor = conn.cursor()
-                # 删除旧的点评
-                cursor.execute('DELETE FROM annotations WHERE section_id = %s', (sec_id,))
-                # 删除旧的 text_segments 和 insert_points（级联删除）
-                cursor.execute('DELETE FROM text_segments WHERE section_id = %s', (sec_id,))
-                cursor.execute('DELETE FROM insert_points WHERE section_id = %s', (sec_id,))
-                # 清除音频相关字段
-                cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = %s', (sec_id,))
-                # 更新小节内容
-                cursor.execute('UPDATE sections SET title = %s, content = %s, summary = %s, word_count = %s WHERE id = %s',
-                              (title, content, summary, word_count, sec_id))
-                conn.commit()
-                conn.close()
-            else:
-                # 新增小节
-                sec_id = add_section(
-                    book_id=book_id,
-                    chapter_id=chapter_id,
-                    section_number=sec_number,
-                    content=content,
-                    title=title
-                )
-                # 设置小结
-                if summary:
-                    conn = get_db()
-                    cursor = conn.cursor()
-                    cursor.execute('UPDATE sections SET summary = %s WHERE id = %s', (summary, sec_id))
-                    conn.commit()
-                    conn.close()
+            # 更新现有小节（保持section_id不变）
+            conn = get_db()
+            cursor = conn.cursor()
+            # 删除旧的点评
+            cursor.execute('DELETE FROM annotations WHERE section_id = %s', (sec_id,))
+            # 删除旧的 text_segments 和 insert_points
+            cursor.execute('DELETE FROM text_segments WHERE section_id = %s', (sec_id,))
+            cursor.execute('DELETE FROM insert_points WHERE section_id = %s', (sec_id,))
+            # 清除音频相关字段
+            cursor.execute('UPDATE sections SET audio_path = NULL, audio_duration = NULL, char_timeline = NULL, summary_audio_path = NULL WHERE id = %s', (sec_id,))
+            # 更新小节内容
+            cursor.execute('UPDATE sections SET title = %s, content = %s, summary = %s, word_count = %s WHERE id = %s',
+                          (title, content, summary, word_count, sec_id))
+            conn.commit()
+            conn.close()
 
-            # 保存点评（在同一连接中操作，确保事务一致性）
-            annotations = sec.get('annotations', [])
-            print(f"[Reimport Chapter] Section {sec_number}: {len(annotations)} annotations to save")
+            # 保存点评
+            annotations = ws.get('annotations', [])
+            print(f"[Reimport Chapter] Section #{sec_number} (id={sec_id}): {len(annotations)} annotations")
             if annotations:
                 conn = get_db()
                 cursor = conn.cursor()
@@ -2105,6 +2257,18 @@ def admin_reimport_chapter(book_id, chapter_id):
                     )
                 conn.commit()
                 conn.close()
+
+            # 重新创建分段数据并生成TTS音频
+            reimport_result = reimport_section_core(
+                section_id=sec_id,
+                content=content,
+                annotations=annotations,
+                title=title,
+                summary=summary
+            )
+            if not reimport_result['success']:
+                failed_sections.append(sec_id)
+                print(f"[reimport_chapter] 节 {sec_id} 处理失败: {reimport_result['error']}")
 
         # 更新章节统计
         conn = get_db()
@@ -2124,24 +2288,7 @@ def admin_reimport_chapter(book_id, chapter_id):
         total_sections = row['cnt'] if row else 0
         update_book_sections_count(book_id, total_sections)
 
-        # 为更新的节重新创建分段数据并生成分段TTS音频（使用统一核心函数）
-        failed_sections = []
-        for sec in matched_sections:
-            sec_number = sec['section_number']
-            if sec_number in existing_sections:
-                sec_id = existing_sections[sec_number]
-                result = reimport_section_core(
-                    section_id=sec_id,
-                    content=sec.get('content', ''),
-                    annotations=sec.get('annotations', []),
-                    title=sec.get('title', ''),
-                    summary=sec.get('summary', '')
-                )
-                if not result['success']:
-                    failed_sections.append(sec_id)
-                    print(f"[reimport_chapter] 节 {sec_id} 处理失败: {result['error']}")
-
-        section_ids = [existing_sections[s['section_number']] for s in matched_sections if s['section_number'] in existing_sections]
+        section_ids = [ds['id'] for ws, ds in matched_pairs]
         return jsonify({
             'message': '章节导入成功' + ('（部分音频生成失败）' if failed_sections else ''),
             'section_count': len(matched_sections),
@@ -2183,7 +2330,7 @@ def admin_reimport_section(book_id, section_id):
         target_section_number = section['section_number']
         chapter_id = section['chapter_id']
 
-        # 查找匹配的小节（按 section_number 匹配）
+        # 查找匹配的小节（按 section_number 匹配，再校验标题）
         matched_section = None
         for sec in sections:
             if sec.get('section_number') == target_section_number:
@@ -2192,6 +2339,23 @@ def admin_reimport_section(book_id, section_id):
 
         if not matched_section:
             return jsonify({'error': f'文件中未找到第 {target_section_number} 小节'}), 400
+
+        # 双重校验：标题也必须匹配（防止不同章同序号错配）
+        db_title_norm = _normalize_section_title(section.get('title', ''))
+        word_title_norm = _normalize_section_title(matched_section.get('title', ''))
+
+        if db_title_norm and word_title_norm:
+            title_ok = (db_title_norm == word_title_norm or
+                       db_title_norm in word_title_norm or
+                       word_title_norm in db_title_norm)
+            if not title_ok:
+                return jsonify({
+                    'error': f'标题不匹配：数据库「{section["title"]}」vs 文件「{matched_section["title"]}」，请确认上传了正确的文件',
+                    'match_error': True,
+                    'db_title': section['title'],
+                    'word_title': matched_section['title'],
+                    'db_section_number': target_section_number,
+                }), 409
 
         content = matched_section.get('content', '')
         title = matched_section.get('title', '')
