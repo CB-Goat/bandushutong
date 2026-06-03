@@ -472,11 +472,11 @@ def fix_section_char_timeline(section_id, force=False):
                 print(f"[FIX] 跳过 segment {seg_id}#{seg_num}: 无匹配的 TTS 块")
                 continue
 
-            print(f"[FIX]   segment {seg_id}#{seg_num}: 匹配 {len(chunk_filepaths)} 个TTS块 → {os.path.basename(segment_filepath)}")
-
             # === 用 ffmpeg 重建该 segment 的音频文件 ===
             segment_filename = f'segment_{section_id}_{seg_num}.mp3'
             segment_filepath = os.path.join(AUDIO_FILES_DIR, segment_filename)
+
+            print(f"[FIX]   segment {seg_id}#{seg_num}: 匹配 {len(chunk_filepaths)} 个TTS块 → {os.path.basename(segment_filepath)}")
 
             success, actual_dur = build_segment_audio_ffmpeg(segment_filepath, chunk_filepaths)
 
