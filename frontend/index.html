@@ -1718,7 +1718,7 @@
                     <!-- Fix Char Timeline Modal -->
                     <div class="modal" id="fixCharTimelineModal">
                         <div class="modal-content" style="max-width:520px;">
-                            <h3>🔊 修复音频时间轴</h3>
+                            <h3>🔊 修复音频时间轴 [v2]</h3>
                             <p style="color:#666;margin-bottom:12px;">此操作将修复书籍中所有已有音频但缺少字符时间轴的段落，<strong>不会重新生成音频</strong>，不会产生额外的 TTS 费用。</p>
                             <div style="display:flex;flex-direction:column;gap:12px;">
                                 <div style="display:flex;align-items:center;gap:12px;">
@@ -6741,6 +6741,7 @@
             },
 
             showFixCharTimelineModal: function() {
+                alert('[DEBUG v2] showFixCharTimelineModal 被调用！如果看到此弹窗，说明新代码已生效。');
                 var modal = document.getElementById('fixCharTimelineModal');
                 var select = document.getElementById('fixSectionId');
                 var bookId = state.adminCurrentBookId;
