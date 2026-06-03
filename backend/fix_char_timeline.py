@@ -28,6 +28,7 @@ import struct
 import subprocess
 import glob as glob_module
 import tempfile
+import fnmatch
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -123,20 +124,24 @@ def find_tts_chunk_files(section_id):
     返回：[(filepath, duration), ...] 按文件名序号排序
     """
     results = []
-    pattern = os.path.join(AUDIO_FILES_DIR, f'section_{section_id}_*.mp3')
-    files = sorted(glob_module.glob(pattern))
+    pattern_str = f'section_{section_id}_*.mp3'
 
-    # 调试：打印实际搜索路径和目录内容
-    print(f"[FIX] DEBUG: AUDIO_FILES_DIR={AUDIO_FILES_DIR}")
-    print(f"[FIX] DEBUG: 搜索模式={pattern}")
-    print(f"[FIX] DEBUG: 目录存在={os.path.isdir(AUDIO_FILES_DIR)}")
+    # 用 os.listdir + fnmatch 替代 glob（Docker overlayFS 上 glob 可能有兼容性问题）
+    files = []
     if os.path.isdir(AUDIO_FILES_DIR):
-        all_mp3s = sorted(glob_module.glob(os.path.join(AUDIO_FILES_DIR, '*.mp3')))
-        print(f"[FIX] DEBUG: 目录下所有MP3文件({len(all_mp3s)}个):")
-        for f in all_mp3s[:20]:
-            print(f"[FIX] DEBUG:   {os.path.basename(f)}")
-        if len(all_mp3s) > 20:
-            print(f"[FIX] DEBUG:   ... 共 {len(all_mp3s)} 个")
+        for fname in sorted(os.listdir(AUDIO_FILES_DIR)):
+            if fnmatch.fnmatch(fname, pattern_str):
+                files.append(os.path.join(AUDIO_FILES_DIR, fname))
+
+    # 备用：如果 listdir 没找到，再试 glob
+    if not files:
+        pattern = os.path.join(AUDIO_FILES_DIR, pattern_str)
+        files = sorted(glob_module.glob(pattern))
+        print(f"[FIX] WARNING: listdir 未找到，glob 回退: {len(files)} 个文件")
+
+    # 直接测试：确认文件系统可访问
+    test_file = os.path.join(AUDIO_FILES_DIR, f'section_{section_id}_0.mp3')
+    print(f"[FIX] DEBUG: 直接测试 os.path.exists('{test_file}') = {os.path.exists(test_file)}")
 
     for fp in files:
         d = get_mp3_duration(fp)
