@@ -1,25 +1,33 @@
 #!/usr/bin/env python3
 """
-修复脚本 v5 — 同时修复 audio_path 映射和 char_timeline
+修复脚本 v6 — 用现有 TTS 音频块重建正确的分段音频文件
 
 问题根因：
-- TTS 按 ~300字/块 切分音频 → section_{id}_0.mp3, _1.mp3, _2.mp3 ...
-- text_segments 按点评边界切分 → 原文段/点评/小结，两者切分逻辑完全不同
-- 数据库中所有 text_segments 的 audio_path 错误地指向同一个文件
-- 导致前端反复播放同一段音频
+- 磁盘上有旧模式生成的 section_{id}_*.mp3（按~300字/TTS限制切块）
+- 但数据库期望新模式文件 segment_{id}_{seg_idx}.mp3（按点评边界切块）
+- 两者切分逻辑不同，无法直接一一对应
 
-修复策略：
-1. 计算每个 TTS 音频块对应的字符范围（均分总字符数）
-2. 对每个 text_segment，找到字符重叠最多的那个音频块作为主音频
-3. 修正 audio_path 指向正确的音频文件
-4. 重新生成 char_timeline（相对于该段自己的音频，从 0 开始）
+v6 修复策略（不重新生成 TTS，零费用）：
+1. 读取该节所有 section_{id}_*.mp3 文件，测量每个的时长和估算字符范围
+2. 对每个 text_segment（按点评边界切的逻辑段）：
+   a. 确定它覆盖了哪些 TTS 块（可能跨越多个块）
+   b. 用 ffmpeg 从相关 TTS 块中裁剪+拼接，重建出 segment_{id}_{seg_idx}.mp3
+   c. 测量新文件的时长
+   d. 生成匹配新文件的 char_timeline（从0开始的相对时间）
+3. 更新数据库：audio_path / audio_duration / char_timeline
+
+两层切分逻辑：
+  第1层：按点评边界 → text_segments（原文段/点评/小结）
+  第2层：如果单段超TTS字数限制 → 再按字数切分子块（这就是 section_*.mp3）
 """
 
 import os
 import sys
 import json
 import struct
+import subprocess
 import glob as glob_module
+import tempfile
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -29,7 +37,7 @@ AUDIO_FILES_DIR = os.environ.get('AUDIO_FILES_DIR', '/app/audio_files')
 
 
 def get_mp3_duration(filepath):
-    """读取 MP3 文件的时长（秒），不依赖第三方库"""
+    """读取 MP3 文件的时长（秒），纯 Python 解析"""
     try:
         if not os.path.exists(filepath):
             return None
@@ -38,38 +46,27 @@ def get_mp3_duration(filepath):
             return None
 
         with open(filepath, 'rb') as f:
-            f.seek(-128, 2)
-            data = f.read(128)
-            has_id3v1 = data[:3] == b'TAG'
-            if has_id3v1:
-                f.seek(-256, 2)
+            # 跳过 ID3v2 标签
+            header = f.read(3)
+            if header[:3] == b'ID3':
+                f.seek(3)
+                id3_size = struct.unpack('>I', f.read(4))[0]
+                id3_size ^= 0x80808080  # syncsafe integer
+                f.seek(id3_size + 6)  # 跳过剩余 header
             else:
                 f.seek(0)
 
-            header = f.read(4)
-            if len(header) < 4:
-                return None
-
-            if header[:3] == b'ID3':
-                id3_size = struct.unpack('>I', f.read(4))[0]
-                f.seek(id3_size + 10)
-                header = f.read(4)
-
-            if len(header) < 4:
-                return None
-
-            while True:
-                if header[0] != 0xFF or (header[1] & 0xE0) != 0xE0:
-                    byte = f.read(1)
-                    if not byte:
-                        return None
-                    header = header[1:] + byte
-                else:
+            # 找到第一个 MPEG 帧头
+            data = f.read(4)
+            while len(data) == 4:
+                if data[0] == 0xFF and (data[1] & 0xE0) == 0xE0:
                     break
+                data = data[1:] + f.read(1)
 
-            first_frame_header = header + f.read(4 - len(header))
-            if len(first_frame_header) < 4:
+            if len(data) < 4:
                 return None
+
+            first_frame_header = data
 
             version = (first_frame_header[1] >> 3) & 0x03
             if version not in (2, 3):
@@ -96,11 +93,14 @@ def get_mp3_duration(filepath):
             if frame_length <= 0:
                 return None
 
-            total_size = size
-            if has_id3v1:
-                total_size -= 128
+            # 计算文件中 ID3v1 标签大小
+            has_id3v1 = False
+            f.seek(-128, 2)
+            if f.read(3) == b'TAG':
+                has_id3v1 = True
 
-            num_frames = total_size // frame_length
+            total_data_size = size - f.tell()  # 排除ID3标签
+            num_frames = total_data_size // frame_length
             if num_frames <= 0:
                 return None
 
@@ -113,97 +113,172 @@ def get_mp3_duration(filepath):
         return None
 
 
-def find_section_audio_files(section_id):
-    """查找该节的所有 TTS 分块音频子文件"""
+def find_tts_chunk_files(section_id):
+    """
+    查找该节的 TTS 分块音频文件（旧模式：section_{id}_*.mp3）。
+
+    这些文件是 generate_section_audio_with_timeline() 按 ~300字/块 切分的，
+    合并成 section_{id}.mp3 后本应删除，但可能因为错误仍保留在磁盘上。
+    
+    返回：[(filepath, duration), ...] 按文件名序号排序
+    """
     results = []
+    pattern = os.path.join(AUDIO_FILES_DIR, f'section_{section_id}_*.mp3')
+    files = sorted(glob_module.glob(pattern))
 
-    pattern1 = os.path.join(AUDIO_FILES_DIR, f'section_{section_id}_*.mp3')
-    files1 = sorted(glob_module.glob(pattern1))
-
-    pattern2 = os.path.join(AUDIO_FILES_DIR, f'segment_{section_id}_*.mp3')
-    files2 = sorted(glob_module.glob(pattern2))
-
-    single_file = os.path.join(AUDIO_FILES_DIR, f'section_{section_id}.mp3')
-
-    # 优先使用分块文件
-    if files1 and len(files1) > 1:
-        for fp in files1:
-            d = get_mp3_duration(fp)
-            if d and d > 0:
-                results.append((fp, d))
-        print(f"[FIX] 找到 {len(results)} 个 TTS 分块音频 (section_{section_id}_*.mp3)")
-        return results
-
-    if files2 and len(files2) > 1:
-        for fp in files2:
-            d = get_mp3_duration(fp)
-            if d and d > 0:
-                results.append((fp, d))
-        print(f"[FIX] 找到 {len(results)} 个分段音频 (segment_{section_id}_*.mp3)")
-        return results
-
-    # 回退到合并后的单文件
-    if os.path.exists(single_file):
-        d = get_mp3_duration(single_file)
+    for fp in files:
+        d = get_mp3_duration(fp)
         if d and d > 0:
-            results.append((single_file, d))
-            print(f"[FIX] 使用合并音频 (section_{section_id}.mp3), 时长={d}s")
-            return results
+            results.append((fp, d))
 
-    print(f"[FIX] ⚠️ 未找到节 {section_id} 的任何音频文件！")
+    if results:
+        print(f"[FIX] 找到 {len(results)} 个 TTS 分块音频 (section_{section_id}_*.mp3)")
+    else:
+        print(f"[FIX] 未找到 section_{section_id}_*.mp3 分块文件")
+
     return results
 
 
-def compute_tts_chunk_ranges(total_chars, num_chunks):
+def compute_tts_chunk_char_ranges(total_chars, num_chunks, chunk_durations):
     """
-    计算 TTS 每个音频块大致对应的字符范围。
+    计算 每个 TTS 音频块对应的字符范围。
     
-    generate_section_audio_with_timeline 按 ~900字节(~300中文字)切分，
-    这里用均分估算，最后一块可能不均等。
+    generate_section_audio_with_timeline() 的切分规则：
+    - 每 ~900 字节 UTF-8（约 ~300 中文字）或遇到 。！？\n 时切分
     
-    返回：[(start, end), ...] 每个块的字符范围
+    这里用均分估算，同时考虑时长的细微差异做微调：
+    字符数与时长大致成正比（同一语速下）
+    
+    返回：[(start_char, end_char), ...] 
     """
-    if num_chunks <= 0:
+    if num_chunks <= 0 or total_chars <= 0:
         return []
-    chars_per_chunk = total_chars / num_chunks
+
+    total_duration = sum(chunk_durations)
     ranges = []
+    pos = 0
+
     for i in range(num_chunks):
-        start = round(i * chars_per_chunk)
-        end = round((i + 1) * chars_per_chunk) if i < num_chunks - 1 else total_chars
-        ranges.append((start, end))
+        if i == num_chunks - 1:
+            # 最后一块包含所有剩余字符
+            end = total_chars
+        elif total_duration > 0:
+            # 按时长比例分配字符数
+            ratio = chunk_durations[i] / total_duration
+            end = pos + int(round(total_chars * ratio))
+            # 确保至少前进1个字符
+            end = max(end, pos + 1)
+        else:
+            end = pos + int(total_chars / num_chunks)
+
+        ranges.append((pos, end))
+        pos = end
+
+    # 确保最后一块到达末尾
+    if ranges:
+        ranges[-1] = (ranges[-1][0], total_chars)
+
     return ranges
 
 
-def find_best_audio_chunk(seg_start, seg_end, chunk_ranges):
+def build_segment_audio_ffmpeg(segment_file, chunk_sources):
     """
-    为一个 text_segment 找到字符重叠最大的 TTS 音频块索引。
+    用 ffmpeg 从多个 TTS 块中裁剪并拼接，构建一个 text_segment 的完整音频。
     
-    返回：(best_chunk_index, overlap_count)
+    参数：
+        segment_file: 输出文件路径
+        chunk_sources: [(chunk_filepath, start_time, end_time), ...]
+                       start_time/end_time 为 None 表示取整个文件
+                       单位：秒
+
+    返回：(成功bool, 时长秒数)
     """
-    best_idx = 0
-    best_overlap = 0
-    for idx, (chunk_start, chunk_end) in enumerate(chunk_ranges):
-        # 计算重叠字符数
-        overlap_start = max(seg_start, chunk_start)
-        overlap_end = min(seg_end, chunk_end)
-        overlap = max(0, overlap_end - overlap_start)
-        if overlap > best_overlap:
-            best_overlap = overlap
-            best_idx = idx
-    return best_idx, best_overlap
+    if not chunk_sources:
+        return False, 0
+
+    # 如果只有一个源且不需要裁剪，直接复制
+    if len(chunk_sources) == 1 and chunk_sources[0][1] is None:
+        src_fp = chunk_sources[0][0]
+        try:
+            import shutil
+            shutil.copy2(src_fp, segment_file)
+            d = get_mp3_duration(segment_file)
+            return True, d or 0
+        except Exception as e:
+            print(f"[FIX] 复制文件失败: {e}")
+
+    # 构建 ffmpeg concat 列表（需要先裁剪的用中间文件）
+    parts_to_concat = []
+    temp_files = []
+
+    try:
+        for i, (src_fp, t_start, t_end) in enumerate(chunk_sources):
+            if t_start is not None and t_end is not None:
+                # 需要时间裁剪
+                temp_fp = segment_file.replace('.mp3', f'_part{i}.mp3')
+                temp_files.append(temp_fp)
+
+                duration = t_end - t_start
+                cmd = [
+                    'ffmpeg', '-y',
+                    '-i', src_fp,
+                    '-ss', str(t_start),
+                    '-t', str(duration),
+                    '-acodec', 'copy',
+                    temp_fp
+                ]
+                result = subprocess.run(cmd, capture_output=True, timeout=30)
+                if result.returncode != 0:
+                    print(f"[FIX] ⚠️ ffmpeg 裁剪失败 (part{i}): {result.stderr.decode()[-100:]}")
+                    continue
+                parts_to_concat.append(temp_fp)
+            else:
+                # 整块使用
+                parts_to_concat.append(src_fp)
+
+        if not parts_to_concat:
+            return False, 0
+
+        # 只有一个部分且就是目标本身
+        if len(parts_to_concat) == 1 and parts_to_concat[0] == segment_file:
+            d = get_mp3_duration(segment_file)
+            return bool(d), d or 0
+
+        # 多部分拼接
+        list_file = segment_file + '.list.txt'
+        with open(list_file, 'w') as f:
+            for pf in parts_to_concat:
+                f.write(f"file '{pf}'\n")
+
+        cmd = [
+            'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+            '-i', list_file,
+            '-c', 'copy',
+            segment_file
+        ]
+        result = subprocess.run(cmd, capture_output=True, timeout=60)
+        if os.path.exists(list_file):
+            os.remove(list_file)
+
+        if result.returncode != 0:
+            print(f"[FIX] ⚠️ ffmpeg 拼接失败: {result.stderr.decode()[-200:]}")
+            return False, 0
+
+        duration = get_mp3_duration(segment_file)
+        return bool(duration), duration or 0
+
+    finally:
+        # 清理临时文件
+        for tf in temp_files:
+            if os.path.exists(tf) and tf != segment_file:
+                try:
+                    os.remove(tf)
+                except:
+                    pass
 
 
 def build_char_timeline(content, duration):
-    """
-    构建一段文本的字符时间轴（从 0 开始的相对时间）
-    
-    参数：
-        content: 文本内容
-        duration: 该段音频的总时长（秒）
-        
-    返回：
-        char_timeline: 时间点数组，每个值是该字符在音频中的时间位置
-    """
+    """构建字符时间轴（从 0 开始的相对时间），带标点权重"""
     text = content.replace('\n', '')
     text_len = len(text)
     if text_len == 0 or duration <= 0:
@@ -234,16 +309,17 @@ def build_char_timeline(content, duration):
 
 def fix_section_char_timeline(section_id, force=False):
     """
-    修复单个节：同时修正 audio_path 和 char_timeline
+    修复单个节：用现有的 TTS 分块音频重建正确的分段音频文件。
     
-    策略：
-    1. 从磁盘找到所有 TTS 分块音频
-    2. 估算每个音频块对应的字符范围
+    流程：
+    1. 找到 section_{id}_*.mp3（TTS 字数切块）
+    2. 估算每个 TTS 块对应的字符范围和时间范围
     3. 对每个 text_segment：
-       a. 找到最匹配的音频块
-       b. 更新 audio_path 指向该音频块
-       c. 更新 audio_duration 为该音频块的实际时长
-       d. 用该时长生成新的 char_timeline（从 0 开始的相对时间）
+       - 确定它跨了哪些 TTS 块
+       - 用 ffmpeg 裁剪+拼接 → 新建 segment_{id}_{seg_idx}.mp3
+       - 测量新文件时长
+       - 生成 char_timeline
+       - 更新数据库
     """
     conn = get_db()
     cursor = conn.cursor()
@@ -264,27 +340,34 @@ def fix_section_char_timeline(section_id, force=False):
             print(f"[FIX] 节 {section_id} 内容为空")
             return False
 
-        # 获取所有音频文件
-        audio_files = find_section_audio_files(section_id)
-        if not audio_files:
-            print(f"[FIX] 节 {section_id} 无可用音频文件")
+        # 获取 TTS 分块音频
+        tts_chunks = find_tts_chunk_files(section_id)
+        if not tts_chunks:
+            print(f"[FIX] 节 {section_id} 无可用 TTS 分块音频，无法重建")
             return False
 
-        num_chunks = len(audio_files)
-        total_duration = sum(d for _, d in audio_files)
+        num_chunks = len(tts_chunks)
+        chunk_durations = [d for _, d in tts_chunks]
+        total_duration = sum(chunk_durations)
 
-        # 计算每个 TTS 块的字符范围
-        chunk_ranges = compute_tts_chunk_ranges(total_chars, num_chunks)
+        # 计算每个 TTS 块对应的字符范围和时间范围
+        chunk_ranges = compute_tts_chunk_char_ranges(total_chars, num_chunks, chunk_durations)
+
+        # 构建时间范围（累计偏移）
+        chunk_time_ranges = []  # [(start_time, end_time), ...]
+        time_offset = 0.0
+        for i, (_, d) in enumerate(tts_chunks):
+            chunk_time_ranges.append((time_offset, time_offset + d))
+            time_offset += d
 
         print(f"[FIX] 节 {section_id}: 文本={total_chars}字, "
-              f"音频={num_chunks}个块, 总时长={total_duration:.1f}s")
-        print(f"[FIX] TTS 字符范围映射:")
-        for i, (fp, d) in enumerate(audio_files):
-            if i < len(chunk_ranges):
-                cs, ce = chunk_ranges[i]
-                print(f"[FIX]   块{i} ({os.path.basename(fp)}): 字[{cs}:{ce}]={ce-cs}字, 时长={d}s")
-            else:
-                print(f"[FIX]   块{i} ({os.path.basename(fp)}): 时长={d}s")
+              f"TTS块={num_chunks}个, 总时长={total_duration:.1f}s")
+        print(f"[FIX] TTS 块映射:")
+        for i, ((fp, d), (cs, ce), (ts, te)) in enumerate(zip(tts_chunks, chunk_ranges, chunk_time_ranges)):
+            basename = os.path.basename(fp)
+            print(f"[FIX]   块{i} ({basename}): "
+                  f"字[{cs}:{ce}]={ce-cs}字, "
+                  f"时间[{ts:.1f}s:{te:.1f}s]={d:.1f}s")
 
         # 获取所有 text_segments
         cursor.execute(
@@ -306,7 +389,7 @@ def fix_section_char_timeline(section_id, force=False):
             old_audio_path = seg.get('audio_path', '') or ''
             char_timeline_raw = seg.get('char_timeline', '')
 
-            # 检查是否已有数据（force 模式下也继续）
+            # 检查是否已有数据
             existing_timeline = []
             if char_timeline_raw:
                 try:
@@ -318,11 +401,11 @@ def fix_section_char_timeline(section_id, force=False):
                     existing_timeline = []
 
             if existing_timeline and len(existing_timeline) > 0 and not force:
-                print(f"[FIX] 跳过 segment {seg_id}#{seg_num}: 已有数据 (用 force=True 覆盖)")
+                print(f"[FIX] 跳过 segment {seg_id}#{seg_num}: 已有 {len(existing_timeline)} 点 (force=True 覆盖)")
                 continue
 
             if existing_timeline and len(existing_timeline) > 0 and force:
-                print(f"[FIX] 🔄 segment {seg_id}#{seg_num}: 强制覆盖")
+                print(f"[FIX] 🔄 force 覆盖 segment {seg_id}#{seg_num} 的 {len(existing_timeline)} 个旧点")
 
             # 字符范围
             start_char = seg.get('start_char', 0)
@@ -341,40 +424,88 @@ def fix_section_char_timeline(section_id, force=False):
             seg_clean = seg_content.replace('\n', '')
             seg_char_count = len(seg_clean)
 
-            # === 核心修正：找到最佳匹配的音频块 ===
-            best_idx, overlap = find_best_audio_chunk(start_char, end_char, chunk_ranges)
-            matched_fp, matched_dur = audio_files[best_idx]
-            matched_basename = os.path.basename(matched_fp)
+            # === 核心：确定这个 segment 跨了哪些 TTS 块 ===
+            chunk_sources = []
+            seg_start_time = None
+            seg_end_time = None
 
-            # 构建 API 路径
-            new_audio_path = f'/api/audio/{matched_basename}'
-            
-            # 如果 audio_path 没变且不是强制模式，跳过
-            if new_audio_path == old_audio_path and existing_timeline and not force:
-                print(f"[FIX] 跳过 segment {seg_id}#{seg_num}: audio_path 未变且有 timeline")
+            for i, ((fp, _d), (cs, ce), (ts, te)) in enumerate(
+                zip(tts_chunks, chunk_ranges, chunk_time_ranges)):
+
+                # 计算 segment 和 TTS 块之间的字符重叠
+                overlap_start = max(start_char, cs)
+                overlap_end = min(end_char, ce)
+                overlap_chars = max(0, overlap_end - overlap_start)
+
+                if overlap_chars <= 0:
+                    continue  # 这个 TTS 块与当前 segment 无重叠
+
+                # 计算需要的时间裁剪范围
+                # 该 TTS 块内，segment 占据的比例
+                chunk_total_chars = ce - cs
+                if chunk_total_chars > 0:
+                    ratio_start = (overlap_start - cs) / chunk_total_chars
+                    ratio_end = (overlap_end - cs) / chunk_total_chars
+                else:
+                    ratio_start = 0.0
+                    ratio_end = 1.0
+
+                # 时间裁剪点（相对于这个 TTS 块的开始时间）
+                t_clip_start = ts + ratio_start * _d
+                t_clip_end = ts + ratio_end * _d
+
+                # 如果几乎占满整个块（>95%），不做裁剪以避免精度损失
+                use_whole = (ratio_start <= 0.01 and ratio_end >= 0.99)
+
+                if use_whole:
+                    chunk_sources.append((fp, None, None))
+                else:
+                    chunk_sources.append((fp, t_clip_start, t_clip_end))
+
+                # 记录 segment 的绝对时间范围
+                if seg_start_time is None:
+                    seg_start_time = t_clip_start if not use_whole else ts
+                seg_end_time = t_clip_end if not use_whole else te
+
+            if not chunk_sources:
+                print(f"[FIX] 跳过 segment {seg_id}#{seg_num}: 无匹配的 TTS 块")
                 continue
 
-            # 生成新的 char_timeline（相对于这个音频块，从 0 开始）
-            new_timeline = build_char_timeline(seg_clean, matched_dur)
+            # === 用 ffmpeg 重建该 segment 的音频文件 ===
+            segment_filename = f'segment_{section_id}_{seg_num}.mp3'
+            segment_filepath = os.path.join(AUDIO_FILES_DIR, segment_filename)
+
+            success, actual_dur = build_segment_audio_ffmpeg(segment_filepath, chunk_sources)
+
+            if not success or actual_dur <= 0:
+                print(f"[FIX] ⚠️ segment {seg_id}#{seg_num}: 重建音频失败")
+                continue
+
+            new_audio_path = f'/api/audio/{segment_filename}'
+
+            # 生成新的 char_timeline（相对于新建的分段音频，从 0 开始）
+            new_timeline = build_char_timeline(seg_clean, actual_dur)
 
             if new_timeline:
                 cursor.execute(
                     'UPDATE text_segments SET audio_path = %s, audio_duration = %s, char_timeline = %s '
                     'WHERE id = %s',
-                    (new_audio_path, matched_dur, json.dumps(new_timeline), seg_id)
+                    (new_audio_path, actual_dur, json.dumps(new_timeline), seg_id)
                 )
-                
-                changed_path = '' if new_audio_path == old_audio_path else f' (路径: {old_audio_path} → {new_audio_path})'
+
+                changed_path = '' if new_audio_path == old_audio_path else f'路径: {old_audio_path} → {new_audio_path}'
                 fixed_count += 1
+                chunks_used = len(chunk_sources)
                 print(f"[FIX] ✅ segment {seg_id}#{seg_num}: "
-                      f"chars[{start_char}:{end_char}]={seg_char_count}字 → "
-                      f"音频块#{best_idx} ({matched_basename}, {matched_dur}s, 重叠{overlap}字)"
-                      f"{changed_path}, timeline={len(new_timeline)}点")
+                      f"字[{start_char}:{end_char}]={seg_char_count}字 → "
+                      f"{segment_filename} ({actual_dur:.1f}s, "
+                      f"由{chunks_used}个TTS块拼接{f' ({changed_path})' if changed_path else ''}), "
+                      f"timeline={len(new_timeline)}点")
             else:
                 print(f"[FIX] ⚠️ segment {seg_id}#{seg_num}: 无法生成 timeline")
 
         conn.commit()
-        print(f"\n[FIX] 节 {section_id} 修复完成: {fixed_count}/{len(segments)} segments (audio_path+char_timeline)")
+        print(f"\n[FIX] 节 {section_id} 修复完成: {fixed_count}/{len(segments)} segments")
         return True
 
     except Exception as e:
@@ -406,33 +537,10 @@ def fix_book_char_timeline(book_id, force=False):
     print(f"\n[FIX] 书籍 {book_id} 完成, 共处理 {total_fixed} 个节")
 
 
-def fix_all_books():
-    """修复所有书籍"""
-    conn = get_db()
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute('SELECT id, title FROM books WHERE is_public = 1 ORDER BY id')
-        books = cursor.fetchall()
-
-        for book in books:
-            book_id = book['id']
-            book_title = book.get('title', '未知')
-            print(f"\n{'#'*60}")
-            print(f"# 修复书籍: {book_id} - {book_title}")
-            print('#'*60)
-            fix_book_char_timeline(book_id)
-
-    finally:
-        conn.close()
-
-
 def main():
     print("="*60)
-    print("char_timeline + audio_path 修复工具 v5")
-    print("同时修复:")
-    print("  1. text_segments.audio_path → 指向正确的 TTS 分块音频")
-    print("  2. text_segments.char_timeline → 匹配对应音频的真实时长")
+    print("char_timeline 修复工具 v6 — 重建分段音频文件")
+    print("使用现有 TTS 音频块 ffmpeg 拼接，零 TTS 费用")
     print("="*60)
 
     if len(sys.argv) < 2:
@@ -453,6 +561,27 @@ def main():
     else:
         print("参数错误!")
         sys.exit(1)
+
+
+def fix_all_books():
+    """修复所有书籍"""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('SELECT id, title FROM books WHERE is_public = 1 ORDER BY id')
+        books = cursor.fetchall()
+
+        for book in books:
+            book_id = book['id']
+            book_title = book.get('title', '未知')
+            print(f"\n{'#'*60}")
+            print(f"# 修复书籍: {book_id} - {book_title}")
+            print('#'*60)
+            fix_book_char_timeline(book_id)
+
+    finally:
+        conn.close()
 
 
 if __name__ == '__main__':
