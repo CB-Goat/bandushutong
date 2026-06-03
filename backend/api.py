@@ -371,7 +371,8 @@ def list_book_sections(book_id):
         result.append({
             'id': sec['id'],
             'section_number': sec['section_number'],
-            'title': sec.get('title', '') or ''
+            'title': sec.get('title', '') or '',
+            'chapter_number': sec.get('chapter_number')
         })
     return jsonify(result)
 

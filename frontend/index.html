@@ -6774,7 +6774,7 @@
                         sections.forEach(function(sec) {
                             var option = document.createElement('option');
                             option.value = sec.id;
-                            option.textContent = '第' + sec.section_number + '节 - ' + (sec.title || '无标题');
+                            option.textContent = (sec.chapter_number ? '第' + sec.chapter_number + '章 · ' : '') + '第' + sec.section_number + '节 - ' + (sec.title || '无标题');
                             select.appendChild(option);
                         });
                         // 加载完成后，如果选中的是"指定节"则启用下拉框
