@@ -1777,21 +1777,22 @@ def get_random_quote():
         count = min(2, total)
         if book_id and user_id:
             # 使用子查询而不是 IN 列表，避免 SQL 变量数量限制
+            # MySQL 使用 RAND() 而不是 SQLite 的 RANDOM()
             cursor.execute('''
                 SELECT id, content, author, source FROM quotes 
                 WHERE id NOT IN (
                     SELECT quote_id FROM quote_usage 
                     WHERE book_id=%s AND user_id=%s
                 )
-                ORDER BY RANDOM() LIMIT %s
+                ORDER BY RAND() LIMIT %s
             ''', (book_id, user_id, count))
             rows = cursor.fetchall()
             # 如果未用过的名言不够，随机选择
             if len(rows) < count:
-                cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT %s', (count,))
+                cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RAND() LIMIT %s', (count,))
                 rows = cursor.fetchall()
         else:
-            cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RANDOM() LIMIT %s', (count,))
+            cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RAND() LIMIT %s', (count,))
             rows = cursor.fetchall()
 
         results = []
