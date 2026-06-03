@@ -2092,6 +2092,16 @@
                 // 获取书籍基本信息（需要user_id获取用户进度）
                 var bookResp = await fetch(API_BASE + '/books/' + bookId + '?user_id=' + state.currentUser.id);
                 var bookData = await bookResp.json();
+
+                // 防御：接口返回错误或无书籍数据
+                if (!bookResp.ok || bookData.error || !bookData.book) {
+                    var errMsg = bookData.error || '书籍数据为空';
+                    alert('加载目录失败: ' + errMsg + '。请返回书架刷新页面后再试。');
+                    showPage('homePage');
+                    loadBooks();
+                    return;
+                }
+
                 var book = bookData.book;
                 var sections = bookData.sections || [];
                 // 保存用户进度
