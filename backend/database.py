@@ -1829,11 +1829,21 @@ def delete_insert_points_by_section(section_id):
 
 # ==================== 播放计划 ====================
 
+def _parse_json_or_none(value):
+    """安全解析JSON字符串，失败返回None"""
+    if not value:
+        return None
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except:
+            return None
+    return value
+
 def _row_to_dict(row, columns):
     """将数据库查询结果转换为字典（兼容元组和字典）"""
     if isinstance(row, dict):
         return row
-    # 元组格式，需要列名列表
     result = {}
     for i, col in enumerate(columns):
         if i < len(row):
@@ -1842,12 +1852,12 @@ def _row_to_dict(row, columns):
 
 def get_section_playback_plan(section_id):
     """获取一节的完整播放计划：text_segments + insert_points 交错排列"""
+    import json
     conn = get_db()
     cursor = conn.cursor()
     
     # 获取所有 text_segments
     cursor.execute('SELECT * FROM text_segments WHERE section_id = %s ORDER BY segment_number', (section_id,))
-    # 获取列名
     seg_columns = [desc[0] for desc in cursor.description]
     segments = []
     for row in cursor.fetchall():
@@ -1863,7 +1873,9 @@ def get_section_playback_plan(section_id):
     # 按 segment_id 分组
     points_by_segment = {}
     for p in all_points:
-        sid = p['segment_id'] if 'segment_id' in p else p.get(0)
+        sid = p.get('segment_id')
+        if sid is None:
+            sid = p.get(2)  # 备用位置
         if sid not in points_by_segment:
             points_by_segment[sid] = []
         points_by_segment[sid].append(p)
@@ -1873,18 +1885,23 @@ def get_section_playback_plan(section_id):
     total_duration = 0
     
     for seg in segments:
-        # 添加文本段
+        # 解析 char_timeline
+        char_timeline_raw = seg.get('char_timeline')
+        char_timeline = _parse_json_or_none(char_timeline_raw)
+        if not char_timeline:
+            char_timeline = []
+        
         seg_item = {
             'type': 'text_segment',
-            'id': seg.get('id') or seg.get(0),
-            'segment_number': seg.get('segment_number') or seg.get(1),
-            'content': seg.get('content') or seg.get(2) or '',
-            'start_char': seg.get('start_char') or seg.get(3) or 0,
-            'end_char': seg.get('end_char') or seg.get(4) or 0,
-            'word_count': seg.get('word_count') or seg.get(5) or 0,
-            'audio_path': seg.get('audio_path') or seg.get(6) or '',
-            'audio_duration': seg.get('audio_duration') or seg.get(7) or 0,
-            'char_timeline': seg.get('char_timeline') or seg.get(8) or ''
+            'id': seg.get('id'),
+            'segment_number': seg.get('segment_number'),
+            'content': seg.get('content') or '',
+            'start_char': seg.get('start_char') or 0,
+            'end_char': seg.get('end_char') or 0,
+            'word_count': seg.get('word_count') or 0,
+            'audio_path': seg.get('audio_path') or '',
+            'audio_duration': float(seg.get('audio_duration') or 0),
+            'char_timeline': char_timeline
         }
         playlist.append(seg_item)
         total_duration += seg_item['audio_duration'] or 0
@@ -1895,20 +1912,20 @@ def get_section_playback_plan(section_id):
             for ip in points_by_segment[seg_id]:
                 ip_item = {
                     'type': 'insert_point',
-                    'id': ip.get('id') or ip.get(0),
-                    'point_type': ip.get('point_type') or ip.get(1),
-                    'segment_id': ip.get('segment_id') or ip.get(2),
+                    'id': ip.get('id'),
+                    'point_type': ip.get('point_type'),
+                    'segment_id': ip.get('segment_id'),
                     'annotation_id': ip.get('annotation_id'),
                     'annotation_index': ip.get('annotation_index'),
                     'quote_text': ip.get('quote_text'),
                     'quote_start_char': ip.get('quote_start_char'),
                     'quote_end_char': ip.get('quote_end_char'),
                     'quote_audio_path': ip.get('quote_audio_path'),
-                    'quote_audio_duration': ip.get('quote_audio_duration') or 0,
+                    'quote_audio_duration': float(ip.get('quote_audio_duration') or 0),
                     'comment': ip.get('comment'),
                     'audio_path': ip.get('audio_path'),
-                    'audio_duration': ip.get('audio_duration') or 0,
-                    'char_timeline': ip.get('char_timeline')
+                    'audio_duration': float(ip.get('audio_duration') or 0),
+                    'char_timeline': _parse_json_or_none(ip.get('char_timeline')) or []
                 }
                 playlist.append(ip_item)
                 total_duration += ip_item['audio_duration'] or 0
