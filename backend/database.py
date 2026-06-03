@@ -1153,6 +1153,7 @@ def update_section_audio_timeline(section_id, audio_duration, char_timeline, aud
 
 def get_section_audio_timeline(section_id):
     """获取小节的音频时间轴信息"""
+    import json
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
@@ -1162,12 +1163,20 @@ def get_section_audio_timeline(section_id):
     row = cursor.fetchone()
     conn.close()
     if row:
-        import json
-        return {
-            'audio_path': row['audio_path'],
-            'audio_duration': row['audio_duration'],
-            'char_timeline': json.loads(row['char_timeline']) if row['char_timeline'] else []
-        }
+        # 兼容元组和字典两种返回格式
+        if isinstance(row, dict):
+            return {
+                'audio_path': row['audio_path'],
+                'audio_duration': row['audio_duration'],
+                'char_timeline': json.loads(row['char_timeline']) if row['char_timeline'] else []
+            }
+        else:
+            # 元组格式: (audio_path, audio_duration, char_timeline)
+            return {
+                'audio_path': row[0],
+                'audio_duration': row[1],
+                'char_timeline': json.loads(row[2]) if row[2] else []
+            }
     return None
 
 def update_section_audio_segments(section_id, audio_segments):
@@ -1193,8 +1202,15 @@ def get_section_audio_segments(section_id):
     )
     row = cursor.fetchone()
     conn.close()
-    if row and row['audio_segments']:
-        return json.loads(row['audio_segments'])
+    if row:
+        # 兼容元组和字典两种返回格式
+        if isinstance(row, dict):
+            if row['audio_segments']:
+                return json.loads(row['audio_segments'])
+        else:
+            # 元组格式: (audio_segments,)
+            if row[0]:
+                return json.loads(row[0])
     return None
 
 def update_book_tts_status(book_id, status, progress=''):
