@@ -1538,6 +1538,38 @@ def admin_update_book_public(book_id):
     conn.close()
     return jsonify({'message': '公版设置更新成功', 'is_public': is_public})
 
+@api_bp.route('/admin/books/<int:book_id>/fix-char-timeline', methods=['POST'])
+def admin_fix_char_timeline(book_id):
+    """修复书籍的 char_timeline（不重新生成音频）"""
+    book = get_book(book_id)
+    if not book:
+        return jsonify({'error': '书籍不存在'}), 404
+    
+    from backend.fix_char_timeline import fix_book_char_timeline
+    
+    try:
+        fix_book_char_timeline(book_id)
+        return jsonify({'success': True, 'message': '修复完成'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/admin/books/<int:book_id>/sections/<int:section_id>/fix-char-timeline', methods=['POST'])
+def admin_fix_section_char_timeline(book_id, section_id):
+    """修复单个节的 char_timeline（不重新生成音频）"""
+    book = get_book(book_id)
+    if not book:
+        return jsonify({'error': '书籍不存在'}), 404
+    
+    from backend.fix_char_timeline import fix_section_char_timeline
+    
+    try:
+        fix_section_char_timeline(section_id)
+        return jsonify({'success': True, 'message': '修复完成'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @api_bp.route('/admin/books/<int:book_id>/icon', methods=['POST'])
 def admin_upload_book_icon(book_id):
     """上传书籍图标（自动压缩）"""
