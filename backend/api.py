@@ -1766,9 +1766,10 @@ def get_random_quote():
         conn = get_db()
         cursor = conn.cursor()
         
-        # 获取总数
-        cursor.execute('SELECT COUNT(*) FROM quotes')
-        total = cursor.fetchone()[0]
+        # 获取总数（使用别名以兼容 DictCursor）
+        cursor.execute('SELECT COUNT(*) as total FROM quotes')
+        result = cursor.fetchone()
+        total = result['total'] if result else 0
         if total == 0:
             conn.close()
             return jsonify({'quotes': []})
