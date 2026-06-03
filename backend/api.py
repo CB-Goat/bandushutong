@@ -366,11 +366,14 @@ def book_detail(book_id):
 @api_bp.route('/books/<int:book_id>/sections', methods=['GET'])
 def list_book_sections(book_id):
     """获取书籍的所有小节（简化列表，用于下拉选择）"""
+    print(f"[API] list_book_sections called: book_id={book_id}")
     book = get_book(book_id)
     if not book:
+        print(f"[API] book {book_id} not found")
         return jsonify({'error': '书籍不存在'}), 404
 
     sections = get_sections_by_book(book_id)
+    print(f"[API] found {len(sections)} sections for book {book_id}")
     # 返回精简字段，前端只需要 id / section_number / title
     result = []
     for sec in sections:

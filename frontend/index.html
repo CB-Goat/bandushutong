@@ -6743,20 +6743,28 @@
             showFixCharTimelineModal: function() {
                 var modal = document.getElementById('fixCharTimelineModal');
                 var select = document.getElementById('fixSectionId');
-                var loadingHint = document.getElementById('fixSectionLoadingHint');
                 var bookId = state.adminCurrentBookId;
 
+                console.log('[FixTimeline] bookId:', bookId);
                 modal.classList.add('active');
 
                 // 清空并禁用下拉框
                 select.innerHTML = '<option value="">加载中...</option>';
                 select.disabled = true;
-                if (loadingHint) loadingHint.textContent = '正在加载节列表...';
+
+                // 通过 DOM 关系找到提示文字（不依赖 id）
+                var hintEl = select.parentElement.querySelector('p');
 
                 // 加载节列表
-                fetch(API_BASE + '/books/' + bookId + '/sections').then(function(r) { return r.json(); }).then(function(sections) {
+                var url = API_BASE + '/books/' + bookId + '/sections';
+                console.log('[FixTimeline] 请求:', url);
+                fetch(url).then(function(r) {
+                    console.log('[FixTimeline] 响应状态:', r.status);
+                    return r.json();
+                }).then(function(sections) {
+                    console.log('[FixTimeline] 返回数据:', sections, '类型:', typeof sections, Array.isArray(sections) ? '数组长度=' + sections.length : '非数组');
                     select.innerHTML = '<option value="">请选择节...</option>';
-                    if (sections && sections.length > 0) {
+                    if (Array.isArray(sections) && sections.length > 0) {
                         sections.forEach(function(sec) {
                             var option = document.createElement('option');
                             option.value = sec.id;
@@ -6767,13 +6775,14 @@
                         if (document.getElementById('fixOptionSection').checked) {
                             select.disabled = false;
                         }
-                        if (loadingHint) loadingHint.textContent = '共 ' + sections.length + ' 节';
+                        if (hintEl) hintEl.textContent = '共 ' + sections.length + ' 节';
                     } else {
-                        if (loadingHint) loadingHint.textContent = '该书暂无节';
+                        if (hintEl) hintEl.textContent = '该书暂无节（或该书籍无独立小节）';
                     }
                 }).catch(function(err) {
+                    console.error('[FixTimeline] 请求失败:', err);
                     select.innerHTML = '<option value="">加载失败</option>';
-                    if (loadingHint) loadingHint.textContent = '加载失败：' + (err.message || '网络错误');
+                    if (hintEl) hintEl.textContent = '加载失败：' + (err.message || '网络错误');
                 });
 
                 // 绑定单选按钮事件
