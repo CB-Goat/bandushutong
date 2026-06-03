@@ -6804,7 +6804,9 @@
                     }
                     // 修复指定节
                     fetch(API_BASE + '/admin/books/' + bookId + '/sections/' + sectionId + '/fix-char-timeline', {
-                        method: 'POST'
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({force: true})
                     }).then(function(r) { return r.json(); }).then(function(data) {
                         if (data.success) {
                             alert('修复完成！');

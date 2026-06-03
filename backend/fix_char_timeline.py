@@ -215,7 +215,7 @@ def rebuild_char_timeline_for_segment(content, segment_start_time, segment_end_t
     return char_timeline
 
 
-def fix_section_char_timeline(section_id):
+def fix_section_char_timeline(section_id, force=False):
     """
     修复单个节的所有 text_segments 的 char_timeline
     
@@ -293,9 +293,12 @@ def fix_section_char_timeline(section_id):
                 except:
                     existing_timeline = []
 
-            if existing_timeline and len(existing_timeline) > 0:
-                print(f"[FIX] 跳过 segment {seg_id}#{seg_num}: 已有 {len(existing_timeline)} 个时间点")
+            if existing_timeline and len(existing_timeline) > 0 and not force:
+                print(f"[FIX] 跳过 segment {seg_id}#{seg_num}: 已有 {len(existing_timeline)} 个时间点 (用 force=True 强制覆盖)")
                 continue
+
+            if existing_timeline and len(existing_timeline) > 0 and force:
+                print(f"[FIX] 🔄 force 模式: 覆盖 segment {seg_id}#{seg_num} 的 {len(existing_timeline)} 个旧时间点")
 
             # 获取该段的字符范围和内容
             start_char = seg.get('start_char', 0)
@@ -363,7 +366,7 @@ def fix_section_char_timeline(section_id):
         conn.close()
 
 
-def fix_book_char_timeline(book_id):
+def fix_book_char_timeline(book_id, force=False):
     """修复整本书的所有节"""
     sections = get_sections_by_book(book_id)
     if not sections:
@@ -376,7 +379,7 @@ def fix_book_char_timeline(book_id):
         print(f"\n{'='*60}")
         print(f"[FIX] 处理节 {section_id}: {section.get('title', '')}")
         print('='*60)
-        if fix_section_char_timeline(section_id):
+        if fix_section_char_timeline(section_id, force=force):
             total_fixed += 1
 
     print(f"\n[FIX] 书籍 {book_id} 完成, 共处理 {total_fixed} 个节")

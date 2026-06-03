@@ -1562,11 +1562,14 @@ def admin_fix_char_timeline(book_id):
     book = get_book(book_id)
     if not book:
         return jsonify({'error': '书籍不存在'}), 404
-    
+
     from backend.fix_char_timeline import fix_book_char_timeline
-    
+
+    data = request.json or {}
+    force = data.get('force', False)
+
     try:
-        fix_book_char_timeline(book_id)
+        fix_book_char_timeline(book_id, force=force)
         return jsonify({'success': True, 'message': '修复完成'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1578,11 +1581,14 @@ def admin_fix_section_char_timeline(book_id, section_id):
     book = get_book(book_id)
     if not book:
         return jsonify({'error': '书籍不存在'}), 404
-    
+
     from backend.fix_char_timeline import fix_section_char_timeline
-    
+
+    data = request.json or {}
+    force = data.get('force', False)
+
     try:
-        fix_section_char_timeline(section_id)
+        fix_section_char_timeline(section_id, force=force)
         return jsonify({'success': True, 'message': '修复完成'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
