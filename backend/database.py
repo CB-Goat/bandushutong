@@ -1831,6 +1831,7 @@ def delete_insert_points_by_section(section_id):
 
 def _parse_json_or_none(value):
     """安全解析JSON字符串，失败返回None"""
+    import json
     # 调试：打印所有解析尝试
     if value is None:
         print(f"[JSON-DEBUG] value is None")
