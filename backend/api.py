@@ -8,6 +8,7 @@ import os
 import sys
 import threading
 import time
+import pymysql
 
 # 导入状态存储 {book_id: {'status': str, 'message': str, 'updated_at': float}}
 _import_status = {}
@@ -1764,9 +1765,8 @@ def get_random_quote():
         
         from backend.database import get_db
         conn = get_db()
-        cursor = conn.cursor()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
         
-        # 获取总数（使用别名以兼容 DictCursor）
         cursor.execute('SELECT COUNT(*) as total FROM quotes')
         result = cursor.fetchone()
         total = result['total'] if result else 0
@@ -1774,11 +1774,8 @@ def get_random_quote():
             conn.close()
             return jsonify({'quotes': []})
         
-        # 优先选择未用过的名言，取2条
         count = min(2, total)
         if book_id and user_id:
-            # 使用子查询而不是 IN 列表，避免 SQL 变量数量限制
-            # MySQL 使用 RAND() 而不是 SQLite 的 RANDOM()
             cursor.execute('''
                 SELECT id, content, author, source FROM quotes 
                 WHERE id NOT IN (
@@ -1788,7 +1785,6 @@ def get_random_quote():
                 ORDER BY RAND() LIMIT %s
             ''', (book_id, user_id, count))
             rows = cursor.fetchall()
-            # 如果未用过的名言不够，随机选择
             if len(rows) < count:
                 cursor.execute('SELECT id, content, author, source FROM quotes ORDER BY RAND() LIMIT %s', (count,))
                 rows = cursor.fetchall()
@@ -1798,23 +1794,22 @@ def get_random_quote():
 
         results = []
         for row in rows:
-            results.append({'id': row[0], 'content': row[1], 'author': row[2], 'source': row[3]})
-            # 记录使用（忽略外键约束错误）
+            quote_id = row['id']
+            content = row['content']
+            author = row.get('author', '')
+            source = row.get('source', '')
+            results.append({'id': quote_id, 'content': content, 'author': author, 'source': source})
             if book_id and section_id and user_id:
                 try:
                     cursor.execute('''
                         INSERT INTO quote_usage (quote_id, book_id, section_id, user_id)
                         VALUES (%s, %s, %s, %s)
-                    ''', (row[0], book_id, section_id, user_id))
+                    ''', (quote_id, book_id, section_id, user_id))
                 except Exception as insert_err:
-                    # 外键约束错误或其他插入错误，忽略
                     print(f'[WARN] quote_usage insert skipped: {insert_err}')
         
-        try:
-            if book_id and section_id and user_id:
-                conn.commit()
-        except Exception as commit_err:
-            print(f'[WARN] quote_usage commit skipped: {commit_err}')
+        if book_id and section_id and user_id:
+            conn.commit()
         conn.close()
         return jsonify({'quotes': results})
     except Exception as e:
