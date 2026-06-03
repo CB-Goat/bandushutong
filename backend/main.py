@@ -90,11 +90,16 @@ if not os.path.exists('audio_files'):
 
 # 系统启动时检查并补齐固定音频文件（男声女声各4个，共8个）
 # 幂等操作：已存在的文件不会重新生成
+print("[TTS] 正在检查固定音频文件...", flush=True)
+import sys; sys.stdout.flush()
 try:
     from baidu_tts import ensure_fixed_audio_files
-    ensure_fixed_audio_files()
+    result = ensure_fixed_audio_files()
+    print(f"[TTS] 固定音频检查结果: {result}", flush=True)
 except Exception as e:
-    print(f"[TTS] 检查固定音频文件失败: {e}")
+    import traceback
+    print(f"[TTS] 检查固定音频文件失败: {e}", flush=True)
+    traceback.print_exc()
 
 if __name__ == '__main__':
     # 从环境变量获取端口，默认5000

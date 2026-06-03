@@ -366,8 +366,9 @@ def ensure_fixed_audio_files(speed=5):
 
     返回: True（完整或补齐成功） / False（TTS未配置或生成失败）
     """
+    print(f"[TTS] ensure_fixed_audio_files() called, AUDIO_DIR={AUDIO_DIR}, configured={is_configured()}", flush=True)
     if not is_configured():
-        print("[TTS] 固定音频跳过: TTS 未配置")
+        print("[TTS] 固定音频跳过: TTS 未配置", flush=True)
         return False
 
     # 两套各4个文件
@@ -378,12 +379,13 @@ def ensure_fixed_audio_files(speed=5):
 
     # 检查哪些缺失
     missing = [f for f in required_files if not os.path.exists(os.path.join(AUDIO_DIR, f))]
+    print(f"[TTS] 缺失文件检查: missing={missing}", flush=True)
 
     if not missing:
-        print(f"[TTS] 固定音频已完整 ({len(required_files)} 个文件)")
+        print(f"[TTS] 固定音频已完整 ({len(required_files)} 个文件)", flush=True)
         return True
 
-    print(f"[TTS] 固定音频缺失 {len(missing)}/{len(required_files)} 个，开始补齐...")
+    print(f"[TTS] 固定音频缺失 {len(missing)}/{len(required_files)} 个，开始补齐...", flush=True)
 
     # 按音色分组生成（只生成缺失的）
     for voice in ['male', 'female']:
@@ -394,10 +396,10 @@ def ensure_fixed_audio_files(speed=5):
     # 验证是否全部就位
     still_missing = [f for f in required_files if not os.path.exists(os.path.join(AUDIO_DIR, f))]
     if still_missing:
-        print(f"[TTS] 固定音频仍有 {len(still_missing)} 个缺失: {still_missing}")
+        print(f"[TTS] 固定音频仍有 {len(still_missing)} 个缺失: {still_missing}", flush=True)
         return False
 
-    print(f"[TTS] 固定音频补齐完成 ({len(required_files)} 个文件)")
+    print(f"[TTS] 固定音频补齐完成 ({len(required_files)} 个文件)", flush=True)
     return True
 
 
