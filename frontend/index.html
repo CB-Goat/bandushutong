@@ -2051,8 +2051,9 @@
                         showBookCatalog(state.currentBook.id);
                     }
                 } else {
-                    // 目录页/管理页/用户页 → 返回书架
+                    // 目录页/管理页/用户页 → 返回书架（刷新列表以获取最新书籍）
                     showPage('homePage');
+                    loadBooks();
                 }
             });
         }
