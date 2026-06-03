@@ -1717,7 +1717,7 @@
                     </div>
                     <!-- Fix Char Timeline Modal -->
                     <div class="modal" id="fixCharTimelineModal">
-                        <div class="modal-content" style="max-width:480px;">
+                        <div class="modal-content" style="max-width:520px;">
                             <h3>🔊 修复音频时间轴</h3>
                             <p style="color:#666;margin-bottom:12px;">此操作将修复书籍中所有已有音频但缺少字符时间轴的段落，<strong>不会重新生成音频</strong>，不会产生额外的 TTS 费用。</p>
                             <div style="display:flex;flex-direction:column;gap:12px;">
@@ -1725,10 +1725,15 @@
                                     <input type="radio" id="fixOptionAll" name="fixOption" value="all" checked>
                                     <label for="fixOptionAll">修复整本书的所有节</label>
                                 </div>
-                                <div style="display:flex;align-items:center;gap:12px;">
+                                <div style="display:flex;align-items:flex-start;gap:12px;">
                                     <input type="radio" id="fixOptionSection" name="fixOption" value="section">
-                                    <label for="fixOptionSection">修复指定节：</label>
-                                    <input type="number" id="fixSectionId" placeholder="节ID" style="width:100px;padding:4px;" disabled>
+                                    <div style="flex:1;">
+                                        <label for="fixOptionSection" style="display:block;margin-bottom:4px;">修复指定节：</label>
+                                        <select id="fixSectionId" style="width:100%;padding:6px;" disabled>
+                                            <option value="">请选择节...</option>
+                                        </select>
+                                        <p style="font-size:11px;color:#999;margin:4px 0 0;">加载中...</p>
+                                    </div>
                                 </div>
                             </div>
                             <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
@@ -6736,7 +6741,29 @@
             },
 
             showFixCharTimelineModal: function() {
-                document.getElementById('fixCharTimelineModal').classList.add('active');
+                var modal = document.getElementById('fixCharTimelineModal');
+                var select = document.getElementById('fixSectionId');
+                var bookId = state.adminCurrentBookId;
+                
+                modal.classList.add('active');
+                
+                // 清空并禁用下拉框
+                select.innerHTML = '<option value="">加载中...</option>';
+                select.disabled = true;
+                
+                // 加载节列表
+                fetch(API_BASE + '/books/' + bookId + '/sections?simple=1').then(function(r) { return r.json(); }).then(function(sections) {
+                    select.innerHTML = '<option value="">请选择节...</option>';
+                    sections.forEach(function(sec) {
+                        var option = document.createElement('option');
+                        option.value = sec.id;
+                        option.textContent = '第' + sec.section_number + '节 - ' + (sec.title || '无标题');
+                        select.appendChild(option);
+                    });
+                }).catch(function() {
+                    select.innerHTML = '<option value="">加载失败</option>';
+                });
+                
                 // 绑定单选按钮事件
                 document.getElementById('fixOptionAll').onchange = function() {
                     document.getElementById('fixSectionId').disabled = true;
@@ -6755,9 +6782,9 @@
                 var option = document.querySelector('input[name="fixOption"]:checked').value;
                 
                 if (option === 'section') {
-                    var sectionId = document.getElementById('fixSectionId').value.trim();
+                    var sectionId = document.getElementById('fixSectionId').value;
                     if (!sectionId) {
-                        alert('请输入要修复的节ID');
+                        alert('请从下拉列表中选择要修复的节');
                         return;
                     }
                     // 修复指定节
