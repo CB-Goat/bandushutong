@@ -516,7 +516,8 @@ def generate_section_audio_v2(book_id, section_id, speed=5, person=3):
     from backend.database import (
         create_text_segments, create_insert_points,
         get_text_segments, get_insert_points_by_segment,
-        update_text_segment_audio, update_insert_point_audio
+        update_text_segment_audio, update_insert_point_audio,
+        update_insert_point_quote_audio
     )
 
     # 0. 生成固定音频文件
@@ -536,8 +537,9 @@ def generate_section_audio_v2(book_id, section_id, speed=5, person=3):
     # 原文用 person（传入值），点评用互补音色
     comment_person = 5 if person == 3 else 3
 
-    # 3. 为每个原文段生成音频
+    # 3. 为每个原文段生成音频，并记录 segment_id → 音频信息 映射
     print(f"[TTS v2] 节 {section_id}: 开始生成 {len(segments)} 个原文段音频...")
+    seg_audio_map = {}  # segment_id → {'audio_path', 'audio_duration'}
     for seg in segments:
         seg_idx = seg.get('segment_number', 0)
         print(f"[TTS v2]   生成原文段 #{seg_idx} (id={seg['id']}, {seg.get('word_count', '?')}字)")
@@ -551,6 +553,10 @@ def generate_section_audio_v2(book_id, section_id, speed=5, person=3):
                 result['audio_duration'],
                 json.dumps(result['char_timeline']) if result.get('char_timeline') else None
             )
+            seg_audio_map[seg['id']] = {
+                'audio_path': result['audio_path'],
+                'audio_duration': result['audio_duration']
+            }
             print(f"[TTS v2]   原文段 #{seg_idx} 完成: {result['audio_duration']:.1f}s")
         else:
             print(f"[TTS v2]   原文段 #{seg_idx} 生成失败!")
@@ -569,7 +575,18 @@ def generate_section_audio_v2(book_id, section_id, speed=5, person=3):
                 )
                 if result and result.get('audio_path'):
                     update_insert_point_audio(ip['id'], result['audio_path'], result['audio_duration'])
-                    print(f"[TTS v2]   点评 #{ann_idx} 完成: {result['audio_duration']:.1f}s")
+                    print(f"[TTS v2]   点评 #{ann_idx} 评论音频完成: {result['audio_duration']:.1f}s")
+
+                # quote_audio_path 直接指向对应的 segment 音频（引用原文就是该段原文）
+                seg_audio_info = seg_audio_map.get(seg['id'])
+                if seg_audio_info:
+                    update_insert_point_quote_audio(
+                        ip['id'],
+                        seg_audio_info['audio_path'],
+                        seg_audio_info['audio_duration']
+                    )
+                    print(f"[TTS v2]   点评 #{ann_idx} quote_audio → {seg_audio_info['audio_path']}")
+
                 ann_idx += 1
 
             elif ip['point_type'] == 'summary':
