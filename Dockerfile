@@ -2,10 +2,14 @@
 
 FROM python:3.9-slim
 
-# 配置国内 apt 源（直接写入完整配置，确保生效）
-RUN echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie main contrib non-free" > /etc/apt/sources.list && \
-    echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-updates main contrib non-free" >> /etc/apt/sources.list && \
-    echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian-security/ trixie-security main contrib non-free" >> /etc/apt/sources.list
+# 配置国内 apt 源（完全覆盖默认配置）
+RUN printf '%s\n' \
+    'deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie main contrib non-free' \
+    'deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-updates main contrib non-free' \
+    'deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-backports main contrib non-free' \
+    'deb http://mirrors.tuna.tsinghua.edu.cn/debian-security/ trixie-security main contrib non-free' \
+    > /etc/apt/sources.list && \
+    rm -f /etc/apt/sources.list.d/*.list
 
 # 安装 ffmpeg（用于音频合并）
 RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
