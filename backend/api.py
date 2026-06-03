@@ -478,8 +478,7 @@ def upload_book():
             )
             chapter_id_map[ch['chapter_number']] = ch_id
         
-        # 保存小节到数据库
-        section_id_map = {}  # section_number -> section_id
+        # 保存小节到数据库（将 sec_id 写入每个 sec 字典，避免用 section_number 做 key 被覆盖）
         for sec in sections:
             ch_num = sec.get('chapter_number')
             ch_id = chapter_id_map.get(ch_num) if ch_num else None
@@ -492,7 +491,7 @@ def upload_book():
                 content=sec.get('content', ''),
                 title=sec.get('title', '')
             )
-            section_id_map[sec['section_number']] = sec_id
+            sec['id'] = sec_id  # 直接写入，供异步音频生成使用
 
             # 保存小结（从批注解析）
             if sec.get('summary'):
@@ -531,7 +530,7 @@ def upload_book():
             update_chapter_info(ch_id, len(ch_sections), ch_total_words)
 
         # 原文导入完成，音频生成改为后台异步处理
-        def generate_audio_async(book_id, sections, section_id_map):
+        def generate_audio_async(book_id, sections):
             """后台异步生成音频"""
             try:
                 _set_import_status(book_id, 'generating', '音频生成开始')
@@ -539,7 +538,7 @@ def upload_book():
                 total_count = len(sections)
                 
                 for i, sec in enumerate(sections):
-                    sec_id = section_id_map.get(sec['section_number'])
+                    sec_id = sec.get('id')
                     if not sec_id:
                         continue
                     result = reimport_section_core(
@@ -566,7 +565,7 @@ def upload_book():
         import threading
         audio_thread = threading.Thread(
             target=generate_audio_async,
-            args=(book_id, sections, section_id_map),
+            args=(book_id, sections),
             daemon=True
         )
         audio_thread.start()

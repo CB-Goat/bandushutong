@@ -412,7 +412,8 @@ class WordStructureParser:
         sections = []
         chapter_number = 0
         section_number = 0
-        numbering_counter = 0  # 编号计数器（只对有编号的节递增）
+        chapter_counter = 0   # 章自动编号计数器
+        section_counter = 0   # 节自动编号计数器（每章重置）
         current_chapter_title = None
         
         # 先检查是否有 Heading 3
@@ -433,14 +434,15 @@ class WordStructureParser:
             elif style == 'Heading 2':
                 # 新章节开始，重置节序号
                 section_number = 0
+                section_counter = 0  # 节编号也重置
                 
                 # 获取 Word 自动编号格式
                 num_fmt = self._get_auto_number_text(para)
                 if num_fmt:
                     lvlText, numFmt, start = num_fmt
-                    numbering_counter += 1
-                    chapter_number = numbering_counter
-                    auto_num_text = self._format_number_text(lvlText, numFmt, numbering_counter)
+                    chapter_counter += 1
+                    chapter_number = chapter_counter
+                    auto_num_text = self._format_number_text(lvlText, numFmt, chapter_counter)
                     print(f"[Parser] 章编号: {auto_num_text}")
                 else:
                     auto_num_text = None
@@ -473,12 +475,12 @@ class WordStructureParser:
                 # 节标题
                 section_number += 1
                 
-                # 获取 Word 自动编号格式
+                # 获取 Word 自动编号格式（使用独立的节编号计数器）
                 num_fmt = self._get_auto_number_text(para)
                 if num_fmt:
                     lvlText, numFmt, start = num_fmt
-                    numbering_counter += 1
-                    auto_num_text = self._format_number_text(lvlText, numFmt, numbering_counter)
+                    section_counter += 1
+                    auto_num_text = self._format_number_text(lvlText, numFmt, section_counter)
                     print(f"[Parser] 节编号: {auto_num_text}")
                 else:
                     auto_num_text = None
