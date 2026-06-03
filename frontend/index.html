@@ -3617,18 +3617,25 @@
                             // 从 playlist 中的 text_segment 构建 charTimeline（兼容旧逻辑）
                             self.charTimeline = [];
                             for (var i = 0; i < data.playlist.length; i++) {
-                                if (data.playlist[i].type === 'text_segment' && data.playlist[i].char_timeline) {
-                                    var segTimeline = data.playlist[i].char_timeline;
-                                    // 如果 char_timeline 是字符串，解析为 JSON
-                                    if (typeof segTimeline === 'string') {
-                                        try {
-                                            segTimeline = JSON.parse(segTimeline);
-                                        } catch (e) {
-                                            console.log('解析 char_timeline 失败:', e);
-                                            segTimeline = [];
+                                var item = data.playlist[i];
+                                if (item.type === 'text_segment') {
+                                    var segTimeline = item.char_timeline;
+                                    // 检查 char_timeline 是否存在（包括空数组）
+                                    if (segTimeline !== undefined && segTimeline !== null) {
+                                        // 如果 char_timeline 是字符串，解析为 JSON
+                                        if (typeof segTimeline === 'string') {
+                                            try {
+                                                segTimeline = JSON.parse(segTimeline);
+                                            } catch (e) {
+                                                console.log('解析 char_timeline 失败:', e);
+                                                segTimeline = [];
+                                            }
+                                        }
+                                        // 确保是数组类型
+                                        if (Array.isArray(segTimeline)) {
+                                            self.charTimeline = self.charTimeline.concat(segTimeline);
                                         }
                                     }
-                                    self.charTimeline = self.charTimeline.concat(segTimeline);
                                 }
                             }
                             console.log('构建 charTimeline, 长度:', self.charTimeline.length);
