@@ -129,9 +129,20 @@ def find_tts_chunk_files(section_id):
     # 用 os.listdir + fnmatch 替代 glob（Docker overlayFS 上 glob 可能有兼容性问题）
     files = []
     if os.path.isdir(AUDIO_FILES_DIR):
-        for fname in sorted(os.listdir(AUDIO_FILES_DIR)):
+        all_files = os.listdir(AUDIO_FILES_DIR)
+        print(f"[FIX] DEBUG: os.listdir('{AUDIO_FILES_DIR}') 返回 {len(all_files)} 个条目")
+        # 打印前20个和匹配的
+        matched_names = []
+        for fname in all_files:
             if fnmatch.fnmatch(fname, pattern_str):
+                matched_names.append(fname)
                 files.append(os.path.join(AUDIO_FILES_DIR, fname))
+        print(f"[FIX] DEBUG: fnmatch('{pattern_str}') 命中 {len(matched_names)} 个: {matched_names[:10]}")
+        if len(all_files) > 0:
+            sample = [f for f in all_files if 'section' in f.lower()][:10]
+            print(f"[FIX] DEBUG: 含'section'的文件样例: {sample}")
+    else:
+        print(f"[FIX] DEBUG: '{AUDIO_FILES_DIR}' 不是目录或不存在!")
 
     # 备用：如果 listdir 没找到，再试 glob
     if not files:
