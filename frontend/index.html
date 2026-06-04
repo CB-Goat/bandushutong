@@ -520,6 +520,27 @@
             font-size: 18px;
         }
 
+        .chalkboard .analysis-area .content .quote-item {
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(240,232,208,0.15);
+        }
+        .chalkboard .analysis-area .content .quote-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        .chalkboard .analysis-area .content .quote-content {
+            color: #f0e8d0;
+            font-size: 18px;
+            line-height: 1.8;
+            margin: 0 0 6px;
+        }
+        .chalkboard .analysis-area .content .quote-meta {
+            color: rgba(240,232,208,0.5);
+            font-size: 13px;
+            margin: 0;
+        }
+
         /* 赏析点评标签区域 */
         .chalkboard .analysis-tabs {
             display: flex;
@@ -3138,6 +3159,49 @@
                 this.init();
             }
         };
+
+        // ===== 名言加载 =====
+        function loadRandomQuote(sectionId) {
+            var params = '?section_id=' + encodeURIComponent(sectionId);
+            // 从当前状态获取 book_id 和 user_id
+            var bookId = (typeof state !== 'undefined' && state.currentBook) ? state.currentBook.id : '';
+            if (bookId) params += '&book_id=' + encodeURIComponent(bookId);
+            var userId = (typeof state !== 'undefined' && state.currentUser) ? state.currentUser.id : '';
+            if (userId) params += '&user_id=' + encodeURIComponent(userId);
+
+            fetch(API_BASE + '/quote/random' + params)
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    var quotes = data.quotes || [];
+                    if (quotes.length === 0) {
+                        // 没有名言时保持空白，不影响赏析区
+                        return;
+                    }
+                    // 格式化名言内容为 HTML
+                    var html = quotes.map(function(q, i) {
+                        var author = q.author ? ' —— ' + q.author : '';
+                        var source = q.source ? '《' + q.source + '》' : '';
+                        return '<div class="quote-item">' +
+                            '<p class="quote-content">' + q.content + '</p>' +
+                            '<p class="quote-meta">' + author + source + '</p>' +
+                            '</div>';
+                    }).join('');
+                    
+                    // 更新 analysisManager 中的名言 tab
+                    var famousTab = analysisManager.tabs.find(function(t) { return t.id === 'famous'; });
+                    if (famousTab) {
+                        famousTab.content = html;
+                        famousTab.isHtml = true;
+                        // 如果当前显示的就是名言赏析，刷新展示
+                        if (analysisManager.currentTab === 'famous') {
+                            analysisManager.showTab('famous');
+                        }
+                    }
+                })
+                .catch(function(err) {
+                    console.log('加载名言失败:', err);
+                });
+        }
 
         // ===== 时间轴播放器（统一使用预生成音频）=====
         var player = {
