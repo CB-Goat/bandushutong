@@ -4226,6 +4226,8 @@
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                 }
+                // 取消TTS语音，防止队列堆积导致手机卡死
+                this.cancelSpeech();
                 // 清除所有定时器，防止自动恢复播放
                 this._clearAllTimers();
                 this.isPlaying = false;
@@ -5901,8 +5903,17 @@
                 this.audio.play().catch(function() {});
             },
 
+            // 取消TTS (Text-to-Speech)，防止语音队列堆积导致手机卡死
+            cancelSpeech: function() {
+                if (window.speechSynthesis) {
+                    try { window.speechSynthesis.cancel(); } catch(e) {}
+                }
+            },
+
             _speakComment: function(text, callback) {
                 if (!window.speechSynthesis) { if (callback) callback(); return; }
+                // 先取消之前的TTS，防止语音队列堆积
+                this.cancelSpeech();
                 var utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'zh-CN';
                 utterance.rate = 1.0;
@@ -7065,7 +7076,7 @@
         }
 
         function startDeviceCheck() {
-            // 每5秒从服务器获取当前绑定的设备ID进行比对
+            // 每30秒从服务器获取当前绑定的设备ID进行比对（降低频率避免手机卡死）
             if (deviceCheckInterval) clearInterval(deviceCheckInterval);
             deviceCheckInterval = setInterval(function() {
                 if (!state.currentUser) return;
@@ -7524,6 +7535,20 @@
         // ===== 页面切换 =====
         function showPage(pageId) {
             if (pageId !== 'loginPage' && pageId !== 'publicPage' && !state.currentUser) { showPage('loginPage'); return; }
+
+            // 离开阅读页面时，清理所有TTS和音频资源，防止手机卡死
+            if (pageId !== 'readerPage' && typeof player !== 'undefined') {
+                player.cancelSpeech();
+                if (player._annotationAudio) {
+                    player._annotationAudio.pause();
+                    player._annotationAudio.src = '';
+                    player._annotationAudio.onended = null;
+                    player._annotationAudio.oncanplay = null;
+                    player._annotationAudio.onerror = null;
+                    player._annotationAudio.ontimeupdate = null;
+                }
+            }
+
             document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById(pageId).classList.add('active');
 
