@@ -2203,6 +2203,11 @@
                     state.currentUser = data.user;
                     state.militaryRank = data.military_rank || null;
                     localStorage.setItem('userId', data.user.id);
+                    // 更新卡片军衔显示（匿名用户也能看到阅读进度）
+                    updateProfileCardRank(data.military_rank);
+                    if (data.military_rank && data.military_rank.current_rank) {
+                        state._lastRankName = data.military_rank.current_rank.rank_name;
+                    }
                     // 打开书籍目录
                     openBookCatalog(bookId, title, iconPath);
                 } else {
@@ -5654,6 +5659,9 @@
                             // 保存当前军衔用于对比
                             var prevRank = state._lastRankName || '';
                             state._lastRankName = rank.rank_name;
+                            state.militaryRank = rank;
+                            // 实时更新个人卡片军衔
+                            updateProfileCardRank(rank);
                             if (prevRank && prevRank !== rank.rank_name) {
                                 // 军衔升级了！显示庆祝弹窗
                                 showRankUpCelebration(rank);

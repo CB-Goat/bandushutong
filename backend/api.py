@@ -1479,7 +1479,8 @@ def anonymous_login():
         new_user_id = cursor.lastrowid
         user = get_user(new_user_id)
         user.pop('password', None)
-        return jsonify({'user': user, 'military_rank': None, 'is_new': True})
+        military_rank = get_user_military_rank(new_user_id)
+        return jsonify({'user': user, 'military_rank': military_rank, 'is_new': True})
     finally:
         conn.close()
 
