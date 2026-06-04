@@ -13,6 +13,8 @@ import pymysql
 # 导入状态存储 {book_id: {'status': str, 'message': str, 'updated_at': float}}
 _import_status = {}
 _import_lock = threading.Lock()
+# 批量音频修复进度存储
+_fix_progress = {}
 
 def _set_import_status(book_id, status, message):
     with _import_lock:
@@ -882,6 +884,148 @@ def fix_section_audio(section_id):
     thread.start()
 
     return jsonify({'message': f'正在修复音频，缺失{total_missing}个文件', 'missing': total_missing})
+
+@api_bp.route('/admin/books/<int:book_id>/fix-all-audio', methods=['POST'])
+def fix_all_book_audio(book_id):
+    """一键修复整本书所有缺失的音频文件（批量异步处理）"""
+    book = get_book(book_id)
+    if not book:
+        return jsonify({'error': '书籍不存在'}), 404
+
+    # 获取所有节的目录统计
+    catalog = get_book_catalog_stats(book_id)
+    all_sections = []
+    for ch in catalog.get('chapters', []):
+        for sec in ch.get('sections', []):
+            if sec.get('audio_done', 0) < sec.get('audio_total', 0):
+                all_sections.append(sec['id'])
+    for sec in catalog.get('orphan_sections', []):
+        if sec.get('audio_done', 0) < sec.get('audio_total', 0):
+            all_sections.append(sec['id'])
+
+    if not all_sections:
+        return jsonify({'message': '所有音频已完整', 'total': 0, 'done': 0, 'failed': 0})
+
+    total = len(all_sections)
+    # 用锁保护共享变量
+    import threading
+    lock = threading.Lock()
+    progress = {'done': 0, 'failed': 0, 'current': 0, 'total': total, 'finished': False}
+    _fix_progress[book_id] = progress
+
+    def do_fix_all():
+        from backend.baidu_tts import text_to_speech_long
+        for i, section_id in enumerate(all_sections):
+            with lock:
+                progress['current'] = i + 1
+            try:
+                section = get_section(section_id)
+                if not section:
+                    with lock:
+                        progress['failed'] += 1
+                    continue
+                conn = get_db()
+                cursor = conn.cursor()
+                # 缺失的 text_segments
+                cursor.execute("SELECT id, start_char, end_char FROM text_segments WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '') ORDER BY start_char", (section_id,))
+                missing_segs = [dict(row) for row in cursor.fetchall()]
+                # 缺失的 insert_points
+                cursor.execute("SELECT id, point_type, comment FROM insert_points WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '')", (section_id,))
+                missing_ips = [dict(row) for row in cursor.fetchall()]
+                conn.close()
+
+                sec_fixed = 0
+                sec_failed = 0
+
+                # 修复 text_segments
+                for seg in missing_segs:
+                    try:
+                        text = section['content'][seg['start_char']:seg['end_char']]
+                        if not text.strip():
+                            continue
+                        audio_paths = text_to_speech_long(text, section_id=section_id)
+                        if audio_paths and len(audio_paths) > 0:
+                            raw_path = audio_paths[0]
+                            if raw_path.startswith('audio_files/'):
+                                audio_path = '/api/audio/' + raw_path.replace('audio_files/', '')
+                            else:
+                                audio_path = raw_path
+                            conn = get_db()
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE text_segments SET audio_path = %s WHERE id = %s", (audio_path, seg['id']))
+                            conn.commit()
+                            conn.close()
+                            sec_fixed += 1
+                        else:
+                            sec_failed += 1
+                    except Exception as e:
+                        sec_failed += 1
+                        print(f'[fix-all-audio] 段{seg["id"]} 异常: {e}')
+
+                # 修复 insert_points
+                for ip in missing_ips:
+                    try:
+                        text = ip.get('comment', '') or ''
+                        if ip.get('point_type') == 'summary':
+                            sec = get_section(section_id)
+                            text = sec.get('summary', '') or ''
+                        if not text.strip():
+                            continue
+                        audio_paths = text_to_speech_long(text, section_id=section_id)
+                        if audio_paths and len(audio_paths) > 0:
+                            raw_path = audio_paths[0]
+                            if raw_path.startswith('audio_files/'):
+                                audio_path = '/api/audio/' + raw_path.replace('audio_files/', '')
+                            else:
+                                audio_path = raw_path
+                            conn = get_db()
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE insert_points SET audio_path = %s WHERE id = %s", (audio_path, ip['id']))
+                            conn.commit()
+                            conn.close()
+                            sec_fixed += 1
+                        else:
+                            sec_failed += 1
+                    except Exception as e:
+                        sec_failed += 1
+                        print(f'[fix-all-audio] 插入点{ip["id"]} 异常: {e}')
+
+                print(f'[fix-all-audio] 节{section_id} 完成: 成功{sec_fixed}, 失败{sec_failed}')
+                with lock:
+                    progress['done'] += 1
+            except Exception as e:
+                with lock:
+                    progress['failed'] += 1
+                print(f'[fix-all-audio] 节{section_id} 异常: {e}')
+                import traceback
+                traceback.print_exc()
+
+        with lock:
+            progress['finished'] = True
+        print(f'[fix-all-audio] 全书修复完成: 成功{progress["done"]}, 失败{progress["failed"]}, 共{total}')
+
+    thread = threading.Thread(target=do_fix_all, daemon=True)
+    thread.start()
+
+    return jsonify({
+        'message': f'开始批量修复音频，共{total}个节',
+        'total': total,
+    })
+
+
+@api_bp.route('/admin/books/<int:book_id>/fix-all-audio/progress', methods=['GET'])
+def fix_all_book_audio_progress(book_id):
+    """查询批量修复进度"""
+    progress = _fix_progress.get(book_id)
+    if not progress:
+        return jsonify({'finished': True, 'total': 0, 'done': 0, 'failed': 0, 'current': 0})
+    return jsonify({
+        'finished': progress['finished'],
+        'total': progress['total'],
+        'done': progress['done'],
+        'failed': progress['failed'],
+        'current': progress['current'],
+    })
 
 @api_bp.route('/progress/v2', methods=['POST'])
 def save_progress_v2():

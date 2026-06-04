@@ -1528,90 +1528,92 @@
             }, 5000);
         }
 
-        // 一键修复：修复当前书籍所有缺少音频的节
+        // 一键修复：修复当前书籍所有缺少音频的节（使用批量API）
         function fixAllBookAudio() {
             var bookId = state.adminCurrentBookId;
             if (!bookId) return;
             var btn = document.getElementById('fixAllAudioBtn');
             btn.textContent = '扫描中...';
             btn.disabled = true;
+            console.log('[fix-all-audio] 开始扫描书籍', bookId);
             fetch(API_BASE + '/admin/books/' + bookId + '/catalog-stats')
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
-                    var missingSections = [];
-                    function collectMissing(sections) {
+                    var missingCount = 0;
+                    function countMissing(sections) {
                         if (!sections) return;
                         sections.forEach(function(sec) {
-                            if (sec.audio_done < sec.audio_total) {
-                                missingSections.push(sec.id);
-                            }
+                            if (sec.audio_done < sec.audio_total) missingCount++;
                         });
                     }
-                    if (data.chapters) data.chapters.forEach(function(ch) { collectMissing(ch.sections); });
-                    if (data.orphan_sections) collectMissing(data.orphan_sections);
-                    if (missingSections.length === 0) {
+                    if (data.chapters) data.chapters.forEach(function(ch) { countMissing(ch.sections); });
+                    if (data.orphan_sections) countMissing(data.orphan_sections);
+                    if (missingCount === 0) {
                         btn.textContent = '🔊 一键修复音频';
                         btn.disabled = false;
                         alert('所有节音频已完整，无需修复');
                         return;
                     }
-                    // 逐个修复
-                    var total = missingSections.length;
-                    var completed = 0;
-                    var failed = 0;
-                    btn.textContent = '修复中 0/' + total + '...';
-                    function fixNext(index) {
-                        if (index >= total) {
+                    console.log('[fix-all-audio] 发现', missingCount, '个节需要修复');
+                    // 调用批量修复接口
+                    btn.textContent = '启动修复...';
+                    fetch(API_BASE + '/admin/books/' + bookId + '/fix-all-audio', { method: 'POST' })
+                        .then(function(r) { return r.json(); })
+                        .then(function(resp) {
+                            if (resp.error) {
+                                btn.textContent = '🔊 一键修复音频';
+                                btn.disabled = false;
+                                alert('修复失败: ' + resp.error);
+                                return;
+                            }
+                            console.log('[fix-all-audio] 批量修复已启动, 共', resp.total, '个节');
+                            btn.textContent = '修复中 0/' + resp.total + '...';
+                            // 轮询修复进度
+                            var maxPolls = 300; // 最多25分钟
+                            var pollCount = 0;
+                            var timer = setInterval(function() {
+                                pollCount++;
+                                if (pollCount > maxPolls) {
+                                    clearInterval(timer);
+                                    btn.textContent = '🔊 一键修复音频';
+                                    btn.disabled = false;
+                                    adminShowCatalogStats(bookId);
+                                    alert('修复超时，请查看目录统计确认结果');
+                                    return;
+                                }
+                                fetch(API_BASE + '/admin/books/' + bookId + '/fix-all-audio/progress')
+                                    .then(function(r) { return r.json(); })
+                                    .then(function(prog) {
+                                        btn.textContent = '修复中 ' + prog.done + '/' + prog.total + '...';
+                                        console.log('[fix-all-audio] 进度:', prog.done + '/' + prog.total,
+                                            '失败:', prog.failed, '完成:', prog.finished);
+                                        if (prog.finished) {
+                                            clearInterval(timer);
+                                            btn.textContent = '🔊 一键修复音频';
+                                            btn.disabled = false;
+                                            adminShowCatalogStats(bookId);
+                                            var success = prog.total - prog.failed;
+                                            alert('音频修复完成：成功 ' + success + '/' + prog.total + (prog.failed > 0 ? '，失败 ' + prog.failed : ''));
+                                        }
+                                    })
+                                    .catch(function(err) {
+                                        console.error('[fix-all-audio] 轮询失败:', err);
+                                    });
+                            }, 5000);
+                        })
+                        .catch(function(err) {
+                            console.error('[fix-all-audio] 批量修复启动失败:', err);
                             btn.textContent = '🔊 一键修复音频';
                             btn.disabled = false;
-                            adminShowCatalogStats(bookId);
-                            alert('音频修复完成：成功 ' + (total - failed) + '/' + total + (failed > 0 ? '，失败 ' + failed : ''));
-                            return;
-                        }
-                        var sectionId = missingSections[index];
-                        btn.textContent = '修复中 ' + (index + 1) + '/' + total + '...';
-                        fetch(API_BASE + '/sections/' + sectionId + '/fix-audio', { method: 'POST' })
-                            .then(function(r) { return r.json(); })
-                            .then(function(data) {
-                                if (data.error) { failed++; fixNext(index + 1); return; }
-                                if (data.missing === 0) { completed++; fixNext(index + 1); return; }
-                                // 轮询等待该节修复完成
-                                var checkCount = 0;
-                                var timer = setInterval(function() {
-                                    checkCount++;
-                                    if (checkCount > 120) {
-                                        clearInterval(timer);
-                                        failed++;
-                                        fixNext(index + 1);
-                                        return;
-                                    }
-                                    fetch(API_BASE + '/admin/books/' + bookId + '/catalog-stats')
-                                        .then(function(r) { return r.json(); })
-                                        .then(function(data) {
-                                            var done = false;
-                                            function checkDone(sections) {
-                                                if (!sections) return;
-                                                for (var i = 0; i < sections.length; i++) {
-                                                    if (sections[i].id === sectionId && sections[i].audio_done >= sections[i].audio_total) {
-                                                        done = true; break;
-                                                    }
-                                                }
-                                            }
-                                            if (data.chapters) data.chapters.forEach(function(ch) { checkDone(ch.sections); });
-                                            if (data.orphan_sections) checkDone(data.orphan_sections);
-                                            if (done) {
-                                                clearInterval(timer);
-                                                completed++;
-                                                fixNext(index + 1);
-                                            }
-                                        }).catch(function() {});
-                                }, 5000);
-                            })
-                            .catch(function() { failed++; fixNext(index + 1); });
-                    }
-                    fixNext(0);
+                            alert('启动修复失败，请检查后端日志');
+                        });
                 })
-                .catch(function() { btn.textContent = '🔊 一键修复音频'; btn.disabled = false; alert('获取书籍信息失败'); });
+                .catch(function(err) {
+                    console.error('[fix-all-audio] 扫描书籍失败:', err);
+                    btn.textContent = '🔊 一键修复音频';
+                    btn.disabled = false;
+                    alert('获取书籍信息失败');
+                });
         }
 
         function pollTTSProgress(sectionIds, btn, bookId) {
