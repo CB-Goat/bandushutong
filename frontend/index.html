@@ -2757,6 +2757,8 @@
                 for (var i = prevTarget; i < target; i++) {
                     if (this._allChars[i]) {
                         this._allChars[i].classList.add('visible');
+                        // 主线播放时清除任何残留的点评高亮（已读节加载时的 annotated 残留）
+                        this._allChars[i].classList.remove('annotated');
                     }
                 }
                 
