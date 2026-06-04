@@ -6984,6 +6984,8 @@
             if (user.phone) {
                 startDeviceCheck();
             }
+            // 从专用API加载完整军衔数据（含progress），同步更新汉堡菜单
+            loadMilitaryRank();
         }
 
         // 根据用户是否匿名，控制菜单项的显示
@@ -7227,6 +7229,9 @@
             var deviceInfo = getDeviceInfo();
             document.getElementById('deviceName').textContent = getDeviceDisplayName();
             document.getElementById('deviceDetail').textContent = '设备ID: ' + deviceInfo.deviceId;
+
+            // 加载军衔信息（更新汉堡菜单进度条）
+            loadMilitaryRank();
         }
 
         // 加载军衔信息
@@ -7262,6 +7267,8 @@
                             document.getElementById('pageNextRankWords').textContent = '--';
                         }
                     }
+                    // 同时更新汉堡菜单中的军衔卡片
+                    updateProfileCardRank(data);
                 })
                 .catch(function(e) { console.log('加载军衔失败:', e); });
         }
