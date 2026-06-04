@@ -3317,15 +3317,18 @@
                     });
                 }
 
-                // 添加点评时暂停轮巡，延迟10秒后恢复（让用户先看到点评内容）
+                // 添加点评时暂停轮巡
                 this.stopRotation();
                 this.renderTabs();
                 this.showTab(tabId);
-                // 延迟10秒后恢复轮巡
-                var self = this;
-                setTimeout(function() {
-                    self.startRotationAlways();
-                }, 10000);
+                // 已读节/已播放：用定时器恢复轮巡（无音频播放，需靠定时器切换）
+                // 阅读中：不设定时器，由 _finishInsertPoint / _onSegmentEnd 在音频播放完后恢复
+                if (isPlayed) {
+                    var self = this;
+                    setTimeout(function() {
+                        self.startRotationAlways();
+                    }, 10000);
+                }
             },
 
             // 添加梗概小结标签
