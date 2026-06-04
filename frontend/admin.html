@@ -1566,7 +1566,7 @@
                                 alert('修复失败: ' + resp.error);
                                 return;
                             }
-                            console.log('[fix-all-audio] 批量修复已启动, 共', resp.total, '个节');
+                            console.log('[fix-all-audio] 批量修复已启动, 共', resp.total, '个音频文件');
                             btn.textContent = '修复中 0/' + resp.total + '...';
                             // 轮询修复进度
                             var maxPolls = 300; // 最多25分钟

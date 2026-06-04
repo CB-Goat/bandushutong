@@ -930,7 +930,18 @@ def fix_all_book_audio(book_id):
     if not all_sections:
         return jsonify({'message': '所有音频已完整', 'total': 0, 'done': 0, 'failed': 0})
 
-    total = len(all_sections)
+    # 预扫描：统计所有缺失的音频文件数（text_segments + insert_points）
+    conn = get_db()
+    cursor = conn.cursor()
+    total_files = 0
+    for section_id in all_sections:
+        cursor.execute("SELECT COUNT(*) FROM text_segments WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '')", (section_id,))
+        total_files += cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM insert_points WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '')", (section_id,))
+        total_files += cursor.fetchone()[0]
+    conn.close()
+
+    total = total_files
     import threading
     progress = {'done': 0, 'failed': 0, 'current': 0, 'total': total, 'finished': False}
     _save_fix_progress(book_id, progress)
@@ -945,6 +956,7 @@ def fix_all_book_audio(book_id):
                 'error': f'import失败: {e}'
             })
             return
+        section_count = len(all_sections)
         for i, section_id in enumerate(all_sections):
             progress = _get_fix_progress(book_id)
             progress['current'] = i + 1
@@ -952,24 +964,16 @@ def fix_all_book_audio(book_id):
             try:
                 section = get_section(section_id)
                 if not section:
-                    progress = _get_fix_progress(book_id)
-                    progress['failed'] += 1
-                    _save_fix_progress(book_id, progress)
                     continue
                 conn = get_db()
                 cursor = conn.cursor()
-                # 缺失的 text_segments
                 cursor.execute("SELECT id, start_char, end_char FROM text_segments WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '') ORDER BY start_char", (section_id,))
                 missing_segs = [dict(row) for row in cursor.fetchall()]
-                # 缺失的 insert_points
                 cursor.execute("SELECT id, point_type, comment FROM insert_points WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '')", (section_id,))
                 missing_ips = [dict(row) for row in cursor.fetchall()]
                 conn.close()
 
-                sec_fixed = 0
-                sec_failed = 0
-
-                # 修复 text_segments
+                # 修复 text_segments（每处理一个文件就更新进度）
                 for seg in missing_segs:
                     try:
                         text = section['content'][seg['start_char']:seg['end_char']]
@@ -987,14 +991,20 @@ def fix_all_book_audio(book_id):
                             cursor.execute("UPDATE text_segments SET audio_path = %s WHERE id = %s", (audio_path, seg['id']))
                             conn.commit()
                             conn.close()
-                            sec_fixed += 1
+                            progress = _get_fix_progress(book_id)
+                            progress['done'] += 1
+                            _save_fix_progress(book_id, progress)
                         else:
-                            sec_failed += 1
+                            progress = _get_fix_progress(book_id)
+                            progress['failed'] += 1
+                            _save_fix_progress(book_id, progress)
                     except Exception as e:
-                        sec_failed += 1
+                        progress = _get_fix_progress(book_id)
+                        progress['failed'] += 1
+                        _save_fix_progress(book_id, progress)
                         print(f'[fix-all-audio] 段{seg["id"]} 异常: {e}', flush=True)
 
-                # 修复 insert_points
+                # 修复 insert_points（每处理一个文件就更新进度）
                 for ip in missing_ips:
                     try:
                         text = ip.get('comment', '') or ''
@@ -1015,21 +1025,21 @@ def fix_all_book_audio(book_id):
                             cursor.execute("UPDATE insert_points SET audio_path = %s WHERE id = %s", (audio_path, ip['id']))
                             conn.commit()
                             conn.close()
-                            sec_fixed += 1
+                            progress = _get_fix_progress(book_id)
+                            progress['done'] += 1
+                            _save_fix_progress(book_id, progress)
                         else:
-                            sec_failed += 1
+                            progress = _get_fix_progress(book_id)
+                            progress['failed'] += 1
+                            _save_fix_progress(book_id, progress)
                     except Exception as e:
-                        sec_failed += 1
+                        progress = _get_fix_progress(book_id)
+                        progress['failed'] += 1
+                        _save_fix_progress(book_id, progress)
                         print(f'[fix-all-audio] 插入点{ip["id"]} 异常: {e}', flush=True)
 
-                print(f'[fix-all-audio] 节{section_id} 完成: 成功{sec_fixed}, 失败{sec_failed}', flush=True)
-                progress = _get_fix_progress(book_id)
-                progress['done'] += 1
-                _save_fix_progress(book_id, progress)
+                print(f'[fix-all-audio] 节{section_id} 完成 ({i+1}/{section_count})', flush=True)
             except Exception as e:
-                progress = _get_fix_progress(book_id)
-                progress['failed'] += 1
-                _save_fix_progress(book_id, progress)
                 print(f'[fix-all-audio] 节{section_id} 异常: {e}', flush=True)
                 import traceback
                 traceback.print_exc()
@@ -1043,7 +1053,7 @@ def fix_all_book_audio(book_id):
     thread.start()
 
     return jsonify({
-        'message': f'开始批量修复音频，共{total}个节',
+        'message': f'开始批量修复音频，共{total}个音频文件',
         'total': total,
     })
 
