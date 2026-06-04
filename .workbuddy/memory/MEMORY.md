@@ -9,7 +9,7 @@
 
 ## 技术栈
 - 后端：Python Flask（`backend/`），SQLite 数据库
-- 前端：单页面 HTML + 原生 JS（`frontend/index.html`）
+- 前端：原生 HTML + JS（`frontend/index.html` 读者端 + `frontend/admin.html` 管理端，2026-06-04 从 index.html 拆分）
 - 部署：Docker / docker-compose
 
 ## 已知问题 & 修复记录

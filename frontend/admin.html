@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>悦读小将 - 系统管理</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="shortcut icon" href="favicon.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'KaiTi', 'STKaiti', 'AR PL UKai CN', '楷体', cursive, serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        /* 导航栏 */
+        .navbar {
+            background: linear-gradient(135deg, #2d5016 0%, #1a3a0a 100%);
+            color: #e8e0c8;
+            padding: 10px 20px;
+            height: 52px;
+            box-sizing: border-box;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #8B7355;
+        }
+        .navbar h1 {
+            font-size: 20px;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            letter-spacing: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .navbar .back-btn {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #e8e0c8;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .navbar .back-btn:hover { background: rgba(255,255,255,0.25); }
+        .navbar .logout-btn {
+            background: rgba(220,53,69,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #ffcdd2;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+            margin-left: 8px;
+        }
+        .navbar .logout-btn:hover { background: rgba(220,53,69,0.5); }
+
+        /* ===== 管理页面样式 ===== */
+        .admin-page { padding: 15px; overflow-y: auto; width: 100%; max-width: 1200px; margin: 52px auto 0; box-sizing: border-box; min-height: calc(100vh - 52px); }
+        .admin-page h2 { font-size: 20px; margin-bottom: 15px; color: #2d5016; border-bottom: 2px solid #2d5016; padding-bottom: 8px; }
+        .admin-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .admin-card h3 { font-size: 16px; margin-bottom: 12px; color: #333; display: flex; justify-content: space-between; align-items: center; }
+        .admin-card h3 .btn { font-size: 12px; padding: 4px 12px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; font-family: -apple-system, sans-serif; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; }
+        .form-group input:focus, .form-group textarea:focus { border-color: #2d5016; outline: none; box-shadow: 0 0 0 2px rgba(45,80,22,0.1); }
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+        .btn-primary { background: #2d5016; color: white; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-family: inherit; }
+        .btn-primary:hover { background: #3a6b1e; }
+        .btn-danger { background: #dc3545; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: inherit; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #ddd; background: white; cursor: pointer; font-family: inherit; }
+        .btn-sm:hover { background: #f0f0f0; }
+        .btn-sm.active { background: #2d5016; color: white; border-color: #2d5016; }
+        .btn-sm.btn-danger { background: #dc3545; color: white; border-color: #dc3545; }
+        .btn-sm.btn-danger:hover { background: #c82333; }
+        .btn-warning { background: #f39c12; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: inherit; }
+        .btn-warning:hover { background: #e67e22; }
+        .btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 13px; font-family: inherit; }
+        .btn:hover { background: #f0f0f0; }
+
+        /* 书籍管理列表 */
+        .book-admin-item { display: flex; align-items: center; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+        .book-admin-item:hover { background: #f8f9fa; border-color: #2d5016; }
+        .book-admin-item .book-info { flex: 1; }
+        .book-admin-item .book-info .title { font-size: 15px; font-weight: 600; color: #333; }
+        .book-admin-item .book-info .meta { font-size: 12px; color: #999; margin-top: 2px; font-family: -apple-system, sans-serif; }
+        .book-admin-item .book-actions { display: flex; gap: 6px; }
+
+        /* Admin tab styles */
+        .admin-tabs { display: flex; gap: 0; margin-bottom: 15px; border-bottom: 2px solid #eee; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .admin-tab { padding: 10px 16px; cursor: pointer; font-size: 14px; color: #666; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; font-family: inherit; white-space: nowrap; }
+        .admin-tab:hover { color: #2d5016; }
+        .admin-tab.active { color: #2d5016; border-bottom-color: #2d5016; font-weight: 600; }
+        .admin-tab-content { display: none; }
+        .admin-tab-content.active { display: block; }
+        .admin-search-bar { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
+        .admin-search-bar input, .admin-search-bar select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: inherit; }
+        .admin-search-bar input { flex: 1; min-width: 150px; }
+        .admin-search-bar select { min-width: 100px; }
+        .admin-search-bar button { padding: 8px 16px; background: #2d5016; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: inherit; white-space: nowrap; }
+        .admin-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+        .admin-table th { background: #f5f5f5; padding: 10px 8px; text-align: left; font-weight: 600; color: #333; border-bottom: 2px solid #ddd; white-space: nowrap; }
+        .admin-table td { padding: 10px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        .admin-table tr:hover { background: #fafafa; }
+        .admin-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+        .admin-badge.admin { background: #d4edda; color: #155724; }
+        .admin-badge.user { background: #e9ecef; color: #6c757d; }
+        .admin-inline-btn { padding: 3px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #ddd; background: white; cursor: pointer; font-family: inherit; }
+        .admin-inline-btn:hover { background: #f0f0f0; }
+        .admin-inline-btn.danger { color: #dc3545; border-color: #dc3545; }
+        .admin-inline-btn.primary { color: #2d5016; border-color: #2d5016; }
+        .catalog-tree { margin-top: 10px; }
+        .catalog-chapter { margin-bottom: 10px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+        .catalog-chapter-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #f8f9fa; cursor: pointer; font-weight: 600; }
+        .catalog-chapter-header:hover { background: #f0f0f0; }
+        .catalog-chapter-stats { font-size: 12px; color: #999; font-weight: normal; }
+        .catalog-section-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 15px 8px 30px; border-top: 1px solid #f0f0f0; font-size: 13px; }
+        .catalog-section-item:hover { background: #fafafa; }
+        .catalog-section-stats { font-size: 12px; color: #999; }
+
+        /* 章节管理 */
+        .chapter-item { display: flex; align-items: center; padding: 10px 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 6px; }
+        .chapter-item .ch-info { flex: 1; }
+        .chapter-item .ch-info .ch-title { font-size: 14px; font-weight: 600; }
+        .chapter-item .ch-info .ch-meta { font-size: 12px; color: #999; font-family: -apple-system, sans-serif; }
+        .section-item { display: flex; align-items: center; padding: 8px 12px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 4px; font-size: 13px; }
+        .section-item .sec-info { flex: 1; }
+        .section-item .sec-info .sec-title { font-weight: 500; }
+        .section-item .sec-info .sec-meta { font-size: 11px; color: #999; font-family: -apple-system, sans-serif; }
+
+        /* 模态框 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; }
+        .modal-box { background: white; border-radius: 12px; padding: 20px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        .modal-box h3 { margin-bottom: 15px; font-size: 18px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
+
+        /* Loading */
+        .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.7); color: white; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 300; }
+
+        /* 错误/未授权 */
+        .error-page { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; padding: 20px; }
+        .error-page h2 { font-size: 24px; color: #dc3545; margin-bottom: 15px; }
+        .error-page p { font-size: 16px; color: #666; margin-bottom: 20px; }
+
+        @media (max-width: 768px) {
+            .admin-tabs { overflow-x: auto; }
+            .admin-tab { padding: 10px 12px; font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div class="navbar">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <button class="back-btn" onclick="goBack()">← 返回书架</button>
+            <h1>悦读小将</h1>
+        </div>
+        <button class="logout-btn" onclick="doLogout()">退出</button>
+    </div>
+
+    <!-- 管理页面主体 -->
+    <div class="admin-page">
+        <!-- Header -->
+        <div style="margin-bottom:15px;">
+            <h2 style="margin:0;border:none;padding:0;">⚙️ 系统管理</h2>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="admin-tabs">
+            <div class="admin-tab active" onclick="switchAdminTab('userManage')">用户管理</div>
+            <div class="admin-tab" onclick="switchAdminTab('bookManage')">书籍管理</div>
+            <div class="admin-tab" onclick="switchAdminTab('quoteManage')">名言管理</div>
+            <div class="admin-tab" onclick="switchAdminTab('subManage')">订阅管理</div>
+            <div class="admin-tab" onclick="switchAdminTab('commentManage')">评论管理</div>
+            <div class="admin-tab" onclick="switchAdminTab('msgManage')">留言管理</div>
+            <div class="admin-tab" onclick="switchAdminTab('rankManage')">军衔军功</div>
+        </div>
+
+        <!-- Tab Content: User Management -->
+        <div id="adminTab_userManage" class="admin-tab-content active">
+            <div class="admin-card">
+                <h3>👤 用户管理</h3>
+                <div class="admin-search-bar">
+                    <input type="text" id="adminUserPhone" placeholder="手机号码">
+                    <select id="adminUserRole">
+                        <option value="">全部角色</option>
+                        <option value="user">普通用户</option>
+                        <option value="admin">系统用户</option>
+                    </select>
+                    <select id="adminUserGender">
+                        <option value="">全部性别</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                    <input type="number" id="adminUserAgeAbove" placeholder="年龄≥" style="width:70px;flex:none;">
+                    <input type="number" id="adminUserAgeBelow" placeholder="年龄≤" style="width:70px;flex:none;">
+                    <button onclick="searchAdminUsers()">搜索</button>
+                </div>
+                <div id="adminUserList" style="overflow-x:auto;"></div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Book Management -->
+        <div id="adminTab_bookManage" class="admin-tab-content" style="display:none;">
+            <div class="admin-card">
+                <h3>📚 书籍列表</h3>
+                <div class="admin-search-bar">
+                    <input type="text" id="adminBookTitle" placeholder="书名">
+                    <input type="text" id="adminBookAuthor" placeholder="作者">
+                    <input type="number" id="adminBookPrice" placeholder="订阅金额" style="width:100px;flex:none;">
+                    <button onclick="searchAdminBooks()">搜索</button>
+                    <button class="btn btn-primary" onclick="admin.newBook()" style="padding:6px 14px;font-size:13px;white-space:nowrap;">＋ 新增书籍</button>
+                </div>
+                <input type="file" id="bookImportFileInput" accept=".docx" style="display:none">
+                <div id="adminBookList"></div>
+            </div>
+            <!-- Book Detail (hidden by default) -->
+            <div id="adminBookDetail" style="display:none;">
+                <div class="admin-card">
+                    <h3 id="adminDetailTitle">书籍详情</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>书名</label><input type="text" id="editBookTitle"></div>
+                        <div class="form-group"><label>作者</label><input type="text" id="editBookAuthor"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>作者国籍</label><input type="text" id="editBookNationality"></div>
+                        <div class="form-group"><label>版本</label><input type="text" id="editBookVersion"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>订阅价格</label><input type="text" id="editBookPrice" placeholder="￥0.00"></div>
+                        <div class="form-group"><label>朗读声音</label><select id="editBookVoiceType"><option value="male">男声</option><option value="female">女声</option></select></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:28px;"><input type="checkbox" id="editBookIsPublic" style="width:18px;height:18px;"><label for="editBookIsPublic" style="margin:0;cursor:pointer;">公版书籍（无需登录即可浏览）</label></div>
+                    </div>
+                    <div class="form-row" style="align-items:flex-start;">
+                        <div class="form-group">
+                            <label>书籍图标</label>
+                            <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+                                <img id="editBookIconPreview" src="" style="width:48px;height:64px;border-radius:4px;background:#f5f5f5;display:none;">
+                                <div id="editBookIconPlaceholder" style="width:48px;height:64px;border-radius:4px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:24px;color:#ccc;">📚</div>
+                                <div>
+                                    <input type="file" id="editBookIconFile" accept="image/*" style="display:none;" onchange="previewBookIcon(this)">
+                                    <button class="btn btn-sm" onclick="document.getElementById('editBookIconFile').click()" style="padding:6px 12px;font-size:13px;">上传图标</button>
+                                    <p style="font-size:11px;color:#999;margin:4px 0 0;">建议正方形图片，自动压缩为64x64</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
+                        <button class="btn" onclick="admin.backToBookList()">返回列表</button>
+                        <button class="btn btn-warning" onclick="admin.toggleFixCharTimeline()">🔊 修复音频时间轴</button>
+                        <button class="btn btn-danger" onclick="adminDeleteBook()">删除此书</button>
+                        <button class="btn btn-primary" onclick="adminSaveBook()">保存修改</button>
+                    </div>
+                </div>
+                <!-- Fix Char Timeline Panel -->
+                <div class="admin-card" id="fixCharTimelinePanel" style="display:none;">
+                    <h3>🔊 修复音频时间轴</h3>
+                    <p style="color:#666;margin-bottom:12px;">此操作将修复书籍中所有已有音频但缺少字符时间轴的段落，<strong>不会重新生成音频</strong>，不会产生额外的 TTS 费用。</p>
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <input type="radio" id="fixOptionAll" name="fixOption" value="all" checked>
+                            <label for="fixOptionAll">修复整本书的所有节</label>
+                        </div>
+                        <div style="display:flex;align-items:flex-start;gap:12px;">
+                            <input type="radio" id="fixOptionSection" name="fixOption" value="section">
+                            <div style="flex:1;">
+                                <label for="fixOptionSection" style="display:block;margin-bottom:4px;">修复指定节：</label>
+                                <select id="fixSectionId" style="width:100%;padding:6px;" disabled>
+                                    <option value="">请选择节...</option>
+                                </select>
+                                <p id="fixSectionLoadingHint" style="font-size:11px;color:#999;margin:4px 0 0;">加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+                        <button class="btn btn-primary" onclick="admin.executeFixCharTimeline()">确认修复</button>
+                    </div>
+                </div>
+                <!-- Chapter Management -->
+                <div class="admin-card">
+                    <h3>章节管理 <button class="btn btn-sm" onclick="admin.addChapter()">＋ 添加章</button></h3>
+                    <div id="adminChapterList"></div>
+                </div>
+                <!-- Section Management -->
+                <div class="admin-card" id="adminSectionCard" style="display:none;">
+                    <h3 id="adminSectionTitle">小节管理</h3>
+                    <div id="adminSectionList"></div>
+                </div>
+                <!-- Catalog Stats -->
+                <div class="admin-card">
+                    <h3>📖 章节目录</h3>
+                    <div id="adminCatalogStats"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Quote Management -->
+        <div id="adminTab_quoteManage" class="admin-tab-content" style="display:none;">
+            <div class="admin-card">
+                <h3>💬 名言管理</h3>
+                <div style="margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="showAddQuoteModal()">添加名言</button>
+                    <button class="btn" onclick="showImportQuotesModal()">批量导入</button>
+                </div>
+                <div id="quoteList" style="max-height:500px;overflow-y:auto;"></div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Subscription Management -->
+        <div id="adminTab_subManage" class="admin-tab-content" style="display:none;">
+            <div class="admin-card">
+                <h3>📋 订阅管理</h3>
+                <div class="admin-search-bar">
+                    <input type="text" id="adminSubPhone" placeholder="输入用户手机号查询">
+                    <button onclick="searchAdminSubscriptions()">查询</button>
+                </div>
+                <div id="adminSubList"></div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Comment Management (placeholder) -->
+        <div id="adminTab_commentManage" class="admin-tab-content" style="display:none;">
+            <div class="admin-card"><p style="color:#999;text-align:center;padding:30px;">评论管理功能开发中...</p></div>
+        </div>
+
+        <!-- Tab Content: Message Management -->
+        <div id="adminTab_msgManage" class="admin-tab-content" style="display:none;">
+            <div class="admin-card">
+                <h3>💬 留言管理</h3>
+                <div style="margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                    <button class="btn btn-primary" onclick="loadAdminMessages()">刷新列表</button>
+                    <span id="msgCount" style="color:#666;font-size:13px;"></span>
+                </div>
+                <div class="admin-search-bar" style="margin-bottom:15px;">
+                    <input type="text" id="msgSearchKeyword" placeholder="搜索用户/内容" onkeyup="if(event.key==='Enter')loadAdminMessages()">
+                    <select id="msgFilter" onchange="loadAdminMessages()" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                        <option value="">全部状态</option>
+                        <option value="pending">待回复</option>
+                        <option value="replied">已回复</option>
+                    </select>
+                    <button onclick="loadAdminMessages()">搜索</button>
+                </div>
+                <div id="adminMessageList" style="max-height:600px;overflow-y:auto;"></div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Rank Management -->
+        <div id="adminTab_rankManage" class="admin-tab-content" style="display:none;">
+            <div class="admin-card">
+                <h3>🎖️ 军衔等级管理</h3>
+                <p style="color:#666;font-size:13px;margin-bottom:15px;">所有军衔等级及对应的累计阅读字数要求</p>
+                <div id="adminRankList" style="overflow-x:auto;"></div>
+            </div>
+            <div class="admin-card" style="margin-top:20px;">
+                <h3>🏅 军功评定规则</h3>
+                <p style="color:#666;font-size:13px;margin-bottom:15px;">每满50个已评分思考进行一次统计，按星级率判定军功类型（取最高）</p>
+                <div style="background:#f8f9fa;border-radius:8px;padding:15px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:#e9ecef;">
+                                <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">军功</th>
+                                <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">思考量</th>
+                                <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">星级要求</th>
+                                <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">星率统计说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/merit_1.png" style="height:24px;vertical-align:middle;" alt="一等功"> <span style="color:#FFD700;font-weight:bold;">一等功</span></td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">≥ 350</td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">3星率 ≥ 50%</td>
+                                <td style="padding:10px;border:1px solid #dee2e6;color:#666;">仅统计3星</td>
+                            </tr>
+                            <tr style="background:#f8f9fa;">
+                                <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/merit_2.png" style="height:24px;vertical-align:middle;" alt="二等功"> <span style="color:#C0C0C0;font-weight:bold;">二等功</span></td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">≥ 250</td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">3星率 ≥ 30%</td>
+                                <td style="padding:10px;border:1px solid #dee2e6;color:#666;">仅统计3星</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/merit_3.png" style="height:24px;vertical-align:middle;" alt="三等功"> <span style="color:#CD7F32;font-weight:bold;">三等功</span></td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">≥ 150</td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">2星率 ≥ 50%</td>
+                                <td style="padding:10px;border:1px solid #dee2e6;color:#666;">统计≥2星（2星+3星）</td>
+                            </tr>
+                            <tr style="background:#f8f9fa;">
+                                <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/merit_4.png" style="height:24px;vertical-align:middle;" alt="嘉奖"> <span style="color:#8B4513;font-weight:bold;">嘉奖</span></td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">≥ 50</td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">1星率 ≥ 80%</td>
+                                <td style="padding:10px;border:1px solid #dee2e6;color:#666;">统计≥1星（1星+2星+3星）</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="admin-card" style="margin-top:20px;">
+                <h3>🏆 勋章评定规则</h3>
+                <p style="color:#666;font-size:13px;margin-bottom:15px;">按累积3星数达标颁发，最高可拥有三枚</p>
+                <div style="background:#f8f9fa;border-radius:8px;padding:15px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:#e9ecef;">
+                                <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">勋章</th>
+                                <th style="padding:10px;text-align:left;border:1px solid #dee2e6;">3星累积数</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/medal_red_star.png" style="height:24px;vertical-align:middle;" alt="红星勋章"> <span style="color:#FFD700;font-weight:bold;">红星勋章</span></td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">100</td>
+                            </tr>
+                            <tr style="background:#f8f9fa;">
+                                <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/medal_red_flag.png" style="height:24px;vertical-align:middle;" alt="红旗勋章"> <span style="color:#FFD700;font-weight:bold;">红旗勋章</span></td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">200</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:10px;border:1px solid #dee2e6;"><img src="medals/medal_bayi.png" style="height:24px;vertical-align:middle;" alt="八一勋章"> <span style="color:#FFD700;font-weight:bold;">八一勋章</span></td>
+                                <td style="padding:10px;border:1px solid #dee2e6;">300</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑模态框 -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-box">
+            <h3 id="editModalTitle">编辑</h3>
+            <div id="editModalContent"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeEditModal()">取消</button>
+                <button class="btn btn-primary" id="editModalSave">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        // ===== 工具函数 =====
+        function toChineseNumber(num) {
+            const chineseNums = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+            if (num <= 10) return chineseNums[num];
+            if (num < 20) return '十' + (num % 10 === 0 ? '' : chineseNums[num % 10]);
+            if (num < 100) {
+                const tens = Math.floor(num / 10);
+                const ones = num % 10;
+                return chineseNums[tens] + '十' + (ones === 0 ? '' : chineseNums[ones]);
+            }
+            return String(num);
+        }
+
+        function formatChapterTitle(number, title, type) {
+            return title || '';
+        }
+
+        function showLoading(text) {
+            var div = document.createElement('div');
+            div.className = 'loading';
+            div.id = 'loadingIndicator';
+            div.textContent = text;
+            document.body.appendChild(div);
+        }
+
+        function hideLoading() {
+            var el = document.getElementById('loadingIndicator');
+            if (el) el.remove();
+        }
+
+        function closeEditModal() { document.getElementById('editModal').classList.remove('active'); }
+
+        var iconToLevel = {
+            'private': 1, 'private_first': 2,
+            'sergeant_1': 3, 'sergeant_2': 4, 'sergeant_3': 5,
+            'sergeant_4': 6, 'sergeant_5': 7, 'sergeant_6': 8, 'sergeant_7': 9,
+            '2lt': 10, '1lt': 11, 'cpt': 12,
+            'maj': 13, 'ltc': 14, 'col': 15, 'sen_col': 16,
+            'bg': 17, 'mg': 18, 'lg': 19, 'marshal': 20
+        };
+
+        // ===== 状态 =====
+        var state = {
+            adminCurrentBookId: null,
+            adminCurrentChapterId: null,
+            adminImportBookId: null
+        };
+
+        // ===== 认证检查 =====
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        function doLogout() {
+            localStorage.removeItem('userId');
+            localStorage.removeItem('currentUser');
+            window.location.href = 'index.html';
+        }
+
+        // ===== 管理员功能 =====
+        var admin = {
+            loadBooks: function(books) {
+                var list = document.getElementById('adminBookList');
+                if (!list) return;
+
+                if (books) {
+                    renderBookTable(books);
+                    return;
+                }
+
+                list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">加载中...</div>';
+
+                fetch(API_BASE + '/admin/books')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        renderBookTable(data.books || []);
+                    })
+                    .catch(function(e) {
+                        list.innerHTML = '<div style="color:red;padding:20px;text-align:center;">加载失败: ' + e.message + '</div>';
+                    });
+
+                function renderBookTable(books) {
+                    list.innerHTML = '';
+                    if (books.length === 0) {
+                        list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">暂无书籍</div>';
+                        return;
+                    }
+                    var html = '<table class="admin-table"><thead><tr>' +
+                        '<th>书名</th><th>作者国籍</th><th>版本</th><th>章节数</th><th>总字数</th><th>点评数</th><th>公版</th><th>订阅价格</th><th>订阅数</th><th>操作</th>' +
+                        '</tr></thead><tbody>';
+                    books.forEach(function(book) {
+                        var publicBadge = book.is_public
+                            ? '<span style="color:#2d5016;font-weight:bold;cursor:pointer;" onclick="admin.togglePublic(' + book.id + ',0)">✅是</span>'
+                            : '<span style="color:#999;cursor:pointer;" onclick="admin.togglePublic(' + book.id + ',1)">否</span>';
+                        html += '<tr>' +
+                            '<td>' + (book.title || '-') + '</td>' +
+                            '<td>' + (book.author || '') + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</td>' +
+                            '<td>' + (book.version || '-') + '</td>' +
+                            '<td>' + (book.total_chapters || 0) + '章' + (book.total_sections || 0) + '节</td>' +
+                            '<td>' + (book.total_words || 0) + '</td>' +
+                            '<td>' + (book.total_annotations || 0) + '</td>' +
+                            '<td>' + publicBadge + '</td>' +
+                            '<td>' + (book.subscription_price ? '￥' + parseFloat(book.subscription_price).toFixed(2) : '-') + '</td>' +
+                            '<td>' + (book.subscription_count || 0) + '</td>' +
+                            '<td>' +
+                            '<button class="admin-inline-btn" onclick="admin.editBook(' + book.id + ')">编辑</button> ' +
+                            '<button class="admin-inline-btn" id="importBtn_' + book.id + '" onclick="admin.handleImportBtn(' + book.id + ')">' + (book.total_sections > 0 ? '重新导入' : '导入') + '</button> ' +
+                            '<button class="admin-inline-btn danger" onclick="admin.deleteBookConfirm(' + book.id + ')">删除</button>' +
+                            '</td>' +
+                            '</tr>';
+                    });
+                    html += '</tbody></table>';
+                    list.innerHTML = html;
+                }
+            },
+
+            newBook: function() {
+                state.adminCurrentBookId = null;
+                document.getElementById('editBookTitle').value = '';
+                document.getElementById('editBookAuthor').value = '';
+                document.getElementById('editBookNationality').value = '';
+                document.getElementById('editBookVersion').value = '';
+                document.getElementById('editBookPrice').value = '';
+                document.getElementById('editBookIsPublic').checked = false;
+                var iconFile = document.getElementById('editBookIconFile');
+                if (iconFile) iconFile.value = '';
+                var iconPreview = document.getElementById('editBookIconPreview');
+                var iconPlaceholder = document.getElementById('editBookIconPlaceholder');
+                iconPreview.style.display = 'none';
+                iconPreview.src = '';
+                iconPlaceholder.style.display = 'flex';
+                document.getElementById('adminDetailTitle').textContent = '新增书籍';
+                document.getElementById('adminBookDetail').style.display = 'block';
+                document.getElementById('adminChapterList').innerHTML = '';
+                document.getElementById('adminSectionCard').style.display = 'none';
+                document.getElementById('adminCatalogStats').innerHTML = '<div style="color:#999;padding:10px;">请先保存书籍基本信息，再导入内容</div>';
+            },
+
+            handleImportBtn: function(bookId) {
+                var self = this;
+                fetch(API_BASE + '/admin/books/' + bookId + '/import-status')
+                    .then(function(r) { return r.json(); })
+                    .then(function(status) {
+                        if (status.status && status.status !== 'none' && status.status !== 'done') {
+                            alert('导入状态：\n' + status.message);
+                        } else {
+                            self.importBook(bookId);
+                        }
+                    })
+                    .catch(function() {
+                        self.importBook(bookId);
+                    });
+            },
+
+            checkImportStatus: function(bookId) {
+                var self = this;
+                fetch(API_BASE + '/admin/books/' + bookId + '/import-status')
+                    .then(function(r) { return r.json(); })
+                    .then(function(status) {
+                        var btn = document.getElementById('importBtn_' + bookId);
+                        if (!btn) return;
+                        if (status.status && status.status !== 'none' && status.status !== 'done') {
+                            btn.textContent = '导入状态';
+                            btn.style.color = '#e67e22';
+                            setTimeout(function() { self.checkImportStatus(bookId); }, 5000);
+                        } else {
+                            self.loadBooks();
+                        }
+                    })
+                    .catch(function() {});
+            },
+
+            importBook: function(bookId) {
+                state.adminImportBookId = bookId;
+                var fileInput = document.getElementById('bookImportFileInput');
+                fileInput.value = '';
+                fileInput.onchange = function(e) {
+                    var file = e.target.files[0];
+                    if (!file) return;
+                    admin._doImport(bookId, file);
+                };
+                fileInput.click();
+            },
+
+            _doImport: function(bookId, file) {
+                var formData = new FormData();
+                formData.append('file', file);
+                formData.append('book_id', bookId);
+                showLoading('正在导入书籍内容...');
+                fetch(API_BASE + '/upload', { method: 'POST', body: formData })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        hideLoading();
+                        if (data.error) {
+                            alert('导入失败: ' + data.error);
+                        } else {
+                            alert('导入成功！共 ' + data.sections_count + ' 个小节');
+                            admin.checkImportStatus(bookId);
+                        }
+                    })
+                    .catch(function(e) {
+                        hideLoading();
+                        alert('导入出错: ' + e.message);
+                    });
+            },
+
+            editBook: function(bookId) {
+                state.adminCurrentBookId = bookId;
+                fetch(API_BASE + '/books/' + bookId).then(function(r) { return r.json(); }).then(function(data) {
+                    var book = data.book;
+                    document.getElementById('editBookTitle').value = book.title || '';
+                    document.getElementById('editBookAuthor').value = book.author || '';
+                    document.getElementById('editBookNationality').value = book.author_nationality || '';
+                    document.getElementById('editBookVersion').value = book.version || '';
+                    document.getElementById('editBookPrice').value = book.subscription_price || '';
+                    document.getElementById('editBookIsPublic').checked = book.is_public ? true : false;
+                    document.getElementById('editBookVoiceType').value = book.voice_type || 'male';
+                    var iconPreview = document.getElementById('editBookIconPreview');
+                    var iconPlaceholder = document.getElementById('editBookIconPlaceholder');
+                    if (book.icon_path) {
+                        iconPreview.src = book.icon_path + '?t=' + Date.now();
+                        iconPreview.style.display = 'block';
+                        iconPlaceholder.style.display = 'none';
+                    } else {
+                        iconPreview.style.display = 'none';
+                        iconPlaceholder.style.display = 'flex';
+                    }
+                    document.getElementById('adminDetailTitle').textContent = '编辑：' + book.title;
+                    document.getElementById('adminBookDetail').style.display = 'block';
+                    admin.loadChapters(bookId);
+                    adminShowCatalogStats(bookId);
+                });
+            },
+
+            loadChapters: function(bookId) {
+                fetch(API_BASE + '/books/' + bookId + '/chapters').then(function(r) { return r.json(); }).then(function(data) {
+                    var list = document.getElementById('adminChapterList');
+                    list.innerHTML = '';
+                    if (data.chapters.length === 0) {
+                        list.innerHTML = '<div style="color:#999;font-size:13px;padding:10px;">暂无章节，所有节为独立节</div>';
+                        admin.loadSections(bookId, null);
+                    } else {
+                        data.chapters.forEach(function(ch) {
+                            var div = document.createElement('div');
+                            div.className = 'chapter-item';
+                            div.innerHTML = '<div class="ch-info">' +
+                                '<div class="ch-title">' + formatChapterTitle(ch.chapter_number, ch.title, 'chapter') + '</div>' +
+                                '<div class="ch-meta">' + (ch.section_count || 0) + '节 | ' + (ch.total_words || 0) + '字</div>' +
+                                '</div>' +
+                                '<div style="display:flex;gap:4px;">' +
+                                '<button class="btn btn-sm" onclick="admin.editChapter(' + ch.id + ')">编辑</button>' +
+                                '</div>';
+                            list.appendChild(div);
+                        });
+                        document.getElementById('adminSectionCard').style.display = 'none';
+                    }
+                });
+            },
+
+            loadSections: function(bookId, chapterId) {
+                state.adminCurrentChapterId = chapterId;
+                if (!chapterId) {
+                    fetch(API_BASE + '/books/' + bookId).then(function(r) { return r.json(); }).then(function(data) {
+                        admin.renderSections(data.sections || [], chapterId);
+                    });
+                } else {
+                    fetch(API_BASE + '/chapters/' + chapterId + '/sections').then(function(r) { return r.json(); }).then(function(data) {
+                        admin.renderSections(data.sections || [], chapterId);
+                    });
+                }
+            },
+
+            renderSections: function(sections, chapterId) {
+                var card = document.getElementById('adminSectionCard');
+                var list = document.getElementById('adminSectionList');
+                var title = document.getElementById('adminSectionTitle');
+                card.style.display = 'block';
+                title.textContent = chapterId ? '小节管理' : '独立小节管理';
+                list.innerHTML = '';
+                sections.forEach(function(sec) {
+                    var div = document.createElement('div');
+                    div.className = 'section-item';
+                    div.innerHTML = '<div class="sec-info">' +
+                        '<div class="sec-title">' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</div>' +
+                        '<div class="sec-meta">' + (sec.word_count || (sec.content ? sec.content.length : 0)) + '字</div>' +
+                        '</div>' +
+                        '<div style="display:flex;gap:4px;">' +
+                        '<button class="btn btn-sm" onclick="admin.editSection(' + sec.id + ')">编辑</button>' +
+                        '<button class="btn btn-sm" style="color:#dc3545;" onclick="admin.deleteSectionConfirm(' + sec.id + ')">删除</button>' +
+                        '</div>';
+                    list.appendChild(div);
+                });
+            },
+
+            addChapter: function() {
+                var bookId = state.adminCurrentBookId;
+                if (!bookId) return;
+                fetch(API_BASE + '/books/' + bookId + '/chapters').then(function(r) { return r.json(); }).then(function(data) {
+                    var nextNum = data.chapters.length + 1;
+                    fetch(API_BASE + '/books/' + bookId + '/chapters', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({chapter_number: nextNum, title: '第' + toChineseNumber(nextNum) + '章'})
+                    }).then(function() { admin.loadChapters(bookId); });
+                });
+            },
+
+            editChapter: function(chapterId) {
+                document.getElementById('editModalTitle').textContent = '编辑章节';
+                document.getElementById('editModalContent').innerHTML = '<div class="form-group"><label>章节标题</label><input type="text" id="modalChapterTitle"></div>';
+                document.getElementById('editModalSave').onclick = function() {
+                    var title = document.getElementById('modalChapterTitle').value;
+                    fetch(API_BASE + '/chapters/' + chapterId, {
+                        method: 'PUT', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({title: title})
+                    }).then(function() { closeEditModal(); admin.loadChapters(state.adminCurrentBookId); });
+                };
+                document.getElementById('editModal').classList.add('active');
+            },
+
+            editSection: function(sectionId) {
+                fetch(API_BASE + '/books/' + state.adminCurrentBookId).then(function(r) { return r.json(); }).then(function(data) {
+                    var section = null;
+                    (data.sections || []).forEach(function(s) { if (s.id === sectionId) section = s; });
+                    if (!section) return;
+                    document.getElementById('editModalTitle').textContent = '编辑小节';
+                    document.getElementById('editModalContent').innerHTML =
+                        '<div class="form-group"><label>节名</label><input type="text" id="modalSecTitle" value="' + (section.title || '') + '"></div>' +
+                        '<div class="form-group"><label>小结</label><textarea id="modalSecSummary" rows="3">' + (section.summary || '') + '</textarea></div>';
+                    document.getElementById('editModalSave').onclick = function() {
+                        fetch(API_BASE + '/admin/sections/' + sectionId, {
+                            method: 'PUT', headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                title: document.getElementById('modalSecTitle').value,
+                                summary: document.getElementById('modalSecSummary').value,
+                                content: section.content
+                            })
+                        }).then(function() { closeEditModal(); admin.editBook(state.adminCurrentBookId); });
+                    };
+                    document.getElementById('editModal').classList.add('active');
+                });
+            },
+
+            togglePublic: function(bookId, isPublic) {
+                fetch(API_BASE + '/admin/books/' + bookId + '/public', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_public: isPublic})
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.message) { admin.loadBooks(); }
+                });
+            },
+
+            deleteBookConfirm: function(bookId) {
+                if (confirm('确定要删除这本书吗？所有章、节和点评都会被删除！')) {
+                    fetch(API_BASE + '/admin/books/' + bookId, {method: 'DELETE'}).then(function() {
+                        document.getElementById('adminBookDetail').style.display = 'none';
+                        admin.loadBooks();
+                    });
+                }
+            },
+
+            deleteChapterConfirm: function(chapterId, bookId) {
+                if (confirm('确定要删除这个章节吗？章节下所有小节和点评都会被删除！')) {
+                    fetch(API_BASE + '/chapters/' + chapterId, {method: 'DELETE'}).then(function() {
+                        admin.editBook(bookId);
+                    });
+                }
+            },
+
+            deleteSectionConfirm: function(sectionId) {
+                if (confirm('确定要删除这个小节吗？')) {
+                    fetch(API_BASE + '/admin/sections/' + sectionId, {method: 'DELETE'}).then(function() {
+                        admin.editBook(state.adminCurrentBookId);
+                    });
+                }
+            },
+
+            toggleFixCharTimeline: function() {
+                var panel = document.getElementById('fixCharTimelinePanel');
+                if (panel.style.display === 'none') {
+                    panel.style.display = '';
+                    admin.loadFixSectionList();
+                } else {
+                    panel.style.display = 'none';
+                }
+            },
+
+            loadFixSectionList: function() {
+                var select = document.getElementById('fixSectionId');
+                var bookId = state.adminCurrentBookId;
+                select.innerHTML = '<option value="">加载中...</option>';
+                select.disabled = true;
+                var hintEl = select.parentElement.querySelector('p');
+                fetch(API_BASE + '/books/' + bookId + '/sections').then(function(r) {
+                    return r.json();
+                }).then(function(sections) {
+                    select.innerHTML = '<option value="">请选择节...</option>';
+                    if (Array.isArray(sections) && sections.length > 0) {
+                        sections.forEach(function(sec) {
+                            var option = document.createElement('option');
+                            option.value = sec.id;
+                            option.textContent = (sec.chapter_number ? '第' + sec.chapter_number + '章 · ' : '') + '第' + sec.section_number + '节 - ' + (sec.title || '无标题');
+                            select.appendChild(option);
+                        });
+                        if (document.getElementById('fixOptionSection').checked) {
+                            select.disabled = false;
+                        }
+                        if (hintEl) hintEl.textContent = '共 ' + sections.length + ' 节';
+                    } else {
+                        if (hintEl) hintEl.textContent = '该书暂无节（或该书籍无独立小节）';
+                    }
+                }).catch(function(err) {
+                    select.innerHTML = '<option value="">加载失败</option>';
+                    if (hintEl) hintEl.textContent = '加载失败：' + (err.message || '网络错误');
+                });
+                document.getElementById('fixOptionAll').onchange = function() {
+                    document.getElementById('fixSectionId').disabled = true;
+                };
+                document.getElementById('fixOptionSection').onchange = function() {
+                    document.getElementById('fixSectionId').disabled = false;
+                };
+            },
+
+            executeFixCharTimeline: function() {
+                var bookId = state.adminCurrentBookId;
+                var option = document.querySelector('input[name="fixOption"]:checked').value;
+                if (option === 'section') {
+                    var sectionId = document.getElementById('fixSectionId').value;
+                    if (!sectionId) { alert('请从下拉列表中选择要修复的节'); return; }
+                    fetch(API_BASE + '/admin/books/' + bookId + '/sections/' + sectionId + '/fix-char-timeline', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({force: true})
+                    }).then(function(r) { return r.json(); }).then(function(data) {
+                        if (data.success) {
+                            alert('修复完成！');
+                            document.getElementById('fixCharTimelinePanel').style.display = 'none';
+                        } else {
+                            alert('修复失败：' + (data.error || '未知错误'));
+                        }
+                    }).catch(function(e) {
+                        alert('修复失败：' + e.message);
+                    });
+                } else {
+                    fetch(API_BASE + '/admin/books/' + bookId + '/fix-char-timeline', {
+                        method: 'POST'
+                    }).then(function(r) { return r.json(); }).then(function(data) {
+                        if (data.success) {
+                            alert('修复完成！');
+                            document.getElementById('fixCharTimelinePanel').style.display = 'none';
+                        } else {
+                            alert('修复失败：' + (data.error || '未知错误'));
+                        }
+                    }).catch(function(e) {
+                        alert('修复失败：' + e.message);
+                    });
+                }
+            },
+
+            backToBookList: function() {
+                document.getElementById('adminBookDetail').style.display = 'none';
+                state.adminCurrentBookId = null;
+                admin.loadBooks();
+            }
+        };
+
+        function previewBookIcon(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('editBookIconPreview').src = e.target.result;
+                    document.getElementById('editBookIconPreview').style.display = 'block';
+                    document.getElementById('editBookIconPlaceholder').style.display = 'none';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function adminSaveBook() {
+            var bookId = state.adminCurrentBookId;
+            var title = document.getElementById('editBookTitle').value.trim();
+            var author = document.getElementById('editBookAuthor').value.trim();
+            var nationality = document.getElementById('editBookNationality').value.trim();
+            var version = document.getElementById('editBookVersion').value.trim();
+            var price = document.getElementById('editBookPrice').value;
+            var isPublic = document.getElementById('editBookIsPublic').checked ? 1 : 0;
+            var voiceType = document.getElementById('editBookVoiceType').value;
+
+            if (!title) { alert('请输入书名'); return; }
+
+            var saveAndContinue = function(id) {
+                Promise.all([
+                    fetch(API_BASE + '/admin/books/' + id + '/price', {
+                        method: 'PUT', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({subscription_price: price})
+                    }),
+                    fetch(API_BASE + '/admin/books/' + id + '/public', {
+                        method: 'PUT', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({is_public: isPublic})
+                    })
+                ]).then(function() {
+                    var iconFile = document.getElementById('editBookIconFile');
+                    if (iconFile.files && iconFile.files[0]) {
+                        var formData = new FormData();
+                        formData.append('file', iconFile.files[0]);
+                        return fetch(API_BASE + '/admin/books/' + id + '/icon', {
+                            method: 'POST', body: formData
+                        });
+                    }
+                    return Promise.resolve();
+                }).then(function() {
+                    state.adminCurrentBookId = id;
+                    document.getElementById('adminDetailTitle').textContent = '编辑：' + title;
+                    alert('保存成功');
+                    admin.loadBooks();
+                    admin.loadChapters(id);
+                    adminShowCatalogStats(id);
+                });
+            };
+
+            if (bookId) {
+                fetch(API_BASE + '/admin/books/' + bookId, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ title: title, author: author, author_nationality: nationality, version: version, voice_type: voiceType })
+                }).then(function(r) { return r.json(); }).then(function() { saveAndContinue(bookId); });
+            } else {
+                fetch(API_BASE + '/admin/books', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ title: title, author: author, author_nationality: nationality, version: version })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    saveAndContinue(data.book_id);
+                });
+            }
+        }
+
+        function adminDeleteBook() { admin.deleteBookConfirm(state.adminCurrentBookId); }
+
+        // ===== Tab切换 =====
+        function switchAdminTab(tabName) {
+            document.querySelectorAll('.admin-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.admin-tab-content').forEach(function(c) { c.style.display = 'none'; c.classList.remove('active'); });
+            var tabEl = document.querySelector('.admin-tab[onclick*="' + tabName + '"]');
+            if (tabEl) tabEl.classList.add('active');
+            var panel = document.getElementById('adminTab_' + tabName);
+            if (panel) {
+                panel.style.display = 'block';
+                panel.classList.add('active');
+            }
+            if (tabName === 'userManage') searchAdminUsers();
+            if (tabName === 'bookManage') admin.loadBooks();
+            if (tabName === 'quoteManage') loadQuotes();
+            if (tabName === 'msgManage') loadAdminMessages();
+            if (tabName === 'rankManage') loadAdminRanks();
+        }
+
+        // ===== 名言管理 =====
+        function loadQuotes() {
+            fetch(API_BASE + '/admin/quotes').then(function(r) { return r.json(); }).then(function(quotes) {
+                var list = document.getElementById('quoteList');
+                if (quotes.length === 0) {
+                    list.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">暂无名言，点击"添加名言"或"批量导入"</p>';
+                    return;
+                }
+                list.innerHTML = quotes.map(function(q) {
+                    return '<div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px;">' +
+                        '<div style="font-size:15px;line-height:1.6;margin-bottom:8px;">"' + q.content + '"</div>' +
+                        '<div style="font-size:12px;color:#666;">—— ' + (q.author || '佚名') + (q.source ? '《' + q.source + '》' : '') + '</div>' +
+                        '<div style="margin-top:8px;text-align:right;">' +
+                        '<button class="btn btn-sm" onclick="editQuote(' + q.id + ')" style="padding:4px 10px;font-size:12px;">编辑</button> ' +
+                        '<button class="btn btn-sm btn-danger" onclick="deleteQuote(' + q.id + ')" style="padding:4px 10px;font-size:12px;">删除</button>' +
+                        '</div></div>';
+                }).join('');
+            });
+        }
+
+        function showAddQuoteModal() {
+            document.getElementById('editModalTitle').textContent = '添加名言';
+            document.getElementById('editModalContent').innerHTML =
+                '<div class="form-group"><label>名言内容</label><textarea id="quoteContent" rows="3" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;resize:vertical;"></textarea></div>' +
+                '<div class="form-row"><div class="form-group"><label>作者</label><input type="text" id="quoteAuthor" style="width:100%;"></div>' +
+                '<div class="form-group"><label>出处</label><input type="text" id="quoteSource" style="width:100%;"></div></div>';
+            document.getElementById('editModalSave').onclick = function() {
+                var content = document.getElementById('quoteContent').value.trim();
+                if (!content) { alert('请输入名言内容'); return; }
+                fetch(API_BASE + '/admin/quotes', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        content: content,
+                        author: document.getElementById('quoteAuthor').value.trim(),
+                        source: document.getElementById('quoteSource').value.trim()
+                    })
+                }).then(function(r) { return r.json(); }).then(function() {
+                    closeEditModal();
+                    loadQuotes();
+                });
+            };
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function editQuote(id) {
+            fetch(API_BASE + '/admin/quotes').then(function(r) { return r.json(); }).then(function(quotes) {
+                var q = quotes.find(function(x) { return x.id === id; });
+                if (!q) return;
+                document.getElementById('editModalTitle').textContent = '编辑名言';
+                document.getElementById('editModalContent').innerHTML =
+                    '<div class="form-group"><label>名言内容</label><textarea id="quoteContent" rows="3" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;resize:vertical;">' + q.content + '</textarea></div>' +
+                    '<div class="form-row"><div class="form-group"><label>作者</label><input type="text" id="quoteAuthor" value="' + (q.author || '') + '" style="width:100%;"></div>' +
+                    '<div class="form-group"><label>出处</label><input type="text" id="quoteSource" value="' + (q.source || '') + '" style="width:100%;"></div></div>';
+                document.getElementById('editModalSave').onclick = function() {
+                    var content = document.getElementById('quoteContent').value.trim();
+                    if (!content) { alert('请输入名言内容'); return; }
+                    fetch(API_BASE + '/admin/quotes/' + id, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            content: content,
+                            author: document.getElementById('quoteAuthor').value.trim(),
+                            source: document.getElementById('quoteSource').value.trim()
+                        })
+                    }).then(function(r) { return r.json(); }).then(function() {
+                        closeEditModal();
+                        loadQuotes();
+                    });
+                };
+                document.getElementById('editModal').classList.add('active');
+            });
+        }
+
+        function deleteQuote(id) {
+            if (!confirm('确定删除这条名言？')) return;
+            fetch(API_BASE + '/admin/quotes/' + id, { method: 'DELETE' }).then(function() { loadQuotes(); });
+        }
+
+        function showImportQuotesModal() {
+            document.getElementById('editModalTitle').textContent = '批量导入名言';
+            document.getElementById('editModalContent').innerHTML =
+                '<p style="font-size:13px;color:#666;margin-bottom:10px;">支持两种方式导入：</p>' +
+                '<div style="margin-bottom:10px;">' +
+                '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin-bottom:5px;">' +
+                '<input type="radio" name="importType" value="text" checked onchange="toggleImportType()"> 文本导入</label>' +
+                '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;">' +
+                '<input type="radio" name="importType" value="word" onchange="toggleImportType()"> Word文档导入</label>' +
+                '</div>' +
+                '<div id="textImportArea">' +
+                '<p style="font-size:12px;color:#999;margin-bottom:5px;">每行一条，格式：名言内容|作者|出处</p>' +
+                '<textarea id="importQuotesText" rows="8" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;resize:vertical;font-size:13px;" placeholder="示例：&#10;读书破万卷，下笔如有神|杜甫|奉赠韦左丞丈二十二韵&#10;书籍是人类进步的阶梯|高尔基"></textarea>' +
+                '</div>' +
+                '<div id="wordImportArea" style="display:none;">' +
+                '<p style="font-size:12px;color:#999;margin-bottom:5px;">格式：序号."名言"——「作者」《出处》</p>' +
+                '<input type="file" id="importWordFile" accept=".doc,.docx,.txt" style="margin-bottom:10px;">' +
+                '<textarea id="importWordPreview" rows="6" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;resize:vertical;font-size:13px;" placeholder="选择Word文件后，内容将显示在这里，可编辑后再导入"></textarea>' +
+                '</div>';
+            document.getElementById('editModalSave').onclick = function() {
+                var importType = document.querySelector('input[name="importType"]:checked').value;
+                var quotes = [];
+                if (importType === 'text') {
+                    var text = document.getElementById('importQuotesText').value.trim();
+                    if (!text) { alert('请输入名言内容'); return; }
+                    var lines = text.split('\n').filter(function(l) { return l.trim(); });
+                    quotes = lines.map(function(line) {
+                        var parts = line.split('|');
+                        return { content: parts[0] || '', author: parts[1] || '', source: parts[2] || '' };
+                    });
+                } else {
+                    var text = document.getElementById('importWordPreview').value.trim();
+                    if (!text) { alert('请先选择Word文件'); return; }
+                    quotes = parseWordQuotes(text);
+                }
+                if (quotes.length === 0) { alert('未解析到有效名言'); return; }
+                fetch(API_BASE + '/admin/quotes/import', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ quotes: quotes })
+                }).then(function(r) { return r.json(); }).then(function(res) {
+                    alert(res.message);
+                    closeEditModal();
+                    loadQuotes();
+                });
+            };
+            setTimeout(function() {
+                var fileInput = document.getElementById('importWordFile');
+                if (fileInput) {
+                    fileInput.onchange = function(e) {
+                        var file = e.target.files[0];
+                        if (!file) return;
+                        var formData = new FormData();
+                        formData.append('file', file);
+                        fetch(API_BASE + '/admin/quotes/parse-word', {
+                            method: 'POST',
+                            body: formData
+                        }).then(function(r) { return r.json(); }).then(function(data) {
+                            if (data.text) {
+                                document.getElementById('importWordPreview').value = data.text;
+                            } else if (data.error) {
+                                alert('解析失败：' + data.error);
+                            }
+                        }).catch(function(err) {
+                            alert('上传失败，请重试');
+                        });
+                    };
+                }
+            }, 100);
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function toggleImportType() {
+            var type = document.querySelector('input[name="importType"]:checked').value;
+            document.getElementById('textImportArea').style.display = type === 'text' ? 'block' : 'none';
+            document.getElementById('wordImportArea').style.display = type === 'word' ? 'block' : 'none';
+        }
+
+        function parseWordQuotes(text) {
+            var quotes = [];
+            var lines = text.split('\n').filter(function(l) { return l.trim(); });
+            lines.forEach(function(line) {
+                line = line.replace(/^\d+\.\s*/, '');
+                var match = line.match(/["""]([^"""]+)["""]\s*——\s*「([^」]+)」\s*《([^》]+)》/);
+                if (match) {
+                    quotes.push({ content: match[1].trim(), author: match[2].trim(), source: match[3].trim() });
+                } else {
+                    var simpleMatch = line.match(/["""]([^"""]+)["""]\s*——\s*(.+)/);
+                    if (simpleMatch) {
+                        var authorPart = simpleMatch[2].trim();
+                        var authorMatch = authorPart.match(/「([^」]+)」\s*《([^》]+)》/);
+                        if (authorMatch) {
+                            quotes.push({ content: simpleMatch[1].trim(), author: authorMatch[1].trim(), source: authorMatch[2].trim() });
+                        } else {
+                            quotes.push({ content: simpleMatch[1].trim(), author: authorPart, source: '' });
+                        }
+                    }
+                }
+            });
+            return quotes;
+        }
+
+        // ===== 留言管理 =====
+        var adminMessagesCache = [];
+
+        function loadAdminMessages() {
+            var keyword = document.getElementById('msgSearchKeyword').value.trim().toLowerCase();
+            var filter = document.getElementById('msgFilter').value;
+            var list = document.getElementById('adminMessageList');
+            var countEl = document.getElementById('msgCount');
+            list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">加载中...</div>';
+            fetch(API_BASE + '/admin/messages')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var messages = data.messages || [];
+                    adminMessagesCache = messages;
+                    if (keyword) {
+                        messages = messages.filter(function(m) {
+                            return (m.wechat_nickname || '').toLowerCase().includes(keyword) ||
+                                   (m.phone || '').includes(keyword) ||
+                                   (m.content || '').toLowerCase().includes(keyword) ||
+                                   (m.admin_reply || '').toLowerCase().includes(keyword);
+                        });
+                    }
+                    if (filter === 'pending') {
+                        messages = messages.filter(function(m) { return !m.admin_reply; });
+                    } else if (filter === 'replied') {
+                        messages = messages.filter(function(m) { return !!m.admin_reply; });
+                    }
+                    var pending = adminMessagesCache.filter(function(m) { return !m.admin_reply; }).length;
+                    countEl.textContent = '共 ' + adminMessagesCache.length + ' 条留言，待回复 ' + pending + ' 条';
+                    if (messages.length === 0) {
+                        list.innerHTML = '<div style="color:#999;padding:30px;text-align:center;">暂无留言</div>';
+                        return;
+                    }
+                    var html = '<div style="display:flex;flex-direction:column;gap:15px;">';
+                    messages.forEach(function(msg) {
+                        var time = msg.created_at ? new Date(msg.created_at).toLocaleString('zh-CN') : '';
+                        var replyTime = msg.replied_at ? new Date(msg.replied_at).toLocaleString('zh-CN') : '';
+                        var isPending = !msg.admin_reply;
+                        html += '<div style="background:#f8f9fa;border-radius:12px;padding:15px;border-left:4px solid ' + (isPending ? '#ffc107' : '#28a745') + ';">';
+                        html += '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">';
+                        html += '<div><div style="font-weight:bold;color:#333;">' + (msg.wechat_nickname || '用户' + (msg.phone ? ' ' + msg.phone.slice(-4) : '')) + ' <span style="font-weight:normal;font-size:12px;color:#999;">' + time + '</span></div></div>';
+                        html += '<span style="padding:3px 10px;border-radius:12px;font-size:12px;background:' + (isPending ? '#ffc107' : '#28a745') + ';color:white;">' + (isPending ? '待回复' : '已回复') + '</span>';
+                        html += '</div>';
+                        html += '<div style="background:white;padding:12px;border-radius:8px;margin-bottom:10px;"><div style="color:#333;line-height:1.6;">' + msg.content.replace(/\n/g, '<br>') + '</div></div>';
+                        html += '<div style="background:#e8f5e9;padding:12px;border-radius:8px;margin-bottom:10px;">';
+                        html += '<div style="color:#2e7d32;font-size:13px;margin-bottom:8px;">管理员回复' + (replyTime ? ' (' + replyTime + ')' : '') + '：</div>';
+                        if (msg.admin_reply) {
+                            html += '<div style="color:#333;line-height:1.6;">' + msg.admin_reply.replace(/\n/g, '<br>') + '</div>';
+                        } else {
+                            html += '<div style="color:#999;font-style:italic;">暂无回复</div>';
+                        }
+                        html += '</div>';
+                        html += '<div style="display:flex;gap:10px;align-items:end;">';
+                        html += '<textarea id="reply_' + msg.id + '" rows="2" placeholder="输入回复内容..." style="flex:1;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;resize:none;font-family:inherit;">' + (msg.admin_reply || '') + '</textarea>';
+                        html += '<button onclick="submitMessageReply(' + msg.id + ')" class="btn btn-primary" style="white-space:nowrap;">' + (msg.admin_reply ? '更新回复' : '提交回复') + '</button>';
+                        html += '</div></div>';
+                    });
+                    html += '</div>';
+                    list.innerHTML = html;
+                })
+                .catch(function(e) {
+                    list.innerHTML = '<div style="color:red;padding:20px;text-align:center;">加载失败: ' + e.message + '</div>';
+                });
+        }
+
+        function submitMessageReply(messageId) {
+            var reply = document.getElementById('reply_' + messageId).value.trim();
+            if (!reply) { alert('请输入回复内容'); return; }
+            fetch(API_BASE + '/admin/messages/' + messageId + '/reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reply: reply })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) { alert('回复失败: ' + data.error); }
+                else { alert('回复成功'); loadAdminMessages(); }
+            })
+            .catch(function(e) { alert('回复失败: ' + e.message); });
+        }
+
+        // ===== 用户管理 =====
+        function searchAdminBooks() {
+            var title = document.getElementById('adminBookTitle').value.trim().toLowerCase();
+            var author = document.getElementById('adminBookAuthor').value.trim().toLowerCase();
+            var price = document.getElementById('adminBookPrice').value.trim();
+            document.getElementById('adminBookDetail').style.display = 'none';
+            var list = document.getElementById('adminBookList');
+            list.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">加载中...</div>';
+            fetch(API_BASE + '/admin/books')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var books = data.books || [];
+                    if (title) books = books.filter(function(b) { return (b.title || '').toLowerCase().includes(title); });
+                    if (author) books = books.filter(function(b) { return (b.author || '').toLowerCase().includes(author); });
+                    if (price) {
+                        var p = parseFloat(price);
+                        books = books.filter(function(b) { return b.subscription_price && b.subscription_price <= p; });
+                    }
+                    admin.loadBooks(books);
+                })
+                .catch(function(e) { list.innerHTML = '<div style="color:red;padding:20px;text-align:center;">加载失败</div>'; });
+        }
+
+        function loadAdminRanks() {
+            fetch(API_BASE + '/military-ranks')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+                    html += '<thead><tr style="background:#f5f5f5;">';
+                    html += '<th style="padding:10px;border:1px solid #ddd;text-align:center;">等级</th>';
+                    html += '<th style="padding:10px;border:1px solid #ddd;text-align:center;">肩章</th>';
+                    html += '<th style="padding:10px;border:1px solid #ddd;text-align:left;">军衔名称</th>';
+                    html += '<th style="padding:10px;border:1px solid #ddd;text-align:left;">称号</th>';
+                    html += '<th style="padding:10px;border:1px solid #ddd;text-align:right;">累计字数要求</th>';
+                    html += '</tr></thead><tbody>';
+                    data.ranks.forEach(function(rank) {
+                        var level = iconToLevel[rank.icon || 'private'] || 1;
+                        var epauletteHtml = '<img src="ranks/rank_' + level + '.png" style="height:24px;transform:rotate(90deg);display:block;margin:0 auto;" alt="肩章">';
+                        html += '<tr>';
+                        html += '<td style="padding:10px;border:1px solid #ddd;text-align:center;">' + rank.rank_level + '</td>';
+                        html += '<td style="padding:10px;border:1px solid #ddd;text-align:center;width:60px;">' + epauletteHtml + '</td>';
+                        html += '<td style="padding:10px;border:1px solid #ddd;">' + rank.rank_name + '</td>';
+                        html += '<td style="padding:10px;border:1px solid #ddd;color:#666;">' + rank.title + '</td>';
+                        html += '<td style="padding:10px;border:1px solid #ddd;text-align:right;">' + (rank.min_words || 0).toLocaleString() + ' 字</td>';
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                    document.getElementById('adminRankList').innerHTML = html;
+                })
+                .catch(function(e) {
+                    document.getElementById('adminRankList').innerHTML = '<p style="color:red;text-align:center;">加载失败: ' + e.message + '</p>';
+                });
+        }
+
+        function searchAdminUsers() {
+            var phone = document.getElementById('adminUserPhone').value.trim();
+            var role = document.getElementById('adminUserRole').value;
+            var gender = document.getElementById('adminUserGender').value;
+            var genderMap = {'男': 'male', '女': 'female'};
+            if (gender && genderMap[gender]) gender = genderMap[gender];
+            var ageAbove = document.getElementById('adminUserAgeAbove').value;
+            var ageBelow = document.getElementById('adminUserAgeBelow').value;
+            var params = [];
+            if (phone) params.push('phone=' + encodeURIComponent(phone));
+            if (role) params.push('role=' + role);
+            if (gender) params.push('gender=' + encodeURIComponent(gender));
+            if (ageAbove) params.push('age_above=' + ageAbove);
+            if (ageBelow) params.push('age_below=' + ageBelow);
+            var url = API_BASE + '/admin/users' + (params.length ? '?' + params.join('&') : '');
+            var list = document.getElementById('adminUserList');
+            list.innerHTML = '<p style="color:#999;text-align:center;">加载中...</p>';
+            fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+                if (!data.users || data.users.length === 0) {
+                    list.innerHTML = '<p style="color:#999;text-align:center;">未找到用户</p>';
+                    return;
+                }
+                var html = '<table class="admin-table"><thead><tr>' +
+                    '<th>手机号</th><th>角色</th><th>性别</th><th>年龄</th><th>年级</th><th>创建时间</th>' +
+                    '<th>已读章节</th><th>已读字数</th><th>思考量</th><th>设备ID</th><th>密码</th><th>操作</th>' +
+                    '</tr></thead><tbody>';
+                data.users.forEach(function(u) {
+                    var roleBadge = u.role === 'admin' ? '<span class="admin-badge admin">系统</span>' : '<span class="admin-badge user">普通</span>';
+                    html += '<tr>' +
+                        '<td>' + (u.phone || '-') + '</td>' +
+                        '<td>' + roleBadge + '</td>' +
+                        '<td>' + ({'male':'男','female':'女'}[u.gender] || u.gender || '-') + '</td>' +
+                        '<td>' + (u.age || '-') + '</td>' +
+                        '<td>' + (u.grade || '-') + '</td>' +
+                        '<td>' + (u.created_at || '').substring(0, 10) + '</td>' +
+                        '<td>' + (u.read_sections_count || 0) + '</td>' +
+                        '<td>' + (u.read_words_count || 0) + '</td>' +
+                        '<td>' + (u.thoughts_count || 0) + '</td>' +
+                        '<td style="font-size:11px;max-width:120px;"><span title="' + (u.device_id || '') + '">' + (u.device_id ? u.device_id.substring(0, 10) + '...' : '-') + '</span>' + (u.device_id ? ' <button class="admin-inline-btn danger" style="font-size:11px;padding:1px 6px;" onclick="clearUserDevice(' + u.id + ')">清除</button>' : '') + '</td>' +
+                        '<td><button class="admin-inline-btn" onclick="resetUserPassword(' + u.id + ')">重置</button></td>' +
+                        '<td><button class="admin-inline-btn primary" onclick="toggleUserRole(' + u.id + ',\'' + u.role + '\')">' + (u.role === 'admin' ? '设为普通' : '设为系统') + '</button></td>' +
+                        '</tr>';
+                });
+                html += '</tbody></table>';
+                list.innerHTML = html;
+            }).catch(function() { list.innerHTML = '<p style="color:red;text-align:center;">加载失败</p>'; });
+        }
+
+        function toggleUserRole(userId, currentRole) {
+            var newRole = currentRole === 'admin' ? 'user' : 'admin';
+            var label = newRole === 'admin' ? '系统用户' : '普通用户';
+            if (confirm('确定将该用户设为' + label + '？')) {
+                fetch(API_BASE + '/admin/users/' + userId + '/role', {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({role: newRole})
+                }).then(function() { searchAdminUsers(); });
+            }
+        }
+
+        function resetUserPassword(userId) {
+            var newPwd = prompt('请输入新密码（至少6位，包含字母和数字）：');
+            if (!newPwd) return;
+            fetch(API_BASE + '/admin/users/' + userId + '/reset-password', {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({password: newPwd})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                alert(data.message || '密码已重置');
+            }).catch(function() { alert('重置失败'); });
+        }
+
+        function clearUserDevice(userId) {
+            if (confirm('确定清除该用户的设备绑定？清除后用户可在任意设备登录。')) {
+                fetch(API_BASE + '/admin/users/' + userId + '/clear-device', {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    alert(data.message || '设备已清除');
+                    searchAdminUsers();
+                }).catch(function() { alert('操作失败'); });
+            }
+        }
+
+        // ===== 目录统计 =====
+        function adminShowCatalogStats(bookId) {
+            var container = document.getElementById('adminCatalogStats');
+            container.innerHTML = '<p style="color:#999;text-align:center;">加载中...</p>';
+            fetch(API_BASE + '/admin/books/' + bookId + '/catalog-stats')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.chapters || data.chapters.length === 0 && (!data.orphan_sections || data.orphan_sections.length === 0)) {
+                        container.innerHTML = '<p style="color:#999;text-align:center;">暂无章节数据</p>';
+                        return;
+                    }
+                    var html = '<div class="catalog-tree">';
+                    data.chapters.forEach(function(ch) {
+                        html += '<div class="catalog-chapter">' +
+                            '<div class="catalog-chapter-header">' +
+                            '<span onclick="var s=this.parentElement.parentElement.querySelector(\'.ch-sections\');s.style.display=s.style.display===\'none\'?\'block\':\'none\'" style="cursor:pointer;">' + formatChapterTitle(ch.chapter_number, ch.title, 'chapter') + '</span>' +
+                            '<span style="display:flex;align-items:center;gap:10px;">' +
+                            '<span class="catalog-chapter-stats">' + ch.total_words + '字 | ' + ch.total_annotations + '点评</span>' +
+                            '<button class="admin-inline-btn primary" onclick="event.stopPropagation();reimportChapter(' + bookId + ',' + ch.id + ',this)">更新</button>' +
+                            '</span></div>';
+                        if (ch.sections && ch.sections.length > 0) {
+                            html += '<div class="ch-sections">';
+                            ch.sections.forEach(function(sec) {
+                                var audioInfo = _formatAudioStats(sec.audio_done, sec.audio_total);
+                                var fixBtn = (sec.audio_done < sec.audio_total) ?
+                                    '<button class="admin-inline-btn danger" onclick="fixSectionAudio(' + bookId + ',' + sec.id + ',this)">修复音频</button>' : '';
+                                html += '<div class="catalog-section-item">' +
+                                    '<span>' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
+                                    '<span style="display:flex;align-items:center;gap:10px;">' +
+                                    '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评 | ' + audioInfo + '</span>' +
+                                    fixBtn +
+                                    '<button class="admin-inline-btn primary" onclick="reimportSection(' + bookId + ',' + sec.id + ',this)">更新</button>' +
+                                    '</span></div>';
+                            });
+                            html += '</div>';
+                        }
+                        html += '</div>';
+                    });
+                    if (data.orphan_sections && data.orphan_sections.length > 0) {
+                        html += '<div class="catalog-chapter"><div class="catalog-chapter-header">独立节</div><div>';
+                        data.orphan_sections.forEach(function(sec) {
+                            var audioInfo = _formatAudioStats(sec.audio_done, sec.audio_total);
+                            var fixBtn = (sec.audio_done < sec.audio_total) ?
+                                '<button class="admin-inline-btn danger" onclick="fixSectionAudio(' + bookId + ',' + sec.id + ',this)">修复音频</button>' : '';
+                            html += '<div class="catalog-section-item">' +
+                                '<span>' + formatChapterTitle(sec.section_number, sec.title, 'section') + '</span>' +
+                                '<span style="display:flex;align-items:center;gap:10px;">' +
+                                '<span class="catalog-section-stats">' + sec.word_count + '字 | ' + sec.annotation_count + '点评 | ' + audioInfo + '</span>' +
+                                fixBtn +
+                                '<button class="admin-inline-btn primary" onclick="reimportSection(' + bookId + ',' + sec.id + ',this)">更新</button>' +
+                                '</span></div>';
+                        });
+                        html += '</div></div>';
+                    }
+                    html += '</div>';
+                    container.innerHTML = html;
+                });
+        }
+
+        function _formatAudioStats(done, total) {
+            if (!total || total === 0) return '音频 -';
+            if (done >= total) return '音频 ' + done + '/' + total;
+            return '音频 <span style="color:#e74c3c;font-weight:bold;">' + done + '/' + total + '</span>';
+        }
+
+        function fixSectionAudio(bookId, sectionId, btn) {
+            btn.textContent = '修复中...';
+            btn.disabled = true;
+            fetch(API_BASE + '/sections/' + sectionId + '/fix-audio', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.error) { alert(data.error); btn.textContent = '修复音频'; btn.disabled = false; return; }
+                    if (data.missing === 0) { btn.textContent = '修复音频'; btn.disabled = false; btn.style.display = 'none'; return; }
+                    pollFixProgress(sectionId, btn, bookId);
+                })
+                .catch(function() { alert('修复请求失败'); btn.textContent = '修复音频'; btn.disabled = false; });
+        }
+
+        function pollFixProgress(sectionId, btn, bookId) {
+            var checkCount = 0;
+            var maxChecks = 120;
+            var timer = setInterval(function() {
+                checkCount++;
+                if (checkCount > maxChecks) { clearInterval(timer); btn.textContent = '修复失败'; btn.disabled = false; return; }
+                fetch(API_BASE + '/admin/books/' + bookId + '/catalog-stats')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        var allDone = true;
+                        var found = false;
+                        function checkSections(sections) {
+                            for (var i = 0; i < sections.length; i++) {
+                                if (sections[i].id === sectionId) {
+                                    found = true;
+                                    if (sections[i].audio_done < sections[i].audio_total) allDone = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (data.chapters) data.chapters.forEach(function(ch) { if (ch.sections) checkSections(ch.sections); });
+                        if (data.orphan_sections) checkSections(data.orphan_sections);
+                        if (found && allDone) {
+                            clearInterval(timer);
+                            btn.textContent = '修复音频';
+                            btn.disabled = false;
+                            btn.style.display = 'none';
+                            if (bookId) adminShowCatalogStats(bookId);
+                        }
+                    }).catch(function() {});
+            }, 5000);
+        }
+
+        function pollTTSProgress(sectionIds, btn, bookId) {
+            var checkCount = 0;
+            var maxChecks = 120;
+            var timer = setInterval(function() {
+                checkCount++;
+                if (checkCount > maxChecks) { clearInterval(timer); btn.textContent = '更新'; btn.disabled = false; btn.style.background = '#e74c3c'; return; }
+                var pending = 0;
+                var done = 0;
+                var failed = 0;
+                var checkPromises = sectionIds.map(function(sid) {
+                    return fetch(API_BASE + '/sections/' + sid + '/audio-timeline')
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data.audio_path && data.char_timeline && data.char_timeline.length > 0) done++;
+                            else pending++;
+                        })
+                        .catch(function() { failed++; });
+                });
+                Promise.all(checkPromises).then(function() {
+                    if (failed > 0) { clearInterval(timer); btn.textContent = '音频失败'; btn.style.background = '#e74c3c'; btn.disabled = false; }
+                    else if (pending === 0) { clearInterval(timer); btn.textContent = '更新'; btn.style.background = ''; btn.disabled = false; if (bookId) adminShowCatalogStats(bookId); }
+                    else { btn.textContent = '音频 ' + done + '/' + sectionIds.length; }
+                });
+            }, 5000);
+        }
+
+        function reimportChapter(bookId, chapterId, btn) {
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.docx';
+            input.onchange = function() {
+                var file = input.files[0];
+                if (!file) return;
+                if (!file.name.endsWith('.docx')) { alert('请选择.docx文件'); return; }
+                var formData = new FormData();
+                formData.append('file', file);
+                btn.textContent = '导入中...';
+                btn.disabled = true;
+                btn.style.background = '#f39c12';
+                fetch(API_BASE + '/admin/books/' + bookId + '/reimport-chapter/' + chapterId, {
+                    method: 'POST', body: formData
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.error) { alert(data.error); btn.textContent = '更新'; btn.style.background = '#e74c3c'; btn.disabled = false; return; }
+                    if (data.async_audio) { pollTTSProgress(data.section_ids, btn, bookId); adminShowCatalogStats(bookId); return; }
+                    btn.textContent = '更新';
+                    btn.style.background = data.failed_sections && data.failed_sections.length > 0 ? '#e74c3c' : '';
+                    btn.disabled = false;
+                    if (data.failed_sections && data.failed_sections.length > 0) alert('导入完成，但 ' + data.failed_sections.length + ' 个节音频生成失败');
+                    adminShowCatalogStats(bookId);
+                }).catch(function() { alert('导入失败'); btn.textContent = '更新'; btn.style.background = '#e74c3c'; btn.disabled = false; });
+            };
+            input.click();
+        }
+
+        function reimportSection(bookId, sectionId, btn) {
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.docx';
+            input.onchange = function() {
+                var file = input.files[0];
+                if (!file) return;
+                if (!file.name.endsWith('.docx')) { alert('请选择.docx文件'); return; }
+                var formData = new FormData();
+                formData.append('file', file);
+                btn.textContent = '导入中...';
+                btn.disabled = true;
+                btn.style.background = '#f39c12';
+                fetch(API_BASE + '/admin/books/' + bookId + '/reimport-section/' + sectionId, {
+                    method: 'POST', body: formData
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.error) { alert(data.error); btn.textContent = '更新'; btn.style.background = '#e74c3c'; btn.disabled = false; return; }
+                    if (data.async_audio) { pollTTSProgress(data.section_ids, btn, bookId); adminShowCatalogStats(bookId); return; }
+                    btn.textContent = '更新';
+                    btn.style.background = data.audio_success ? '' : '#e74c3c';
+                    btn.disabled = false;
+                    if (!data.audio_success) alert('导入完成，但音频生成失败');
+                    adminShowCatalogStats(bookId);
+                }).catch(function() { alert('导入失败'); btn.textContent = '更新'; btn.style.background = '#e74c3c'; btn.disabled = false; });
+            };
+            input.click();
+        }
+
+        // ===== 订阅管理 =====
+        function searchAdminSubscriptions() {
+            var phone = document.getElementById('adminSubPhone').value.trim();
+            if (!phone) { alert('请输入手机号'); return; }
+            var list = document.getElementById('adminSubList');
+            list.innerHTML = '<p style="color:#999;text-align:center;">加载中...</p>';
+            fetch(API_BASE + '/admin/subscriptions?phone=' + encodeURIComponent(phone))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.user) { list.innerHTML = '<p style="color:#999;text-align:center;">未找到该用户</p>'; return; }
+                    var html = '<div style="margin-bottom:15px;padding:10px;background:#f5f5f5;border-radius:8px;font-size:14px;">用户：' + (data.user.phone || '-') + '（' + (data.user.wechat_nickname || '-') + '）</div>';
+                    if (!data.subscriptions || data.subscriptions.length === 0) {
+                        html += '<p style="color:#999;text-align:center;">该用户暂无订阅</p>';
+                    } else {
+                        html += '<table class="admin-table"><thead><tr>' +
+                            '<th>书名</th><th>作者国籍</th><th>版本</th><th>订阅时间</th><th>已读章节</th><th>已读字数</th><th>思考量</th><th>操作</th>' +
+                            '</tr></thead><tbody>';
+                        data.subscriptions.forEach(function(sub) {
+                            html += '<tr>' +
+                                '<td>' + (sub.title || '-') + '</td>' +
+                                '<td>' + (sub.author_nationality || '-') + '</td>' +
+                                '<td>' + (sub.version || '-') + '</td>' +
+                                '<td>' + (sub.subscribed_at || '').substring(0, 10) + '</td>' +
+                                '<td>' + (sub.read_sections_count || 0) + '</td>' +
+                                '<td>' + (sub.read_words_count || 0) + '</td>' +
+                                '<td>' + (sub.thoughts_count || 0) + '</td>' +
+                                '<td><button class="admin-inline-btn danger" onclick="adminRemoveSub(' + sub.user_id + ',' + sub.book_id + ')">取消订阅</button></td>' +
+                                '</tr>';
+                        });
+                        html += '</tbody></table>';
+                    }
+                    list.innerHTML = html;
+                })
+                .catch(function() { list.innerHTML = '<p style="color:red;text-align:center;">查询失败</p>'; });
+        }
+
+        function adminRemoveSub(userId, bookId) {
+            if (confirm('确定取消该订阅？')) {
+                fetch(API_BASE + '/admin/subscriptions', {
+                    method: 'DELETE', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: userId, book_id: bookId})
+                }).then(function() { searchAdminSubscriptions(); });
+            }
+        }
+
+        // ===== 初始化 =====
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查登录状态
+            var userId = localStorage.getItem('userId');
+            if (!userId) {
+                // 未登录，跳回首页
+                window.location.href = 'index.html';
+                return;
+            }
+            // 检查是否为管理员
+            fetch(API_BASE + '/auth/check?user_id=' + userId)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.user || data.user.role !== 'admin') {
+                        alert('您没有管理权限，即将返回首页');
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                    // 默认加载用户管理
+                    searchAdminUsers();
+                })
+                .catch(function() {
+                    alert('验证失败，请重新登录');
+                    window.location.href = 'index.html';
+                });
+        });
+    </script>
+</body>
+</html>
