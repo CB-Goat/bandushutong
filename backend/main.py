@@ -54,6 +54,11 @@ def serve_favicon():
     """提供网站图标"""
     return send_from_directory(FRONTEND_DIR, 'favicon.png')
 
+@app.route('/wechat_qrcode.png')
+def serve_wechat_qrcode():
+    """提供微信二维码图片"""
+    return send_from_directory(FRONTEND_DIR, 'wechat_qrcode.png')
+
 @app.route('/book_icons/<path:filename>')
 def serve_book_icons(filename):
     """提供书籍图标，支持环境变量配置路径"""
