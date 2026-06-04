@@ -1402,9 +1402,12 @@
         <div id="publicPromotion" style="position:fixed;bottom:0;left:0;right:0;background:linear-gradient(160deg,#1a3a0a 0%,#2d5016 35%,#3a6520 100%);color:#e8e0c8;z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,0.25);border-top:2px solid rgba(255,215,0,0.3);">
             <div style="max-width:500px;margin:0 auto;padding:18px 20px;padding-bottom:calc(14px + env(safe-area-inset-bottom, 50px));">
                 <!-- 第一行：主标题 -->
-                <div style="text-align:center;margin-bottom:12px;">
-                    <span style="display:inline-block;background:linear-gradient(135deg,#FFD700,#FFA500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:16px;font-weight:bold;letter-spacing:0.5px;">✨ 超级实用的阅读辅助工具</span>
-                    <div style="font-size:13px;color:#f0e68c;margin-top:4px;line-height:1.5;">孩子阅读，只费脑不费力！</div>
+                <div style="display:flex;align-items:center;justify-content:center;margin-bottom:12px;position:relative;">
+                    <div style="text-align:center;">
+                        <span style="display:inline-block;background:linear-gradient(135deg,#FFD700,#FFA500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:16px;font-weight:bold;letter-spacing:0.5px;">✨ 超级实用的阅读辅助工具</span>
+                        <div style="font-size:13px;color:#f0e68c;margin-top:4px;line-height:1.5;">孩子阅读，只费脑不费力！</div>
+                    </div>
+                    <span onclick="showContactAdmin()" style="position:absolute;right:0;top:50%;transform:translateY(-50%);cursor:pointer;opacity:0.8;" title="联系管理员"><svg width="22" height="18" viewBox="0 0 24 20"><path d="M8.5 0C3.8 0 0 3.1 0 7c0 2.1 1.1 4 2.9 5.3L2 16l4.5-2.2c.6.2 1.3.2 2 .2 4.7 0 8.5-3.1 8.5-7S13.2 0 8.5 0z" fill="#09BB07"/><circle cx="5.5" cy="7" r="1.2" fill="white"/><circle cx="11" cy="7" r="1.2" fill="white"/><path d="M16.5 9c-3.9 0-7 2.6-7 5.8 0 1.7.9 3.3 2.4 4.4L10 21l3.6-1.8c.5.1 1.1.2 1.6.2.3 0 .6 0 .9-.1C19.7 18 24 14.6 24 10.4 24 6.7 20.4 4 16.5 4c-.2 0-.3 0-.5 0 1.3 1.3 2 2.7 2 4.2 0 4-3.8 7.2-8.5 7.2-.3 0-.5 0-.8-.1.3 1.1 1 2 .8 2.4z" fill="#09BB07"/></svg></span>
                 </div>
                 <!-- 第二行&第三行：功能亮点卡片 -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
