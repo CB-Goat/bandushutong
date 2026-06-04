@@ -471,8 +471,32 @@
         .chalkboard .chalk-char.annotated {
             color: #FFD700 !important;
             font-weight: bold;
-            text-decoration: underline wavy #FFD700;
+            text-decoration-line: underline;
+            text-decoration-style: wavy;
+            text-decoration-color: #FFD700;
             text-underline-offset: 4px;
+            text-decoration-thickness: from-font;
+        }
+
+        /* 微信/旧版WebKit 波浪下划线降级：不支持 wavy 的浏览器用 ::after 模拟波浪线 */
+        @supports not (text-decoration-style: wavy) {
+            .chalkboard .chalk-char.annotated {
+                text-decoration-line: none;
+                position: relative;
+            }
+            .chalkboard .chalk-char.annotated::after {
+                content: '';
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                height: 5px;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='8' viewBox='0 0 24 8'%3E%3Cpath d='M0,4 Q3,2 6,4 Q9,6 12,4 Q15,2 18,4 Q21,6 24,4' fill='none' stroke='%23FFD700' stroke-width='1.2'/%3E%3C/svg%3E");
+                background-repeat: repeat-x;
+                background-position: center bottom;
+                background-size: 12px 5px;
+                pointer-events: none;
+            }
         }
 
         /* 点评序号上标 */
