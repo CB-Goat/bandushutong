@@ -935,10 +935,10 @@ def fix_all_book_audio(book_id):
     cursor = conn.cursor()
     total_files = 0
     for section_id in all_sections:
-        cursor.execute("SELECT COUNT(*) FROM text_segments WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '')", (section_id,))
-        total_files += cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM insert_points WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '')", (section_id,))
-        total_files += cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) AS cnt FROM text_segments WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '')", (section_id,))
+        total_files += cursor.fetchone()['cnt']
+        cursor.execute("SELECT COUNT(*) AS cnt FROM insert_points WHERE section_id = %s AND (audio_path IS NULL OR audio_path = '')", (section_id,))
+        total_files += cursor.fetchone()['cnt']
     conn.close()
 
     total = total_files
