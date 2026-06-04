@@ -1365,10 +1365,77 @@
                 <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:14px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.2);margin-bottom:16px;color:white;">
                     <h3 style="margin:0 0 12px;color:#FFD700;font-size:15px;">🏅 我的军功</h3>
                     <div id="pageMeritsList" style="display:flex;flex-wrap:wrap;gap:10px;">
-                        <div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无军功</div>
+                        <div style="color:rgba(255,255,255,0.5);font-size:13px;text-align:center;width:100%;">💪...💪...争取早日建立功勋！</div>
                     </div>
                 </div>
-            </div>
+                <!-- 军功评定规则 -->
+                <div style="background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:16px;">
+                    <h3 style="margin:0 0 10px;font-size:15px;">🏅 军功评定规则</h3>
+                    <p style="color:#999;font-size:12px;margin-bottom:10px;">每满50个已评分思考进行一次统计，按星级率判定军功类型（取最高）</p>
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                        <thead>
+                            <tr style="background:#f5f5f5;">
+                                <th style="padding:8px;text-align:left;border:1px solid #eee;">军功</th>
+                                <th style="padding:8px;text-align:left;border:1px solid #eee;">思考量</th>
+                                <th style="padding:8px;text-align:left;border:1px solid #eee;">星级要求</th>
+                                <th style="padding:8px;text-align:left;border:1px solid #eee;">统计说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:8px;border:1px solid #eee;"><img src="medals/merit_1.png" style="height:18px;vertical-align:middle;"> <span style="color:#FFD700;font-weight:bold;">一等功</span></td>
+                                <td style="padding:8px;border:1px solid #eee;">≥ 350</td>
+                                <td style="padding:8px;border:1px solid #eee;">3星率 ≥ 50%</td>
+                                <td style="padding:8px;border:1px solid #eee;color:#999;">仅统计3星</td>
+                            </tr>
+                            <tr style="background:#fafafa;">
+                                <td style="padding:8px;border:1px solid #eee;"><img src="medals/merit_2.png" style="height:18px;vertical-align:middle;"> <span style="color:#C0C0C0;font-weight:bold;">二等功</span></td>
+                                <td style="padding:8px;border:1px solid #eee;">≥ 250</td>
+                                <td style="padding:8px;border:1px solid #eee;">3星率 ≥ 30%</td>
+                                <td style="padding:8px;border:1px solid #eee;color:#999;">仅统计3星</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px;border:1px solid #eee;"><img src="medals/merit_3.png" style="height:18px;vertical-align:middle;"> <span style="color:#CD7F32;font-weight:bold;">三等功</span></td>
+                                <td style="padding:8px;border:1px solid #eee;">≥ 150</td>
+                                <td style="padding:8px;border:1px solid #eee;">2星率 ≥ 50%</td>
+                                <td style="padding:8px;border:1px solid #eee;color:#999;">统计≥2星</td>
+                            </tr>
+                            <tr style="background:#fafafa;">
+                                <td style="padding:8px;border:1px solid #eee;"><img src="medals/merit_4.png" style="height:18px;vertical-align:middle;"> <span style="color:#8B4513;font-weight:bold;">嘉奖</span></td>
+                                <td style="padding:8px;border:1px solid #eee;">≥ 50</td>
+                                <td style="padding:8px;border:1px solid #eee;">1星率 ≥ 80%</td>
+                                <td style="padding:8px;border:1px solid #eee;color:#999;">统计≥1星</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- 勋章评定规则 -->
+                <div style="background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:16px;">
+                    <h3 style="margin:0 0 10px;font-size:15px;">🏆 勋章评定规则</h3>
+                    <p style="color:#999;font-size:12px;margin-bottom:10px;">按累积3星数达标颁发，最高可拥有三枚</p>
+                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                        <thead>
+                            <tr style="background:#f5f5f5;">
+                                <th style="padding:8px;text-align:left;border:1px solid #eee;">勋章</th>
+                                <th style="padding:8px;text-align:left;border:1px solid #eee;">3星累积数</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:8px;border:1px solid #eee;"><img src="medals/medal_red_star.png" style="height:18px;vertical-align:middle;"> <span style="color:#FFD700;font-weight:bold;">红星勋章</span></td>
+                                <td style="padding:8px;border:1px solid #eee;">100</td>
+                            </tr>
+                            <tr style="background:#fafafa;">
+                                <td style="padding:8px;border:1px solid #eee;"><img src="medals/medal_red_flag.png" style="height:18px;vertical-align:middle;"> <span style="color:#FFD700;font-weight:bold;">红旗勋章</span></td>
+                                <td style="padding:8px;border:1px solid #eee;">200</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px;border:1px solid #eee;"><img src="medals/medal_bayi.png" style="height:18px;vertical-align:middle;"> <span style="color:#FFD700;font-weight:bold;">八一勋章</span></td>
+                                <td style="padding:8px;border:1px solid #eee;">300</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
         </div>
 
         <!-- 用户中心首页（显示军功勋章） -->
@@ -6989,7 +7056,7 @@
                     var merits = data.merits || {};
                     var container = document.getElementById('meritsList');
                     if (!merits || Object.keys(merits).length === 0) {
-                        container.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无军功</div>';
+                        container.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:13px;text-align:center;width:100%;">💪...💪...争取早日建立功勋！</div>';
                         return;
                     }
                     // 按优先级排序：一等功 > 二等功 > 三等功 > 嘉奖
@@ -7167,7 +7234,7 @@
                     var merits = data.merits || {};
                     var container = document.getElementById('pageMeritsList');
                     if (!merits || Object.keys(merits).length === 0) {
-                        container.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无军功</div>';
+                        container.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:13px;text-align:center;width:100%;">💪...💪...争取早日建立功勋！</div>';
                         return;
                     }
                     var order = ['一等功', '二等功', '三等功', '嘉奖'];
