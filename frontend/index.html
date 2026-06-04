@@ -3497,6 +3497,26 @@
                 // 初始化独立的点评音频元素
                 this._annotationAudio = new Audio();
 
+                // 微信兼容：包装 play()，自动在 catch 里注册手势补播
+                (function wrapPlay(audio) {
+                    var _origPlay = audio.play;
+                    audio.play = function() {
+                        var p = _origPlay.apply(audio, arguments);
+                        if (p && typeof p.catch === 'function') {
+                            p.catch(function() {
+                                console.log('[微信兼容] 点评音频 play() 被拦截，注册手势补播');
+                                function _retry() {
+                                    audio.play().catch(function(){});
+                                }
+                                ['touchstart','click'].forEach(function(evt) {
+                                    document.addEventListener(evt, _retry, { once: true, passive: true });
+                                });
+                            });
+                        }
+                        return p;
+                    };
+                })(this._annotationAudio);
+
                 // 微信内置浏览器音频解锁：在用户第一次触摸/点击时，
                 // 对 _annotationAudio 做一次 play()→pause() 预热，
                 // 这样后续在 onended 回调中调用 play() 才有可能成功。
@@ -3810,22 +3830,17 @@
             },
 
             // 重置点评音频，清理事件监听和状态
+            // 注意：不复建 Audio 实例（只 pause + 清 src），保留 init() 里对 play() 的包装
             _resetAnnotationAudio: function() {
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.src = '';
-                    // 彻底移除旧元素（从DOM中删除并废弃），改用全新 Audio 实例
-                    var oldAudio = this._annotationAudio;
-                    if (oldAudio.parentNode) {
-                        oldAudio.parentNode.removeChild(oldAudio);
-                    }
-                    // 断开旧元素引用，让GC回收，确保所有 addEventListener 彻底消失
-                    oldAudio.onended = null;
-                    oldAudio.oncanplay = null;
-                    oldAudio.onerror = null;
-                    oldAudio.ontimeupdate = null;
+                    // 清理事件监听，但不重建 Audio 实例（保留 play() 包装）
+                    this._annotationAudio.onended = null;
+                    this._annotationAudio.oncanplay = null;
+                    this._annotationAudio.onerror = null;
+                    this._annotationAudio.ontimeupdate = null;
                 }
-                this._annotationAudio = new Audio();
                 // 重置点评播放状态
                 this._currentInsertPoint = null;
                 this._insertPointStep = 0;
@@ -3835,7 +3850,7 @@
                     clearInterval(this._commentTextAnimationTimer);
                     this._commentTextAnimationTimer = null;
                 }
-                console.log('_resetAnnotationAudio: 已创建全新 Audio 实例');
+                console.log('_resetAnnotationAudio: 已清理点评音频状态');
             },
 
             // 预加载所有音频段，加载完成前禁用播放按钮
@@ -5444,17 +5459,15 @@
                     this._commentTextAnimationTimer = null;
                 }
                 
-                // 停止并清理点评音频，移除所有事件监听
+                // 停止并清理点评音频，保留 play() 包装（不复建 Audio 实例）
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
-                    // 通过移除所有事件监听器来清理（cloneNode 替代方案）
-                    var oldAudio = this._annotationAudio;
-                    // 克隆新元素替换旧元素
-                    var newAudio = oldAudio.cloneNode(true);
-                    if (oldAudio.parentNode) {
-                        oldAudio.parentNode.replaceChild(newAudio, oldAudio);
-                    }
-                    this._annotationAudio = newAudio;
+                    this._annotationAudio.src = '';
+                    // 清理事件监听，但不重建 Audio 实例（保留 init() 里的 play() 包装）
+                    this._annotationAudio.onended = null;
+                    this._annotationAudio.oncanplay = null;
+                    this._annotationAudio.onerror = null;
+                    this._annotationAudio.ontimeupdate = null;
                 }
                 
                 // 重置 _isFinishing，让 _finishInsertPoint 能正常执行
