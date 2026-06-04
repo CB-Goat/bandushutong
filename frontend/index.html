@@ -1688,7 +1688,37 @@
             adminCurrentBookId: null,
             adminCurrentChapterId: null,
             browseCurrentBookId: null,
+            // 屏幕常亮锁
+            wakeLock: null,
         };
+
+        // ===== 屏幕常亮（Wake Lock API）=====
+        // 进入阅读页时激活，返回时释放，防止手机息屏
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator && navigator.wakeLock) {
+                    var lock = await navigator.wakeLock.request('screen');
+                    console.log('屏幕常亮已激活');
+                    lock.addEventListener('release', function() {
+                        console.log('屏幕常亮已释放');
+                    });
+                    return lock;
+                }
+            } catch (err) {
+                console.log('屏幕常亮请求失败:', err);
+            }
+            return null;
+        }
+
+        // 当页面重新获得可见性时重新申请（用户切走再切回来）
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible' && state.wakeLock === null) {
+                var readerPage = document.getElementById('readerPage');
+                if (readerPage && readerPage.classList.contains('active')) {
+                    requestWakeLock().then(function(lock) { state.wakeLock = lock; });
+                }
+            }
+        });
 
         document.addEventListener('DOMContentLoaded', function() {
             initDatabase();
@@ -1732,6 +1762,11 @@
                     }
                     player.stop();
                     annotationEditor.exitEditMode();
+                    // 释放屏幕常亮
+                    if (state.wakeLock) {
+                        state.wakeLock.release();
+                        state.wakeLock = null;
+                    }
                     // 恢复导航栏标题为书名+作者
                     if (state.currentBook) {
                         var book = state.currentBook;
@@ -2140,6 +2175,8 @@
                         // 进入阅读页前重置播放器状态
                         player._resetPlayerState();
                         showPage('readerPage');
+                        // 激活屏幕常亮
+                        requestWakeLock().then(function(lock) { state.wakeLock = lock; });
                         // 如果有目标节ID，跳转到指定节
                         if (state._targetSectionId) {
                             for (var i = 0; i < state.currentSections.length; i++) {
