@@ -4519,10 +4519,12 @@
                         original_text: seg.quote_text,
                         comment: seg.comment
                     };
+                    state.isPlayingAnnotation = true;
                 } else if (seg.point_type === 'summary') {
                     // 小结类型：不立即显示内容，在步骤3（播放小结内容）时才逐字显示
                     // 只隐藏点评区域，准备小结播放
                     document.getElementById('annotationDisplay').classList.remove('active');
+                    state.isPlayingSummary = true;
                 }
                 
                 // 开始步骤1：播放开场白
@@ -4964,6 +4966,7 @@
                 
                 // 恢复主线状态，允许+思考按钮
                 state.isPlayingAnnotation = false;
+                state.isPlayingSummary = false;
                 var thoughtBtn = document.getElementById('editAnnotationBtn');
                 if (thoughtBtn) {
                     thoughtBtn.disabled = false;
