@@ -1441,6 +1441,48 @@ def check_auth():
     military_rank = get_user_military_rank(int(user_id))
     return jsonify({'user': user, 'military_rank': military_rank})
 
+@api_bp.route('/auth/anonymous', methods=['POST'])
+def anonymous_login():
+    """匿名用户自动注册/登录（基于设备ID，无手机号无密码）"""
+    data = request.get_json() or {}
+    device_id = data.get('device_id', '').strip()
+    device_info = data.get('device_info', '').strip()
+    if not device_id:
+        return jsonify({'error': '设备ID不能为空'}), 400
+    
+    from backend.database import get_db, get_user
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # 查找该设备是否已有匿名用户（phone IS NULL AND password IS NULL）
+        cursor.execute(
+            "SELECT * FROM users WHERE device_id = %s AND (phone IS NULL OR phone = '') AND (password IS NULL OR password = '')",
+            (device_id,)
+        )
+        user = cursor.fetchone()
+        if user:
+            # 已有匿名用户，更新设备信息并返回
+            if device_info:
+                cursor.execute("UPDATE users SET device_info = %s WHERE id = %s", (device_info, user['id']))
+                conn.commit()
+            user = dict(user)
+            user.pop('password', None)
+            military_rank = get_user_military_rank(user['id'])
+            return jsonify({'user': user, 'military_rank': military_rank, 'is_new': False})
+        
+        # 不存在，创建新的匿名用户
+        cursor.execute(
+            "INSERT INTO users (device_id, device_info, role) VALUES (%s, %s, 'user')",
+            (device_id, device_info)
+        )
+        conn.commit()
+        new_user_id = cursor.lastrowid
+        user = get_user(new_user_id)
+        user.pop('password', None)
+        return jsonify({'user': user, 'military_rank': None, 'is_new': True})
+    finally:
+        conn.close()
+
 @api_bp.route('/users/<int:user_id>/profile', methods=['PUT'])
 def update_profile(user_id):
     """更新用户个人信息"""

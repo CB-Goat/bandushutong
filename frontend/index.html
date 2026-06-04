@@ -1122,8 +1122,8 @@
         </div>
         <div id="profileCardAdmin" style="display:none;padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="window.location.href='admin.html';toggleProfileCard();">⚙️ 管理</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToRankMerits();toggleProfileCard();">🏅 军衔军功</div>
-        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToUserInfo();toggleProfileCard();">👤 用户信息</div>
-        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToPassword();toggleProfileCard();">🔐 密码安全</div>
+        <div id="profileCardUserInfo" style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToUserInfo();toggleProfileCard();">👤 用户信息</div>
+        <div id="profileCardPassword" style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToPassword();toggleProfileCard();">🔐 密码安全</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToMessage();toggleProfileCard();">💬 我要留言</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="toggleProfileCard();showContactAdmin();"><svg width="16" height="14" viewBox="0 0 24 20" style="display:inline;vertical-align:-2px;margin-right:4px;"><path d="M8.5 0C3.8 0 0 3.1 0 7c0 2.1 1.1 4 2.9 5.3L2 16l4.5-2.2c.6.2 1.3.2 2 .2 4.7 0 8.5-3.1 8.5-7S13.2 0 8.5 0z" fill="#09BB07"/><circle cx="5.5" cy="7" r="1.2" fill="white"/><circle cx="11" cy="7" r="1.2" fill="white"/><path d="M16.5 9c-3.9 0-7 2.6-7 5.8 0 1.7.9 3.3 2.4 4.4L10 21l3.6-1.8c.5.1 1.1.2 1.6.2.3 0 .6 0 .9-.1C19.7 18 24 14.6 24 10.4 24 6.7 20.4 4 16.5 4c-.2 0-.3 0-.5 0 1.3 1.3 2 2.7 2 4.2 0 4-3.8 7.2-8.5 7.2-.3 0-.5 0-.8-.1.3 1.1 1 2 .8 2.4z" fill="#09BB07"/></svg>联系管理员</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="logout();">🚪 退出</div>
@@ -2039,6 +2039,11 @@
         }
 
         function openBookSection(bookId, sectionId, sectionNumber) {
+            // 匿名用户只能读前3节
+            if (state.currentUser && state.currentUser.role !== 'admin' && !state.currentUser.phone && sectionNumber > 3) {
+                alert('请注册登录，解锁更多阅读内容');
+                return;
+            }
             // 免费用户只能读前3节
             if (state.currentUser && state.currentUser.role !== 'admin' && sectionNumber > 3) {
                 var subs = state.userSubscriptions || [];
@@ -2137,7 +2142,7 @@
                     var coverHtml = book.icon_path 
                         ? '<img src="' + book.icon_path + '" style="width:100%;height:100%;border-radius:6px;object-fit:fill;">'
                         : '📚';
-                    return '<div class="book-card" onclick="promptLogin()" style="position:relative;">' +
+                    return '<div class="book-card" onclick="openBookAsGuest(' + book.id + ', \'' + safeTitle + '\', \'' + (book.icon_path || '') + '\')" style="position:relative;">' +
                         '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
                         '<div class="cover">' + coverHtml + '</div>' +
                         '<div class="info">' +
@@ -2161,6 +2166,45 @@
         function goToLogin() {
             closeLoginPrompt();
             showPage('loginPage');
+        }
+
+        // 匿名用户：点击公版书籍后自动注册/登录
+        async function openBookAsGuest(bookId, title, iconPath) {
+            // 如果已经登录（非匿名），直接打开
+            if (state.currentUser && state.currentUser.phone) {
+                openBookCatalog(bookId, title, iconPath);
+                return;
+            }
+            // 如果已登录但匿名，直接打开
+            if (state.currentUser && !state.currentUser.phone) {
+                openBookCatalog(bookId, title, iconPath);
+                return;
+            }
+            
+            var deviceInfo = getDeviceInfo();
+            try {
+                var resp = await fetch(API_BASE + '/auth/anonymous', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        device_id: deviceInfo.deviceId,
+                        device_info: getDeviceFullInfo()
+                    })
+                });
+                var data = await resp.json();
+                if (data.user) {
+                    // 设置登录状态（匿名版，不跳转到书架页）
+                    state.currentUser = data.user;
+                    state.militaryRank = data.military_rank || null;
+                    localStorage.setItem('userId', data.user.id);
+                    // 打开书籍目录
+                    openBookCatalog(bookId, title, iconPath);
+                } else {
+                    console.error('[anonymous] 匿名登录失败:', data.error);
+                }
+            } catch (e) {
+                console.error('[anonymous] 网络错误:', e);
+            }
         }
 
         async function loadBooks() {
@@ -6902,12 +6946,25 @@
             document.getElementById('profileBtn').style.display = '';
             document.getElementById('profileCardAdmin').style.display = (user.role === 'admin') ? 'block' : 'none';
             document.getElementById('loginNavBtn').style.display = 'none';
+            // 匿名用户隐藏用户信息和密码安全菜单项
+            updateProfileCardAnonymousItems(user);
             // 更新个人中心卡片军衔信息
             updateProfileCardRank(militaryRank);
             showPage('homePage');
             loadBooks();
-            // 启动设备检测
-            startDeviceCheck();
+            // 匿名用户不启动设备检测（无手机号绑定，检测无意义）
+            if (user.phone) {
+                startDeviceCheck();
+            }
+        }
+
+        // 根据用户是否匿名，控制菜单项的显示
+        function updateProfileCardAnonymousItems(user) {
+            var isAnonymous = !user.phone;
+            var userInfoItem = document.getElementById('profileCardUserInfo');
+            var passwordItem = document.getElementById('profileCardPassword');
+            if (userInfoItem) userInfoItem.style.display = isAnonymous ? 'none' : '';
+            if (passwordItem) passwordItem.style.display = isAnonymous ? 'none' : '';
         }
 
         // 更新个人中心卡片军衔显示
@@ -7468,6 +7525,8 @@
                     document.getElementById('profileBtn').style.display = '';
                     // 管理员显示管理选项
                     document.getElementById('profileCardAdmin').style.display = (state.currentUser.role === 'admin') ? 'block' : 'none';
+                    // 匿名用户隐藏用户信息和密码安全
+                    updateProfileCardAnonymousItems(state.currentUser);
                 }
             }
 
