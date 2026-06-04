@@ -91,7 +91,7 @@
             max-width: none;
             width: 100%;
         }
-        #catalogPage.active { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        #catalogPage.active { position: fixed; top: 52px; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; overflow: hidden; }
         #catalogPage.active > .catalog-page { flex: 1; overflow-y: auto; padding-top: 0; min-height: 0; }
         #homePage.active { position: fixed; top: 52px; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; overflow: hidden; z-index: 1; background: #f5f7fa; align-items: center; }
         #userInfoPage.active,
@@ -154,7 +154,7 @@
         .book-stats-row span { background: #f0f0f0; padding: 2px 6px; border-radius: 8px; }
 
         /* ===== 目录页 ===== */
-        .catalog-page { padding: 15px; overflow-y: auto; flex: 1; min-height: 0; }
+        .catalog-page { padding: 15px; overflow-y: auto; flex: 1; min-height: 0; max-height: 100%; }
         .catalog-book-header { margin-bottom: 15px; }
         .catalog-book-title { font-size: 20px; font-weight: 600; color: #2d5016; }
         .catalog-book-meta { font-size: 14px; color: #888; margin-top: 4px; }
@@ -1769,6 +1769,7 @@
             isAnnotationEditMode: false,
             // 点评播放状态
             isPlayingAnnotation: false,
+            isPlayingSummary: false,
             annotationPlaybackPaused: false,
             // 管理和浏览页面状态
             adminCurrentBookId: null,
@@ -3228,7 +3229,7 @@
                     tabEl.textContent = tab.label;
                     tabEl.onclick = function() {
                         // 点评/小结插入播放期间（轮巡暂停），禁止用户点击其他标签
-                        if (state && state.isPlayingAnnotation) return;
+                        if (state && (state.isPlayingAnnotation || state.isPlayingSummary)) return;
                         // 点击标签切换到该标签，并作为轮巡起点
                         self.showTab(tab.id);
                         // 重新开始轮巡（从当前点击的标签开始）
@@ -5531,6 +5532,8 @@
                 var self = this;
                 var section = state.currentSections[state.currentSectionIndex];
                 
+                state.isPlayingSummary = true;
+                
                 if (section && section.summary && typeof analysisManager !== 'undefined') {
                     analysisManager.addSummaryTab(section.summary);
                 }
@@ -5550,6 +5553,7 @@
                         document.getElementById('playBtn').textContent = '\u23F8';
                     }).catch(function(e) {
                         console.log('小结段播放失败:', e);
+                        state.isPlayingSummary = false;
                         self._playNext();
                     });
                 };
@@ -5615,6 +5619,7 @@
                 }
                 
                 if (this._currentSegment && this._currentSegment.type === 'insert_point' && this._currentSegment.point_type === 'summary') {
+                    state.isPlayingSummary = false;
                     if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
                         analysisManager.resumeRotation();
                     }
@@ -5827,7 +5832,9 @@
                         this._playSummaryAudioLegacy(section);
                     } else {
                         var self = this;
+                        state.isPlayingSummary = true;
                         this._speakComment('让我们回顾一下本篇内容。' + summary, function() {
+                            state.isPlayingSummary = false;
                             analysisManager.resumeRotation();
                         });
                     }
@@ -5836,6 +5843,7 @@
             
             _playSummaryAudioLegacy: function(section) {
                 var self = this;
+                state.isPlayingSummary = true;
                 this.audio.src = section.summary_audio_path;
                 this.audio.load();
                 if (typeof analysisManager !== 'undefined' && analysisManager.pauseRotation) {
@@ -5843,6 +5851,7 @@
                 }
                 this.audio.onended = function() {
                     console.log('小结音频播放结束');
+                    state.isPlayingSummary = false;
                     if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
                         analysisManager.resumeRotation();
                     }
