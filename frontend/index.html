@@ -3497,6 +3497,45 @@
                 // 初始化独立的点评音频元素
                 this._annotationAudio = new Audio();
 
+                // 微信内置浏览器音频解锁：在用户第一次触摸/点击时，
+                // 对 _annotationAudio 做一次 play()→pause() 预热，
+                // 这样后续在 onended 回调中调用 play() 才有可能成功。
+                var _wechatAudioUnlocked = false;
+                function _unlockWechatAudio() {
+                    if (_wechatAudioUnlocked) return;
+                    _wechatAudioUnlocked = true;
+                    // 预热主音频
+                    if (self.audio && self.audio.paused) {
+                        var p = self.audio.play();
+                        if (p && p.then) {
+                            p.then(function() {
+                                self.audio.pause();
+                                self.audio.currentTime = 0;
+                            }).catch(function() {});
+                        }
+                    }
+                    // 预热点评音频
+                    if (self._annotationAudio && self._annotationAudio.paused) {
+                        var p2 = self._annotationAudio.play();
+                        if (p2 && p2.then) {
+                            p2.then(function() {
+                                self._annotationAudio.pause();
+                                self._annotationAudio.currentTime = 0;
+                            }).catch(function() {});
+                        }
+                    }
+                    console.log('微信音频播放权限已解锁');
+                }
+                // 绑定用户手势事件（只需一次）
+                ['touchstart', 'touchend', 'mousedown', 'click'].forEach(function(evt) {
+                    document.addEventListener(evt, _unlockWechatAudio, { once: true, passive: true });
+                });
+                // 也在播放按钮上直接绑定（双重保险）
+                var playBtn = document.getElementById('playBtn');
+                if (playBtn) {
+                    playBtn.addEventListener('click', _unlockWechatAudio, { once: true, passive: true });
+                }
+
                 this.audio.ontimeupdate = function() {
                     self.currentTime = self.audio.currentTime;
                     // 追踪最后已知的文本段位置（断点保存兜底用）
