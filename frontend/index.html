@@ -3330,12 +3330,19 @@
             var userId = (typeof state !== 'undefined' && state.currentUser) ? state.currentUser.id : '';
             if (userId) params += '&user_id=' + encodeURIComponent(userId);
 
+            console.log('[名言] 开始加载, params:', params);
+
             fetch(API_BASE + '/quote/random' + params)
                 .then(function(res) { return res.json(); })
                 .then(function(data) {
+                    console.log('[名言] API返回:', data);
                     var quotes = data.quotes || [];
                     if (quotes.length === 0) {
-                        // 没有名言时保持空白，不影响赏析区
+                        console.log('[名言] 无数据，显示空状态');
+                        var emptyHtml = '<div class="quote-item" style="text-align:center;padding:20px 0;">' +
+                            '<p style="color:rgba(240,232,208,0.5);font-size:15px;margin:0;">📜 暂无名言，去管理后台导入吧</p>' +
+                            '</div>';
+                        updateFamousTab(emptyHtml);
                         return;
                     }
                     // 格式化名言内容为 HTML
@@ -3348,20 +3355,27 @@
                             '</div>';
                     }).join('');
                     
-                    // 更新 analysisManager 中的名言 tab
-                    var famousTab = analysisManager.tabs.find(function(t) { return t.id === 'famous'; });
-                    if (famousTab) {
-                        famousTab.content = html;
-                        famousTab.isHtml = true;
-                        // 如果当前显示的就是名言赏析，刷新展示
-                        if (analysisManager.currentTab === 'famous') {
-                            analysisManager.showTab('famous');
-                        }
-                    }
+                    updateFamousTab(html);
                 })
                 .catch(function(err) {
-                    console.log('加载名言失败:', err);
+                    console.log('[名言] 加载失败:', err);
+                    var errHtml = '<div class="quote-item" style="text-align:center;padding:20px 0;">' +
+                        '<p style="color:rgba(240,232,208,0.4);font-size:14px;margin:0;">名言加载失败，请稍后重试</p>' +
+                        '</div>';
+                    updateFamousTab(errHtml);
                 });
+        }
+
+        // 更新名言赏析 tab 内容并刷新显示
+        function updateFamousTab(html) {
+            var famousTab = analysisManager.tabs.find(function(t) { return t.id === 'famous'; });
+            if (famousTab) {
+                famousTab.content = html;
+                famousTab.isHtml = true;
+                if (analysisManager.currentTab === 'famous') {
+                    analysisManager.showTab('famous');
+                }
+            }
         }
 
         // ===== 时间轴播放器（统一使用预生成音频）=====
