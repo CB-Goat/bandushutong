@@ -572,12 +572,16 @@
             padding-right: 4px;
         }
 
-        /* 赏析点评标签区域 */
+        /* 赏析点评标签区域 - 固定在分析区顶部，内容再多也不被挤出视口 */
         .chalkboard .analysis-tabs {
             display: flex;
             gap: 10px;
-            margin-bottom: 10px;
+            padding-bottom: 10px;
             flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #2a4a1a;
         }
 
         .chalkboard .analysis-tabs .tab {
@@ -3270,6 +3274,12 @@
                 this.isRotating = true;
                 this.currentTab = startTabId;
 
+                // 轮巡开始时重置滚动到顶部
+                var analysisArea = document.getElementById('analysisArea');
+                if (analysisArea) {
+                    analysisArea.scrollTop = 0;
+                }
+
                 var self = this;
                 this.rotationTimer = setInterval(function() {
                     var currentIndex = self.tabs.findIndex(function(t) { return t.id === self.currentTab; });
@@ -3312,6 +3322,11 @@
                 }
 
                 this.renderTabs();
+                // 轮巡切换标签时重置滚动到顶部
+                var analysisArea = document.getElementById('analysisArea');
+                if (analysisArea) {
+                    analysisArea.scrollTop = 0;
+                }
             },
 
             // 开始轮巡
