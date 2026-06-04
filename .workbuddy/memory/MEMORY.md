@@ -4,7 +4,8 @@
 - **服务器部署方式**：Docker（docker-compose）
 - **更新流程**：本地修改 → git push → 服务端 `git pull origin main && docker-compose up -d --build`
 - **Git 仓库**：https://github.com/CB-Goat/bandushutong
-- **注意**：Windows 环境 git clone 需要 `http.sslVerify=false`
+- **注意**：Windows 环境 git clone 和 git push 需要 `http.sslVerify=false`（用 `git -c http.sslVerify=false push` 或配置全局 `git config --global http.sslVerify false`）
+- **代码提交规范**：每次修改代码后，必须立即 commit 并 push 到远程仓库，不要遗漏
 - **前端服务**：宝塔 Nginx 直接提供（`/www/dk_project/wwwroot/lit.handy.xin/frontend/`），不在 Docker 容器内
 
 ## 技术栈
