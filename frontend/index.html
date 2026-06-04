@@ -1110,17 +1110,17 @@
     <!-- 个人中心卡片 -->
     <div id="profileCard" style="display:none;position:fixed;top:50px;right:10px;background:#2d2d1e;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 0;min-width:160px;z-index:10000;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
         <!-- 军衔信息 -->
-        <div id="profileCardRank" style="padding:8px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:8px;">
-            <div style="display:flex;align-items:center;gap:6px;">
-                <span style="color:#f0c040;font-size:13px;white-space:nowrap;">军衔：</span>
-                <span id="profileCardRankName" style="color:#e8e0c8;font-size:14px;font-weight:bold;">-</span>
-                <img id="profileCardRankIcon" src="ranks/rank_1.png" style="height:32px;margin-left:auto;transform:rotate(90deg);" alt="肩章">
+        <div id="profileCardRank" style="padding:8px 16px 10px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span id="profileCardRankName" style="color:#f0c040;font-size:15px;font-weight:bold;">-</span>
+                <img id="profileCardRankIcon" src="ranks/rank_1.png" style="height:26px;margin-left:auto;" alt="肩章">
             </div>
-            <div style="margin-top:6px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
+            <div style="margin-top:5px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
                 <div id="profileCardRankProgress" style="height:100%;background:linear-gradient(90deg,#8b4513,#cd853f);width:0%;transition:width 0.3s;"></div>
             </div>
         </div>
         <div id="profileCardAdmin" style="display:none;padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="window.location.href='admin.html';toggleProfileCard();">⚙️ 管理</div>
+        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="toggleProfileCard();showRankMerits();">🏅 军衔军功</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToUserInfo();toggleProfileCard();">👤 用户信息</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToPassword();toggleProfileCard();">🔐 密码安全</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToMessage();toggleProfileCard();">💬 我要留言</div>
@@ -1223,47 +1223,6 @@
                         <div>
                             <div id="userDisplayName" style="font-size:18px;font-weight:bold;color:#333;"></div>
                             <div id="userPhone" style="font-size:13px;color:#999;margin-top:4px;"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- 军衔等级（嵌入个人信息卡片内） -->
-                    <div id="militaryRankCard" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.15);margin-bottom:20px;color:white;">
-                        <!-- 标题行 -->
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                            <h3 style="margin:0;color:#FFD700;font-size:15px;">🎖️ 我的军衔</h3>
-                            <div style="display:flex;align-items:baseline;gap:6px;">
-                                <span id="rankName" style="font-size:16px;font-weight:bold;color:#FFD700;">列兵</span>
-                                <span id="rankTitle" style="font-size:12px;color:rgba(255,255,255,0.7);">[阅读新兵]</span>
-                            </div>
-                        </div>
-                        <!-- 中间区域：肩章+头像 -->
-                        <div style="background:white;border-radius:8px;padding:10px 20px;margin-bottom:10px;">
-                            <div style="display:flex;justify-content:center;align-items:flex-start;gap:20px;">
-                                <!-- 左侧肩章容器 -->
-                                <div style="flex:0 0 auto;position:relative;width:23px;height:100px;">
-                                    <div id="rankEpauletteLeft" style="position:absolute;top:60px;left:0;"></div>
-                                </div>
-                                <!-- 中间卡通头像 -->
-                                <div style="flex:0 0 auto;">
-                                    <img src="ranks/avatar_military.png" style="width:100px;height:100px;display:block;object-fit:contain;" alt="军衔头像">
-                                </div>
-                                <!-- 右侧肩章容器 -->
-                                <div style="flex:0 0 auto;position:relative;width:23px;height:100px;">
-                                    <div id="rankEpauletteRight" style="position:absolute;top:60px;left:0;"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="margin-bottom:8px;">
-                            <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:4px;">
-                                <span>累计阅读 <span id="rankWords">0</span> 字</span>
-                                <span>下一级: <span id="nextRankName">上等兵</span> (<span id="nextRankWords">5,000</span>字)</span>
-                            </div>
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <div style="flex:1;background:rgba(255,255,255,0.15);border-radius:10px;height:12px;overflow:hidden;">
-                                    <div id="rankProgress" style="height:100%;background:linear-gradient(90deg,#FFD700,#FFA500);border-radius:10px;width:0%;transition:width 0.5s ease;"></div>
-                                </div>
-                                <span style="font-size:11px;color:rgba(255,255,255,0.5);"><span id="rankPercent">0</span>%</span>
-                            </div>
                         </div>
                     </div>
                     
@@ -6958,7 +6917,6 @@
         function goToUserInfo() {
             showPage('userInfoPage');
             loadUserProfile();
-            loadMilitaryRank();
             toggleProfileCard();
         }
 
@@ -7081,24 +7039,24 @@
                         var svgHtml = renderEpaulette(rank.icon || 'private');
                         // 左侧肩章（左旋-90度）
                         var leftHtml = svgHtml.replace('<img', '<img style="transform:rotate(-90deg);width:23px;height:auto;"');
-                        document.getElementById('rankEpauletteLeft').innerHTML = leftHtml;
+                        document.getElementById('modalRankEpauletteLeft').innerHTML = leftHtml;
                         // 右侧肩章（右旋+90度）
                         var rightHtml = svgHtml.replace('<img', '<img style="transform:rotate(90deg);width:23px;height:auto;"');
-                        document.getElementById('rankEpauletteRight').innerHTML = rightHtml;
-                        document.getElementById('rankName').textContent = rank.rank_name;
-                        document.getElementById('rankTitle').textContent = rank.title || '';
-                        document.getElementById('rankWords').textContent = (data.total_words || 0).toLocaleString();
+                        document.getElementById('modalRankEpauletteRight').innerHTML = rightHtml;
+                        document.getElementById('modalRankName').textContent = rank.rank_name;
+                        document.getElementById('modalRankTitle').textContent = rank.title || '';
+                        document.getElementById('modalRankWords').textContent = (data.total_words || 0).toLocaleString();
                         var progressPercent = data.progress || 0;
-                        document.getElementById('rankProgress').style.width = progressPercent + '%';
-                        document.getElementById('rankPercent').textContent = Math.floor(progressPercent);
+                        document.getElementById('modalRankProgress').style.width = progressPercent + '%';
+                        document.getElementById('modalRankPercent').textContent = Math.floor(progressPercent);
                         // 记录当前军衔
                         state._lastRankName = rank.rank_name;
                         if (data.next_rank) {
-                            document.getElementById('nextRankName').textContent = data.next_rank.rank_name;
-                            document.getElementById('nextRankWords').textContent = (data.next_rank.min_words || 0).toLocaleString();
+                            document.getElementById('modalNextRankName').textContent = data.next_rank.rank_name;
+                            document.getElementById('modalNextRankWords').textContent = (data.next_rank.min_words || 0).toLocaleString();
                         } else {
-                            document.getElementById('nextRankName').textContent = '已满级';
-                            document.getElementById('nextRankWords').textContent = '--';
+                            document.getElementById('modalNextRankName').textContent = '已满级';
+                            document.getElementById('modalNextRankWords').textContent = '--';
                         }
                     }
                 })
@@ -7144,6 +7102,43 @@
         function hideContactAdmin() {
             var overlay = document.getElementById('contactAdminOverlay');
             overlay.style.display = 'none';
+        }
+
+        // 军衔军功弹窗
+        function showRankMerits() {
+            loadMilitaryRank();
+            loadMeritsForModal();
+            document.getElementById('rankMeritsOverlay').style.display = 'flex';
+        }
+        function hideRankMerits() {
+            document.getElementById('rankMeritsOverlay').style.display = 'none';
+        }
+        function loadMeritsForModal() {
+            if (!state.currentUser) return;
+            fetch(API_BASE + '/users/' + state.currentUser.id + '/merits')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var merits = data.merits || {};
+                    var container = document.getElementById('modalMeritsList');
+                    if (!merits || Object.keys(merits).length === 0) {
+                        container.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无军功</div>';
+                        return;
+                    }
+                    var order = ['一等功', '二等功', '三等功', '嘉奖'];
+                    var icons = {'一等功': 'medals/merit_1.png', '二等功': 'medals/merit_2.png', '三等功': 'medals/merit_3.png', '嘉奖': 'medals/merit_4.png'};
+                    var colors = {'一等功': '#FFD700', '二等功': '#C0C0C0', '三等功': '#CD7F32', '嘉奖': '#8B4513'};
+                    var html = '';
+                    order.forEach(function(type) {
+                        if (merits[type]) {
+                            html += '<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;">'
+                                + '<img src="' + (icons[type] || 'medals/merit_4.png') + '" style="height:36px;display:block;margin:0 auto;" alt="' + type + '">'
+                                + '<div style="font-size:12px;color:' + (colors[type] || '#fff') + ';font-weight:bold;margin-top:4px;">' + type + '</div>'
+                                + '<div style="font-size:11px;color:rgba(255,255,255,0.6);">×' + merits[type] + '</div>'
+                                + '</div>';
+                        }
+                    });
+                    container.innerHTML = html;
+                });
         }
 
         // 密码强度校验：至少6位，包含字母、数字、符号中的两种或以上
@@ -7440,6 +7435,55 @@
             }
         });
     </script>
+
+    <!-- 军衔军功弹窗 -->
+    <div id="rankMeritsOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:10000;justify-content:center;align-items:center;overflow-y:auto;" onclick="event.target === this && hideRankMerits()">
+        <div style="width:90%;max-width:380px;margin:20px auto;" onclick="event.stopPropagation()">
+            <!-- 军衔卡片 -->
+            <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:14px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.4);margin-bottom:16px;color:white;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <h3 style="margin:0;color:#FFD700;font-size:15px;">🎖️ 我的军衔</h3>
+                    <div style="display:flex;align-items:baseline;gap:6px;">
+                        <span id="modalRankName" style="font-size:16px;font-weight:bold;color:#FFD700;">列兵</span>
+                        <span id="modalRankTitle" style="font-size:12px;color:rgba(255,255,255,0.7);">[阅读新兵]</span>
+                    </div>
+                </div>
+                <div style="background:white;border-radius:8px;padding:10px 20px;margin-bottom:10px;">
+                    <div style="display:flex;justify-content:center;align-items:flex-start;gap:20px;">
+                        <div style="flex:0 0 auto;position:relative;width:23px;height:100px;">
+                            <div id="modalRankEpauletteLeft" style="position:absolute;top:60px;left:0;"></div>
+                        </div>
+                        <div style="flex:0 0 auto;">
+                            <img src="ranks/avatar_military.png" style="width:100px;height:100px;display:block;object-fit:contain;" alt="军衔头像">
+                        </div>
+                        <div style="flex:0 0 auto;position:relative;width:23px;height:100px;">
+                            <div id="modalRankEpauletteRight" style="position:absolute;top:60px;left:0;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:4px;">
+                        <span>累计阅读 <span id="modalRankWords">0</span> 字</span>
+                        <span>下一级: <span id="modalNextRankName">上等兵</span> (<span id="modalNextRankWords">5,000</span>字)</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="flex:1;background:rgba(255,255,255,0.15);border-radius:10px;height:12px;overflow:hidden;">
+                            <div id="modalRankProgress" style="height:100%;background:linear-gradient(90deg,#FFD700,#FFA500);border-radius:10px;width:0%;transition:width 0.5s ease;"></div>
+                        </div>
+                        <span style="font-size:11px;color:rgba(255,255,255,0.5);"><span id="modalRankPercent">0</span>%</span>
+                    </div>
+                </div>
+            </div>
+            <!-- 军功卡片 -->
+            <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:12px;padding:14px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.4);margin-bottom:16px;color:white;">
+                <h3 style="margin:0 0 12px;color:#FFD700;font-size:15px;">🏅 我的军功</h3>
+                <div id="modalMeritsList" style="display:flex;flex-wrap:wrap;gap:10px;">
+                    <div style="color:rgba(255,255,255,0.5);font-size:13px;">暂无军功</div>
+                </div>
+            </div>
+            <button onclick="hideRankMerits()" style="width:100%;padding:12px;background:#f0f0f0;color:#333;border:none;border-radius:8px;font-size:14px;cursor:pointer;display:block;">关闭</button>
+        </div>
+    </div>
 
     <!-- 联系管理员二维码弹窗 -->
     <div id="contactAdminOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:10000;justify-content:center;align-items:center;" onclick="event.target === this && hideContactAdmin()">
