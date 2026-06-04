@@ -4537,6 +4537,14 @@
                     thoughtBtn.style.opacity = '0.4';
                     thoughtBtn.style.cursor = 'not-allowed';
                 }
+                // 禁用播放按钮，防止用户在点评/小结播放过程中操作
+                var playBtn = document.getElementById('playBtn');
+                if (playBtn) {
+                    playBtn.disabled = true;
+                    playBtn.style.opacity = '0.4';
+                    playBtn.style.cursor = 'not-allowed';
+                    playBtn.title = '点评/小结播放中，请稍候';
+                }
                 
                 // 保存当前 insert_point 段
                 this._currentInsertPoint = seg;
@@ -5001,6 +5009,14 @@
                     thoughtBtn.disabled = false;
                     thoughtBtn.style.opacity = '1';
                     thoughtBtn.style.cursor = 'pointer';
+                }
+                // 恢复播放按钮
+                var playBtn = document.getElementById('playBtn');
+                if (playBtn) {
+                    playBtn.disabled = false;
+                    playBtn.style.opacity = '1';
+                    playBtn.style.cursor = 'pointer';
+                    playBtn.title = '';
                 }
                 
                 // 调用全局结束处理
