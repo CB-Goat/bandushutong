@@ -3361,6 +3361,8 @@
                     tabEl.className = 'tab' + (tab.id === self.currentTab ? ' active' : '') + (tab.isSummary ? ' summary-tab' : '');
                     tabEl.textContent = tab.label;
                     tabEl.onclick = function() {
+                        // 点评/小结插入播放期间（轮巡暂停），禁止用户点击其他标签
+                        if (state && state.isPlayingAnnotation) return;
                         // 点击标签切换到该标签，并作为轮巡起点
                         self.showTab(tab.id);
                         // 重新开始轮巡（从当前点击的标签开始）
@@ -4844,6 +4846,11 @@
                             }
                         }
                         lastCharIdx = currentCharIdx;
+                        // 自动滚动评论区，让用户始终看到最新显示的字符
+                        var analysisArea = document.getElementById('analysisArea');
+                        if (analysisArea) {
+                            analysisArea.scrollTop = analysisArea.scrollHeight;
+                        }
                     }
                 };
                 
@@ -5352,6 +5359,11 @@
                             }
                         }
                         lastCharIdx = currentCharIdx;
+                        // 自动滚动评论区，让用户始终看到最新显示的字符
+                        var analysisArea = document.getElementById('analysisArea');
+                        if (analysisArea) {
+                            analysisArea.scrollTop = analysisArea.scrollHeight;
+                        }
                     }
                 };
                 
