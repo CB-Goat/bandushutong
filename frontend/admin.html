@@ -1592,6 +1592,10 @@
                                             btn.textContent = '🔊 一键修复音频';
                                             btn.disabled = false;
                                             adminShowCatalogStats(bookId);
+                                            if (prog.error) {
+                                                alert('修复异常: ' + prog.error);
+                                                return;
+                                            }
                                             var success = prog.total - prog.failed;
                                             alert('音频修复完成：成功 ' + success + '/' + prog.total + (prog.failed > 0 ? '，失败 ' + prog.failed : ''));
                                         }

@@ -13,8 +13,32 @@ import pymysql
 # 导入状态存储 {book_id: {'status': str, 'message': str, 'updated_at': float}}
 _import_status = {}
 _import_lock = threading.Lock()
-# 批量音频修复进度存储
-_fix_progress = {}
+# 批量音频修复进度 - 改用文件存储（gunicorn 多 worker 内存不共享）
+import json as _json
+_fix_progress_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_fix_progress')
+_fix_progress_lock = threading.Lock()
+
+def _get_fix_progress(book_id):
+    """从文件读取修复进度"""
+    fpath = os.path.join(_fix_progress_dir, f'fix_{book_id}.json')
+    if os.path.exists(fpath):
+        try:
+            with open(fpath, 'r', encoding='utf-8') as f:
+                return _json.load(f)
+        except Exception:
+            pass
+    return {'finished': True, 'total': 0, 'done': 0, 'failed': 0, 'current': 0}
+
+def _save_fix_progress(book_id, progress):
+    """将修复进度写入文件"""
+    os.makedirs(_fix_progress_dir, exist_ok=True)
+    fpath = os.path.join(_fix_progress_dir, f'fix_{book_id}.json')
+    with _fix_progress_lock:
+        try:
+            with open(fpath, 'w', encoding='utf-8') as f:
+                _json.dump(progress, f)
+        except Exception:
+            pass
 
 def _set_import_status(book_id, status, message):
     with _import_lock:
@@ -907,22 +931,30 @@ def fix_all_book_audio(book_id):
         return jsonify({'message': '所有音频已完整', 'total': 0, 'done': 0, 'failed': 0})
 
     total = len(all_sections)
-    # 用锁保护共享变量
     import threading
-    lock = threading.Lock()
     progress = {'done': 0, 'failed': 0, 'current': 0, 'total': total, 'finished': False}
-    _fix_progress[book_id] = progress
+    _save_fix_progress(book_id, progress)
 
     def do_fix_all():
-        from backend.baidu_tts import text_to_speech_long
+        try:
+            from baidu_tts import text_to_speech_long
+        except ImportError as e:
+            print(f'[fix-all-audio] import 失败: {e}', flush=True)
+            _save_fix_progress(book_id, {
+                'done': 0, 'failed': total, 'current': 0, 'total': total, 'finished': True,
+                'error': f'import失败: {e}'
+            })
+            return
         for i, section_id in enumerate(all_sections):
-            with lock:
-                progress['current'] = i + 1
+            progress = _get_fix_progress(book_id)
+            progress['current'] = i + 1
+            _save_fix_progress(book_id, progress)
             try:
                 section = get_section(section_id)
                 if not section:
-                    with lock:
-                        progress['failed'] += 1
+                    progress = _get_fix_progress(book_id)
+                    progress['failed'] += 1
+                    _save_fix_progress(book_id, progress)
                     continue
                 conn = get_db()
                 cursor = conn.cursor()
@@ -960,7 +992,7 @@ def fix_all_book_audio(book_id):
                             sec_failed += 1
                     except Exception as e:
                         sec_failed += 1
-                        print(f'[fix-all-audio] 段{seg["id"]} 异常: {e}')
+                        print(f'[fix-all-audio] 段{seg["id"]} 异常: {e}', flush=True)
 
                 # 修复 insert_points
                 for ip in missing_ips:
@@ -988,21 +1020,24 @@ def fix_all_book_audio(book_id):
                             sec_failed += 1
                     except Exception as e:
                         sec_failed += 1
-                        print(f'[fix-all-audio] 插入点{ip["id"]} 异常: {e}')
+                        print(f'[fix-all-audio] 插入点{ip["id"]} 异常: {e}', flush=True)
 
-                print(f'[fix-all-audio] 节{section_id} 完成: 成功{sec_fixed}, 失败{sec_failed}')
-                with lock:
-                    progress['done'] += 1
+                print(f'[fix-all-audio] 节{section_id} 完成: 成功{sec_fixed}, 失败{sec_failed}', flush=True)
+                progress = _get_fix_progress(book_id)
+                progress['done'] += 1
+                _save_fix_progress(book_id, progress)
             except Exception as e:
-                with lock:
-                    progress['failed'] += 1
-                print(f'[fix-all-audio] 节{section_id} 异常: {e}')
+                progress = _get_fix_progress(book_id)
+                progress['failed'] += 1
+                _save_fix_progress(book_id, progress)
+                print(f'[fix-all-audio] 节{section_id} 异常: {e}', flush=True)
                 import traceback
                 traceback.print_exc()
 
-        with lock:
-            progress['finished'] = True
-        print(f'[fix-all-audio] 全书修复完成: 成功{progress["done"]}, 失败{progress["failed"]}, 共{total}')
+        progress = _get_fix_progress(book_id)
+        progress['finished'] = True
+        _save_fix_progress(book_id, progress)
+        print(f'[fix-all-audio] 全书修复完成: 成功{progress["done"]}, 失败{progress["failed"]}, 共{total}', flush=True)
 
     thread = threading.Thread(target=do_fix_all, daemon=True)
     thread.start()
@@ -1016,15 +1051,14 @@ def fix_all_book_audio(book_id):
 @api_bp.route('/admin/books/<int:book_id>/fix-all-audio/progress', methods=['GET'])
 def fix_all_book_audio_progress(book_id):
     """查询批量修复进度"""
-    progress = _fix_progress.get(book_id)
-    if not progress:
-        return jsonify({'finished': True, 'total': 0, 'done': 0, 'failed': 0, 'current': 0})
+    progress = _get_fix_progress(book_id)
     return jsonify({
-        'finished': progress['finished'],
-        'total': progress['total'],
-        'done': progress['done'],
-        'failed': progress['failed'],
-        'current': progress['current'],
+        'finished': progress.get('finished', True),
+        'total': progress.get('total', 0),
+        'done': progress.get('done', 0),
+        'failed': progress.get('failed', 0),
+        'current': progress.get('current', 0),
+        'error': progress.get('error', None),
     })
 
 @api_bp.route('/progress/v2', methods=['POST'])
