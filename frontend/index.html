@@ -2676,9 +2676,10 @@
             },
 
             // 显示到第 N 个字符（只前进不回退）
-            revealCharsUpTo: function(index) {
+            revealCharsUpTo: function(index, options) {
                 var target = Math.min(index, this._totalChars);
                 var prevTarget = this._revealedUpTo || 0;
+                var skipAnnotationClear = options && options.skipAnnotationClear;
                 
                 // 只前进不回退：如果 target 小于之前的位置，保持之前的位置
                 if (target < prevTarget) {
@@ -2696,7 +2697,10 @@
                         if (self._allChars[i]) {
                             self._allChars[i].classList.add('visible');
                             // 主线播放时清除任何残留的点评高亮（已读节加载时的 annotated 残留）
-                            self._allChars[i].classList.remove('annotated');
+                            // 断点恢复场景下跳过清除，因为后续会重新高亮
+                            if (!skipAnnotationClear) {
+                                self._allChars[i].classList.remove('annotated');
+                            }
                         }
                     }
                     current = end;
@@ -3078,7 +3082,7 @@
                     if (!container || self._totalChars <= 0) return;
 
                     // 恢复已显示的文字到上次阅读位置
-                    self.revealCharsUpTo(savedPosition);
+                    self.revealCharsUpTo(savedPosition, {skipAnnotationClear: true});
 
                     // 进度条
                     var scrollPercent = Math.min(savedPosition / self._totalChars, 1);
@@ -3230,7 +3234,7 @@
                     var container = document.getElementById('chalkText');
                     if (!container || self._totalChars <= 0) return;
 
-                    self.revealCharsUpTo(savedPosition);
+                    self.revealCharsUpTo(savedPosition, {skipAnnotationClear: true});
                     var scrollPercent = Math.min(savedPosition / self._totalChars, 1);
                     container.scrollTop = scrollPercent * (container.scrollHeight - container.clientHeight);
                     self._currentPosition = savedPosition;
