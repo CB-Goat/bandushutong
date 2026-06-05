@@ -4486,6 +4486,8 @@
                         // 断点在当前段内，从断点位置开始显示
                         displayChar = breakGlobalPos + this.TEXT_AHEAD_OFFSET;
                         console.log('文本段: 断点恢复，预显示到 displayChar=' + displayChar + ' (断点位置=' + breakGlobalPos + ')');
+                        // 断点已消耗，清除防止后续段重复应用
+                        state.currentProgressV2 = null;
                     } else {
                         console.log('文本段: 预显示到 displayChar=' + displayChar + ' (start_char=' + seg.start_char + ')');
                     }
@@ -4498,8 +4500,7 @@
                 if (this._resumeTimeInSegment > 0) {
                     var resumeTime = this._resumeTimeInSegment;
                     this._resumeTimeInSegment = 0;
-                    var canPlayHandler = function() {
-                        self.audio.removeEventListener('canplay', canPlayHandler);
+                    var doResume = function() {
                         self.audio.currentTime = resumeTime;
                         self.currentTime = resumeTime;
                         console.log('断点恢复: 设置段内时间', resumeTime, '秒');
@@ -4511,16 +4512,24 @@
                             console.log('文本段播放失败:', e);
                         });
                     };
-                    this.audio.oncanplay = canPlayHandler;
-                    var timerId = setTimeout(function() {
-                        if (!self.isPlaying) self.audio.play().catch(function() {});
-                    }, 5000);
-                    self._allTimers.push(timerId);
+                    // 检查 canplay 是否已触发（readyState >= 2 表示可以播放）
+                    if (self.audio.readyState >= 2) {
+                        doResume();
+                    } else {
+                        self.audio.oncanplay = doResume;
+                        // 兜底：5秒后仍未触发则强制播放（含 seek）
+                        var timerId = setTimeout(function() {
+                            if (!self.isPlaying) {
+                                self.audio.oncanplay = null;
+                                doResume();
+                            }
+                        }, 5000);
+                        self._allTimers.push(timerId);
+                    }
                     return;
                 }
                 
-                var canPlayHandler = function() {
-                    self.audio.removeEventListener('canplay', canPlayHandler);
+                var doNormalPlay = function() {
                     self.audio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
@@ -4531,11 +4540,18 @@
                         console.log('文本段播放失败:', e);
                     });
                 };
-                this.audio.oncanplay = canPlayHandler;
-                var timerId2 = setTimeout(function() {
-                    if (!self.isPlaying) self.audio.play().catch(function() {});
-                }, 5000);
-                self._allTimers.push(timerId2);
+                if (this.audio.readyState >= 2) {
+                    doNormalPlay();
+                } else {
+                    this.audio.oncanplay = doNormalPlay;
+                    var timerId2 = setTimeout(function() {
+                        if (!self.isPlaying) {
+                            self.audio.oncanplay = null;
+                            doNormalPlay();
+                        }
+                    }, 5000);
+                    self._allTimers.push(timerId2);
+                }
             },
 
             // 预加载下一段音频
