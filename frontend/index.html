@@ -3264,6 +3264,10 @@
                     tabEl.onclick = function() {
                         // 点评/小结插入播放期间（轮巡暂停），禁止用户点击其他标签
                         if (state && (state.isPlayingAnnotation || state.isPlayingSummary)) return;
+                        // 防止快速点击标签导致页面崩溃
+                        var now = Date.now();
+                        if (now - (self._tabClickCooldown || 0) < 300) return;
+                        self._tabClickCooldown = now;
                         // 点击标签切换到该标签，并作为轮巡起点
                         self.showTab(tab.id);
                         // 重新开始轮巡（从当前点击的标签开始）
@@ -3302,6 +3306,7 @@
 
             // 显示指定标签内容
             showTab: function(tabId) {
+                var prevTab = this.currentTab;
                 this.currentTab = tabId;
                 var tab = this.tabs.find(function(t) { return t.id === tabId; });
                 
@@ -3327,7 +3332,10 @@
                     }
                 }
 
-                this.renderTabs();
+                // 只有标签实际切换时才重建 DOM（避免反复点击同一标签导致的无效 DOM 操作）
+                if (prevTab !== tabId) {
+                    this.renderTabs();
+                }
                 // 轮巡切换标签时重置滚动到顶部
                 var analysisArea = document.getElementById('analysisArea');
                 if (analysisArea) {
@@ -4030,19 +4038,27 @@
                 setTimeout(function() { if (el) el.style.display = 'none'; }, 3000);
             },
 
+            _toggleCooldown: 0,  // 防止快速点击播放/暂停
             toggle: function() {
+                var now = Date.now();
+                if (now - this._toggleCooldown < 300) return;  // 300ms 防抖
+                this._toggleCooldown = now;
                 var playBtn = document.getElementById('playBtn');
                 if (playBtn.disabled) return;
                 if (this.isPlaying) { this.pause(); } else { this.play(); }
             },
 
+            _playLock: false,  // 防止 play() 并发调用
             play: function() {
+                if (this._playLock) { console.log('play: 已有 play() 正在执行，忽略'); return; }
+                this._playLock = true;
                 var self = this;
                 var playBtn = document.getElementById('playBtn');
                 
                 // 检查播放按钮是否被禁用（音频未加载完成或有错误）
                 if (playBtn && playBtn.disabled) {
                     console.log('play: 播放按钮被禁用，音频未加载完成');
+                    this._playLock = false;
                     return;
                 }
                 
@@ -4050,6 +4066,7 @@
                 var warnEl = document.getElementById('audioWarning');
                 if (warnEl) {
                     console.log('play: 存在音频缺失警告，禁止播放');
+                    this._playLock = false;
                     return;
                 }
                 
@@ -4196,7 +4213,10 @@
                     }
                 } else if (this.mode === 'generating') {
                     this._showTTSStatus('语音正在生成中，请稍候...');
+                    this._playLock = false;
                 }
+                // 正常路径下 _playLock 在同步初始化完成后释放，异步播放由 _playNext 的锁保护
+                if (this._playLock) this._playLock = false;
             },
             
             _doPlay: function() {
@@ -4314,13 +4334,20 @@
                 if (typeof thoughtEditor !== 'undefined' && thoughtEditor.updateAllLanternsState) {
                     thoughtEditor.updateAllLanternsState();
                 }
+                // 释放所有播放锁，确保后续操作不被阻塞
+                this._playLock = false;
+                this._playNextLock = false;
             },
             
+            _playNextLock: false,  // 防止 _playNext 并发
             _playNext: function() {
+                if (this._playNextLock) { console.log('_playNext: 已有 _playNext 正在执行，忽略'); return; }
+                this._playNextLock = true;
                 this._playlistIndex++;
                 if (this._playlistIndex >= this.audioSegments.length) {
                     console.log('播放队列已结束');
                     this._onAllSegmentsEnd();
+                    this._playNextLock = false;
                     return;
                 }
                 
@@ -4336,6 +4363,7 @@
                 } else if (seg.type === 'insert_point' && seg.point_type === 'summary') {
                     this._playInsertPoint(seg);
                 }
+                this._playNextLock = false;
             },
             
             _playTextSegment: function(seg) {
@@ -7571,20 +7599,16 @@
         }
 
         // ===== 页面切换 =====
+        var _showPageCooldown = 0;  // 防止频繁切换页面导致崩溃
         function showPage(pageId) {
+            var now = Date.now();
+            if (now - _showPageCooldown < 300) { console.log('showPage: 冷却中，忽略'); return; }
+            _showPageCooldown = now;
             if (pageId !== 'loginPage' && pageId !== 'publicPage' && !state.currentUser) { showPage('loginPage'); return; }
 
-            // 离开阅读页面时，清理所有TTS和音频资源，防止手机卡死
+            // 离开阅读页面时，彻底清理播放器资源，防止手机卡死
             if (pageId !== 'readerPage' && typeof player !== 'undefined') {
-                player.cancelSpeech();
-                if (player._annotationAudio) {
-                    player._annotationAudio.pause();
-                    player._annotationAudio.src = '';
-                    player._annotationAudio.onended = null;
-                    player._annotationAudio.oncanplay = null;
-                    player._annotationAudio.onerror = null;
-                    player._annotationAudio.ontimeupdate = null;
-                }
+                player.stop();
             }
 
             document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
