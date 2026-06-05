@@ -3391,11 +3391,9 @@
                         contentEl.innerHTML = '<div class="comment-text">' + (tab._commentText || tab.content) + '</div>';
                     } else if (tab.isHtml) {
                         contentEl.innerHTML = tab.content;
-                        // 如果是点评或小结的逐字HTML，且不在播放中（轮巡时），显示所有字符
-                        // 播放中时，由 ontimeupdate 逐字显示，不要在这里全部显示
-                        var isPlaying = (tab.annotationId && state && state.isPlayingAnnotation) ||
-                                       (tab.isSummary && state && state.isPlayingSummary);
-                        if (!isPlaying) {
+                        // 如果是点评的逐字HTML，显示所有字符（轮巡时不需要逐字动画）
+                        // 注意：_playCommentAudio/_playSummaryContent 会清除 visible 后逐字添加
+                        if (tab.annotationId || tab.isSummary) {
                             var chars = contentEl.querySelectorAll('.comment-char');
                             chars.forEach(function(c) { c.classList.add('visible'); });
                         }
@@ -4910,9 +4908,6 @@
                 var seg = this._currentInsertPoint;
                 console.log('步骤4：播放评论音频, audio_path=' + seg.audio_path);
                 
-                // 立即设置播放标志，防止 showTab() 立即显示所有字符
-                if (state) state.isPlayingAnnotation = true;
-                
                 // 在开始播放评论时添加点评标签（引用结束后才显示）
                 if (this._pendingAnnotation && typeof analysisManager !== 'undefined') {
                     analysisManager.addAnnotationTab(this._pendingAnnotation);
@@ -4960,7 +4955,6 @@
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
-                        if (state) state.isPlayingAnnotation = true;
                     }).catch(function(e) {
                         console.log('评论音频播放失败:', e);
                         self._finishInsertPoint();
@@ -4970,7 +4964,6 @@
                 var endedHandler = function() {
                     self._annotationAudio.onended = null;
                     self._annotationAudio.ontimeupdate = null;
-                    if (state) state.isPlayingAnnotation = false;
                     // 确保显示完整评论
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
@@ -5022,7 +5015,6 @@
                 // 超时保护：评论音频最长60秒，使用防重复调用机制
                 this._safeSetTimeout(function() {
                     if (self._insertPointStep === 4 && !self._isFinishing) {
-                        if (state) state.isPlayingAnnotation = false;
                         self._finishInsertPoint();
                     }
                 }, 60000);
@@ -5407,9 +5399,6 @@
                 var self = this;
                 var seg = this._currentSummarySeg;
                 
-                // 立即设置播放标志，防止 showTab() 立即显示所有字符
-                if (state) state.isPlayingSummary = true;
-                
                 if (!seg.audio_path) {
                     console.log('小结无音频路径，跳过内容播放');
                     this._executeSummaryStep();
@@ -5459,7 +5448,6 @@
                     self._annotationAudio.onerror = null;
                     self._annotationAudio.onended = null;
                     self._annotationAudio.ontimeupdate = null;
-                    state.isPlayingSummary = false;
                     // 确保显示完整文字
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
@@ -5490,7 +5478,6 @@
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
-                        state.isPlayingSummary = true;
                     }).catch(function(e) {
                         console.log('小结内容播放失败:', e);
                         completeStep();
