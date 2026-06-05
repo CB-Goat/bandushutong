@@ -4910,6 +4910,9 @@
                 var seg = this._currentInsertPoint;
                 console.log('步骤4：播放评论音频, audio_path=' + seg.audio_path);
                 
+                // 立即设置播放标志，防止 showTab() 立即显示所有字符
+                if (state) state.isPlayingAnnotation = true;
+                
                 // 在开始播放评论时添加点评标签（引用结束后才显示）
                 if (this._pendingAnnotation && typeof analysisManager !== 'undefined') {
                     analysisManager.addAnnotationTab(this._pendingAnnotation);
@@ -5403,6 +5406,9 @@
             _playSummaryContent: function() {
                 var self = this;
                 var seg = this._currentSummarySeg;
+                
+                // 立即设置播放标志，防止 showTab() 立即显示所有字符
+                if (state) state.isPlayingSummary = true;
                 
                 if (!seg.audio_path) {
                     console.log('小结无音频路径，跳过内容播放');
