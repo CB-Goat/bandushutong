@@ -93,7 +93,7 @@
         }
         #catalogPage.active { position: fixed; top: 52px; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; overflow: hidden; }
         #catalogPage.active > .catalog-page { flex: 1; overflow-y: auto; padding-top: 0; min-height: 0; }
-        #homePage.active { position: fixed; top: 52px; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; overflow: hidden; z-index: 1; background: #f5f7fa; align-items: center; }
+        #homePage.active { position: fixed; top: 52px; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; overflow: hidden; z-index: 1; background: #f5f7fa; }
         #userInfoPage.active,
         #userPasswordPage.active,
         #userMessagePage.active,
@@ -524,6 +524,7 @@
             max-height: 280px;
             flex-shrink: 0;
             overflow-y: auto;
+            background: rgba(0,0,0,0.15);
         }
 
         .chalkboard .analysis-area .label {
@@ -7732,6 +7733,12 @@
 
             document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById(pageId).classList.add('active');
+            
+            // 强制浏览器重新计算布局，修复页面flex布局错乱的问题
+            var targetPage = document.getElementById(pageId);
+            if (targetPage) {
+                targetPage.offsetHeight; // 触发重排
+            }
 
             // 控制公开浏览页的书籍列表和宣传区域显示
             var publicPromo = document.getElementById('publicPromotion');
