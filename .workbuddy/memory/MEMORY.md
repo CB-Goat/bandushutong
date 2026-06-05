@@ -44,3 +44,32 @@
 - 所有页面导航后必须清理前页面的定时器/轮询/异步回调
 - 使用 `addEventListener` 的监听器必须有对应的 `removeEventListener`（或在回调内自清理）
 - `oncanplay = handler` 比 `addEventListener('canplay', handler)` 更安全（属性赋值覆盖而非累积）
+
+## 断点系统规范 (2026-06-05 规范化)
+
+### 数据字段（读写口径完全一致）
+| 字段 | 含义 | 读写一致性 |
+|------|------|-----------|
+| `current_section_id` | 当前节ID | ✅ 全局 |
+| `current_segment_id` | 当前文本段ID | ✅ 全局 |
+| `text_position` | 段内文字偏移（该段内第几个字符）| ✅ 始终段内 |
+| `audio_position` | 段内音频时间（秒）| ✅ 始终段内 |
+| `current_position` | 全局文字位置（整个section中的字符位置）| ✅ 始终全局 |
+
+### 保存时机
+| 时机 | 存储方式 | 说明 |
+|------|---------|------|
+| 离开阅读页 | API + localStorage | 最终位置 |
+| 每段文本音频播放结束 | `_onSegmentEnd` → API + localStorage | 段结束时 |
+| 段内每100字 | `_updateDisplayByTime` → localStorage only | 防异常退出，不调API |
+
+### 恢复逻辑
+1. `text_position` 存在 → 段内偏移，直接使用
+2. 老数据兼容：`text_position` 不存在 → `current_position` 在旧数据中即为段内偏移，直接使用
+3. 全局位置 = `seg.start_char + text_position`（进入阅读页时根据段的 start_char 动态计算）
+4. 书签标记始终与断点位置一致
+
+### 关键约束
+- `saveProgress` 只在文本段播放上下文保存（有 segment_id 且 _currentSegment.type === 'text_segment'）
+- 100字 checkpoint 保存用 `{skipApi: true}` 参数，不调后端避免延时卡顿
+- `text_position` 始终 = `pos - start_char`（段内偏移），任何情况下不使用全局位置
