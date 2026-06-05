@@ -2958,6 +2958,22 @@
                     current_section_id: section.id
                 };
 
+                // 保护：如果新的 audio_position 为 0，且同一段同一位置已有非零音频位置，
+                // 说明这是被动退出（非播放中离开），不覆盖有效音频位置
+                if (audioPosition === 0 && !options || !options.isSegmentEnd) {
+                    try {
+                        var _key = 'bandu_progress_' + state.currentBook.id;
+                        var _saved = JSON.parse(localStorage.getItem(_key) || '{}');
+                        var _last = _saved[section.id];
+                        if (_last && _last.audio_position > 0
+                            && _last.segment_id === segmentId
+                            && Math.abs(_last.text_position - textPosition) <= 2) {
+                            audioPosition = _last.audio_position;
+                            progressData.audio_position = audioPosition;
+                        }
+                    } catch(_e) {}
+                }
+
                 // 登录用户：通过 API 保存（checkpoint 保存时跳过，避免延时卡顿）
                 if (!skipApi && state.currentUser && state.currentUser.id) {
                     progressData.user_id = state.currentUser.id;
@@ -5797,7 +5813,7 @@
                     }
                     // 段结束时保存断点（段内偏移 = 段长度，音频时间 = 段时长）
                     if (typeof reader !== 'undefined' && reader.saveProgress) {
-                        reader.saveProgress(seg.end_char);
+                        reader.saveProgress(seg.end_char, {isSegmentEnd: true});
                     }
                     // 只有下一段是 text_segment 时才预显示
                     var nextIdx = this._playlistIndex + 1;
@@ -7944,6 +7960,21 @@
                         if (segmentId === 0) {
                             console.log('beforeunload: 无法定位段，跳过保存');
                             return;
+                        }
+                        // 保护：如果 audioPosition 为 0，且 localStorage 中同一段同一位置已有非零音频位置，
+                        // 说明这是被动退出（播放已停止），不要覆盖有效音频位置
+                        if (audioPosition === 0) {
+                            try {
+                                var _bk = 'bandu_progress_' + state.currentBook.id;
+                                var _bs = JSON.parse(localStorage.getItem(_bk) || '{}');
+                                var _bl = _bs[section.id];
+                                if (_bl && _bl.audio_position > 0
+                                    && _bl.segment_id === segmentId
+                                    && Math.abs(_bl.text_position - textPosition) <= 2) {
+                                    audioPosition = _bl.audio_position;
+                                    console.log('beforeunload: 保留已有音频位置', audioPosition);
+                                }
+                            } catch(_be) {}
                         }
                         var payload = JSON.stringify({
                             book_id: state.currentBook.id,
