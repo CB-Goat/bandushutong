@@ -2913,30 +2913,14 @@
                 var textPosition = 0;
                 var audioPosition = 0;
                 // 始终以段内偏移为 text_position，读取时通过段信息还原全局位置
+                // 只有在文本段上才能获取成对的 text_position + audio_position
+                // 点评/小结播放中不需要保存——进入子过程前已经在段结束时保存过
                 if (typeof player !== 'undefined' && player._currentSegment && player._currentSegment.type === 'text_segment') {
-                    // 文本段播放中：直接取段内偏移
                     segmentId = player._currentSegment.id;
                     textPosition = pos - player._currentSegment.start_char;
                     audioPosition = player.currentTime || 0;
-                } else if (typeof player !== 'undefined' && player._lastTextSegmentId > 0) {
-                    // 点评/小结播放中或暂停中：用最后文本段，查找其 start_char 计算段内偏移
-                    segmentId = player._lastTextSegmentId;
-                    audioPosition = player._lastTextAudioPos || 0;
-                    var lastSeg = null;
-                    for (var i = 0; i < player.audioSegments.length; i++) {
-                        if (player.audioSegments[i].id === segmentId) {
-                            lastSeg = player.audioSegments[i];
-                            break;
-                        }
-                    }
-                    if (lastSeg) {
-                        textPosition = pos - lastSeg.start_char;
-                    } else {
-                        segmentId = 0;  // 找不到段，无法计算段内偏移，不成对
-                    }
-                }
-                // 无法定位到文本段 → 不保存（断点必须是 text_position+audio_position 成对）
-                if (segmentId === 0) {
+                } else {
+                    // 不在文本段（annotation/summary 中或 player 停止）→ 不成对 → 不保存
                     return;
                 }
 
@@ -3559,9 +3543,6 @@
             _annotationAudio: null,     // 独立的点评音频元素，避免和主线音频冲突
             _isFinishing: false,       // 防重复调用标志
             _allTimers: [],             // 存储所有定时器ID，便于统一清理
-            _lastTextSegmentId: 0,      // 最后一次文本段的 segment_id（断点保存兜底）
-            _lastTextAudioPos: 0,       // 最后一次文本段的 audio.currentTime（断点保存兜底）
-
             init: function() {
                 var self = this;
                 // 初始化独立的点评音频元素
@@ -3628,11 +3609,6 @@
 
                 this.audio.ontimeupdate = function() {
                     self.currentTime = self.audio.currentTime;
-                    // 追踪最后已知的文本段位置（断点保存兜底用）
-                    if (self._currentSegment && self._currentSegment.type === 'text_segment' && self.audio.currentTime > 0.5) {
-                        self._lastTextSegmentId = self._currentSegment.id;
-                        self._lastTextAudioPos = self.audio.currentTime;
-                    }
                     self._updateDisplayByTime();
                 };
                 this.audio.onended = function() {
@@ -4171,7 +4147,16 @@
                 this._toggleCooldown = now;
                 var playBtn = document.getElementById('playBtn');
                 if (playBtn.disabled) return;
-                if (this.isPlaying) { this.pause(); } else { this.play(); }
+                if (this.isPlaying) {
+                    // 用户点击暂停：保存断点（仅在主线文本段播放中）
+                    if (this._currentSegment && this._currentSegment.type === 'text_segment') {
+                        if (typeof reader !== 'undefined' && reader._currentPosition > 0) {
+                            console.log('暂停时保存断点:', reader._currentPosition);
+                            reader.saveProgress(reader._currentPosition);
+                        }
+                    }
+                    this.pause();
+                } else { this.play(); }
             },
 
             _playLock: false,  // 防止 play() 并发调用
