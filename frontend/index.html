@@ -3879,9 +3879,11 @@
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.src = '';
-                    // 直接重建 Audio 对象，彻底清除所有 addEventListener 残留
-                    // （onended/oncanplay 等方式无法移除 addEventListener 注册的监听器）
-                    this._annotationAudio = new Audio();
+                    // 不复建 Audio 对象（保留微信解锁状态），用 on* 属性覆盖监听器（不累积）
+                    this._annotationAudio.oncanplay = null;
+                    this._annotationAudio.onended = null;
+                    this._annotationAudio.ontimeupdate = null;
+                    this._annotationAudio.onerror = null;
                 }
                 // 重置点评播放状态
                 this._currentInsertPoint = null;
@@ -4392,12 +4394,15 @@
                     clearInterval(this._ttsCheckInterval);
                     this._ttsCheckInterval = null;
                 }
-                // 停止并清理点评音频，重建 Audio 对象彻底清除所有 addEventListener 残留
+                // 停止并清理点评音频，复用 Audio 对象（保留微信解锁状态）
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.removeAttribute('src');
                     this._annotationAudio.load();
-                    this._annotationAudio = new Audio();
+                    this._annotationAudio.oncanplay = null;
+                    this._annotationAudio.onended = null;
+                    this._annotationAudio.ontimeupdate = null;
+                    this._annotationAudio.onerror = null;
                 }
                 this.isPlaying = false;
                 this._playlistIndex = -1;
@@ -4750,34 +4755,29 @@
                 this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
-                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.oncanplay = null;
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('开场白播放失败:', e);
-                        // 开场白失败 → 跳过步骤1，进入步骤2（引用音频）
-                        self._insertPointStep = 2;
-                        self._executeInsertPointStep();
+                        self._finishInsertPoint();
                     });
                 };
                 
                 var endedHandler = function() {
-                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    self._annotationAudio.onended = null;
                     self._insertPointStep = 2;
                     self._executeInsertPointStep();
                 };
                 
-                this._annotationAudio.addEventListener('canplay', canPlayHandler);
-                this._annotationAudio.addEventListener('ended', endedHandler);
+                this._annotationAudio.oncanplay = canPlayHandler;
+                this._annotationAudio.onended = endedHandler;
                 
-                // 超时保护：开场白最长5秒
+                // 超时保护：开场白最长5秒，使用防重复调用机制
                 this._safeSetTimeout(function() {
                     if (self._insertPointStep === 1 && !self._isFinishing) {
-                        console.log('开场白超时，跳过步骤1，进入步骤2');
-                        // 超时 → 跳过步骤1，进入步骤2（引用音频）
-                        self._insertPointStep = 2;
-                        self._executeInsertPointStep();
+                        self._finishInsertPoint();
                     }
                 }, 5000);
             },
@@ -4811,20 +4811,19 @@
                 var charCount = quoteEndChar - quoteStartChar;
                 
                 var canPlayHandler = function() {
-                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.oncanplay = null;
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('引用音频播放失败:', e);
-                        // 引用音频失败 → 跳过步骤2，进入步骤3
-                        self._insertPointStep = 3;
-                        self._executeInsertPointStep();
+                        self._finishInsertPoint();
                     });
                 };
                 
                 var endedHandler = function() {
-                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    self._annotationAudio.onended = null;
+                    self._annotationAudio.ontimeupdate = null;
                     // 确保高亮到结尾
                     if (typeof reader !== 'undefined' && reader._highlightCharsUpTo) {
                         reader._highlightCharsUpTo(quoteStartChar, quoteEndChar);
@@ -4850,17 +4849,14 @@
                     }
                 };
                 
-                this._annotationAudio.addEventListener('canplay', canPlayHandler);
-                this._annotationAudio.addEventListener('ended', endedHandler);
-                this._annotationAudio.addEventListener('timeupdate', quoteTimeUpdateHandler);
+                this._annotationAudio.oncanplay = canPlayHandler;
+                this._annotationAudio.onended = endedHandler;
+                this._annotationAudio.ontimeupdate = quoteTimeUpdateHandler;
                 
                 // 超时保护：引用音频最长30秒
                 this._safeSetTimeout(function() {
                     if (self._insertPointStep === 2 && !self._isFinishing) {
-                        console.log('引用音频超时，跳过步骤2，进入步骤3');
-                        // 超时 → 跳过步骤2，进入步骤3
-                        self._insertPointStep = 3;
-                        self._executeInsertPointStep();
+                        self._finishInsertPoint();
                     }
                 }, 30000);
             },
@@ -4909,20 +4905,19 @@
                 this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
-                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.oncanplay = null;
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('评论音频播放失败:', e);
-                        // 评论音频失败 → 跳过步骤4，进入步骤5
-                        self._insertPointStep = 5;
-                        self._executeInsertPointStep();
+                        self._finishInsertPoint();
                     });
                 };
                 
                 var endedHandler = function() {
-                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    self._annotationAudio.onended = null;
+                    self._annotationAudio.ontimeupdate = null;
                     // 确保显示完整评论
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
@@ -4967,17 +4962,14 @@
                     }
                 };
                 
-                this._annotationAudio.addEventListener('canplay', canPlayHandler);
-                this._annotationAudio.addEventListener('ended', endedHandler);
-                this._annotationAudio.addEventListener('timeupdate', commentTimeUpdateHandler);
+                this._annotationAudio.oncanplay = canPlayHandler;
+                this._annotationAudio.onended = endedHandler;
+                this._annotationAudio.ontimeupdate = commentTimeUpdateHandler;
                 
-                // 超时保护：评论音频最长60秒
+                // 超时保护：评论音频最长60秒，使用防重复调用机制
                 this._safeSetTimeout(function() {
                     if (self._insertPointStep === 4 && !self._isFinishing) {
-                        console.log('评论音频超时，跳过步骤4，进入步骤5');
-                        // 超时 → 跳过步骤4，进入步骤5
-                        self._insertPointStep = 5;
-                        self._executeInsertPointStep();
+                        self._finishInsertPoint();
                     }
                 }, 60000);
             },
@@ -5013,12 +5005,12 @@
                 };
                 
                 var endedHandler = function() {
-                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    self._annotationAudio.onended = null;
                     self._finishInsertPoint();
                 };
                 
-                this._annotationAudio.addEventListener('canplay', canPlayHandler);
-                this._annotationAudio.addEventListener('ended', endedHandler);
+                this._annotationAudio.oncanplay = canPlayHandler;
+                this._annotationAudio.onended = endedHandler;
                 
                 // 移除 setTimeout，避免与 endedHandler 重复调用 _finishInsertPoint
                 // 超时保护由 _finishInsertPoint 的防重复调用机制处理
@@ -5119,12 +5111,14 @@
                 }
                 
                 // 停止并清理点评音频
-                // 重建 Audio 对象，彻底清除所有通过 addEventListener 注册的监听器
-                // （timeupdate 等监听器通过 addEventListener 注册，onxxx=null 无法清除）
+                // 不复建 Audio 对象（保留微信解锁状态），用 on* 属性覆盖监听器（不累积）
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.src = '';
-                    this._annotationAudio = new Audio();
+                    this._annotationAudio.oncanplay = null;
+                    this._annotationAudio.onended = null;
+                    this._annotationAudio.ontimeupdate = null;
+                    this._annotationAudio.onerror = null;
                 }
                 
                 this._insertPointStep = 0;
@@ -5605,11 +5599,14 @@
                     this._commentTextAnimationTimer = null;
                 }
                 
-                // 停止并清理点评音频，重建 Audio 对象彻底清除所有 addEventListener 残留
+                // 停止并清理点评音频，复用 Audio 对象（保留微信解锁状态）
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.src = '';
-                    this._annotationAudio = new Audio();
+                    this._annotationAudio.oncanplay = null;
+                    this._annotationAudio.onended = null;
+                    this._annotationAudio.ontimeupdate = null;
+                    this._annotationAudio.onerror = null;
                 }
                 
                 // 重置 _isFinishing，让 _finishInsertPoint 能正常执行
