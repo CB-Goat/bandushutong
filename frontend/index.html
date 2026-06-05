@@ -7128,7 +7128,7 @@
         function updateProfileCardLogoutBtn() {
             var btn = document.getElementById('profileCardLogoutBtn');
             if (!btn) return;
-            if (state.currentUser) {
+            if (state.currentUser && state.currentUser.phone) {
                 btn.innerHTML = '🚪 退出';
                 btn.onclick = function() { logout(); };
             } else {
