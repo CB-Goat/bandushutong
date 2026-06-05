@@ -4994,7 +4994,7 @@
                 this._annotationAudio.load();
                 
                 var canPlayHandler = function() {
-                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.oncanplay = null;
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
@@ -5262,14 +5262,14 @@
                 var completeStep = function() {
                     if (stepCompleted) return;
                     stepCompleted = true;
-                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
-                    self._annotationAudio.removeEventListener('error', errorHandler);
-                    self._annotationAudio.removeEventListener('ended', endedHandler);
+                    self._annotationAudio.oncanplay = null;
+                    self._annotationAudio.onerror = null;
+                    self._annotationAudio.onended = null;
                     self._executeSummaryStep();
                 };
                 
                 var canPlayHandler = function() {
-                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.oncanplay = null;
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
@@ -5288,9 +5288,9 @@
                     completeStep();
                 };
                 
-                this._annotationAudio.addEventListener('canplay', canPlayHandler);
-                this._annotationAudio.addEventListener('ended', endedHandler);
-                this._annotationAudio.addEventListener('error', errorHandler);
+                this._annotationAudio.oncanplay = canPlayHandler;
+                this._annotationAudio.onended = endedHandler;
+                this._annotationAudio.onerror = errorHandler;
                 
                 // 3秒超时保护：如果音频无法加载，直接进入下一步
                 this._safeSetTimeout(function() {
@@ -5400,10 +5400,10 @@
                 var completeStep = function() {
                     if (stepCompleted) return;
                     stepCompleted = true;
-                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
-                    self._annotationAudio.removeEventListener('error', errorHandler);
-                    self._annotationAudio.removeEventListener('ended', endedHandler);
-                    self._annotationAudio.removeEventListener('timeupdate', timeUpdateHandler);
+                    self._annotationAudio.oncanplay = null;
+                    self._annotationAudio.onerror = null;
+                    self._annotationAudio.onended = null;
+                    self._annotationAudio.ontimeupdate = null;
                     // 确保显示完整文字
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
@@ -5430,7 +5430,7 @@
                 };
                 
                 var canPlayHandler = function() {
-                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.oncanplay = null;
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
@@ -5474,10 +5474,10 @@
                     }
                 };
                 
-                this._annotationAudio.addEventListener('canplay', canPlayHandler);
-                this._annotationAudio.addEventListener('ended', endedHandler);
-                this._annotationAudio.addEventListener('error', errorHandler);
-                this._annotationAudio.addEventListener('timeupdate', timeUpdateHandler);
+                this._annotationAudio.oncanplay = canPlayHandler;
+                this._annotationAudio.onended = endedHandler;
+                this._annotationAudio.onerror = errorHandler;
+                this._annotationAudio.ontimeupdate = timeUpdateHandler;
                 
                 // 超时保护
                 this._safeSetTimeout(function() {
@@ -5517,10 +5517,10 @@
                 var completeStep = function() {
                     if (stepCompleted) return;
                     stepCompleted = true;
-                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
-                    self._annotationAudio.removeEventListener('error', errorHandler);
-                    self._annotationAudio.removeEventListener('ended', endedHandler);
-                    self._annotationAudio.removeEventListener('playing', playingHandler);
+                    self._annotationAudio.oncanplay = null;
+                    self._annotationAudio.onerror = null;
+                    self._annotationAudio.onended = null;
+                    self._annotationAudio.onplaying = null;
                     // 完成所有步骤
                     self._finishSummaryPlayback();
                 };
@@ -5528,11 +5528,11 @@
                 var playingHandler = function() {
                     // 音频开始播放，标记为已开始
                     audioStarted = true;
-                    self._annotationAudio.removeEventListener('playing', playingHandler);
+                    self._annotationAudio.onplaying = null;
                 };
                 
                 var canPlayHandler = function() {
-                    self._annotationAudio.removeEventListener('canplay', canPlayHandler);
+                    self._annotationAudio.oncanplay = null;
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
@@ -5551,10 +5551,10 @@
                     completeStep();
                 };
                 
-                this._annotationAudio.addEventListener('canplay', canPlayHandler);
-                this._annotationAudio.addEventListener('ended', endedHandler);
-                this._annotationAudio.addEventListener('error', errorHandler);
-                this._annotationAudio.addEventListener('playing', playingHandler);
+                this._annotationAudio.oncanplay = canPlayHandler;
+                this._annotationAudio.onended = endedHandler;
+                this._annotationAudio.onerror = errorHandler;
+                this._annotationAudio.onplaying = playingHandler;
                 
                 // 5秒超时保护：仅用于音频无法加载的情况
                 // 一旦音频开始播放，就依赖 ended 事件
