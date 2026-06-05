@@ -1949,6 +1949,29 @@
                 state.currentProgress = bookData.progress || null;
                 state.currentProgressV2 = bookData.progress_v2 || null;
                 console.log('showCatalog: bookData.progress =', JSON.stringify(bookData.progress));
+                
+                // 匿名用户：从 localStorage 恢复断点
+                if (!state.currentUser || !state.currentUser.phone) {
+                    try {
+                        var localKey = 'bandu_progress_' + bookId;
+                        var localData = JSON.parse(localStorage.getItem(localKey) || '{}');
+                        // 找到最新的断点（section_id 最大的）
+                        var localProgress = null;
+                        var maxSectionId = 0;
+                        Object.keys(localData).forEach(function(sid) {
+                            if (parseInt(sid) > maxSectionId) {
+                                maxSectionId = parseInt(sid);
+                                localProgress = localData[sid];
+                            }
+                        });
+                        if (localProgress) {
+                            state.currentProgressV2 = localProgress;
+                            console.log('showCatalog: 匿名用户从 localStorage 恢复断点, section=' + localProgress.current_section_id + ', pos=' + localProgress.current_position);
+                        }
+                    } catch(e) {
+                        console.error('showCatalog: localStorage 恢复断点失败:', e);
+                    }
+                }
 
                 // 设置导航栏标题：书名 + 小字体作者和国籍
                 var titleHtml = '<span style="font-size:16px;">' + (book.title || '') + '</span>';
@@ -2880,18 +2903,14 @@
                     console.log('saveProgress: 无section，跳过');
                     return;
                 }
-                if (!state.currentUser || !state.currentUser.id) {
-                    console.log('saveProgress: 无用户，跳过');
+                if (!state.currentBook || !state.currentBook.id) {
+                    console.log('saveProgress: 无书籍，跳过');
                     return;
                 }
                 // 已读节不记录断点
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
                 if (sectionStatus === 'read') {
                     console.log('saveProgress: 已读节，不记录断点');
-                    return;
-                }
-                if (!state.currentBook || !state.currentBook.id) {
-                    console.log('saveProgress: 无书籍，跳过');
                     return;
                 }
                 var pos = position !== undefined ? position : this._currentPosition || 0;
@@ -2915,18 +2934,38 @@
                 }
                 
                 console.log('saveProgress: segment_id=' + segmentId + ', textPosition=' + textPosition + ', audioPosition=' + audioPosition);
-                fetch(API_BASE + '/progress/v2', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        book_id: state.currentBook.id,
-                        section_id: section.id,
-                        segment_id: segmentId,
-                        text_position: textPosition,
-                        audio_position: audioPosition,
-                        user_id: state.currentUser.id
-                    })
-                }).catch(function(e) { console.error('保存进度失败:', e); });
+                
+                var progressData = {
+                    book_id: state.currentBook.id,
+                    section_id: section.id,
+                    segment_id: segmentId,
+                    text_position: textPosition,
+                    audio_position: audioPosition,
+                    current_position: pos,
+                    current_section_id: section.id
+                };
+                
+                // 登录用户：通过 API 保存
+                if (state.currentUser && state.currentUser.id) {
+                    progressData.user_id = state.currentUser.id;
+                    fetch(API_BASE + '/progress/v2', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(progressData)
+                    }).catch(function(e) { console.error('保存进度失败:', e); });
+                }
+                
+                // 所有用户（含匿名）：通过 localStorage 备份断点
+                try {
+                    var key = 'bandu_progress_' + state.currentBook.id;
+                    var existing = JSON.parse(localStorage.getItem(key) || '{}');
+                    // 只更新当前节的进度，保留其他节的数据
+                    existing[section.id] = progressData;
+                    localStorage.setItem(key, JSON.stringify(existing));
+                    console.log('saveProgress: localStorage 已保存, key=' + key + ', section=' + section.id);
+                } catch(e) {
+                    console.error('saveProgress: localStorage 保存失败:', e);
+                }
             },
 
             _currentPosition: 0,
@@ -3033,21 +3072,23 @@
                 // 恢复文字显示位置
                 var self = this;
                 setTimeout(function() {
-                    var container = document.getElementById('chalkboard');
+                    var container = document.getElementById('chalkText');
                     if (!container || self._totalChars <= 0) return;
 
                     // 恢复已显示的文字到上次阅读位置
                     self.revealCharsUpTo(savedPosition);
 
-                    // 恢复滚动位置
+                    // 恢复滚动位置（chalkText 是实际滚动容器）
                     var scrollPercent = Math.min(savedPosition / self._totalChars, 1);
                     var scrollTarget = scrollPercent * (container.scrollHeight - container.clientHeight);
                     container.scrollTop = scrollTarget;
                     self._currentPosition = savedPosition;
                     document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
 
-                    // 显示书签
-                    self._showBookmarkAt(savedPosition);
+                    // 显示书签（延迟一帧等滚动和reveal完成后）
+                    setTimeout(function() {
+                        self._showBookmarkAt(savedPosition);
+                    }, 50);
 
                     // 恢复已触发的点评显示
                     if (section.annotations) {
