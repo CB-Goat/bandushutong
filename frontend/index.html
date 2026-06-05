@@ -3959,6 +3959,7 @@
                     if (loaded + failed >= total) {
                         finished = true;
                         clearTimeout(safetyTimer);
+                        cleanupPreloadAudios();  // 清理临时 Audio 对象
                         // 移除加载提示
                         var hintEl = document.getElementById('audioLoadingHint');
                         if (hintEl) hintEl.remove();
@@ -4001,8 +4002,10 @@
                 }, 15000);
 
                 // 用 Audio 元素真正加载音频，等待 canplay 事件确认可以播放
+                var preloadAudios = [];  // 收集临时 Audio 对象以便清理
                 audioPaths.forEach(function(path) {
                     var audio = new Audio();
+                    preloadAudios.push(audio);
                     audio.preload = 'auto';
                     
                     var hasResult = false;
@@ -4038,15 +4041,27 @@
                     audio.src = path;
                     audio.load();
                 });
+
+                // 预加载完成后清理临时 Audio 对象（释放内存和事件监听器）
+                function cleanupPreloadAudios() {
+                    preloadAudios.forEach(function(a) {
+                        a.removeAttribute('src');
+                        a.load();
+                    });
+                    preloadAudios.length = 0;
+                }
             },
 
             _checkTTSStatus: function() {
                 var self = this;
-                var checkInterval = setInterval(function() {
-                    if (self._isLeaving) { clearInterval(checkInterval); return; }
+                // 先清除旧轮询
+                if (this._ttsCheckInterval) { clearInterval(this._ttsCheckInterval); }
+                this._ttsCheckInterval = setInterval(function() {
+                    if (self._isLeaving) { clearInterval(self._ttsCheckInterval); self._ttsCheckInterval = null; return; }
                     self.loadSection(self._currentSectionId);
                     if (self.mode === 'timeline') {
-                        clearInterval(checkInterval);
+                        clearInterval(self._ttsCheckInterval);
+                        self._ttsCheckInterval = null;
                     }
                 }, 5000);
             },
@@ -4327,15 +4342,17 @@
                 this.audio.currentTime = 0;
                 // 清除所有定时器
                 this._clearAllTimers();
-                // 停止并清理点评音频
+                // 清除 TTS 状态轮询
+                if (this._ttsCheckInterval) {
+                    clearInterval(this._ttsCheckInterval);
+                    this._ttsCheckInterval = null;
+                }
+                // 停止并清理点评音频，重建 Audio 对象彻底清除所有 addEventListener 残留
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.removeAttribute('src');
                     this._annotationAudio.load();
-                    this._annotationAudio.onended = null;
-                    this._annotationAudio.oncanplay = null;
-                    this._annotationAudio.onerror = null;
-                    this._annotationAudio.ontimeupdate = null;
+                    this._annotationAudio = new Audio();
                 }
                 this.isPlaying = false;
                 this._playlistIndex = -1;
@@ -4530,7 +4547,7 @@
                     });
                 };
                 this.audio.oncanplay = canPlayHandler;
-                setTimeout(function() {
+                this._safeSetTimeout(function() {
                     if (!self.isPlaying) {
                         self.audio.play().catch(function() {});
                     }
@@ -5025,12 +5042,12 @@
                 }
                 
                 // 停止并清理点评音频
+                // 重建 Audio 对象，彻底清除所有通过 addEventListener 注册的监听器
+                // （timeupdate 等监听器通过 addEventListener 注册，onxxx=null 无法清除）
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.src = '';
-                    this._annotationAudio.onended = null;
-                    this._annotationAudio.oncanplay = null;
-                    this._annotationAudio.onerror = null;
+                    this._annotationAudio = new Audio();
                 }
                 
                 this._insertPointStep = 0;
@@ -5515,15 +5532,11 @@
                     this._commentTextAnimationTimer = null;
                 }
                 
-                // 停止并清理点评音频，保留 play() 包装（不复建 Audio 实例）
+                // 停止并清理点评音频，重建 Audio 对象彻底清除所有 addEventListener 残留
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.src = '';
-                    // 清理事件监听，但不重建 Audio 实例（保留 init() 里的 play() 包装）
-                    this._annotationAudio.onended = null;
-                    this._annotationAudio.oncanplay = null;
-                    this._annotationAudio.onerror = null;
-                    this._annotationAudio.ontimeupdate = null;
+                    this._annotationAudio = new Audio();
                 }
                 
                 // 重置 _isFinishing，让 _finishInsertPoint 能正常执行
@@ -5609,7 +5622,6 @@
                 this.audio.load();
                 
                 var canPlayHandler = function() {
-                    self.audio.removeEventListener('canplay', canPlayHandler);
                     self.audio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
@@ -5620,7 +5632,7 @@
                     });
                 };
                 this.audio.oncanplay = canPlayHandler;
-                setTimeout(function() {
+                this._safeSetTimeout(function() {
                     if (!self.isPlaying) {
                         self.audio.play().catch(function() {});
                     }
@@ -5657,7 +5669,7 @@
                     });
                 };
                 this.audio.oncanplay = canPlayHandler;
-                setTimeout(function() {
+                this._safeSetTimeout(function() {
                     if (!self.isPlaying) {
                         self.audio.play().catch(function() {});
                     }
@@ -6579,14 +6591,18 @@
         // 管理功能已拆分至 admin.html
         // ===== 浏览功能 =====
         var browse = {
+            _loadGen: 0,  // 加载版本号，防止过期异步回调操作 DOM
             loadBooks: function() {
+                var gen = ++this._loadGen;  // 捕获当前版本号
                 fetch(API_BASE + '/books').then(function(r) { return r.json(); }).then(function(data) {
+                    if (gen !== browse._loadGen) return;  // 版本号过期，放弃渲染
                     var list = document.getElementById('browseBookList');
                     list.innerHTML = '';
                     document.getElementById('browseChapterArea').style.display = 'none';
                     data.books.forEach(function(book) {
                         // 获取阅读统计
                         fetch(API_BASE + '/books/' + book.id + '/reading-status?user_id=' + state.currentUser.id).then(function(r) { return r.json(); }).then(function(stats) {
+                            if (gen !== browse._loadGen) return;  // 版本号过期，放弃操作
                             var total = stats.stats.total_sections || 0;
                             var readCount = stats.stats.read || 0;
                             var percent = total > 0 ? Math.round(readCount / total * 100) : 0;
@@ -7162,10 +7178,6 @@
                     })
                     .catch(function() {});
             }, 30000);
-            if (deviceCheckInterval) {
-                clearInterval(deviceCheckInterval);
-                deviceCheckInterval = null;
-            }
         }
 
         function toggleProfileCard() {
@@ -7627,9 +7639,30 @@
             _showPageCooldown = now;
             if (pageId !== 'loginPage' && pageId !== 'publicPage' && !state.currentUser) { showPage('loginPage'); return; }
 
-            // 离开阅读页面时，彻底清理播放器资源，防止手机卡死
+            // 离开阅读页面时，彻底清理播放器资源，防止页面崩溃
             if (pageId !== 'readerPage' && typeof player !== 'undefined') {
                 player.stop();
+                // 清理分析面板轮巡定时器和标签数据
+                if (typeof analysisManager !== 'undefined') {
+                    analysisManager.stopRotation();
+                    analysisManager.tabs = [];
+                    analysisManager.currentTab = 'famous';
+                }
+                // 清理调试定时器
+                if (player._displayDebugTimer) {
+                    clearInterval(player._displayDebugTimer);
+                    player._displayDebugTimer = null;
+                }
+                // 清理 TTS 状态轮询
+                if (player._ttsCheckInterval) {
+                    clearInterval(player._ttsCheckInterval);
+                    player._ttsCheckInterval = null;
+                }
+            }
+
+            // 离开浏览页时，取消进行中的异步请求（通过递增版本号）
+            if (pageId !== 'browsePage' && typeof browse !== 'undefined') {
+                browse._loadGen = (browse._loadGen || 0) + 1;
             }
 
             document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
