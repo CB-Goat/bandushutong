@@ -2727,8 +2727,8 @@
                     var charRect = lastChar.getBoundingClientRect();
                     var containerRect = this._container.getBoundingClientRect();
 
-                    if (charRect.bottom > containerRect.bottom - 10) {
-                        var scrollAmount = charRect.bottom - containerRect.bottom + 50;
+                    if (charRect.bottom > containerRect.bottom - 5) {
+                        var scrollAmount = charRect.bottom - containerRect.bottom + 5;
                         this._container.scrollTop += scrollAmount;
                     }
                 }
@@ -3080,12 +3080,24 @@
                     // 恢复已显示的文字到上次阅读位置
                     self.revealCharsUpTo(savedPosition);
 
-                    // 恢复滚动位置（chalkText 是实际滚动容器）
+                    // 进度条
                     var scrollPercent = Math.min(savedPosition / self._totalChars, 1);
-                    var scrollTarget = scrollPercent * (container.scrollHeight - container.clientHeight);
-                    container.scrollTop = scrollTarget;
                     self._currentPosition = savedPosition;
                     document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
+
+                    // 滚动恢复：只在内容超出可视区域 且 断点字符当前不可见时才滚动
+                    // 不再用比例计算，避免黑板还有空位时强制把文字滚上去
+                    if (container.scrollHeight > container.clientHeight) {
+                        var charIdx = Math.min(savedPosition - 1, self._totalChars - 1);
+                        if (charIdx >= 0 && self._allChars && self._allChars[charIdx]) {
+                            var cr = self._allChars[charIdx].getBoundingClientRect();
+                            var contRect = container.getBoundingClientRect();
+                            if (cr.bottom > contRect.bottom - 5 || cr.top < contRect.top) {
+                                // 将断点字符定位到容器顶部附近（留 20px 上文）
+                                container.scrollTop += cr.top - contRect.top - 20;
+                            }
+                        }
+                    }
 
                     // 显示书签（延迟一帧等滚动和reveal完成后）
                     setTimeout(function() {
