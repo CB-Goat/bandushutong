@@ -7160,8 +7160,8 @@
                 btn.innerHTML = '🚪 退出';
                 btn.onclick = function() { logout(); };
             } else {
-                btn.innerHTML = '📝 注册';
-                btn.onclick = function() { toggleProfileCard(); showRegister(); };
+                btn.innerHTML = '📝 登录/注册';
+                btn.onclick = function() { toggleProfileCard(); showPage('loginPage'); };
             }
         }
 
