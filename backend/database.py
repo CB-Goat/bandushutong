@@ -112,7 +112,6 @@ def init_db():
             book_id INT NOT NULL,
             current_section_id INT,
             current_segment_id INT,
-            current_position INT DEFAULT 0,
             text_position INT DEFAULT 0,
             audio_position FLOAT DEFAULT 0,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -121,12 +120,6 @@ def init_db():
             UNIQUE KEY unique_user_book (user_id, book_id)
         )
     ''')
-
-    # 迁移：为已有数据库添加 text_position 字段
-    try:
-        cursor.execute('ALTER TABLE reading_progress ADD COLUMN text_position INT DEFAULT 0 AFTER current_position')
-    except Exception:
-        pass  # 字段已存在，忽略
 
     # 点评点表
     cursor.execute('''
@@ -1282,7 +1275,7 @@ def update_progress(user_id, book_id, section_id, position=0, audio_position=0):
     cursor = conn.cursor()
     cursor.execute(
         '''REPLACE INTO reading_progress
-           (user_id, book_id, current_section_id, current_position, audio_position, updated_at)
+           (user_id, book_id, current_section_id, text_position, audio_position, updated_at)
            VALUES (%s, %s, %s, %s, %s, %s)''',
         (user_id, book_id, section_id, position, audio_position, datetime.now())
     )
@@ -1986,12 +1979,11 @@ def cleanup_duplicate_progress():
     finally:
         conn.close()
 
-def update_progress_v2(user_id, book_id, section_id, segment_id, text_position, audio_position, current_position=0):
+def update_progress_v2(user_id, book_id, section_id, segment_id, text_position, audio_position):
     """新版断点保存：包含 segment_id，断点移动时将旧节标记为已读
        参数说明：
          text_position  — 段内文字偏移（第几个字符）
          audio_position — 段内音频时间（秒）
-         current_position — 全局文字位置（整个section中的字符位置）
     """
     if not user_id:
         return  # 必须有用户ID
@@ -2022,9 +2014,9 @@ def update_progress_v2(user_id, book_id, section_id, segment_id, text_position, 
     # 更新断点
     cursor.execute(
         '''REPLACE INTO reading_progress
-           (user_id, book_id, current_section_id, current_segment_id, current_position, text_position, audio_position, updated_at)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
-        (user_id, book_id, section_id, segment_id, current_position, text_position, audio_position, datetime.now())
+           (user_id, book_id, current_section_id, current_segment_id, text_position, audio_position, updated_at)
+           VALUES (%s, %s, %s, %s, %s, %s, %s)''',
+        (user_id, book_id, section_id, segment_id, text_position, audio_position, datetime.now())
     )
     conn.commit()
     conn.close()

@@ -10,7 +10,7 @@
 书签是用户阅读进度的唯一权威记录。
 
 **定义：**
-- 书签记录 `current_section_id`（当前节ID）和 `current_position`（主线字符位置）
+- 书签记录 `current_section_id`（当前节ID）、`current_segment_id`（当前文本段ID）和 `text_position`（段内字符偏移）
 - 书签只跟踪主线位置，不受子过程（点评原文引用、小结）影响
 
 **书签位置含义：**
@@ -94,7 +94,9 @@ else if (书签节ID == 当前节ID && 书签位置 < 节末尾) → 在读
 
 ### 4.2 保存内容
 - current_section_id
-- current_position（主线字符位置）
+- current_segment_id
+- text_position（段内字符偏移）
+- audio_position（段内音频时间，秒）
 - current_segment_id（当前音频段ID，可选）
 - audio_position（段内音频时间，可选）
 

@@ -1082,14 +1082,13 @@ def save_progress_v2():
     segment_id = data.get('segment_id')
     text_position = data.get('text_position', 0)
     audio_position = data.get('audio_position', 0)
-    current_position = data.get('current_position', 0)
 
     if not user_id:
         return jsonify({'error': '缺少用户ID'}), 400
     if not book_id or not section_id:
         return jsonify({'error': '缺少书籍或节ID'}), 400
 
-    update_progress_v2(user_id, book_id, section_id, segment_id, text_position, audio_position, current_position)
+    update_progress_v2(user_id, book_id, section_id, segment_id, text_position, audio_position)
     return jsonify({'message': '进度保存成功'})
 
 @api_bp.route('/progress/v2/<int:book_id>', methods=['GET'])

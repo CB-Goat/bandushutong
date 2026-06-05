@@ -65,9 +65,10 @@
 | `current_segment_id` | 当前文本段 ID | 全局 |
 | `text_position` | **段内**文字偏移（该段第几个字符，从 0 开始）| 段内 |
 | `audio_position` | **段内**音频时间（秒）| 段内 |
-| `current_position` | 全局文字位置（整个 section 中的字符位置）| 全局（仅辅助） |
 
-**核心约束**：`text_position` 始终 = `全局位置 - 当前段.start_char`。任何情况下不使用全局位置作为 `text_position`。
+**注意**：全局文字位置（书签位置）不单独存储，由 `segment.start_char + text_position` 动态计算。
+
+**核心约束**：`text_position` 始终 = `全局位置 - 当前段.start_char`。全局位置不单独存储，由段信息动态计算。
 
 ---
 
@@ -93,6 +94,7 @@
    - 在 `player.audioSegments` 中查找该段，用它的 `start_char` 计算段内偏移
    - `textPosition = pos - lastSeg.start_char`
    - `audioPosition = player._lastTextAudioPos`
+5. 以上两种方式都未找到段（兜底）：在 `player.audioSegments` 中根据全局位置 `pos` 查找包含该位置的文本段
 
 #### 3.2 保存时机（4 个）
 
@@ -105,10 +107,9 @@
 
 #### 3.3 后端存储
 
-- `reading_progress` 表字段：`current_section_id`, `current_segment_id`, `text_position`（段内偏移）, `audio_position`（段内音频秒数）, `current_position`（全局位置，辅助用）
-- `/progress/v2` POST 接口同时接收这三个字段
-- 旧数据库自动执行 `ALTER TABLE ADD COLUMN text_position` 迁移
-- `current_position`（全局位置）仅在恢复时做老数据兼容的兜底
+- `reading_progress` 表字段：`current_section_id`, `current_segment_id`, `text_position`（段内偏移）, `audio_position`（段内音频秒数）
+- `/progress/v2` POST 接口接收这些字段
+- `current_position` 字段已于 2026-06-05 移除，不再存储全局位置
 
 ---
 
@@ -132,16 +133,11 @@
 #### 4.2 段内偏移计算（segOffset）
 
 ```javascript
-if (progressV2.text_position !== undefined && progressV2.current_segment_id) {
-    // 新数据：text_position 就是段内偏移，直接使用
-    segOffset = progressV2.text_position;
-} else {
-    // 老数据兼容：旧数据中 current_position 字段实际存的就是段内偏移
-    segOffset = progressV2.current_position || 0;
-}
+// 统一从 text_position 获取段内偏移
+var segOffset = progressV2.text_position || 0;
 ```
 
-**重要**：老版本中 `current_position` 字段被复用存储了 `text_position` 的值（即段内偏移），所以老数据兼容分支**不再减去 start_char**。新数据一定有 `text_position` 字段，不会走进 else 分支。
+全局文字位置（用于书签显示）由 `segment.start_char + text_position` 计算得出。
 
 #### 4.3 音频恢复时间（resumeTime）
 
@@ -189,5 +185,4 @@ resumeTime = segTL[segOffset];
 2. ❌ **禁止**在点评/小结触发时调用 `saveProgress` — 段结束时已覆盖
 3. ❌ **禁止**用 `this.charTimeline` 查段内偏移 — 必须用 `targetSeg.char_timeline`
 4. ❌ **禁止**在 checkpoint 保存时调 API — 用 `{skipApi: true}`，100 字一次的网络请求会造成明显延时停顿
-5. ❌ **禁止**老数据恢复时再减去 `start_char` — 旧 `current_position` 字段存的就是段内偏移
-6. ❌ **禁止**断点恢复 `revealCharsUpTo` 时清除 `annotated` — 用 `{skipAnnotationClear: true}`
+5. ❌ **禁止**断点恢复 `revealCharsUpTo` 时清除 `annotated` — 用 `{skipAnnotationClear: true}`

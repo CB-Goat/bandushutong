@@ -1966,7 +1966,7 @@
                         });
                         if (localProgress) {
                             state.currentProgressV2 = localProgress;
-                            console.log('showCatalog: 匿名用户从 localStorage 恢复断点, section=' + localProgress.current_section_id + ', pos=' + localProgress.current_position);
+                            console.log('showCatalog: 匿名用户从 localStorage 恢复断点, section=' + localProgress.current_section_id);
                         }
                     } catch(e) {
                         console.error('showCatalog: localStorage 恢复断点失败:', e);
@@ -2468,20 +2468,17 @@
                     sectionStatus = state.catalogStatusMap[section.id];
                     console.log('[节状态] 使用 catalogStatusMap:', section.id, '→', sectionStatus);
                 } else {
-                    // 回退：根据书签位置计算
+                    // 回退：如果断点指向当前节，则为"在读"
                     var progressV2 = state.currentProgressV2;
                     if (progressV2) {
                         var bkSectionId = parseInt(progressV2.current_section_id);
-                        var bkPos = progressV2.current_position || 0;
-                        var secEnd = section.end_char || 0;
-                        console.log('[判断] bkSectionId=' + bkSectionId + ' section.id=' + section.id + ' bkPos=' + bkPos + ' secEnd=' + secEnd);
-                        if (bkSectionId === section.id) {
-                            sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
-                        } else if (bkSectionId > section.id) {
+                        if (bkSectionId === parseInt(section.id)) {
+                            sectionStatus = 'reading';
+                        } else if (bkSectionId > parseInt(section.id)) {
                             sectionStatus = 'read';
                         }
                     }
-                    console.log('[节状态] 根据书签计算:', section.id, '→', sectionStatus);
+                    console.log('[节状态] 根据断点计算:', section.id, '→', sectionStatus);
                 }
                 
                 if (sectionStatus === 'read') {
@@ -2556,18 +2553,6 @@
                 this.setupScrollListener();
 
                 // 书签显示已在上面的 _restoreBookmarkAndPosition 中处理
-
-                // 控制台输出断点信息
-                var bpProgress = state.currentProgressV2;
-                var bpSection = state.currentSections[state.currentSectionIndex];
-                if (bpProgress && bpSection && parseInt(bpProgress.current_section_id) === parseInt(bpSection.id)) {
-                    var bpText = bpProgress.text_position !== undefined ? bpProgress.text_position : 0;
-                    var bpAudio = bpProgress.audio_position || 0;
-                    var bpBookmark = bpProgress.current_position || 0;
-                    console.log('断点位置：文字' + bpText + '，音频' + bpAudio + '，书签' + bpBookmark);
-                } else {
-                    console.log('断点位置：文字0，音频0，书签0（无断点或不在当前节）');
-                }
             },
 
             _prepareChalkText: function(content) {
@@ -2950,7 +2935,19 @@
                         textPosition = pos;
                     }
                 }
-                // segmentId 为 0 表示从未播放过文本段，不保存（等待第一次进入文本段时保存）
+                // 兜底：如果没有通过以上两种方式找到段，根据全局位置 pos 在 audioSegments 中查找
+                if (segmentId === 0 && typeof player !== 'undefined' && player.audioSegments && player.audioSegments.length > 0) {
+                    for (var i = 0; i < player.audioSegments.length; i++) {
+                        var seg = player.audioSegments[i];
+                        if (seg.type === 'text_segment' && seg.start_char <= pos && seg.end_char > pos) {
+                            segmentId = seg.id;
+                            textPosition = pos - seg.start_char;
+                            audioPosition = player.currentTime || 0;
+                            break;
+                        }
+                    }
+                }
+                // segmentId 为 0 表示确实无法定位段，不保存（等待进入文本段时保存）
 
                 var progressData = {
                     book_id: state.currentBook.id,
@@ -2958,7 +2955,6 @@
                     segment_id: segmentId,
                     text_position: textPosition,
                     audio_position: audioPosition,
-                    current_position: pos,
                     current_section_id: section.id
                 };
 
@@ -3059,9 +3055,9 @@
                 // 计算断点位置
                 var savedPosition = 0;
                 var segId = progressV2.current_segment_id;
-                var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
+                var textPos = progressV2.text_position || 0;
 
-                if (textPos !== undefined && textPos > 0) {
+                if (textPos > 0) {
                     if (segId && segId > 0 && player.audioSegments && player.audioSegments.length > 0) {
                         // 有 segment_id 且 audioSegments 已加载：根据段查找，textPos 是段内偏移
                         var segFound = false;
@@ -3079,11 +3075,9 @@
                             console.log('_restoreBookmarkAndPosition: 段' + segId + '未找到，等待加载');
                             return;
                         }
-                    } else {
-                        // audioSegments 未加载或没有 segment_id
-                        // textPos 可能是段内偏移（来自 text_position），此时用 current_position（全局位置）
-                        savedPosition = progressV2.current_position || textPos;
                     }
+                    // 无 segment_id 或无 audioSegments：textPos 可能是段内偏移，暂时不恢复
+                    // 等 audioSegments 加载完成后重新调用 _restoreBookmarkAndPosition
                 }
 
                 console.log('_restoreBookmarkAndPosition: savedPosition=', savedPosition);
@@ -3222,9 +3216,9 @@
 
                 // 计算书签位置
                 var savedPosition = 0;
-                var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
+                var textPos = progressV2.text_position || 0;
 
-                if (textPos !== undefined && textPos > 0) {
+                if (textPos > 0) {
                     var segId = progressV2.current_segment_id;
                     if (segId && player.audioSegments && player.audioSegments.length > 0) {
                         for (var i = 0; i < player.audioSegments.length; i++) {
@@ -3234,10 +3228,6 @@
                                 break;
                             }
                         }
-                    }
-                    if (savedPosition === 0) {
-                        // 未找到段或 audioSegments 未加载，使用 current_position（全局位置）
-                        savedPosition = progressV2.current_position || textPos;
                     }
                 }
 
@@ -3846,6 +3836,33 @@
                             if (sectionStatus === 'reading' && typeof reader !== 'undefined' && reader._restoreBookmarkAndPosition) {
                                 reader._restoreBookmarkAndPosition();
                             }
+                            
+                            // 控制台输出断点信息
+                            var bpProgress = state.currentProgressV2;
+                            if (bpProgress && section && parseInt(bpProgress.current_section_id) === parseInt(section.id)) {
+                                var bpSegId = bpProgress.current_segment_id || 0;
+                                var bpText = bpProgress.text_position || 0;
+                                var bpAudio = bpProgress.audio_position || 0;
+                                var bpFile = '';
+                                var bpGlobal = 0;
+                                if (bpSegId > 0) {
+                                    for (var bi = 0; bi < self.audioSegments.length; bi++) {
+                                        var bseg = self.audioSegments[bi];
+                                        if (bseg.type === 'text_segment' && bseg.id === bpSegId) {
+                                            bpGlobal = bseg.start_char + bpText;
+                                            bpFile = (bseg.audio_path || '').replace(/^.*[\\/]/, '');
+                                            break;
+                                        }
+                                    }
+                                }
+                                var bpGlobalStr = bpGlobal > 0 ? '[' + bpSegId + ']' + bpGlobal + '字' : '0';
+                                var bpFileStr = bpFile ? '[' + bpFile + ']' : '';
+                                console.log('断点位置：文字[' + bpSegId + ']' + bpText + '字，音频' + bpFileStr + bpAudio.toFixed(1) + '秒，书签' + bpGlobalStr);
+                            } else if (bpProgress && bpProgress.current_section_id) {
+                                console.log('断点位置：文字0，音频0.0秒，书签0（断点不在当前节）');
+                            } else {
+                                console.log('断点位置：文字0，音频0.0秒，书签0（无断点）');
+                            }
                             // 检查是否有缺失音频的段
                             var missingAudio = self.audioSegments.some(function(seg) {
                                 return seg.audio_path && seg.type === 'text_segment';
@@ -4195,15 +4212,13 @@
                 if (state.catalogStatusMap && state.catalogStatusMap[section.id]) {
                     sectionStatus = state.catalogStatusMap[section.id];
                 } else {
-                    // 回退：根据书签位置计算
+                    // 回退：如果断点指向当前节，则为"在读"
                     var progressV2 = state.currentProgressV2;
                     if (progressV2) {
                         var bkSectionId = parseInt(progressV2.current_section_id);
-                        var bkPos = progressV2.current_position || 0;
-                        var secEnd = section.end_char || 0;
-                        if (bkSectionId === section.id) {
-                            sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
-                        } else if (bkSectionId > section.id) {
+                        if (bkSectionId === parseInt(section.id)) {
+                            sectionStatus = 'reading';
+                        } else if (bkSectionId > parseInt(section.id)) {
                             sectionStatus = 'read';
                         }
                     }
@@ -4246,32 +4261,15 @@
                                         break;
                                     }
                                 }
-                            } else if (progressV2.current_position > 0) {
-                                // 没有 segment_id，根据 current_position 找到对应的段
-                                for (var i = 0; i < this.audioSegments.length; i++) {
-                                    var seg = this.audioSegments[i];
-                                    if (seg.type === 'text_segment' && seg.start_char <= progressV2.current_position && seg.end_char > progressV2.current_position) {
-                                        targetSegIdx = i;
-                                        break;
-                                    }
-                                }
                             }
                             if (targetSegIdx >= 0) {
                                 this._playlistIndex = targetSegIdx - 1;
                                 // 计算段内音频时间
                                 var resumeTime = progressV2.audio_position || 0;
-                                if (resumeTime === 0 && progressV2.current_position > 0) {
+                                if (resumeTime === 0 && progressV2.text_position > 0) {
                                     // 从 charTimeline 查找对应时间的音频时间
                                     var targetSeg = this.audioSegments[targetSegIdx];
-                                    var segOffset;
-                                    if (progressV2.text_position !== undefined && progressV2.current_segment_id) {
-                                        // text_position 是段内偏移，直接使用
-                                        segOffset = progressV2.text_position;
-                                    } else {
-                                        // 老数据兼容：老版本中 current_position 字段实际存储的就是段内偏移值
-                                        // 新数据中 text_position 一定存在，不会走到这个分支
-                                        segOffset = progressV2.current_position || 0;
-                                    }
+                                    var segOffset = progressV2.text_position;
                                     if (segOffset < 0) segOffset = 0;
                                     // 使用目标段的 char_timeline（段内时间轴），而非全局拼接的 this.charTimeline
                                     var segTL = targetSeg.char_timeline;
@@ -4529,11 +4527,9 @@
                 } else {
                     if (progressV2) {
                         var bkSectionId = parseInt(progressV2.current_section_id);
-                        var bkPos = progressV2.current_position || 0;
-                        var secEnd = section.end_char || 0;
-                        if (bkSectionId === section.id) {
-                            sectionStatus = bkPos >= secEnd ? 'read' : 'reading';
-                        } else if (bkSectionId > section.id) {
+                        if (bkSectionId === parseInt(section.id)) {
+                            sectionStatus = 'reading';
+                        } else if (bkSectionId > parseInt(section.id)) {
                             sectionStatus = 'read';
                         }
                     }
@@ -4542,12 +4538,10 @@
                 // 已读节不使用断点恢复，始终从头开始
                 if (sectionStatus !== 'read' && progressV2 && parseInt(progressV2.current_section_id) === parseInt(section.id)) {
                     // 计算断点的全局位置用于与段边界比较
-                    var breakGlobalPos;
-                    if (progressV2.text_position !== undefined && progressV2.current_segment_id) {
+                    var breakGlobalPos = 0;
+                    if (progressV2.text_position && progressV2.current_segment_id) {
                         // text_position 是段内偏移，加上当前段的 start_char 得到全局位置
                         breakGlobalPos = seg.start_char + progressV2.text_position;
-                    } else {
-                        breakGlobalPos = progressV2.current_position || 0;
                     }
                     if (breakGlobalPos > 0 && seg.start_char <= breakGlobalPos && seg.end_char > breakGlobalPos) {
                         // 断点在当前段内，从断点位置开始显示
