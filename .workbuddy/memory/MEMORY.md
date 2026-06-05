@@ -70,6 +70,8 @@
 
 **核心约束**：`text_position` 始终 = `全局位置 - 当前段.start_char`。全局位置不单独存储，由段信息动态计算。
 
+**核心原则**：断点的两个元素（text_position, audio_position）必须成对保存。不成对 → 不保存。不允许任何"拼凑"、"挽救"、"兜底"逻辑。
+
 ---
 
 ### 三、保存逻辑
@@ -90,18 +92,19 @@
    - `textPosition = pos - _currentSegment.start_char`（段内偏移）
    - `audioPosition = player.currentTime`
 4. 当前段不是文本段（点评/小结播放中或暂停中）：
-   - 取 `_lastTextSegmentId`（上一个文本段的 ID）
+   - 取 `_lastTextSegmentId`
    - 在 `player.audioSegments` 中查找该段，用它的 `start_char` 计算段内偏移
    - `textPosition = pos - lastSeg.start_char`
    - `audioPosition = player._lastTextAudioPos`
-5. 以上两种方式都未找到段（兜底）：在 `player.audioSegments` 中根据全局位置 `pos` 查找包含该位置的文本段
+   - 段找不到 → segmentId 置 0 → return（不成对，不保存）
+5. `segmentId === 0` → return（无法准确定位文本段）
 
 #### 3.2 保存时机（4 个）
 
 | 时机 | 触发位置 | 存储目标 | 说明 |
 |------|---------|---------|------|
 | **页面导航离开** | `showPage` / `browseBackToBooks` | API + localStorage | 先 `saveProgress` 再 `player.stop()`，数据准确。设 `window.__progressJustSaved = true` 门控 |
-| **页面刷新/关闭** | `beforeunload` 事件 | API（sendBeacon）| 仅当 `!window.__progressJustSaved` 时执行（F5/直接关标签页）。player 未 stop 时数据准确 |
+| **页面刷新/关闭** | `beforeunload` 事件 | API（sendBeacon）| **仅在 `player._currentSegment.type === 'text_segment'` 时保存**（此时 text+audio 直接采集，成对准确）。不在文本段中 → 跳过。门控 `__progressJustSaved` 阻止 showPage 后重复保存 |
 | **每段文本音频结束** | `player._onSegmentEnd` | API + localStorage | 当前段结束时，`textPosition = 段长度`，`currentTime > 0` 保证 audio 准确 |
 | **段内每 100 字** | `player._updateDisplayByTime` | localStorage only（`skipApi:true`）| 防异常退出丢进度，不调 API 避免卡顿 |
 
@@ -183,8 +186,11 @@ resumeTime = segTL[segOffset];
 
 ### 六、关键约束（禁止行为）
 
-1. ❌ `text_position` **禁止**存全局位置 — 必须始终 = `pos - start_char`，任何场景无例外
-2. ❌ **禁止**在点评/小结触发时调用 `saveProgress` — 段结束时已覆盖
-3. ❌ **禁止**用 `this.charTimeline` 查段内偏移 — 必须用 `targetSeg.char_timeline`
-4. ❌ **禁止**在 checkpoint 保存时调 API — 用 `{skipApi: true}`，100 字一次的网络请求会造成明显延时停顿
-5. ❌ **禁止**断点恢复 `revealCharsUpTo` 时清除 `annotated` — 用 `{skipAnnotationClear: true}`
+1. ❌ **禁止**不成对保存断点 — text_position 和 audio_position 必须同时从同一时刻采集，不允许拼凑
+2. ❌ **禁止**从 localStorage 恢复 audio_position 拼接到新计算的 text_position 上 — 不同时刻采集的数据不成对
+3. ❌ `text_position` **禁止**存全局位置 — 必须始终 = `pos - start_char`，找不到段 → 不保存
+4. ❌ **禁止**`beforeunload` 在非文本段时保存断点 — 只在 `_currentSegment.type === 'text_segment'` 时才能获取成对数据
+5. ❌ **禁止**在 checkpoint 保存时调 API — 用 `{skipApi: true}`，100 字一次的网络请求会造成明显延时停顿
+6. ❌ **禁止**`segmentId === 0` 时继续保存 — 直接 return
+7. ❌ **禁止**用 `this.charTimeline` 查段内偏移 — 必须用 `targetSeg.char_timeline`
+8. ❌ **禁止**断点恢复 `revealCharsUpTo` 时清除 `annotated` — 用 `{skipAnnotationClear: true}`
