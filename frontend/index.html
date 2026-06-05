@@ -2556,6 +2556,18 @@
                 this.setupScrollListener();
 
                 // 书签显示已在上面的 _restoreBookmarkAndPosition 中处理
+
+                // 控制台输出断点信息
+                var bpProgress = state.currentProgressV2;
+                var bpSection = state.currentSections[state.currentSectionIndex];
+                if (bpProgress && bpSection && parseInt(bpProgress.current_section_id) === parseInt(bpSection.id)) {
+                    var bpText = bpProgress.text_position !== undefined ? bpProgress.text_position : 0;
+                    var bpAudio = bpProgress.audio_position || 0;
+                    var bpBookmark = bpProgress.current_position || 0;
+                    console.log('断点位置：文字' + bpText + '，音频' + bpAudio + '，书签' + bpBookmark);
+                } else {
+                    console.log('断点位置：文字0，音频0，书签0（无断点或不在当前节）');
+                }
             },
 
             _prepareChalkText: function(content) {
