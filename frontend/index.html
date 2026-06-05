@@ -3496,6 +3496,8 @@
             _playlistIndex: -1,
             _currentSegment: null,
             _isSegmentMode: false,
+            _lastCheckpointChar: 0,         // 段内 checkpoint，每100字保存
+            _checkpointSegmentId: 0,
             _resumeTimeInSegment: 0,
             
             // 点评播放多步骤状态
@@ -3634,6 +3636,8 @@
                 this.audio.currentTime = 0;
                 this.audioSegments = [];
                 this._isSegmentMode = false;
+                this._lastCheckpointChar = 0;
+                this._checkpointSegmentId = 0;
                 this._resumeTimeInSegment = 0;
                 this._resetAnnotationAudio();
                 // 重新设置音频事件监听器（stop()可能已清除）
@@ -5935,6 +5939,19 @@
                 var displayChar = Math.min(maxDisplay, displayIndex + this.TEXT_AHEAD_OFFSET);
                 if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                     reader.revealCharsUpTo(displayChar);
+                }
+
+                // 段内每 100 字保存一次断点（通过 API 写入数据库）
+                var segmentChanged = (this._checkpointSegmentId !== seg.id);
+                if (segmentChanged) {
+                    this._lastCheckpointChar = 0;
+                    this._checkpointSegmentId = seg.id;
+                }
+                if (charInSegment > 0 && charInSegment - this._lastCheckpointChar >= 100) {
+                    this._lastCheckpointChar = Math.floor(charInSegment / 100) * 100;
+                    if (typeof reader !== 'undefined' && reader.saveProgress) {
+                        reader.saveProgress(seg.start_char + this._lastCheckpointChar);
+                    }
                 }
 
                 if (this.audioDuration > 0) {
