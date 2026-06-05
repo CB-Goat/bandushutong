@@ -7910,7 +7910,7 @@
                         }
                         // 使用 sendBeacon 确保请求被发送（即使页面关闭）
                         var segmentId = 0;
-                        var textPosition = pos;
+                        var textPosition = 0;
                         var audioPosition = 0;
                         if (player._currentSegment && player._currentSegment.type === 'text_segment') {
                             segmentId = player._currentSegment.id;
@@ -7920,6 +7920,30 @@
                             // 非文本段时用最后已知文本段位置兜底
                             segmentId = player._lastTextSegmentId;
                             audioPosition = player._lastTextAudioPos || 0;
+                            // 查找该文本段的 start_char，计算段内偏移
+                            for (var k = 0; k < player.audioSegments.length; k++) {
+                                if (player.audioSegments[k].id === segmentId) {
+                                    textPosition = pos - player.audioSegments[k].start_char;
+                                    break;
+                                }
+                            }
+                        }
+                        // 兜底：根据全局位置在 audioSegments 中查找包含的文本段
+                        if (segmentId === 0 && player.audioSegments && player.audioSegments.length > 0) {
+                            for (var m = 0; m < player.audioSegments.length; m++) {
+                                var seg = player.audioSegments[m];
+                                if (seg.type === 'text_segment' && seg.start_char <= pos && seg.end_char > pos) {
+                                    segmentId = seg.id;
+                                    textPosition = pos - seg.start_char;
+                                    audioPosition = player.currentTime || 0;
+                                    break;
+                                }
+                            }
+                        }
+                        // segmentId 仍为 0 表示完全无法定位段，不保存（避免覆盖正确断点）
+                        if (segmentId === 0) {
+                            console.log('beforeunload: 无法定位段，跳过保存');
+                            return;
                         }
                         var payload = JSON.stringify({
                             book_id: state.currentBook.id,
