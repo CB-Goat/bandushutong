@@ -1160,7 +1160,7 @@
         <div id="profileCardPassword" style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToPassword();toggleProfileCard();">🔐 密码安全</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToMessage();toggleProfileCard();">💬 我要留言</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="toggleProfileCard();showContactAdmin();"><svg width="16" height="14" viewBox="0 0 24 20" style="display:inline;vertical-align:-2px;margin-right:4px;"><path d="M8.5 0C3.8 0 0 3.1 0 7c0 2.1 1.1 4 2.9 5.3L2 16l4.5-2.2c.6.2 1.3.2 2 .2 4.7 0 8.5-3.1 8.5-7S13.2 0 8.5 0z" fill="#09BB07"/><circle cx="5.5" cy="7" r="1.2" fill="white"/><circle cx="11" cy="7" r="1.2" fill="white"/><path d="M16.5 9c-3.9 0-7 2.6-7 5.8 0 1.7.9 3.3 2.4 4.4L10 21l3.6-1.8c.5.1 1.1.2 1.6.2.3 0 .6 0 .9-.1C19.7 18 24 14.6 24 10.4 24 6.7 20.4 4 16.5 4c-.2 0-.3 0-.5 0 1.3 1.3 2 2.7 2 4.2 0 4-3.8 7.2-8.5 7.2-.3 0-.5 0-.8-.1.3 1.1 1 2 .8 2.4z" fill="#09BB07"/></svg>联系管理员</div>
-        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="logout();">🚪 退出</div>
+        <div id="profileCardLogoutBtn" style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="logout();">🚪 退出</div>
     </div>
 
     <div class="container">
@@ -2149,7 +2149,10 @@
         }
 
         // ===== 公开浏览页 =====
+        var _loadPublicBooksLock = false;  // 防止并发调用
         async function loadPublicBooks() {
+            if (_loadPublicBooksLock) return;  // 已有请求在途，直接返回
+            _loadPublicBooksLock = true;
             try {
                 var response = await fetch(API_BASE + '/public/books');
                 var data = await response.json();
@@ -2189,7 +2192,7 @@
                         '<span>点评' + totalAnno + '</span>' +
                         '</div></div></div>';
                 }).join('');
-            } catch (e) { console.error('加载公版书籍失败:', e); }
+            } catch (e) { console.error('加载公版书籍失败:', e); } finally { _loadPublicBooksLock = false; }
         }
 
         function promptLogin() {
@@ -2247,7 +2250,10 @@
             }
         }
 
+        var _loadBooksLock = false;  // 防止并发调用
         async function loadBooks() {
+            if (_loadBooksLock) return;
+            _loadBooksLock = true;
             try {
                 var response = await fetch(API_BASE + '/books');
                 var data = await response.json();
@@ -2261,7 +2267,7 @@
                 }
                 state.userSubscriptions = [];
                 renderBookList();
-            } catch (e) { console.error('加载书籍失败:', e); }
+            } catch (e) { console.error('加载书籍失败:', e); } finally { _loadBooksLock = false; }
         }
 
         function renderBookList() {
@@ -6860,6 +6866,7 @@
             password: null
         };
 
+        var _loginLock = false;  // 防止登录重复提交
         function doLogin() {
             var phone = document.getElementById('loginPhone').value.trim();
             var password = document.getElementById('loginPassword').value;
@@ -6868,6 +6875,8 @@
             var phoneErr = validatePhone(phone);
             if (phoneErr) { errEl.textContent = phoneErr; errEl.style.display = 'block'; return; }
             if (!password) { errEl.textContent = '请输入密码'; errEl.style.display = 'block'; return; }
+            if (_loginLock) return;  // 防止重复提交
+            _loginLock = true;
             errEl.style.display = 'none';
             
             var deviceInfo = getDeviceInfo();
@@ -6884,8 +6893,9 @@
             fetch(API_BASE + '/auth/login', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(requestBody)
-            }).then(function(r) { return r.json(); }).then(function(data) {
+            }).then(function(r) { return r.json();             }).then(function(data) {
                 if (data.user) {
+                    _loginLock = false;
                     // 清除换机状态
                     transferCodeState = {userId: null, phone: null, password: null};
                     hideTransferCodeInput();
@@ -6898,11 +6908,13 @@
                     showTransferCodeInput(data.bound_device);
                     errEl.textContent = data.error; 
                     errEl.style.display = 'block';
+                    _loginLock = false;
                 } else {
                     errEl.textContent = data.error || '登录失败'; 
                     errEl.style.display = 'block';
+                    _loginLock = false;
                 }
-            }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
+            }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; _loginLock = false; });
         }
 
         function showTransferCodeInput(boundDevice) {
@@ -6948,6 +6960,7 @@
             document.getElementById('registerModal').style.display = 'none';
         }
 
+        var _registerLock = false;  // 防止注册重复提交
         function doRegister() {
             var phone = document.getElementById('registerPhone').value.trim();
             var password = document.getElementById('registerPassword').value;
@@ -6957,6 +6970,8 @@
             // 校验密码强度
             var strengthCheck = validatePasswordStrength(password);
             if (!strengthCheck.valid) { errEl.textContent = strengthCheck.message; errEl.style.display = 'block'; return; }
+            if (_registerLock) return;
+            _registerLock = true;
             errEl.style.display = 'none';
             var deviceInfo = getDeviceInfo();
             fetch(API_BASE + '/auth/register', {
@@ -6970,11 +6985,13 @@
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.user) {
                     hideRegister();
+                    _registerLock = false;
                     onLoginSuccess(data.user, data.military_rank);
                 } else {
                     errEl.textContent = data.error || '注册失败'; errEl.style.display = 'block';
+                    _registerLock = false;
                 }
-            }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; });
+            }).catch(function(e) { errEl.textContent = '网络错误'; errEl.style.display = 'block'; _registerLock = false; });
         }
 
         // 微信登录（从公众号链接进入时调用）
@@ -7048,6 +7065,8 @@
             }
             // 从专用API加载完整军衔数据（含progress），同步更新汉堡菜单
             loadMilitaryRank();
+            // 登录成功：汉堡菜单底部按钮显示为"退出"
+            updateProfileCardLogoutBtn();
         }
 
         // 根据用户是否匿名，控制菜单项的显示
@@ -7105,6 +7124,19 @@
             card.style.display = (card.style.display === 'none' || card.style.display === '') ? 'block' : 'none';
         }
 
+        // 根据登录状态更新汉堡菜单底部按钮（退出/注册）
+        function updateProfileCardLogoutBtn() {
+            var btn = document.getElementById('profileCardLogoutBtn');
+            if (!btn) return;
+            if (state.currentUser) {
+                btn.innerHTML = '🚪 退出';
+                btn.onclick = function() { logout(); };
+            } else {
+                btn.innerHTML = '📝 注册';
+                btn.onclick = function() { toggleProfileCard(); showRegister(); };
+            }
+        }
+
         // 点击页面其他区域关闭个人中心卡片
         document.addEventListener('click', function(e) {
             var card = document.getElementById('profileCard');
@@ -7114,7 +7146,10 @@
             }
         });
 
+        var _logoutLock = false;  // 防止退出按钮重复点击
         function logout() {
+            if (_logoutLock) return;  // 防重复点击
+            _logoutLock = true;
             stopDeviceCheck();
             // 停止音频播放
             if (typeof player !== 'undefined' && player.stop) {
@@ -7129,22 +7164,28 @@
             document.getElementById('loginPassword').value = '';
             showPage('publicPage');
             loadPublicBooks();
+            // 延迟解锁，防止快速双击
+            setTimeout(function() { _logoutLock = false; }, 1000);
+            // 匿名状态下更新汉堡菜单按钮为"注册"
+            updateProfileCardLogoutBtn();
         }
 
         function checkLogin() {
             var userId = localStorage.getItem('userId');
             if (userId) {
-                fetch(API_BASE + '/auth/check?user_id=' + userId).then(function(r) { return r.json(); }).then(function(data) {
+                fetch(API_BASE + '/auth/check?user_id=' + userId).then(function(r) { return r.json();                 }).then(function(data) {
                     if (data.user) {
                         onLoginSuccess(data.user, data.military_rank);
                     } else {
                         showPage('publicPage');
                         loadPublicBooks();
+                        updateProfileCardLogoutBtn();
                     }
-                }).catch(function() { showPage('publicPage'); loadPublicBooks(); });
+                }).catch(function() { showPage('publicPage'); loadPublicBooks(); updateProfileCardLogoutBtn(); });
             } else {
                 showPage('publicPage');
                 loadPublicBooks();
+                updateProfileCardLogoutBtn();
             }
         }
 
