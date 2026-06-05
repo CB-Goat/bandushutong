@@ -1950,29 +1950,6 @@
                 state.currentProgressV2 = bookData.progress_v2 || null;
                 console.log('showCatalog: bookData.progress =', JSON.stringify(bookData.progress));
                 
-                // 匿名用户：从 localStorage 恢复断点
-                if (!state.currentUser || !state.currentUser.phone) {
-                    try {
-                        var localKey = 'bandu_progress_' + bookId;
-                        var localData = JSON.parse(localStorage.getItem(localKey) || '{}');
-                        // 找到最新的断点（section_id 最大的）
-                        var localProgress = null;
-                        var maxSectionId = 0;
-                        Object.keys(localData).forEach(function(sid) {
-                            if (parseInt(sid) > maxSectionId) {
-                                maxSectionId = parseInt(sid);
-                                localProgress = localData[sid];
-                            }
-                        });
-                        if (localProgress) {
-                            state.currentProgressV2 = localProgress;
-                            console.log('showCatalog: 匿名用户从 localStorage 恢复断点, section=' + localProgress.current_section_id);
-                        }
-                    } catch(e) {
-                        console.error('showCatalog: localStorage 恢复断点失败:', e);
-                    }
-                }
-
                 // 设置导航栏标题：书名 + 小字体作者和国籍
                 var titleHtml = '<span style="font-size:16px;">' + (book.title || '') + '</span>';
                 if (book.author) {
@@ -2906,9 +2883,6 @@
                 var pos = position !== undefined ? position : this._currentPosition || 0;
                 if (pos <= 0) return;
 
-                var skipApi = options && options.skipApi;
-                var skipLocal = options && options.skipLocal;
-
                 var segmentId = 0;
                 var textPosition = 0;
                 var audioPosition = 0;
@@ -2933,27 +2907,14 @@
                     current_section_id: section.id
                 };
 
-                // 登录用户：通过 API 保存（checkpoint 保存时跳过，避免延时卡顿）
-                if (!skipApi && state.currentUser && state.currentUser.id) {
+                // 通过 API 保存到服务端数据库
+                if (state.currentUser && state.currentUser.id) {
                     progressData.user_id = state.currentUser.id;
                     fetch(API_BASE + '/progress/v2', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(progressData)
                     }).catch(function(e) { console.error('保存进度失败:', e); });
-                }
-
-                // 所有用户（含匿名）：通过 localStorage 备份断点
-                if (!skipLocal) {
-                    try {
-                        var key = 'bandu_progress_' + state.currentBook.id;
-                        var existing = JSON.parse(localStorage.getItem(key) || '{}');
-                        // 只更新当前节的进度，保留其他节的数据
-                        existing[section.id] = progressData;
-                        localStorage.setItem(key, JSON.stringify(existing));
-                    } catch(e) {
-                        console.error('saveProgress: localStorage 保存失败:', e);
-                    }
                 }
             },
 
@@ -5976,19 +5937,6 @@
                     reader.revealCharsUpTo(displayChar);
                 }
 
-                // 段内每 100 字保存一次断点到 localStorage（不调后端，避免延时卡顿）
-                var segmentChanged = (this._checkpointSegmentId !== seg.id);
-                if (segmentChanged) {
-                    this._lastCheckpointChar = 0;
-                    this._checkpointSegmentId = seg.id;
-                }
-                if (charInSegment > 0 && charInSegment - this._lastCheckpointChar >= 100) {
-                    this._lastCheckpointChar = Math.floor(charInSegment / 100) * 100;
-                    if (typeof reader !== 'undefined' && reader.saveProgress) {
-                        reader.saveProgress(seg.start_char + this._lastCheckpointChar, {skipApi: true});
-                    }
-                }
-                
                 if (this.audioDuration > 0) {
                     var totalTime = 0;
                     for (var i = 0; i < this._playlistIndex; i++) {

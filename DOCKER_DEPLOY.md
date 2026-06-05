@@ -79,7 +79,6 @@ create_user('13900000000', '123456', 'user')
 ## 数据备份
 
 数据库和上传的文件都在 `/opt/bandushutong` 目录：
-- `reading_companion.db` - SQLite 数据库
 - `books/` - 上传的书籍文件
 - `audio_files/` - 生成的音频文件
 

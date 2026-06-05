@@ -9,7 +9,7 @@
 - **前端服务**：宝塔 Nginx 直接提供（`/www/dk_project/wwwroot/lit.handy.xin/frontend/`），但 Docker 容器内有前端文件缓存或反向代理层，**仅改前端 HTML 也必须执行 `docker-compose up -d --build`** 才能清除容器内旧版缓存，否则浏览器会收到旧文件
 
 ## 技术栈
-- 后端：Python Flask（`backend/`），SQLite 数据库
+- 后端：Python Flask（`backend/`），MySQL 数据库
 - 前端：原生 HTML + JS（`frontend/index.html` 读者端 + `frontend/admin.html` 管理端，2026-06-04 从 index.html 拆分）
 - 部署：Docker / docker-compose
 
