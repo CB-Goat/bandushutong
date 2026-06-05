@@ -1868,13 +1868,12 @@
                     // 登录页 → 返回公开浏览页
                     showPage('publicPage');
                 } else if (readerPage.classList.contains('active')) {
-                    // 阅读页 → 返回目录页
+                    // 阅读页 → 返回目录页：保存断点，其余清理交由 showPage 统一处理
                     var currentPos = reader._currentPosition || 0;
                     console.log('返回按钮：保存位置', currentPos);
                     if (currentPos > 0) {
                         reader.saveProgress(currentPos);
                     }
-                    player.stop();
                     annotationEditor.exitEditMode();
                     // 释放屏幕常亮
                     if (state.wakeLock) {
