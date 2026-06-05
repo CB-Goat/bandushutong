@@ -628,12 +628,7 @@
         .chalkboard .analysis-area .annotation-display.active {
             display: block;
         }
-
-        /* 当点评/小结显示时，隐藏名言赏析内容，避免内容显示到标签上方 */
-        .chalkboard .analysis-area:has(.annotation-display.active) > .content {
-            display: none;
-        }
-
+        
         .chalkboard .analysis-area .annotation-display .annotation-index {
             font-size: 18px;
             color: #FFD700;
@@ -4679,6 +4674,11 @@
                 this._isFinishing = false;  // 重置防重复调用标志
                 this._clearAllTimers();      // 彻底清理所有旧定时器，防止上一个点评的超时残留干扰当前点评
                 
+                // 点评/小结播放时暂停轮播
+                if (typeof analysisManager !== 'undefined' && analysisManager.stopRotation) {
+                    analysisManager.stopRotation();
+                }
+                
                 // 显示点评UI（annotation 类型）
                 if (seg.point_type === 'annotation') {
                     // 注意：不在触发时显示标签，标签在步骤4（播放评论）时才添加
@@ -4910,10 +4910,12 @@
                 if (commentEl) {
                     commentEl.textContent = '';
                 }
+                // 隐藏引用内容（标签行下方只显示点评内容，不包含引用内容）
+                var originalEl = document.getElementById('annotationOriginal');
+                if (originalEl) {
+                    originalEl.style.display = 'none';
+                }
                 document.getElementById('annotationDisplay').classList.add('active');
-                // 点评播放时隐藏名言赏析内容，避免内容显示到标签上方
-                var contentEl = document.getElementById('analysisContent');
-                if (contentEl) contentEl.style.display = 'none';
                 
                 var commentText = seg.comment || '';
                 var audioDuration = seg.audio_duration || 1;  // 避免除以0
@@ -5121,15 +5123,10 @@
                 if (annotationDisplay) {
                     annotationDisplay.classList.remove('active');
                 }
-                // 点评结束后恢复名言赏析内容显示
-                var contentEl = document.getElementById('analysisContent');
-                if (contentEl) contentEl.style.display = '';
                 
-                // 播放完成后，从当前标签开始恢复轮巡（不跳回名言赏析）
-                if (typeof analysisManager !== 'undefined') {
-                    analysisManager.stopRotation();
-                    analysisManager.showTab(analysisManager.currentTab);
-                    analysisManager.startRotationFrom(analysisManager.currentTab);
+                // 播放完成后，恢复轮播
+                if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) {
+                    analysisManager.resumeRotation();
                 }
                 
                 // 停止并清理点评音频
@@ -5611,9 +5608,6 @@
                 if (annotationDisplay) {
                     annotationDisplay.classList.remove('active');
                 }
-                // 小结结束后恢复名言赏析内容显示
-                var contentEl = document.getElementById('analysisContent');
-                if (contentEl) contentEl.style.display = '';
                 
                 // 清理所有定时器
                 this._clearAllTimers();
@@ -5650,9 +5644,6 @@
                 
                 // 激活点评显示区域
                 document.getElementById('annotationDisplay').classList.add('active');
-                // 点评播放时隐藏名言赏析内容，避免内容显示到标签上方
-                var contentEl = document.getElementById('analysisContent');
-                if (contentEl) contentEl.style.display = 'none';
                 
                 // 清空并准备逐字显示
                 commentEl.textContent = '';
@@ -5716,6 +5707,11 @@
                     analysisManager.addAnnotationTab(annotation);
                 }
                 
+                // 点评播放时暂停轮播
+                if (typeof analysisManager !== 'undefined' && analysisManager.stopRotation) {
+                    analysisManager.stopRotation();
+                }
+                
                 this.audio.src = seg.audio_path;
                 this.audio.load();
                 
@@ -5747,8 +5743,8 @@
                     analysisManager.addSummaryTab(section.summary);
                 }
                 
-                if (typeof analysisManager !== 'undefined' && analysisManager.pauseRotation) {
-                    analysisManager.pauseRotation();
+                if (typeof analysisManager !== 'undefined' && analysisManager.stopRotation) {
+                    analysisManager.stopRotation();
                 }
                 
                 this.audio.src = seg.audio_path;
@@ -6033,8 +6029,8 @@
                 state.isPlayingSummary = true;
                 this.audio.src = section.summary_audio_path;
                 this.audio.load();
-                if (typeof analysisManager !== 'undefined' && analysisManager.pauseRotation) {
-                    analysisManager.pauseRotation();
+                if (typeof analysisManager !== 'undefined' && analysisManager.stopRotation) {
+                    analysisManager.stopRotation();
                 }
                 this.audio.onended = function() {
                     console.log('小结音频播放结束');
