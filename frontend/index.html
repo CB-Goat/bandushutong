@@ -2758,10 +2758,7 @@
                     if (!ann._triggered && currentCharIndex >= ann.end_char) {
                         console.log('触发点评', ann.id, 'currentCharIndex=' + currentCharIndex, 'end_char=' + ann.end_char);
                         ann._triggered = true;
-                        // 触发子过程时保存断点（断点在插入点位置）
-                        if (typeof reader !== 'undefined' && reader.saveProgress) {
-                            reader.saveProgress(currentCharIndex);
-                        }
+                        // 断点由段结束时保存，此处无需重复保存
                         // 立即暂停音频，防止继续朗读后续文字
                         if (player.audio) player.audio.pause();
                         // 立即设置标志，防止句子结束后继续朗读
@@ -2901,44 +2898,48 @@
                 }
             },
 
-            saveProgress: function(position) {
+            saveProgress: function(position, options) {
                 var section = state.currentSections[state.currentSectionIndex];
-                if (!section) {
-                    console.log('saveProgress: 无section，跳过');
-                    return;
-                }
-                if (!state.currentBook || !state.currentBook.id) {
-                    console.log('saveProgress: 无书籍，跳过');
-                    return;
-                }
+                if (!section) { return; }
+                if (!state.currentBook || !state.currentBook.id) { return; }
                 // 已读节不记录断点
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                if (sectionStatus === 'read') {
-                    console.log('saveProgress: 已读节，不记录断点');
-                    return;
-                }
+                if (sectionStatus === 'read') { return; }
                 var pos = position !== undefined ? position : this._currentPosition || 0;
-                
-                // 获取当前段的段内文字位置和音频位置
+                if (pos <= 0) return;
+
+                var skipApi = options && options.skipApi;
+                var skipLocal = options && options.skipLocal;
+
                 var segmentId = 0;
                 var textPosition = 0;
                 var audioPosition = 0;
+                // 始终以段内偏移为 text_position，读取时通过段信息还原全局位置
                 if (typeof player !== 'undefined' && player._currentSegment && player._currentSegment.type === 'text_segment') {
+                    // 文本段播放中：直接取段内偏移
                     segmentId = player._currentSegment.id;
                     textPosition = pos - player._currentSegment.start_char;
                     audioPosition = player.currentTime || 0;
                 } else if (typeof player !== 'undefined' && player._lastTextSegmentId > 0) {
-                    // 非文本段（点评/小结播放中）：用最后已知文本段位置兜底
+                    // 点评/小结播放中或暂停中：用最后文本段，查找其 start_char 计算段内偏移
                     segmentId = player._lastTextSegmentId;
                     audioPosition = player._lastTextAudioPos || 0;
-                    textPosition = pos; // 全局文字位置
-                } else {
-                    textPosition = pos;
-                    segmentId = 0;
+                    var lastSeg = null;
+                    for (var i = 0; i < player.audioSegments.length; i++) {
+                        if (player.audioSegments[i].id === segmentId) {
+                            lastSeg = player.audioSegments[i];
+                            break;
+                        }
+                    }
+                    if (lastSeg) {
+                        textPosition = pos - lastSeg.start_char;
+                    } else {
+                        // 兜底：全局位置（老数据兼容，正常不会走到这里）
+                        textPosition = pos;
+                    }
                 }
-                
-                console.log('saveProgress: segment_id=' + segmentId + ', textPosition=' + textPosition + ', audioPosition=' + audioPosition);
-                
+                // segmentId 为 0 表示从未播放过文本段，不保存（等待第一次进入文本段时保存）
+
                 var progressData = {
                     book_id: state.currentBook.id,
                     section_id: section.id,
@@ -2948,9 +2949,9 @@
                     current_position: pos,
                     current_section_id: section.id
                 };
-                
-                // 登录用户：通过 API 保存
-                if (state.currentUser && state.currentUser.id) {
+
+                // 登录用户：通过 API 保存（checkpoint 保存时跳过，避免延时卡顿）
+                if (!skipApi && state.currentUser && state.currentUser.id) {
                     progressData.user_id = state.currentUser.id;
                     fetch(API_BASE + '/progress/v2', {
                         method: 'POST',
@@ -2958,19 +2959,19 @@
                         body: JSON.stringify(progressData)
                     }).catch(function(e) { console.error('保存进度失败:', e); });
                 }
-                
+
                 // 所有用户（含匿名）：通过 localStorage 备份断点
-                try {
-                    var key = 'bandu_progress_' + state.currentBook.id;
-                    var existing = JSON.parse(localStorage.getItem(key) || '{}');
-                    // 只更新当前节的进度，保留其他节的数据
-                    existing[section.id] = progressData;
-                    localStorage.setItem(key, JSON.stringify(existing));
-                    console.log('saveProgress: localStorage 已保存, key=' + key + ', section=' + section.id);
-                } catch(e) {
-                    console.error('saveProgress: localStorage 保存失败:', e);
-                }
-            },
+                if (!skipLocal) {
+                    try {
+                        var key = 'bandu_progress_' + state.currentBook.id;
+                        var existing = JSON.parse(localStorage.getItem(key) || '{}');
+                        // 只更新当前节的进度，保留其他节的数据
+                        existing[section.id] = progressData;
+                        localStorage.setItem(key, JSON.stringify(existing));
+                    } catch(e) {
+                        console.error('saveProgress: localStorage 保存失败:', e);
+                    }
+                },
 
             _currentPosition: 0,
             _scrollListener: null,
@@ -4251,12 +4252,12 @@
                                     var targetSeg = this.audioSegments[targetSegIdx];
                                     var segOffset;
                                     if (progressV2.text_position !== undefined && progressV2.current_segment_id) {
-                                        // text_position 是段内偏移，直接使用，不需要减 start_char
+                                        // text_position 是段内偏移，直接使用
                                         segOffset = progressV2.text_position;
                                     } else {
-                                        // current_position 是全局位置，需要减去段起始偏移
-                                        var globalPos = progressV2.current_position || 0;
-                                        segOffset = globalPos - (targetSeg.start_char || 0);
+                                        // 老数据兼容：老版本中 current_position 字段实际存储的就是段内偏移值
+                                        // 新数据中 text_position 一定存在，不会走到这个分支
+                                        segOffset = progressV2.current_position || 0;
                                     }
                                     if (segOffset < 0) segOffset = 0;
                                     // 使用目标段的 char_timeline（段内时间轴），而非全局拼接的 this.charTimeline
@@ -5199,11 +5200,7 @@
                     return;
                 }
                 
-                // 小结触发时保存断点
-                if (typeof reader !== 'undefined' && reader.saveProgress && reader._totalChars > 0) {
-                    reader.saveProgress(reader._totalChars);
-                    console.log('小结触发：保存书签到节末尾位置', reader._totalChars);
-                }
+                // 断点由段结束时保存，此处无需重复保存
                 
                 // 暂停轮询，避免小结播放时跳到其他标签
                 if (typeof analysisManager !== 'undefined' && analysisManager.stopRotation) {
@@ -5788,10 +5785,13 @@
                     var seg = this._currentSegment;
                     console.log('_onSegmentEnd: 文本段结束, start_char=' + seg.start_char + ', end_char=' + seg.end_char);
                     // 确保该段所有文字都已显示（包括最后一个字符）
-                    // end_char 是不包含的边界，所以需要显示到 end_char
                     var revealTo = seg.end_char;
                     if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                         reader.revealCharsUpTo(revealTo);
+                    }
+                    // 段结束时保存断点（段内偏移 = 段长度，音频时间 = 段时长）
+                    if (typeof reader !== 'undefined' && reader.saveProgress) {
+                        reader.saveProgress(seg.end_char);
                     }
                     // 只有下一段是 text_segment 时才预显示
                     var nextIdx = this._playlistIndex + 1;
@@ -5992,6 +5992,19 @@
                 var displayChar = Math.min(maxDisplay, displayIndex + this.TEXT_AHEAD_OFFSET);
                 if (typeof reader !== 'undefined' && reader.revealCharsUpTo) {
                     reader.revealCharsUpTo(displayChar);
+                }
+
+                // 段内每 100 字保存一次断点到 localStorage（不调后端，避免延时卡顿）
+                var segmentChanged = (this._checkpointSegmentId !== seg.id);
+                if (segmentChanged) {
+                    this._lastCheckpointChar = 0;
+                    this._checkpointSegmentId = seg.id;
+                }
+                if (charInSegment > 0 && charInSegment - this._lastCheckpointChar >= 100) {
+                    this._lastCheckpointChar = Math.floor(charInSegment / 100) * 100;
+                    if (typeof reader !== 'undefined' && reader.saveProgress) {
+                        reader.saveProgress(seg.start_char + this._lastCheckpointChar, {skipApi: true});
+                    }
                 }
                 
                 if (this.audioDuration > 0) {
