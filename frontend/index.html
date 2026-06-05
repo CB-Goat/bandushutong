@@ -4756,7 +4756,9 @@
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('开场白播放失败:', e);
-                        self._finishInsertPoint();
+                        // 开场白失败 → 跳过步骤1，进入步骤2（引用音频）
+                        self._insertPointStep = 2;
+                        self._executeInsertPointStep();
                     });
                 };
                 
@@ -4769,10 +4771,13 @@
                 this._annotationAudio.addEventListener('canplay', canPlayHandler);
                 this._annotationAudio.addEventListener('ended', endedHandler);
                 
-                // 超时保护：开场白最长5秒，使用防重复调用机制
+                // 超时保护：开场白最长5秒
                 this._safeSetTimeout(function() {
                     if (self._insertPointStep === 1 && !self._isFinishing) {
-                        self._finishInsertPoint();
+                        console.log('开场白超时，跳过步骤1，进入步骤2');
+                        // 超时 → 跳过步骤1，进入步骤2（引用音频）
+                        self._insertPointStep = 2;
+                        self._executeInsertPointStep();
                     }
                 }, 5000);
             },
@@ -4812,7 +4817,9 @@
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('引用音频播放失败:', e);
-                        self._finishInsertPoint();
+                        // 引用音频失败 → 跳过步骤2，进入步骤3
+                        self._insertPointStep = 3;
+                        self._executeInsertPointStep();
                     });
                 };
                 
@@ -4847,10 +4854,13 @@
                 this._annotationAudio.addEventListener('ended', endedHandler);
                 this._annotationAudio.addEventListener('timeupdate', quoteTimeUpdateHandler);
                 
-                // 超时保护：引用音频最长30秒，使用防重复调用机制
+                // 超时保护：引用音频最长30秒
                 this._safeSetTimeout(function() {
                     if (self._insertPointStep === 2 && !self._isFinishing) {
-                        self._finishInsertPoint();
+                        console.log('引用音频超时，跳过步骤2，进入步骤3');
+                        // 超时 → 跳过步骤2，进入步骤3
+                        self._insertPointStep = 3;
+                        self._executeInsertPointStep();
                     }
                 }, 30000);
             },
@@ -4905,7 +4915,9 @@
                         state.isPlaying = true;
                     }).catch(function(e) {
                         console.log('评论音频播放失败:', e);
-                        self._finishInsertPoint();
+                        // 评论音频失败 → 跳过步骤4，进入步骤5
+                        self._insertPointStep = 5;
+                        self._executeInsertPointStep();
                     });
                 };
                 
@@ -4959,10 +4971,13 @@
                 this._annotationAudio.addEventListener('ended', endedHandler);
                 this._annotationAudio.addEventListener('timeupdate', commentTimeUpdateHandler);
                 
-                // 超时保护：评论音频最长60秒，使用防重复调用机制
+                // 超时保护：评论音频最长60秒
                 this._safeSetTimeout(function() {
                     if (self._insertPointStep === 4 && !self._isFinishing) {
-                        self._finishInsertPoint();
+                        console.log('评论音频超时，跳过步骤4，进入步骤5');
+                        // 超时 → 跳过步骤4，进入步骤5
+                        self._insertPointStep = 5;
+                        self._executeInsertPointStep();
                     }
                 }, 60000);
             },
