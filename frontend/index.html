@@ -444,6 +444,29 @@
             font-size: 16px;
             line-height: 1.8;
             color: #7EC8E3;
+            /* 固定高度，确保内容过多时可以滚动 */
+            max-height: 180px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* 自定义滚动条样式 */
+        .chalkboard .analysis-area .content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chalkboard .analysis-area .content::-webkit-scrollbar-track {
+            background: rgba(240,232,208,0.05);
+            border-radius: 3px;
+        }
+
+        .chalkboard .analysis-area .content::-webkit-scrollbar-thumb {
+            background: rgba(240,232,208,0.2);
+            border-radius: 3px;
+        }
+
+        .chalkboard .analysis-area .content::-webkit-scrollbar-thumb:hover {
+            background: rgba(240,232,208,0.3);
         }
 
         /* 段落换行 */
@@ -3330,10 +3353,10 @@
                 this.isRotating = true;
                 this.currentTab = startTabId;
 
-                // 轮巡开始时重置滚动到顶部
-                var analysisArea = document.getElementById('analysisArea');
-                if (analysisArea) {
-                    analysisArea.scrollTop = 0;
+                // 轮巡开始时重置滚动到顶部（内容区域）
+                var analysisContent = document.getElementById('analysisContent');
+                if (analysisContent) {
+                    analysisContent.scrollTop = 0;
                 }
 
                 var self = this;
@@ -3382,10 +3405,10 @@
                 if (prevTab !== tabId) {
                     this.renderTabs();
                 }
-                // 轮巡切换标签时重置滚动到顶部
-                var analysisArea = document.getElementById('analysisArea');
-                if (analysisArea) {
-                    analysisArea.scrollTop = 0;
+                // 轮巡切换标签时重置滚动到顶部（内容区域）
+                var analysisContent = document.getElementById('analysisContent');
+                if (analysisContent) {
+                    analysisContent.scrollTop = 0;
                 }
             },
 
@@ -4977,9 +5000,9 @@
                         }
                         lastCharIdx = currentCharIdx;
                         // 自动滚动评论区，让用户始终看到最新显示的字符
-                        var analysisArea = document.getElementById('analysisArea');
-                        if (analysisArea) {
-                            analysisArea.scrollTop = analysisArea.scrollHeight;
+                        var analysisContent = document.getElementById('analysisContent');
+                        if (analysisContent) {
+                            analysisContent.scrollTop = analysisContent.scrollHeight;
                         }
                     }
                 };
@@ -5487,9 +5510,9 @@
                         }
                         lastCharIdx = currentCharIdx;
                         // 自动滚动评论区，让用户始终看到最新显示的字符
-                        var analysisArea = document.getElementById('analysisArea');
-                        if (analysisArea) {
-                            analysisArea.scrollTop = analysisArea.scrollHeight;
+                        var analysisContent = document.getElementById('analysisContent');
+                        if (analysisContent) {
+                            analysisContent.scrollTop = analysisContent.scrollHeight;
                         }
                     }
                 };
