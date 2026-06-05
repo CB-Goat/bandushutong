@@ -1870,9 +1870,13 @@
                 } else if (readerPage.classList.contains('active')) {
                     // 阅读页 → 返回目录页：保存断点，其余清理交由 showPage 统一处理
                     var currentPos = reader._currentPosition || 0;
-                    console.log('返回按钮：保存位置', currentPos);
                     if (currentPos > 0) {
-                        reader.saveProgress(currentPos);
+                        var result = reader.saveProgress(currentPos);
+                        if (result && result.saved) {
+                            console.log('返回按钮：断点保存成功-位置 ' + currentPos);
+                        } else if (result) {
+                            console.log('返回按钮：断点保存-位置 ' + currentPos + '-' + result.reason + '-跳过保存');
+                        }
                     }
                     annotationEditor.exitEditMode();
                     // 释放屏幕常亮
@@ -2874,13 +2878,13 @@
 
             saveProgress: function(position, options) {
                 var section = state.currentSections[state.currentSectionIndex];
-                if (!section) { return; }
-                if (!state.currentBook || !state.currentBook.id) { return; }
+                if (!section) { return {saved: false, reason: '无节数据'}; }
+                if (!state.currentBook || !state.currentBook.id) { return {saved: false, reason: '无书籍数据'}; }
                 // 已读节不记录断点
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                if (sectionStatus === 'read') { return; }
+                if (sectionStatus === 'read') { return {saved: false, reason: '已读节'}; }
                 var pos = position !== undefined ? position : this._currentPosition || 0;
-                if (pos <= 0) return;
+                if (pos <= 0) return {saved: false, reason: '无效位置'};
 
                 var segmentId = 0;
                 var textPosition = 0;
@@ -2894,7 +2898,7 @@
                     audioPosition = player.currentTime || 0;
                 } else {
                     // 不在文本段（annotation/summary 中或 player 停止）→ 不成对 → 不保存
-                    return;
+                    return {saved: false, reason: '非文本段'};
                 }
 
                 var progressData = {
@@ -2914,6 +2918,9 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(progressData)
                     }).catch(function(e) { console.error('保存进度失败:', e); });
+                    return {saved: true, reason: 'success'};
+                } else {
+                    return {saved: false, reason: '未登录'};
                 }
             },
 
@@ -4115,8 +4122,13 @@
                     // 用户点击暂停：保存断点（仅在主线文本段播放中）
                     if (this._currentSegment && this._currentSegment.type === 'text_segment') {
                         if (typeof reader !== 'undefined' && reader._currentPosition > 0) {
-                            console.log('暂停时保存断点:', reader._currentPosition);
-                            reader.saveProgress(reader._currentPosition);
+                            var pausePos = reader._currentPosition;
+                            var pauseResult = reader.saveProgress(pausePos);
+                            if (pauseResult && pauseResult.saved) {
+                                console.log('暂停时：断点保存成功-位置 ' + pausePos);
+                            } else if (pauseResult) {
+                                console.log('暂停时：断点保存-位置 ' + pausePos + '-' + pauseResult.reason + '-跳过保存');
+                            }
                         }
                     }
                     this.pause();
@@ -5752,7 +5764,12 @@
                     }
                     // 段结束时保存断点（段内偏移 = 段长度，音频时间 = 段时长）
                     if (typeof reader !== 'undefined' && reader.saveProgress) {
-                        reader.saveProgress(seg.end_char);
+                        var segEndResult = reader.saveProgress(seg.end_char);
+                        if (segEndResult && segEndResult.saved) {
+                            console.log('段结束：断点保存成功-位置 ' + seg.end_char);
+                        } else if (segEndResult) {
+                            console.log('段结束：断点保存-位置 ' + seg.end_char + '-' + segEndResult.reason + '-跳过保存');
+                        }
                     }
                     // 只有下一段是 text_segment 时才预显示
                     var nextIdx = this._playlistIndex + 1;
@@ -5800,8 +5817,12 @@
                 if (section && state.currentBook && state.currentUser) {
                     // 播放完毕，保存书签到本节内容末尾位置
                     if (typeof reader !== 'undefined' && reader._totalChars > 0) {
-                        reader.saveProgress(reader._totalChars);
-                        console.log('播放完毕：保存书签到节末尾位置', reader._totalChars);
+                        var allEndResult = reader.saveProgress(reader._totalChars);
+                        if (allEndResult && allEndResult.saved) {
+                            console.log('播放完毕：断点保存成功-位置 ' + reader._totalChars);
+                        } else if (allEndResult) {
+                            console.log('播放完毕：断点保存-位置 ' + reader._totalChars + '-' + allEndResult.reason + '-跳过保存');
+                        }
                     }
 
                     // 检查节是否已经是已读状态
@@ -5911,7 +5932,13 @@
                 if (charInSegment > 0 && charInSegment - this._lastCheckpointChar >= 100) {
                     this._lastCheckpointChar = Math.floor(charInSegment / 100) * 100;
                     if (typeof reader !== 'undefined' && reader.saveProgress) {
-                        reader.saveProgress(seg.start_char + this._lastCheckpointChar);
+                        var ckptPos = seg.start_char + this._lastCheckpointChar;
+                        var ckptResult = reader.saveProgress(ckptPos);
+                        if (ckptResult && ckptResult.saved) {
+                            console.log('检查点：断点保存成功-位置 ' + ckptPos);
+                        } else if (ckptResult) {
+                            console.log('检查点：断点保存-位置 ' + ckptPos + '-' + ckptResult.reason + '-跳过保存');
+                        }
                     }
                 }
 
@@ -7799,20 +7826,20 @@
                         // 已读节不记录断点
                         var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
                         if (sectionStatus === 'read') {
-                            console.log('beforeunload: 已读节，不记录断点');
+                            console.log('beforeunload: 断点保存-位置 ' + pos + '-已读节-跳过保存');
                             return;
                         }
                         // 只有当前正在播放/暂停文本段时，才能获取成对的 text_position + audio_position
                         // 非文本段（annotation/summary）或 player 已停止 → 数据不成对 → 不保存
                         if (!player._currentSegment || player._currentSegment.type !== 'text_segment') {
-                            console.log('beforeunload: 当前不在文本段中，跳过保存');
+                            console.log('beforeunload: 断点保存-位置 ' + pos + '-非文本段-跳过保存');
                             return;
                         }
                         var segmentId = player._currentSegment.id;
                         var textPosition = pos - player._currentSegment.start_char;
                         var audioPosition = player.currentTime || 0;
                         if (audioPosition <= 0) {
-                            console.log('beforeunload: 无有效音频位置，跳过保存');
+                            console.log('beforeunload: 断点保存-位置 ' + pos + '-无有效音频位置-跳过保存');
                             return;
                         }
                         var payload = JSON.stringify({
@@ -7824,7 +7851,7 @@
                             user_id: state.currentUser.id
                         });
                         navigator.sendBeacon(API_BASE + '/progress/v2', new Blob([payload], {type: 'application/json'}));
-                        console.log('beforeunload: 已发送断点保存请求');
+                        console.log('beforeunload: 断点保存成功-位置 ' + pos);
                     }
                 }
             }
