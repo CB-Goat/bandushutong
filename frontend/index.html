@@ -3391,9 +3391,11 @@
                         contentEl.innerHTML = '<div class="comment-text">' + (tab._commentText || tab.content) + '</div>';
                     } else if (tab.isHtml) {
                         contentEl.innerHTML = tab.content;
-                        // 如果是点评的逐字HTML，且不在播放中（轮巡时），显示所有字符
+                        // 如果是点评或小结的逐字HTML，且不在播放中（轮巡时），显示所有字符
                         // 播放中时，由 ontimeupdate 逐字显示，不要在这里全部显示
-                        if (tab.annotationId && !(state && state.isPlayingAnnotation)) {
+                        var isPlaying = (tab.annotationId && state && state.isPlayingAnnotation) ||
+                                       (tab.isSummary && state && state.isPlayingSummary);
+                        if (!isPlaying) {
                             var chars = contentEl.querySelectorAll('.comment-char');
                             chars.forEach(function(c) { c.classList.add('visible'); });
                         }
@@ -5451,6 +5453,7 @@
                     self._annotationAudio.onerror = null;
                     self._annotationAudio.onended = null;
                     self._annotationAudio.ontimeupdate = null;
+                    state.isPlayingSummary = false;
                     // 确保显示完整文字
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
@@ -5481,6 +5484,7 @@
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
+                        state.isPlayingSummary = true;
                     }).catch(function(e) {
                         console.log('小结内容播放失败:', e);
                         completeStep();
