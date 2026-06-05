@@ -45,152 +45,55 @@
 - 使用 `addEventListener` 的监听器必须有对应的 `removeEventListener`（或在回调内自清理）
 - `oncanplay = handler` 比 `addEventListener('canplay', handler)` 更安全（属性赋值覆盖而非累积）
 
-## 断点系统规范 (2026-06-05 规范化重构)
+## 断点系统规范 (2026-06-05 最终版)
 
-### 一、设计原则
+### 设计原则
 
-断点只存储**段内**位置（段内文字偏移 + 段内音频时间），不存储全局位置。全局位置可在进入阅读页时通过该节的各段信息（`start_char`、`end_char`）动态计算得出。
+断点 = `text_position` + `audio_position`，必须成对保存，不成对则不保存。不允许任何"拼凑"、"挽救"、"兜底"逻辑。
 
-文字显示快于音频 3 个字符（`TEXT_AHEAD_OFFSET = 3`），所以 `text_position` 始终比 `audio_position` 对应的字符位置多 3。
+- text_position：段内文字偏移 = 全局pos - seg.start_char
+- audio_position：段内音频时间 = player.currentTime
+- 两个值必须来自同一时刻、同一段
+- 仅通过 API 写入 MySQL，不存 localStorage
 
-书签就是断点的可视化标记，和断点位置始终一致。
+### saveProgress 规则
 
----
+1. 已读节 → return
+2. pos <= 0 → return
+3. 不在 `text_segment`（annotation/summary 中或 player 停止）→ return
+4. 未登录 → API 不发送
+5. 仅在 `player._currentSegment.type === 'text_segment'` 时保存
 
-### 二、数据字段（读写口径完全一致）
+### 6 个触发入口
 
-| 字段 | 含义 | 作用域 |
-|------|------|--------|
-| `current_section_id` | 当前节 ID | 全局 |
-| `current_segment_id` | 当前文本段 ID | 全局 |
-| `text_position` | **段内**文字偏移（该段第几个字符，从 0 开始）| 段内 |
-| `audio_position` | **段内**音频时间（秒）| 段内 |
+| # | 触发时机 | 代码位置 | 位置参数 |
+|---|---------|---------|---------|
+| 1 | 段内每100字 | `_updateDisplayByTime` | `seg.start_char + offset` |
+| 2 | 文本段播完 | `_onSegmentEnd` | `seg.end_char` |
+| 3 | 整节播完 | `_onAllSegmentsEnd` | `reader._totalChars` |
+| 4 | 用户点暂停 | `toggle()` | `reader._currentPosition` |
+| 5 | 点返回退出 | homeBtn → showPage | `reader._currentPosition` |
+| 6 | 刷新/关闭标签 | beforeunload | `reader._currentPosition`（门控拦截）|
 
-**注意**：全局文字位置（书签位置）不单独存储，由 `segment.start_char + text_position` 动态计算。
-
-**核心约束**：`text_position` 始终 = `全局位置 - 当前段.start_char`。全局位置不单独存储，由段信息动态计算。
-
-**核心原则**：断点的两个元素（text_position, audio_position）必须成对保存。不成对 → 不保存。不允许任何"拼凑"、"挽救"、"兜底"逻辑。
-
----
-
-### 三、保存逻辑
-
-#### 3.1 saveProgress(position, options) — 统一入口
-
-**函数签名**：`saveProgress(position, options)`
-- `position`：全局文字位置（`this._currentPosition`）。如果调用方没传，函数内部自动取。
-- `options.skipApi`：跳过 API 保存（checkpoint 用，避免网络延时卡顿）
-- `options.skipLocal`：跳过 localStorage 保存
-
-**内部计算规则**：
-
-1. 已读节（`catalogStatusMap[section.id] === 'read'`）→ 直接 return，不存断点
-2. `pos <= 0` → 直接 return（无效位置）
-3. 当前段是文本段（`_currentSegment.type === 'text_segment'`）：
-   - `segmentId = _currentSegment.id`
-   - `textPosition = pos - _currentSegment.start_char`（段内偏移）
-   - `audioPosition = player.currentTime`
-4. 当前段不是文本段（点评/小结播放中或暂停中）：
-   - 取 `_lastTextSegmentId`
-   - 在 `player.audioSegments` 中查找该段，用它的 `start_char` 计算段内偏移
-   - `textPosition = pos - lastSeg.start_char`
-   - `audioPosition = player._lastTextAudioPos`
-   - 段找不到 → segmentId 置 0 → return（不成对，不保存）
-5. `segmentId === 0` → return（无法准确定位文本段）
-
-#### 3.2 保存时机（4 个）
-
-| 时机 | 触发位置 | 存储目标 | 说明 |
-|------|---------|---------|------|
-| **页面导航离开** | `showPage` / `browseBackToBooks` | API + localStorage | 先 `saveProgress` 再 `player.stop()`，数据准确。设 `window.__progressJustSaved = true` 门控 |
-| **页面刷新/关闭** | `beforeunload` 事件 | API（sendBeacon）| **仅在 `player._currentSegment.type === 'text_segment'` 时保存**（此时 text+audio 直接采集，成对准确）。不在文本段中 → 跳过。门控 `__progressJustSaved` 阻止 showPage 后重复保存 |
-| **每段文本音频结束** | `player._onSegmentEnd` | API + localStorage | 当前段结束时，`textPosition = 段长度`，`currentTime > 0` 保证 audio 准确 |
-| **段内每 100 字** | `player._updateDisplayByTime` | localStorage only（`skipApi:true`）| 防异常退出丢进度，不调 API 避免卡顿 |
-
-**门控机制**：`showPage`/`browseBackToBooks` 离开阅读页后设 `window.__progressJustSaved = true`，阻止 `beforeunload` 用已停止 player 的脏数据覆盖正确断点。进入 `openBook` 时重置为 `false`。
-
-#### 3.3 后端存储
-
-- `reading_progress` 表字段：`current_section_id`, `current_segment_id`, `text_position`（段内偏移）, `audio_position`（段内音频秒数）
-- `/progress/v2` POST 接口接收这些字段
-- `current_position` 字段已于 2026-06-05 移除，不再存储全局位置
-
----
-
-### 四、恢复逻辑（`play()` 方法内）
-
-#### 4.1 整体流程
+### 门控机制
 
 ```
-进入阅读页
-  ↓
-检查是否有可恢复的断点（API 返回 progressV2 或 localStorage 取到）
-  ↓ 有断点
-1. 根据 current_section_id 和 current_segment_id 定位目标段（targetSeg）
-2. 根据 text_position 计算段内偏移（segOffset）
-3. 计算断点在全局时间轴上的位置 = 之前所有段的累计时长 + seg.char_timeline[segOffset]
-4. 页面渲染到断点位置（之前的所有段文字全部显示，点评/小结标记也显示）
-5. 音频从断点时间开始播放
-6. 书签标记显示在断点文字附近
+openBook()           →  __progressJustSaved = false
+showPage(非readerPage) →  player.stop() + __progressJustSaved = true
+beforeunload         →  true=跳过 / false=sendBeacon
 ```
 
-#### 4.2 段内偏移计算（segOffset）
+showPage 统一处理离场清理：player.stop()、analysisManager、debug timer、TTS 轮询。
+homeBtn 只负责 saveProgress + wakeLock 释放 + 导航栏恢复，不重复调用 player.stop()。
 
-```javascript
-// 统一从 text_position 获取段内偏移
-var segOffset = progressV2.text_position || 0;
-```
+### 不保存的情况
 
-全局文字位置（用于书签显示）由 `segment.start_char + text_position` 计算得出。
-
-#### 4.3 音频恢复时间（resumeTime）
-
-```javascript
-// ✅ 正确：用目标段的 char_timeline（段内时间轴）
-var segTL = targetSeg.char_timeline;
-if (typeof segTL === 'string') { segTL = JSON.parse(segTL); }
-resumeTime = segTL[segOffset];
-
-// ❌ 错误（已修复）：segOffset 是段内偏移，不能查全局拼接的 this.charTimeline
-// resumeTime = this.charTimeline[segOffset];  // 段号越大偏差越大
-```
-
-#### 4.4 页面显示恢复
-
-`_restoreBookmarkAndPosition` 完成：
-1. 用 `revealCharsUpTo(globalPosition, {skipAnnotationClear: true})` 显示断点前所有文字
-2. 调用 `_highlightAnnotation` 高亮断点之后的点评原文引用
-3. 设置 `chalkText.scrollTop` 滚动到断点字符可见
-4. 调用 `_showBookmarkAt(globalPosition)` 显示书签标记
-
-**`skipAnnotationClear: true`** 关键：断点恢复时跳过 `annotated` 清理，否则 rAF 异步回调会清除刚添加的点评高亮。
-
----
-
-### 五、代码位置索引
-
-| 功能 | 文件 | 大致行号 | 函数/代码块 |
-|------|------|---------|------------|
-| 断点保存 | `frontend/index.html` | ~2890 | `reader.saveProgress` |
-| 离开时保存 | `frontend/index.html` | ~6815 | `beforeunload` listener |
-| 段结束时保存 | `frontend/index.html` | ~5767 | `player._onSegmentEnd` |
-| 100字 checkpoint | `frontend/index.html` | ~5970 | `player._updateDisplayByTime` |
-| 断点恢复（播放） | `frontend/index.html` | ~4156 | `player.play()` |
-| 页面显示恢复 | `frontend/index.html` | ~3035 | `reader._restoreBookmarkAndPosition` |
-| 书签显示 | `frontend/index.html` | ~3185 | `reader._showBookmarkAt` |
-| 后端 API | `backend/api.py` | ~1074 | `/progress/v2` POST/GET |
-| 后端存储 | `backend/database.py` | ~1978 | `update_progress_v2` / `get_progress_v2` |
-
----
-
-### 六、关键约束（禁止行为）
-
-1. ❌ **禁止**不成对保存断点 — text_position 和 audio_position 必须同时从同一时刻采集，不允许拼凑
-2. ❌ **禁止**从 localStorage 恢复 audio_position 拼接到新计算的 text_position 上 — 不同时刻采集的数据不成对
-3. ❌ `text_position` **禁止**存全局位置 — 必须始终 = `pos - start_char`，找不到段 → 不保存
-4. ❌ **禁止**`beforeunload` 在非文本段时保存断点 — 只在 `_currentSegment.type === 'text_segment'` 时才能获取成对数据
-5. ❌ **禁止**在 checkpoint 保存时调 API — 用 `{skipApi: true}`，100 字一次的网络请求会造成明显延时停顿
-6. ❌ **禁止**`segmentId === 0` 时继续保存 — 直接 return
-7. ❌ **禁止**用 `this.charTimeline` 查段内偏移 — 必须用 `targetSeg.char_timeline`
-8. ❌ **禁止**断点恢复 `revealCharsUpTo` 时清除 `annotated` — 用 `{skipAnnotationClear: true}`
+| 场景 | 原因 |
+|------|------|
+| annotation/summary 子过程 | 进入前已在段结束时保存 |
+| player 已停止 | `_currentSegment` 为 null |
+| beforeunload 被门控拦截 | showPage 已保存 |
+| beforeunload 不在文本段 | 数据不成对 |
+| beforeunload 音频位置 ≤ 0 | 无有效数据 |
+| 已读节 | 不记录断点 |
+| browseBackToBooks | 非 readerPage 活动 |
