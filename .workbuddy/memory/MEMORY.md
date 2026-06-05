@@ -6,7 +6,7 @@
 - **Git 仓库**：https://github.com/CB-Goat/bandushutong
 - **注意**：Windows 环境 git clone 和 git push 需要 `http.sslVerify=false`（用 `git -c http.sslVerify=false push` 或配置全局 `git config --global http.sslVerify false`）
 - **代码提交规范**：每次修改代码后，必须立即 commit 并 push 到远程仓库，不要遗漏
-- **前端服务**：宝塔 Nginx 直接提供（`/www/dk_project/wwwroot/lit.handy.xin/frontend/`），不在 Docker 容器内
+- **前端服务**：宝塔 Nginx 直接提供（`/www/dk_project/wwwroot/lit.handy.xin/frontend/`），但 Docker 容器内有前端文件缓存或反向代理层，**仅改前端 HTML 也必须执行 `docker-compose up -d --build`** 才能清除容器内旧版缓存，否则浏览器会收到旧文件
 
 ## 技术栈
 - 后端：Python Flask（`backend/`），SQLite 数据库
