@@ -2932,23 +2932,13 @@
                     if (lastSeg) {
                         textPosition = pos - lastSeg.start_char;
                     } else {
-                        // 兜底：全局位置（老数据兼容，正常不会走到这里）
-                        textPosition = pos;
+                        segmentId = 0;  // 找不到段，无法计算段内偏移，不成对
                     }
                 }
-                // 兜底：如果没有通过以上两种方式找到段，根据全局位置 pos 在 audioSegments 中查找
-                if (segmentId === 0 && typeof player !== 'undefined' && player.audioSegments && player.audioSegments.length > 0) {
-                    for (var i = 0; i < player.audioSegments.length; i++) {
-                        var seg = player.audioSegments[i];
-                        if (seg.type === 'text_segment' && seg.start_char <= pos && seg.end_char > pos) {
-                            segmentId = seg.id;
-                            textPosition = pos - seg.start_char;
-                            audioPosition = player.currentTime || 0;
-                            break;
-                        }
-                    }
+                // 无法定位到文本段 → 不保存（断点必须是 text_position+audio_position 成对）
+                if (segmentId === 0) {
+                    return;
                 }
-                // segmentId 为 0 表示确实无法定位段，不保存（等待进入文本段时保存）
 
                 var progressData = {
                     book_id: state.currentBook.id,
@@ -2958,23 +2948,6 @@
                     audio_position: audioPosition,
                     current_section_id: section.id
                 };
-
-                // 保护：如果当前 audio_position 为 0（player 已停止/未激活），
-                // 不覆盖 localStorage 中已有的有效音频位置。
-                // 段结束/checkpoint 保存时 currentTime 必然 >0，不会走到这个分支。
-                if (audioPosition === 0) {
-                    try {
-                        var _key = 'bandu_progress_' + state.currentBook.id;
-                        var _saved = JSON.parse(localStorage.getItem(_key) || '{}');
-                        var _last = _saved[section.id];
-                        if (_last && _last.audio_position > 0
-                            && _last.segment_id === segmentId
-                            && Math.abs(_last.text_position - textPosition) <= 2) {
-                            audioPosition = _last.audio_position;
-                            progressData.audio_position = audioPosition;
-                        }
-                    } catch(_e) {}
-                }
 
                 // 登录用户：通过 API 保存（checkpoint 保存时跳过，避免延时卡顿）
                 if (!skipApi && state.currentUser && state.currentUser.id) {
@@ -7934,57 +7907,18 @@
                             console.log('beforeunload: 已读节，不记录断点');
                             return;
                         }
-                        // 使用 sendBeacon 确保请求被发送（即使页面关闭）
-                        var segmentId = 0;
-                        var textPosition = 0;
-                        var audioPosition = 0;
-                        if (player._currentSegment && player._currentSegment.type === 'text_segment') {
-                            segmentId = player._currentSegment.id;
-                            textPosition = pos - player._currentSegment.start_char;
-                            audioPosition = player.currentTime || 0;
-                        } else if (player._lastTextSegmentId > 0) {
-                            // 非文本段时用最后已知文本段位置兜底
-                            segmentId = player._lastTextSegmentId;
-                            audioPosition = player._lastTextAudioPos || 0;
-                            // 查找该文本段的 start_char，计算段内偏移
-                            for (var k = 0; k < player.audioSegments.length; k++) {
-                                if (player.audioSegments[k].id === segmentId) {
-                                    textPosition = pos - player.audioSegments[k].start_char;
-                                    break;
-                                }
-                            }
-                        }
-                        // 兜底：根据全局位置在 audioSegments 中查找包含的文本段
-                        if (segmentId === 0 && player.audioSegments && player.audioSegments.length > 0) {
-                            for (var m = 0; m < player.audioSegments.length; m++) {
-                                var seg = player.audioSegments[m];
-                                if (seg.type === 'text_segment' && seg.start_char <= pos && seg.end_char > pos) {
-                                    segmentId = seg.id;
-                                    textPosition = pos - seg.start_char;
-                                    audioPosition = player.currentTime || 0;
-                                    break;
-                                }
-                            }
-                        }
-                        // segmentId 仍为 0 表示完全无法定位段，不保存（避免覆盖正确断点）
-                        if (segmentId === 0) {
-                            console.log('beforeunload: 无法定位段，跳过保存');
+                        // 只有当前正在播放/暂停文本段时，才能获取成对的 text_position + audio_position
+                        // 非文本段（annotation/summary）或 player 已停止 → 数据不成对 → 不保存
+                        if (!player._currentSegment || player._currentSegment.type !== 'text_segment') {
+                            console.log('beforeunload: 当前不在文本段中，跳过保存');
                             return;
                         }
-                        // 保护：如果 audioPosition 为 0，且 localStorage 中同一段同一位置已有非零音频位置，
-                        // 说明这是被动退出（播放已停止），不要覆盖有效音频位置
-                        if (audioPosition === 0) {
-                            try {
-                                var _bk = 'bandu_progress_' + state.currentBook.id;
-                                var _bs = JSON.parse(localStorage.getItem(_bk) || '{}');
-                                var _bl = _bs[section.id];
-                                if (_bl && _bl.audio_position > 0
-                                    && _bl.segment_id === segmentId
-                                    && Math.abs(_bl.text_position - textPosition) <= 2) {
-                                    audioPosition = _bl.audio_position;
-                                    console.log('beforeunload: 保留已有音频位置', audioPosition);
-                                }
-                            } catch(_be) {}
+                        var segmentId = player._currentSegment.id;
+                        var textPosition = pos - player._currentSegment.start_char;
+                        var audioPosition = player.currentTime || 0;
+                        if (audioPosition <= 0) {
+                            console.log('beforeunload: 无有效音频位置，跳过保存');
+                            return;
                         }
                         var payload = JSON.stringify({
                             book_id: state.currentBook.id,
