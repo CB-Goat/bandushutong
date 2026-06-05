@@ -100,10 +100,12 @@
 
 | 时机 | 触发位置 | 存储目标 | 说明 |
 |------|---------|---------|------|
-| **离开阅读页** | `beforeunload` 事件 | API + localStorage | 保存最终位置，覆盖所有之前的 checkpoint |
-| **每段文本音频结束** | `player._onSegmentEnd` | API + localStorage | 当前段结束时，`textPosition = 段长度` |
-| **段内每 100 字** | `player._updateDisplayByTime` | localStorage only（`skipApi:true`）| 防异常退出丢进度，不调 API 避免卡顿。每段内从 0 开始计数，跨段重置 |
-| ~~点评/小结触发~~ | 已删除 | — | 点评触发在段结束后，段结束时已保存；小结触发同理 |
+| **页面导航离开** | `showPage` / `browseBackToBooks` | API + localStorage | 先 `saveProgress` 再 `player.stop()`，数据准确。设 `window.__progressJustSaved = true` 门控 |
+| **页面刷新/关闭** | `beforeunload` 事件 | API（sendBeacon）| 仅当 `!window.__progressJustSaved` 时执行（F5/直接关标签页）。player 未 stop 时数据准确 |
+| **每段文本音频结束** | `player._onSegmentEnd` | API + localStorage | 当前段结束时，`textPosition = 段长度`，`currentTime > 0` 保证 audio 准确 |
+| **段内每 100 字** | `player._updateDisplayByTime` | localStorage only（`skipApi:true`）| 防异常退出丢进度，不调 API 避免卡顿 |
+
+**门控机制**：`showPage`/`browseBackToBooks` 离开阅读页后设 `window.__progressJustSaved = true`，阻止 `beforeunload` 用已停止 player 的脏数据覆盖正确断点。进入 `openBook` 时重置为 `false`。
 
 #### 3.3 后端存储
 

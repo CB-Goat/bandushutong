@@ -2337,6 +2337,7 @@
         }
 
         async function openBook(bookId) {
+            window.__progressJustSaved = false;  // 重置门控，允许本次阅读会话中的 beforeunload 保存
             try {
                 showLoading('正在加载...');
                 var response = await fetch(API_BASE + '/books/' + bookId + '?user_id=' + state.currentUser.id);
@@ -2958,9 +2959,10 @@
                     current_section_id: section.id
                 };
 
-                // 保护：如果新的 audio_position 为 0，且同一段同一位置已有非零音频位置，
-                // 说明这是被动退出（非播放中离开），不覆盖有效音频位置
-                if (audioPosition === 0 && !options || !options.isSegmentEnd) {
+                // 保护：如果当前 audio_position 为 0（player 已停止/未激活），
+                // 不覆盖 localStorage 中已有的有效音频位置。
+                // 段结束/checkpoint 保存时 currentTime 必然 >0，不会走到这个分支。
+                if (audioPosition === 0) {
                     try {
                         var _key = 'bandu_progress_' + state.currentBook.id;
                         var _saved = JSON.parse(localStorage.getItem(_key) || '{}');
@@ -5813,7 +5815,7 @@
                     }
                     // 段结束时保存断点（段内偏移 = 段长度，音频时间 = 段时长）
                     if (typeof reader !== 'undefined' && reader.saveProgress) {
-                        reader.saveProgress(seg.end_char, {isSegmentEnd: true});
+                        reader.saveProgress(seg.end_char);
                     }
                     // 只有下一段是 text_segment 时才预显示
                     var nextIdx = this._playlistIndex + 1;
@@ -6848,6 +6850,7 @@
             // 保存当前阅读位置
             if (finalPosition > 0) {
                 reader.saveProgress(finalPosition);
+                window.__progressJustSaved = true;  // 门控：防止 beforeunload 用已停止的 player 重复保存
                 console.log('退出时保存进度:', finalPosition);
             }
             // 停止音频
@@ -7765,6 +7768,7 @@
             // 离开阅读页面时，彻底清理播放器资源，防止页面崩溃
             if (pageId !== 'readerPage' && typeof player !== 'undefined') {
                 player.stop();
+                window.__progressJustSaved = true;  // 门控：player 已停止，禁止 beforeunload 用脏数据保存
                 // 清理分析面板轮巡定时器和标签数据
                 if (typeof analysisManager !== 'undefined') {
                     analysisManager.stopRotation();
@@ -7910,6 +7914,12 @@
         // Tab switching
         // 关闭/刷新页面时保存阅读进度
         window.addEventListener('beforeunload', function() {
+            // 门控：如果 showPage 或 browseBackToBooks 已保存过进度（player 已 stop），
+            // 此时断点数据不准确，跳过后台保存
+            if (window.__progressJustSaved) {
+                console.log('beforeunload: 进度已由页面离开流程保存，跳过');
+                return;
+            }
             if (typeof player !== 'undefined') {
                 player._isLeaving = true;
             }
