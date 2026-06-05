@@ -7206,6 +7206,13 @@
             }, 30000);
         }
 
+        function stopDeviceCheck() {
+            if (deviceCheckInterval) {
+                clearInterval(deviceCheckInterval);
+                deviceCheckInterval = null;
+            }
+        }
+
         function toggleProfileCard() {
             var card = document.getElementById('profileCard');
             card.style.display = (card.style.display === 'none' || card.style.display === '') ? 'block' : 'none';
