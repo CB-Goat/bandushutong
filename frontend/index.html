@@ -2974,7 +2974,8 @@
 
             setupScrollListener: function() {
                 var self = this;
-                var container = document.getElementById('chalkboard');
+                var container = document.getElementById('chalkText');
+                if (!container) return;
                 if (this._scrollListener) {
                     container.removeEventListener('scroll', this._scrollListener);
                 }
@@ -3061,8 +3062,9 @@
                             return;
                         }
                     } else {
-                        // 没有 segment_id（点评/小结中保存的），textPos 是全局位置
-                        savedPosition = textPos;
+                        // audioSegments 未加载或没有 segment_id
+                        // textPos 可能是段内偏移（来自 text_position），此时用 current_position（全局位置）
+                        savedPosition = progressV2.current_position || textPos;
                     }
                 }
 
@@ -3194,7 +3196,7 @@
 
                 if (textPos !== undefined && textPos > 0) {
                     var segId = progressV2.current_segment_id;
-                    if (segId && player.audioSegments) {
+                    if (segId && player.audioSegments && player.audioSegments.length > 0) {
                         for (var i = 0; i < player.audioSegments.length; i++) {
                             var seg = player.audioSegments[i];
                             if (seg.type === 'text_segment' && seg.id === segId) {
@@ -3204,7 +3206,8 @@
                         }
                     }
                     if (savedPosition === 0) {
-                        savedPosition = textPos;
+                        // 未找到段或 audioSegments 未加载，使用 current_position（全局位置）
+                        savedPosition = progressV2.current_position || textPos;
                     }
                 }
 
@@ -3212,7 +3215,7 @@
 
                 var self = this;
                 setTimeout(function() {
-                    var container = document.getElementById('chalkboard');
+                    var container = document.getElementById('chalkText');
                     if (!container || self._totalChars <= 0) return;
 
                     self.revealCharsUpTo(savedPosition);
@@ -4229,14 +4232,20 @@
                                 var resumeTime = progressV2.audio_position || 0;
                                 if (resumeTime === 0 && progressV2.current_position > 0) {
                                     // 从 charTimeline 查找对应时间的音频时间
-                                    var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
                                     var targetSeg = this.audioSegments[targetSegIdx];
-                                    // 转换为段内相对偏移（textPosition 可能是全局位置）
-                                    var segOffset = textPos - (targetSeg.start_char || 0);
+                                    var segOffset;
+                                    if (progressV2.text_position !== undefined && progressV2.current_segment_id) {
+                                        // text_position 是段内偏移，直接使用，不需要减 start_char
+                                        segOffset = progressV2.text_position;
+                                    } else {
+                                        // current_position 是全局位置，需要减去段起始偏移
+                                        var globalPos = progressV2.current_position || 0;
+                                        segOffset = globalPos - (targetSeg.start_char || 0);
+                                    }
                                     if (segOffset < 0) segOffset = 0;
                                     if (this.charTimeline && this.charTimeline.length > segOffset) {
                                         resumeTime = this.charTimeline[segOffset];
-                                        console.log('断点恢复: 从 charTimeline 计算音频时间', 'global=', textPos, 'segOffset=', segOffset, '->', resumeTime, '秒');
+                                        console.log('断点恢复: 从 charTimeline 计算音频时间', 'segOffset=', segOffset, '->', resumeTime, '秒');
                                     }
                                 }
                                 this._resumeTimeInSegment = resumeTime;
@@ -4497,11 +4506,18 @@
                 
                 // 已读节不使用断点恢复，始终从头开始
                 if (sectionStatus !== 'read' && progressV2 && parseInt(progressV2.current_section_id) === parseInt(section.id)) {
-                    var textPos = progressV2.text_position !== undefined ? progressV2.text_position : progressV2.current_position;
-                    if (textPos > 0 && seg.start_char <= textPos && seg.end_char > textPos) {
+                    // 计算断点的全局位置用于与段边界比较
+                    var breakGlobalPos;
+                    if (progressV2.text_position !== undefined && progressV2.current_segment_id) {
+                        // text_position 是段内偏移，加上当前段的 start_char 得到全局位置
+                        breakGlobalPos = seg.start_char + progressV2.text_position;
+                    } else {
+                        breakGlobalPos = progressV2.current_position || 0;
+                    }
+                    if (breakGlobalPos > 0 && seg.start_char <= breakGlobalPos && seg.end_char > breakGlobalPos) {
                         // 断点在当前段内，从断点位置开始显示
-                        displayChar = textPos + this.TEXT_AHEAD_OFFSET;
-                        console.log('文本段: 断点恢复，预显示到 displayChar=' + displayChar + ' (断点位置=' + textPos + ')');
+                        displayChar = breakGlobalPos + this.TEXT_AHEAD_OFFSET;
+                        console.log('文本段: 断点恢复，预显示到 displayChar=' + displayChar + ' (断点位置=' + breakGlobalPos + ')');
                     } else {
                         console.log('文本段: 预显示到 displayChar=' + displayChar + ' (start_char=' + seg.start_char + ')');
                     }
