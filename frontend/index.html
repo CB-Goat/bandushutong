@@ -581,7 +581,6 @@
             position: sticky;
             top: 0;
             z-index: 10;
-            background: #2a4a1a;
         }
 
         .chalkboard .analysis-tabs .tab {
@@ -628,6 +627,11 @@
 
         .chalkboard .analysis-area .annotation-display.active {
             display: block;
+        }
+
+        /* 当点评/小结显示时，隐藏名言赏析内容，避免内容显示到标签上方 */
+        .chalkboard .analysis-area:has(.annotation-display.active) > .content {
+            display: none;
         }
 
         .chalkboard .analysis-area .annotation-display .annotation-index {
@@ -2480,12 +2484,18 @@
                     // 在读节：按断点显示
                     analysisManager.init();
                     document.getElementById('annotationDisplay').classList.remove('active');
+                    // 恢复名言赏析内容显示
+                    var contentEl = document.getElementById('analysisContent');
+                    if (contentEl) contentEl.style.display = '';
                     analysisManager.startRotationAlways();
                     this._restoreBookmarkAndPosition();
                 } else {
                     // 未读节
                     analysisManager.init();
                     document.getElementById('annotationDisplay').classList.remove('active');
+                    // 恢复名言赏析内容显示
+                    var contentEl = document.getElementById('analysisContent');
+                    if (contentEl) contentEl.style.display = '';
                     analysisManager.startRotationAlways();
                 }
 
@@ -2848,6 +2858,9 @@
                 state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
                 // 隐藏点评显示区域
                 document.getElementById('annotationDisplay').classList.remove('active');
+                // 恢复名言赏析内容显示
+                var contentEl = document.getElementById('analysisContent');
+                if (contentEl) contentEl.style.display = '';
                 // 重置赏析区域
                 analysisManager.reset();
             },
@@ -4425,6 +4438,9 @@
                 // 释放所有播放锁，确保后续操作不被阻塞
                 this._playLock = false;
                 this._playNextLock = false;
+                // 停止播放时恢复名言赏析内容显示
+                var contentEl = document.getElementById('analysisContent');
+                if (contentEl) contentEl.style.display = '';
             },
             
             _playNextLock: false,  // 防止 _playNext 并发
@@ -4895,6 +4911,9 @@
                     commentEl.textContent = '';
                 }
                 document.getElementById('annotationDisplay').classList.add('active');
+                // 点评播放时隐藏名言赏析内容，避免内容显示到标签上方
+                var contentEl = document.getElementById('analysisContent');
+                if (contentEl) contentEl.style.display = 'none';
                 
                 var commentText = seg.comment || '';
                 var audioDuration = seg.audio_duration || 1;  // 避免除以0
@@ -5102,6 +5121,9 @@
                 if (annotationDisplay) {
                     annotationDisplay.classList.remove('active');
                 }
+                // 点评结束后恢复名言赏析内容显示
+                var contentEl = document.getElementById('analysisContent');
+                if (contentEl) contentEl.style.display = '';
                 
                 // 播放完成后，从当前标签开始恢复轮巡（不跳回名言赏析）
                 if (typeof analysisManager !== 'undefined') {
@@ -5589,6 +5611,9 @@
                 if (annotationDisplay) {
                     annotationDisplay.classList.remove('active');
                 }
+                // 小结结束后恢复名言赏析内容显示
+                var contentEl = document.getElementById('analysisContent');
+                if (contentEl) contentEl.style.display = '';
                 
                 // 清理所有定时器
                 this._clearAllTimers();
@@ -5625,6 +5650,9 @@
                 
                 // 激活点评显示区域
                 document.getElementById('annotationDisplay').classList.add('active');
+                // 点评播放时隐藏名言赏析内容，避免内容显示到标签上方
+                var contentEl = document.getElementById('analysisContent');
+                if (contentEl) contentEl.style.display = 'none';
                 
                 // 清空并准备逐字显示
                 commentEl.textContent = '';
