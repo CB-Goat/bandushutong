@@ -3782,7 +3782,7 @@
                 this._hasPlayed = false;
                 this.isPlaying = false;
                 this.audio.pause();
-                this.audio.src = '';
+                this.audio.removeAttribute('src');  // removeAttribute 不会触发 onerror，src='' 会触发
                 this.audio.currentTime = 0;
                 
                 // 注意：已读节的显示状态和赏析标签在 renderCurrentSection 中已经设置好，这里不要重置
@@ -3842,7 +3842,7 @@
                             if (bpProgress && section && parseInt(bpProgress.current_section_id) === parseInt(section.id)) {
                                 var bpSegId = bpProgress.current_segment_id || 0;
                                 var bpText = bpProgress.text_position || 0;
-                                var bpAudio = bpProgress.audio_position || 0;
+                                var bpAudio = Number(bpProgress.audio_position) || 0;
                                 var bpFile = '';
                                 var bpGlobal = 0;
                                 if (bpSegId > 0) {
@@ -4664,8 +4664,7 @@
                 
                 // 暂停并清理主线音频，避免和点评音频冲突
                 this.audio.pause();
-                this.audio.src = '';  // 清空音频源，防止 onended 重复触发
-                this.audio.removeAttribute('src');
+                this.audio.removeAttribute('src');  // 清空音频源，防止 onended 重复触发（用 removeAttribute 而非 src='' 避免触发 onerror）
 
                 // 重置点评音频元素，彻底清除旧的事件监听器（addEventListener 残留会导致重复/错乱触发）
                 this._resetAnnotationAudio();
