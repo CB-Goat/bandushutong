@@ -3391,8 +3391,9 @@
                         contentEl.innerHTML = '<div class="comment-text">' + (tab._commentText || tab.content) + '</div>';
                     } else if (tab.isHtml) {
                         contentEl.innerHTML = tab.content;
-                        // 如果是点评的逐字HTML，显示所有字符（轮巡时不需要逐字动画）
-                        if (tab.annotationId) {
+                        // 如果是点评的逐字HTML，且不在播放中（轮巡时），显示所有字符
+                        // 播放中时，由 ontimeupdate 逐字显示，不要在这里全部显示
+                        if (tab.annotationId && !(state && state.isPlayingAnnotation)) {
                             var chars = contentEl.querySelectorAll('.comment-char');
                             chars.forEach(function(c) { c.classList.add('visible'); });
                         }
@@ -4954,6 +4955,7 @@
                     self._annotationAudio.play().then(function() {
                         self.isPlaying = true;
                         state.isPlaying = true;
+                        if (state) state.isPlayingAnnotation = true;
                     }).catch(function(e) {
                         console.log('评论音频播放失败:', e);
                         self._finishInsertPoint();
@@ -4963,6 +4965,7 @@
                 var endedHandler = function() {
                     self._annotationAudio.onended = null;
                     self._annotationAudio.ontimeupdate = null;
+                    if (state) state.isPlayingAnnotation = false;
                     // 确保显示完整评论
                     for (var i = 0; i < commentChars.length; i++) {
                         commentChars[i].classList.add('visible');
@@ -5014,6 +5017,7 @@
                 // 超时保护：评论音频最长60秒，使用防重复调用机制
                 this._safeSetTimeout(function() {
                     if (self._insertPointStep === 4 && !self._isFinishing) {
+                        if (state) state.isPlayingAnnotation = false;
                         self._finishInsertPoint();
                     }
                 }, 60000);
