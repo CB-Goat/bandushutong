@@ -4259,8 +4259,13 @@
                                         segOffset = globalPos - (targetSeg.start_char || 0);
                                     }
                                     if (segOffset < 0) segOffset = 0;
-                                    if (this.charTimeline && this.charTimeline.length > segOffset) {
-                                        resumeTime = this.charTimeline[segOffset];
+                                    // 使用目标段的 char_timeline（段内时间轴），而非全局拼接的 this.charTimeline
+                                    var segTL = targetSeg.char_timeline;
+                                    if (typeof segTL === 'string') {
+                                        try { segTL = JSON.parse(segTL); } catch(e) { segTL = []; }
+                                    }
+                                    if (segTL && segTL.length > segOffset) {
+                                        resumeTime = segTL[segOffset];
                                         console.log('断点恢复: 从 charTimeline 计算音频时间', 'segOffset=', segOffset, '->', resumeTime, '秒');
                                     }
                                 }
