@@ -2655,18 +2655,43 @@
                     return; // 不回退，保持当前显示
                 }
 
-                for (var i = prevTarget; i < target; i++) {
-                    if (this._allChars[i]) {
-                        this._allChars[i].classList.add('visible');
-                        // 主线播放时清除任何残留的点评高亮（已读节加载时的 annotated 残留）
-                        this._allChars[i].classList.remove('annotated');
+                // 如果一次性要显示大量字符（断点恢复场景），分批处理避免阻塞 UI 线程
+                var self = this;
+                var batchSize = 200;  // 每帧最多处理 200 个字符
+                var current = prevTarget;
+
+                function processBatch() {
+                    var end = Math.min(current + batchSize, target);
+                    for (var i = current; i < end; i++) {
+                        if (self._allChars[i]) {
+                            self._allChars[i].classList.add('visible');
+                            // 主线播放时清除任何残留的点评高亮（已读节加载时的 annotated 残留）
+                            self._allChars[i].classList.remove('annotated');
+                        }
+                    }
+                    current = end;
+
+                    // 记录当前已显示位置
+                    self._revealedUpTo = current;
+
+                    // 更新进度
+                    var percent = self._totalChars ? (current / self._totalChars) * 100 : 0;
+                    document.getElementById('progressFill').style.width = percent + '%';
+
+                    if (current < target) {
+                        // 还有剩余字符，下一帧继续
+                        requestAnimationFrame(processBatch);
+                    } else {
+                        // 全部处理完毕，执行滚动逻辑
+                        self._scrollToTarget(target);
                     }
                 }
-                
-                // 记录当前已显示位置
-                this._revealedUpTo = target;
 
-                // 滚动
+                requestAnimationFrame(processBatch);
+            },
+
+            // 滚动到目标位置（抽离出来，便于分批处理后回调）
+            _scrollToTarget: function(target) {
                 if (target > 0 && target <= this._allChars.length) {
                     var lastChar = this._allChars[target - 1];
                     var charRect = lastChar.getBoundingClientRect();
@@ -2677,10 +2702,6 @@
                         this._container.scrollTop += scrollAmount;
                     }
                 }
-
-                // 更新进度
-                var percent = this._totalChars ? (target / this._totalChars) * 100 : 0;
-                document.getElementById('progressFill').style.width = percent + '%';
             },
 
             // 检查是否触发点评播放，返回 true 表示已触发
@@ -3819,11 +3840,9 @@
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.src = '';
-                    // 清理事件监听，但不重建 Audio 实例（保留 play() 包装）
-                    this._annotationAudio.onended = null;
-                    this._annotationAudio.oncanplay = null;
-                    this._annotationAudio.onerror = null;
-                    this._annotationAudio.ontimeupdate = null;
+                    // 直接重建 Audio 对象，彻底清除所有 addEventListener 残留
+                    // （onended/oncanplay 等方式无法移除 addEventListener 注册的监听器）
+                    this._annotationAudio = new Audio();
                 }
                 // 重置点评播放状态
                 this._currentInsertPoint = null;
@@ -3834,7 +3853,7 @@
                     clearInterval(this._commentTextAnimationTimer);
                     this._commentTextAnimationTimer = null;
                 }
-                console.log('_resetAnnotationAudio: 已清理点评音频状态');
+                console.log('_resetAnnotationAudio: 已重建点评音频，彻底清除所有监听器');
             },
 
             // 预加载所有音频段，加载完成前禁用播放按钮
@@ -4198,15 +4217,17 @@
                     if (this.audio.readyState < 3) {
                         console.log('音频尚未准备好，等待 canplay 事件...');
                         document.getElementById('playBtn').textContent = '\u23F3';
-                        var onCanPlay = function() {
+                        var self = this;
+                        this.audio.oncanplay = function() {
                             console.log('音频可以播放了，开始播放');
-                            self.audio.removeEventListener('canplay', onCanPlay);
+                            self.audio.oncanplay = null;
                             self._doPlay();
                         };
-                        this.audio.addEventListener('canplay', onCanPlay);
                         setTimeout(function() {
-                            self.audio.removeEventListener('canplay', onCanPlay);
-                            if (!self.isPlaying) self._doPlay();
+                            if (self.audio.oncanplay) {
+                                self.audio.oncanplay = null;
+                                if (!self.isPlaying) self._doPlay();
+                            }
                         }, 3000);
                     } else {
                         this._doPlay();
@@ -4438,7 +4459,7 @@
                             console.log('文本段播放失败:', e);
                         });
                     };
-                    this.audio.addEventListener('canplay', canPlayHandler);
+                    this.audio.oncanplay = canPlayHandler;
                     var timerId = setTimeout(function() {
                         if (!self.isPlaying) self.audio.play().catch(function() {});
                     }, 5000);
@@ -4458,7 +4479,7 @@
                         console.log('文本段播放失败:', e);
                     });
                 };
-                this.audio.addEventListener('canplay', canPlayHandler);
+                this.audio.oncanplay = canPlayHandler;
                 var timerId2 = setTimeout(function() {
                     if (!self.isPlaying) self.audio.play().catch(function() {});
                 }, 5000);
@@ -4508,7 +4529,7 @@
                         console.log('原文段播放失败:', e);
                     });
                 };
-                this.audio.addEventListener('canplay', canPlayHandler);
+                this.audio.oncanplay = canPlayHandler;
                 setTimeout(function() {
                     if (!self.isPlaying) {
                         self.audio.play().catch(function() {});
@@ -5598,7 +5619,7 @@
                         self._playNext();
                     });
                 };
-                this.audio.addEventListener('canplay', canPlayHandler);
+                this.audio.oncanplay = canPlayHandler;
                 setTimeout(function() {
                     if (!self.isPlaying) {
                         self.audio.play().catch(function() {});
@@ -5635,7 +5656,7 @@
                         self._playNext();
                     });
                 };
-                this.audio.addEventListener('canplay', canPlayHandler);
+                this.audio.oncanplay = canPlayHandler;
                 setTimeout(function() {
                     if (!self.isPlaying) {
                         self.audio.play().catch(function() {});
