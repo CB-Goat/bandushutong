@@ -445,11 +445,11 @@
             line-height: 1.8;
             color: #7EC8E3;
             /* 固定高度，确保内容过多时可以滚动 */
-            max-height: 180px;
+            flex: 1;
             overflow-y: auto;
-            padding-right: 5px;
-            /* 预留标签栏空间，避免被sticky标签栏遮挡 */
-            margin-top: 10px;
+            padding: 0 8px;
+            /* 最小高度，确保有足够空间显示内容 */
+            min-height: 0;
         }
 
         /* 自定义滚动条样式 */
@@ -542,14 +542,16 @@
             position: relative;
             z-index: 1;
             border-top: 2px dashed rgba(240,232,208,0.2);
-            padding-top: 8px;
+            padding: 8px 0;
             margin-top: 8px;
             height: 280px;
             min-height: 280px;
             max-height: 280px;
             flex-shrink: 0;
-            overflow-y: auto;
             background: rgba(0,0,0,0.15);
+            /* 使用flex布局，让标签栏和内容区域分离 */
+            display: flex;
+            flex-direction: column;
         }
 
         .chalkboard .analysis-area .label {
@@ -602,11 +604,10 @@
         .chalkboard .analysis-tabs {
             display: flex;
             gap: 10px;
-            padding-bottom: 10px;
+            padding: 0 8px 10px 8px;
             flex-wrap: wrap;
-            position: sticky;
-            top: 0;
-            z-index: 10;
+            /* 不使用sticky，正常流布局 */
+            flex-shrink: 0;
         }
 
         .chalkboard .analysis-tabs .tab {
