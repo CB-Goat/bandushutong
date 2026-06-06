@@ -3355,6 +3355,8 @@
 
             // 渲染标签
             renderTabs: function() {
+                if (this._renderTabsLock) return;
+                this._renderTabsLock = true;
                 var tabsContainer = document.getElementById('analysisTabs');
                 var self = this;
                 if (!tabsContainer._delegated) {
@@ -3387,6 +3389,7 @@
                     tabEl.textContent = tab.label;
                     tabsContainer.appendChild(tabEl);
                 });
+                this._renderTabsLock = false;
             },
 
             // 从指定标签开始轮巡
@@ -4649,17 +4652,17 @@
                 }
             },
 
-            // 预加载下一段音频
             _preloadNextAudioSegment: function() {
                 var nextIdx = this._playlistIndex + 1;
                 if (nextIdx < this.audioSegments.length) {
                     var nextSeg = this.audioSegments[nextIdx];
                     if (nextSeg.type === 'text_segment' && nextSeg.audio_path) {
-                        var audio = new Audio();
-                        audio.preload = 'auto';
-                        audio.src = nextSeg.audio_path;
-                        audio.load();
-                        console.log('预加载下一段音频:', nextSeg.audio_path);
+                        if (!this._preloadAudio) {
+                            this._preloadAudio = new Audio();
+                        }
+                        this._preloadAudio.preload = 'auto';
+                        this._preloadAudio.src = nextSeg.audio_path;
+                        this._preloadAudio.load();
                     }
                 }
             },
