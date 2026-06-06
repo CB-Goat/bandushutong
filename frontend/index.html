@@ -3960,18 +3960,12 @@
             },
 
             // 重置点评音频，清理事件监听和状态
-            // 注意：不复建 Audio 实例（只 pause + 清 src），保留 init() 里对 play() 的包装
             _resetAnnotationAudio: function() {
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.src = '';
-                    // 不复建 Audio 对象（保留微信解锁状态），用 on* 属性覆盖监听器（不累积）
-                    this._annotationAudio.oncanplay = null;
-                    this._annotationAudio.onended = null;
-                    this._annotationAudio.ontimeupdate = null;
-                    this._annotationAudio.onerror = null;
+                    this._annotationAudio = new Audio();
                 }
-                // 重置点评播放状态
                 this._currentInsertPoint = null;
                 this._insertPointStep = 0;
                 this._isFinishing = false;
@@ -3980,7 +3974,6 @@
                     clearInterval(this._commentTextAnimationTimer);
                     this._commentTextAnimationTimer = null;
                 }
-                console.log('_resetAnnotationAudio: 已重建点评音频，彻底清除所有监听器');
             },
 
             // 预加载所有音频段，加载完成前禁用播放按钮
@@ -4477,15 +4470,11 @@
                     clearInterval(this._ttsCheckInterval);
                     this._ttsCheckInterval = null;
                 }
-                // 停止并清理点评音频，复用 Audio 对象（保留微信解锁状态）
+                // 停止并清理点评音频，重建 Audio 对象彻底清除监听器
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
-                    this._annotationAudio.removeAttribute('src');
-                    this._annotationAudio.load();
-                    this._annotationAudio.oncanplay = null;
-                    this._annotationAudio.onended = null;
-                    this._annotationAudio.ontimeupdate = null;
-                    this._annotationAudio.onerror = null;
+                    this._annotationAudio.src = '';
+                    this._annotationAudio = new Audio();
                 }
                 this.isPlaying = false;
                 this._playlistIndex = -1;
@@ -5222,14 +5211,12 @@
                 }
                 
                 // 停止并清理点评音频
-                // 不复建 Audio 对象（保留微信解锁状态），用 on* 属性覆盖监听器（不累积）
+                // 直接重建 Audio 对象，彻底清除所有 addEventListener 残留
+                // （onended/oncanplay 等方式无法移除 addEventListener 注册的监听器）
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.src = '';
-                    this._annotationAudio.oncanplay = null;
-                    this._annotationAudio.onended = null;
-                    this._annotationAudio.ontimeupdate = null;
-                    this._annotationAudio.onerror = null;
+                    this._annotationAudio = new Audio();
                 }
                 
                 this._insertPointStep = 0;
@@ -5726,14 +5713,11 @@
                     this._commentTextAnimationTimer = null;
                 }
                 
-                // 停止并清理点评音频，复用 Audio 对象（保留微信解锁状态）
+                // 停止并清理点评音频，重建 Audio 对象彻底清除监听器
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
                     this._annotationAudio.src = '';
-                    this._annotationAudio.oncanplay = null;
-                    this._annotationAudio.onended = null;
-                    this._annotationAudio.ontimeupdate = null;
-                    this._annotationAudio.onerror = null;
+                    this._annotationAudio = new Audio();
                 }
                 
                 // 重置 _isFinishing，让 _finishInsertPoint 能正常执行
