@@ -1531,50 +1531,8 @@
         </div>
 
         <!-- 公开浏览页（登录前可见） -->
-        <div class="page active" id="publicPage" style="position:fixed;top:50px;left:0;right:0;bottom:250px;overflow:hidden;">
-            <!-- 书籍列表区域（可滚动） -->
-            <div style="height:100%;overflow-y:auto;padding:20px;padding-bottom:30px;">
-                <div style="max-width:500px;margin:0 auto;">
-                    <div class="book-list" id="publicBookList"></div>
-                    <div id="publicEmptyState" style="display:none;text-align:center;padding:40px 0;color:#999;">
-                        <div style="font-size:48px;margin-bottom:10px;">📖</div>
-                        <p>暂无公版书籍</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 系统宣传（独立于页面，背景铺满整个宽度） -->
-        <div id="publicPromotion" style="position:fixed;bottom:0;left:0;right:0;background:linear-gradient(160deg,#1a3a0a 0%,#2d5016 35%,#3a6520 100%);color:#e8e0c8;z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,0.25);border-top:2px solid rgba(255,215,0,0.3);">
-            <div style="max-width:500px;margin:0 auto;padding:18px 20px;padding-bottom:calc(14px + env(safe-area-inset-bottom, 50px));">
-                <!-- 第一行：主标题 -->
-                <div style="display:flex;align-items:center;justify-content:center;margin-bottom:12px;position:relative;">
-                    <div style="text-align:center;">
-                        <span style="display:inline-block;background:linear-gradient(135deg,#FFD700,#FFA500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:16px;font-weight:bold;letter-spacing:0.5px;">✨ 超级实用的阅读辅助工具</span>
-                        <div style="font-size:13px;color:#f0e68c;margin-top:4px;line-height:1.5;">孩子阅读，只费脑不费力！</div>
-                    </div>
-                    <span onclick="showContactAdmin()" style="position:absolute;right:0;top:50%;transform:translateY(-50%);cursor:pointer;opacity:0.8;" title="联系管理员"><svg width="22" height="18" viewBox="0 0 24 20"><path d="M8.5 0C3.8 0 0 3.1 0 7c0 2.1 1.1 4 2.9 5.3L2 16l4.5-2.2c.6.2 1.3.2 2 .2 4.7 0 8.5-3.1 8.5-7S13.2 0 8.5 0z" fill="#09BB07"/><circle cx="5.5" cy="7" r="1.2" fill="white"/><circle cx="11" cy="7" r="1.2" fill="white"/><path d="M16.5 9c-3.9 0-7 2.6-7 5.8 0 1.7.9 3.3 2.4 4.4L10 21l3.6-1.8c.5.1 1.1.2 1.6.2.3 0 .6 0 .9-.1C19.7 18 24 14.6 24 10.4 24 6.7 20.4 4 16.5 4c-.2 0-.3 0-.5 0 1.3 1.3 2 2.7 2 4.2 0 4-3.8 7.2-8.5 7.2-.3 0-.5 0-.8-.1.3 1.1 1 2 .8 2.4z" fill="#09BB07"/></svg></span>
-                </div>
-                <!-- 第二行&第三行：功能亮点卡片 -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-                    <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,215,0,0.2);border-radius:10px;padding:10px 8px;display:flex;align-items:center;gap:6px;">
-                        <div style="font-size:22px;flex-shrink:0;">💬</div>
-                        <div style="font-size:11px;color:#f0e68c;line-height:1.5;">精彩评论不断，思考AI评分<br>引导随读思考，默化兴趣养成</div>
-                    </div>
-                    <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,215,0,0.2);border-radius:10px;padding:10px 8px;display:flex;align-items:center;gap:6px;">
-                        <div style="font-size:22px;flex-shrink:0;">🏅</div>
-                        <div style="font-size:11px;color:#f0e68c;line-height:1.5;">军衔等级晋升，军功表彰加持<br>增加阅读趣味，激发孩子荣誉</div>
-                    </div>
-                </div>
-                <!-- 第四行：品牌语 -->
-                <div style="text-align:center;font-size:12px;color:rgba(255,215,0,0.7);letter-spacing:2px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.15);">
-                    —— 中外名著，公版书籍 ——
-                </div>
-            </div>
-        </div>
-
         <!-- 首页 - 书架 -->
-        <div class="page" id="homePage" style="flex-direction:column;">
+        <div class="page active" id="homePage" style="flex-direction:column;">
             <div class="book-list" id="bookList" style="flex:1;overflow-y:auto;min-height:200px;width:100%;padding:10px 15px;box-sizing:border-box;"></div>
             <!-- 书架页宣传区域 -->
             <div id="homePromotion" style="flex-shrink:0;max-width:500px;width:100%;margin:15px auto 0;margin-top:auto;padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));background:linear-gradient(160deg,#1a3a0a 0%,#2d5016 35%,#3a6520 100%);color:#e8e0c8;border-radius:12px 12px 0 0;box-shadow:0 -2px 12px rgba(0,0,0,0.15);border:2px solid rgba(255,215,0,0.25);border-bottom:none;overflow:hidden;">
@@ -1918,8 +1876,7 @@
                 var loginPage = document.getElementById('loginPage');
                 var readerPage = document.getElementById('readerPage');
                 if (loginPage.classList.contains('active')) {
-                    // 登录页 → 返回公开浏览页
-                    showPage('publicPage');
+                    showPage('homePage');
                 } else if (readerPage.classList.contains('active')) {
                     // 阅读页 → 返回目录页：保存断点，其余清理交由 showPage 统一处理
                     var currentPos = reader._currentPosition || 0;
@@ -2203,50 +2160,15 @@
             openBook(bookId);
         }
 
-        // ===== 公开浏览页 =====
-        var _loadPublicBooksLock = false;  // 防止并发调用
+        var _loadPublicBooksLock = false;
         async function loadPublicBooks() {
-            if (_loadPublicBooksLock) return;  // 已有请求在途，直接返回
+            if (_loadPublicBooksLock) return;
             _loadPublicBooksLock = true;
             try {
                 var response = await fetch(API_BASE + '/public/books');
                 var data = await response.json();
-                var books = data.books || [];
-                var container = document.getElementById('publicBookList');
-                var emptyState = document.getElementById('publicEmptyState');
-                if (books.length === 0) {
-                    container.innerHTML = '';
-                    emptyState.style.display = 'block';
-                    return;
-                }
-                emptyState.style.display = 'none';
-                container.innerHTML = books.map(function(book, index) {
-                    var safeTitle = (book.title || '').replace(/[<>"'&]/g, function(c) {
-                        return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
-                    });
-                    var safeAuthor = (book.author || '').replace(/[<>"'&]/g, function(c) {
-                        return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
-                    });
-                    var totalSec = book.total_sections || 0;
-                    var totalCh = book.total_chapters || 0;
-                    var totalWords = book.total_words || 0;
-                    var totalAnno = book.total_annotations || 0;
-                    var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
-                    var coverHtml = book.icon_path 
-                        ? '<img src="' + book.icon_path + '" style="width:100%;height:100%;border-radius:6px;object-fit:fill;">'
-                        : '📚';
-                    return '<div class="book-card" onclick="openBookAsGuest(' + book.id + ', \'' + safeTitle + '\', \'' + (book.icon_path || '') + '\')" style="position:relative;">' +
-                        '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
-                        '<div class="cover">' + coverHtml + '</div>' +
-                        '<div class="info">' +
-                        '<div class="title">' + safeTitle + '</div>' +
-                        '<div class="meta">' + safeAuthor + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + (book.version ? ' · ' + book.version : '') + '</div>' +
-                        '<div class="book-stats-row">' +
-                        '<span>' + (totalCh > 0 ? totalCh + '章' : '') + totalSec + '节</span>' +
-                        '<span>' + wordsStr + '字</span>' +
-                        '<span>点评' + totalAnno + '</span>' +
-                        '</div></div></div>';
-                }).join('');
+                state.books = data.books || [];
+                renderBookList();
             } catch (e) { console.error('加载公版书籍失败:', e); } finally { _loadPublicBooksLock = false; }
         }
 
@@ -2328,9 +2250,49 @@
         function renderBookList() {
             var container = document.getElementById('bookList');
             if (state.books.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="icon">📖</div><p>还没有书籍，去管理页上传吧</p></div>';
+                container.innerHTML = '<div class="empty-state"><div class="icon">📖</div><p>还没有书籍</p></div>';
                 return;
             }
+            var isLoggedIn = state.currentUser && state.currentUser.phone;
+            container.innerHTML = state.books.map(function(book, index) {
+                var safeTitle = (book.title || '').replace(/[<>"'&]/g, function(c) {
+                    return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
+                });
+                var safeAuthor = (book.author || '').replace(/[<>"'&]/g, function(c) {
+                    return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
+                });
+                var rs = book.reading_stats || {};
+                var totalSec = rs.total_sections || book.total_sections || 0;
+                var readSec = rs.read || 0;
+                var totalCh = book.total_chapters || 0;
+                var totalWords = book.total_words || 0;
+                var totalAnno = book.total_annotations || 0;
+                var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
+                var accessLabel = '';
+                if (state.currentUser && state.currentUser.role !== 'admin') {
+                    accessLabel = '<span style="color:#FF9800;font-size:11px;">免费</span>';
+                }
+                var coverHtml = book.icon_path 
+                    ? '<img src="' + book.icon_path + '" style="width:100%;height:100%;border-radius:6px;object-fit:fill;">'
+                    : '📚';
+                var clickHandler = isLoggedIn 
+                    ? 'openBookCatalog(' + book.id + ',\'' + safeTitle.replace(/'/g, "\\'") + '\',\'' + (book.icon_path || '').replace(/'/g, "\\'") + '\')'
+                    : 'openBookAsGuest(' + book.id + ', \'' + safeTitle.replace(/'/g, "\\'") + '\', \'' + (book.icon_path || '').replace(/'/g, "\\'") + '\')';
+                return '<div class="book-card" onclick="' + clickHandler + '" style="position:relative;">' +
+                    '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
+                    '<div class="cover">' + coverHtml + '</div>' +
+                    '<div class="info">' +
+                    '<div class="title">' + safeTitle + '</div>' +
+                    '<div class="meta">' + safeAuthor + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + (book.version ? ' · ' + book.version : '') + '</div>' +
+                    '<div class="book-stats-row">' +
+                    '<span>' + (totalCh > 0 ? totalCh + '章' : '') + totalSec + '节</span>' +
+                    '<span>已读' + readSec + '节</span>' +
+                    '<span>' + wordsStr + '字</span>' +
+                    '<span>点评' + totalAnno + '</span>' +
+                    accessLabel +
+                    '</div></div></div>';
+            }).join('');
+        }
             container.innerHTML = state.books.map(function(book, index) {
                 var safeTitle = (book.title || '').replace(/[<>"'&]/g, function(c) {
                     return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
@@ -7378,7 +7340,6 @@
             if (_logoutLock) return;  // 防重复点击
             _logoutLock = true;
             stopDeviceCheck();
-            // 停止音频播放
             if (typeof player !== 'undefined' && player.stop) {
                 player.stop();
             }
@@ -7389,28 +7350,26 @@
             document.getElementById('profileCard').style.display = 'none';
             document.getElementById('loginPhone').value = '';
             document.getElementById('loginPassword').value = '';
-            showPage('publicPage');
+            showPage('homePage');
             loadPublicBooks();
-            // 延迟解锁，防止快速双击
             setTimeout(function() { _logoutLock = false; }, 1000);
-            // 匿名状态下更新汉堡菜单按钮为"注册"
             updateProfileCardLogoutBtn();
         }
 
         function checkLogin() {
             var userId = localStorage.getItem('userId');
             if (userId) {
-                fetch(API_BASE + '/auth/check?user_id=' + userId).then(function(r) { return r.json();                 }).then(function(data) {
+                fetch(API_BASE + '/auth/check?user_id=' + userId).then(function(r) { return r.json(); }).then(function(data) {
                     if (data.user) {
                         onLoginSuccess(data.user, data.military_rank);
                     } else {
-                        showPage('publicPage');
+                        showPage('homePage');
                         loadPublicBooks();
                         updateProfileCardLogoutBtn();
                     }
-                }).catch(function() { showPage('publicPage'); loadPublicBooks(); updateProfileCardLogoutBtn(); });
+                }).catch(function() { showPage('homePage'); loadPublicBooks(); updateProfileCardLogoutBtn(); });
             } else {
-                showPage('publicPage');
+                showPage('homePage');
                 loadPublicBooks();
                 updateProfileCardLogoutBtn();
             }
@@ -7803,7 +7762,14 @@
             var now = Date.now();
             if (now - _showPageCooldown < 300) { console.log('showPage: 冷却中，忽略'); return; }
             _showPageCooldown = now;
-            if (pageId !== 'loginPage' && pageId !== 'publicPage' && !state.currentUser) { showPage('loginPage'); return; }
+            if (pageId !== 'loginPage' && !state.currentUser) {
+                if (pageId === 'homePage') {
+                    // 未登录可以访问书架页（显示公版书籍）
+                } else {
+                    showPage('loginPage');
+                    return;
+                }
+            }
 
             // 离开阅读页面时，彻底清理播放器资源，防止页面崩溃
             if (pageId !== 'readerPage' && typeof player !== 'undefined') {
@@ -7839,19 +7805,8 @@
             // 控制公开浏览页的书籍列表和宣传区域显示
             var publicPromo = document.getElementById('publicPromotion');
             var publicPage = document.getElementById('publicPage');
-            if (pageId === 'loginPage') {
-                // 登录页：隐藏书籍列表和宣传区域
-                publicPage.style.display = 'none';
-                if (publicPromo) publicPromo.style.display = 'none';
-            } else if (pageId === 'publicPage') {
-                // 公开浏览页：显示书籍列表和宣传区域
-                publicPage.style.display = 'flex';
-                if (publicPromo) publicPromo.style.display = 'block';
-            } else {
-                // 其他页（已登录）：隐藏公共区域
-                publicPage.style.display = 'none';
-                if (publicPromo) publicPromo.style.display = 'none';
-            }
+            if (publicPage) publicPage.style.display = 'none';
+            if (publicPromo) publicPromo.style.display = 'none';
 
             // 隐藏个人中心卡片
             document.getElementById('profileCard').style.display = 'none';
@@ -7897,32 +7852,26 @@
             }
 
             if (pageId === 'userPage' || pageId === 'userInfoPage' || pageId === 'userPasswordPage' || pageId === 'userMessagePage' || pageId === 'rankMeritsPage') {
-                // 用户页面显示返回书架按钮
                 document.getElementById('homeBtn').style.display = '';
                 document.getElementById('profileBtn').style.display = 'none';
                 document.querySelector('.container').classList.remove('admin-active');
-            } else if (pageId === 'publicPage') {
-                // 公开浏览页：显示登录按钮，隐藏其他
-                document.getElementById('homeBtn').style.display = 'none';
-                document.getElementById('profileBtn').style.display = 'none';
-                document.getElementById('loginNavBtn').style.display = '';
-                document.querySelector('.container').classList.remove('admin-active');
             } else if (pageId === 'loginPage') {
-                // 登录页：显示返回按钮，点击返回公开浏览页
                 document.getElementById('homeBtn').style.display = '';
                 document.getElementById('profileBtn').style.display = 'none';
                 document.getElementById('loginNavBtn').style.display = 'none';
                 document.querySelector('.container').classList.remove('admin-active');
-            } else {
-                // 其他页面（书架等）显示个人按钮
-                document.querySelector('.container').classList.remove('admin-active');
-                if (state.currentUser) {
+            } else if (pageId === 'homePage') {
+                document.getElementById('homeBtn').style.display = 'none';
+                document.getElementById('loginNavBtn').style.display = 'none';
+                if (state.currentUser && state.currentUser.phone) {
                     document.getElementById('profileBtn').style.display = '';
-                    // 管理员显示管理选项
-                    document.getElementById('profileCardAdmin').style.display = (state.currentUser.role === 'admin') ? 'block' : 'none';
-                    // 匿名用户隐藏用户信息和密码安全
-                    updateProfileCardAnonymousItems(state.currentUser);
+                } else {
+                    document.getElementById('profileBtn').style.display = state.currentUser ? '' : 'none';
                 }
+                document.querySelector('.container').classList.remove('admin-active');
+            } else {
+                document.querySelector('.container').classList.remove('admin-active');
+            }
             }
 
             if (pageId === 'browsePage') {
