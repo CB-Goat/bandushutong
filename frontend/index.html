@@ -4197,7 +4197,7 @@
             toggle: function() {
                 var self = this;
                 var now = Date.now();
-                if (now - this._toggleCooldown < 2000) return;
+                if (now - this._toggleCooldown < 500) return;
                 if (this._togglePending) return;
                 this._toggleCooldown = now;
                 this._togglePending = true;
@@ -4212,7 +4212,7 @@
                     }
                     this.pause();
                 } else { this.play(); }
-                setTimeout(function() { self._togglePending = false; }, 1500);
+                setTimeout(function() { self._togglePending = false; }, 300);
             },
 
             _playLock: false,  // 防止 play() 并发调用
