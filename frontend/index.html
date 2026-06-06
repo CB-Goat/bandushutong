@@ -4922,10 +4922,13 @@
                 }
                 
                 // 找到当前 tab 的 .comment-char 元素（通过 analysisContent）
+                // 注意：必须在 addAnnotationTab 之后获取，因为 addAnnotationTab 会创建新DOM
                 var analysisContent = document.getElementById('analysisContent');
                 var commentChars = analysisContent ? analysisContent.querySelectorAll('.comment-char') : [];
                 
-                // 清除之前的 .visible 类
+                console.log('[逐字显示] 找到 ' + commentChars.length + ' 个字符元素');
+                
+                // 清除之前的 .visible 类（准备逐字显示）
                 for (var i = 0; i < commentChars.length; i++) {
                     commentChars[i].classList.remove('visible');
                 }
