@@ -649,7 +649,10 @@
             display: none;
             padding: 10px 15px;
             border-radius: 8px;
-            margin-top: 8px;
+            /* 参与flex布局，和content一样占据剩余空间 */
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
         }
 
         .chalkboard .analysis-area .annotation-display.active {
