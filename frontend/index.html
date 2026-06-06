@@ -3513,14 +3513,14 @@
                 });
         }
 
-        // 更新名言赏析 tab 内容并刷新显示
         function updateFamousTab(html) {
             var famousTab = analysisManager.tabs.find(function(t) { return t.id === 'famous'; });
             if (famousTab) {
                 famousTab.content = html;
                 famousTab.isHtml = true;
-                if (analysisManager.currentTab === 'famous') {
-                    analysisManager.showTab('famous');
+                var contentEl = document.getElementById('analysisContent');
+                if (contentEl && analysisManager.currentTab === 'famous') {
+                    contentEl.innerHTML = html;
                 }
             }
         }
