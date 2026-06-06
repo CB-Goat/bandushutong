@@ -5692,7 +5692,12 @@
                 if (!commentEl || !commentText) return;
                 
                 // 激活点评显示区域
-                document.getElementById('annotationDisplay').classList.add('active');
+                var annotationDisplay = document.getElementById('annotationDisplay');
+                if (annotationDisplay) {
+                    annotationDisplay.classList.add('active');
+                    // 确保滚动到顶部，避免开头文字被遮挡
+                    annotationDisplay.scrollTop = 0;
+                }
                 
                 // 清空并准备逐字显示
                 commentEl.textContent = '';
