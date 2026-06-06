@@ -617,6 +617,8 @@
             background: rgba(240,232,208,0.1);
             color: rgba(240,232,208,0.5);
             border: 1px solid rgba(240,232,208,0.15);
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .chalkboard .analysis-tabs .tab:hover {
@@ -3239,7 +3241,7 @@
         // ===== 赏析区域管理器 =====
         var analysisManager = {
             tabs: [
-                { id: 'famous', label: '名言赏析', content: '' }
+                { id: 'famous', label: '名言', content: '' }
             ],
             currentTab: 'famous',
             rotationTimer: null,
@@ -3247,7 +3249,7 @@
 
             // 初始化
             init: function() {
-                this.tabs = [{ id: 'famous', label: '名言赏析', content: '' }];
+                this.tabs = [{ id: 'famous', label: '名言', content: '' }];
                 this.currentTab = 'famous';
                 this.stopRotation();
                 this.renderTabs();
