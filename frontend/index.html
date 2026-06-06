@@ -602,7 +602,8 @@
             display: flex;
             gap: 10px;
             padding: 0 8px 10px 8px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            overflow-x: auto;
             position: relative;
             z-index: 10;
         }
@@ -4950,6 +4951,11 @@
                 }
                 document.getElementById('annotationDisplay').classList.add('active');
                 
+                // 确保内容区域滚动到顶部，避免开头文字被遮挡
+                if (analysisContent) {
+                    analysisContent.scrollTop = 0;
+                }
+                
                 var commentText = seg.comment || '';
                 var audioDuration = seg.audio_duration || 1;  // 避免除以0
                 var charCount = commentChars.length;
@@ -5443,6 +5449,11 @@
                 
                 // 隐藏点评区域（小结内容通过 tab 显示，不通过 annotationComment）
                 document.getElementById('annotationDisplay').classList.remove('active');
+                
+                // 确保内容区域滚动到顶部，避免开头文字被遮挡
+                if (analysisContent) {
+                    analysisContent.scrollTop = 0;
+                }
                 
                 var charCount = commentChars.length;
                 
