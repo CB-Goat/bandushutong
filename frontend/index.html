@@ -3375,9 +3375,7 @@
                             return;
                         }
                         self.showTab(tabId);
-                        self.stopRotation();
-                        self.startRotationAlways();
-                        setTimeout(function() { self._tabClickLock = false; }, 500);
+                        setTimeout(function() { self._tabClickLock = false; }, 300);
                     });
                     tabsContainer._delegated = true;
                 }
@@ -3445,17 +3443,24 @@
                     } else {
                         contentEl.textContent = tab.content;
                     }
+                    
+                    var tabsContainer = document.getElementById('analysisTabs');
+                    if (tabsContainer) {
+                        var tabEls = tabsContainer.querySelectorAll('.tab');
+                        for (var i = 0; i < tabEls.length && i < this.tabs.length; i++) {
+                            var isActive = this.tabs[i].id === tabId;
+                            var baseCls = 'tab' + (this.tabs[i].isSummary ? ' summary-tab' : '');
+                            tabEls[i].className = baseCls + (isActive ? ' active' : '');
+                        }
+                    }
                 }
 
-                if (prevTab !== tabId) {
-                    this.renderTabs();
-                }
                 var analysisContent = document.getElementById('analysisContent');
                 if (analysisContent) {
                     analysisContent.scrollTop = 0;
                 }
                 var self = this;
-                setTimeout(function() { self._showTabLock = false; }, 100);
+                setTimeout(function() { self._showTabLock = false; }, 50);
             },
 
             // 开始轮巡
