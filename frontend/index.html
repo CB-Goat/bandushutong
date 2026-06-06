@@ -3351,22 +3351,29 @@
             // 渲染标签
             renderTabs: function() {
                 var tabsContainer = document.getElementById('analysisTabs');
-                tabsContainer.innerHTML = '';
                 var self = this;
-                this.tabs.forEach(function(tab) {
-                    var tabEl = document.createElement('div');
-                    tabEl.className = 'tab' + (tab.id === self.currentTab ? ' active' : '') + (tab.isSummary ? ' summary-tab' : '');
-                    tabEl.textContent = tab.label;
-                    tabEl.onclick = function() {
+                if (!tabsContainer._delegated) {
+                    tabsContainer.addEventListener('click', function(e) {
+                        var tabEl = e.target;
+                        if (!tabEl.classList.contains('tab')) return;
                         if (state && (state.isPlayingAnnotation || state.isPlayingSummary)) return;
                         var now = Date.now();
                         if (now - (self._tabClickCooldown || 0) < 600) return;
                         self._tabClickCooldown = now;
-                        if (self.currentTab === tab.id) return;
-                        self.showTab(tab.id);
+                        var tabId = tabEl.getAttribute('data-tab-id');
+                        if (!tabId || self.currentTab === tabId) return;
+                        self.showTab(tabId);
                         self.stopRotation();
                         self.startRotationAlways();
-                    };
+                    });
+                    tabsContainer._delegated = true;
+                }
+                tabsContainer.innerHTML = '';
+                this.tabs.forEach(function(tab) {
+                    var tabEl = document.createElement('div');
+                    tabEl.className = 'tab' + (tab.id === self.currentTab ? ' active' : '') + (tab.isSummary ? ' summary-tab' : '');
+                    tabEl.setAttribute('data-tab-id', tab.id);
+                    tabEl.textContent = tab.label;
                     tabsContainer.appendChild(tabEl);
                 });
             },
