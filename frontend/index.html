@@ -5026,7 +5026,12 @@
                         }
                         lastCharIdx = currentCharIdx;
                         // 自动滚动评论区，让用户始终看到最新显示的字符
-                        currentAnalysisContent.scrollTop = currentAnalysisContent.scrollHeight;
+                        // 但如果是第一次显示字符（刚开始），先滚动到顶部确保开头可见
+                        if (lastCharIdx <= 3) {
+                            currentAnalysisContent.scrollTop = 0;
+                        } else {
+                            currentAnalysisContent.scrollTop = currentAnalysisContent.scrollHeight;
+                        }
                     } else {
                         console.log('[逐字显示] 条件不满足 - audioDuration=' + audioDuration + ', charCount=' + charCount + ', currentAnalysisContent=' + !!currentAnalysisContent);
                     }
@@ -5545,9 +5550,14 @@
                         }
                         lastCharIdx = currentCharIdx;
                         // 自动滚动评论区，让用户始终看到最新显示的字符
+                        // 但如果是第一次显示字符（刚开始），先滚动到顶部确保开头可见
                         var analysisContent = document.getElementById('analysisContent');
                         if (analysisContent) {
-                            analysisContent.scrollTop = analysisContent.scrollHeight;
+                            if (lastCharIdx <= 3) {
+                                analysisContent.scrollTop = 0;
+                            } else {
+                                analysisContent.scrollTop = analysisContent.scrollHeight;
+                            }
                         }
                     }
                 };
