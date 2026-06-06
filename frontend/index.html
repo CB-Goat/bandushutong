@@ -5025,12 +5025,15 @@
                             }
                         }
                         lastCharIdx = currentCharIdx;
-                        // 自动滚动评论区，让用户始终看到最新显示的字符
-                        // 但如果是第一次显示字符（刚开始），先滚动到顶部确保开头可见
-                        if (lastCharIdx <= 3) {
-                            currentAnalysisContent.scrollTop = 0;
-                        } else {
-                            currentAnalysisContent.scrollTop = currentAnalysisContent.scrollHeight;
+                        // 智能滚动：只有当最新字符超出可视区域时才滚动，确保开头文字始终可见
+                        if (commentChars[currentCharIdx - 1]) {
+                            var charEl = commentChars[currentCharIdx - 1];
+                            var containerRect = currentAnalysisContent.getBoundingClientRect();
+                            var charRect = charEl.getBoundingClientRect();
+                            // 如果最新字符在可视区域下方，才滚动到该字符位置
+                            if (charRect.bottom > containerRect.bottom) {
+                                currentAnalysisContent.scrollTop += (charRect.bottom - containerRect.bottom);
+                            }
                         }
                     } else {
                         console.log('[逐字显示] 条件不满足 - audioDuration=' + audioDuration + ', charCount=' + charCount + ', currentAnalysisContent=' + !!currentAnalysisContent);
@@ -5549,14 +5552,14 @@
                             }
                         }
                         lastCharIdx = currentCharIdx;
-                        // 自动滚动评论区，让用户始终看到最新显示的字符
-                        // 但如果是第一次显示字符（刚开始），先滚动到顶部确保开头可见
+                        // 智能滚动：只有当最新字符超出可视区域时才滚动，确保开头文字始终可见
                         var analysisContent = document.getElementById('analysisContent');
-                        if (analysisContent) {
-                            if (lastCharIdx <= 3) {
-                                analysisContent.scrollTop = 0;
-                            } else {
-                                analysisContent.scrollTop = analysisContent.scrollHeight;
+                        if (analysisContent && commentChars[currentCharIdx - 1]) {
+                            var charEl = commentChars[currentCharIdx - 1];
+                            var containerRect = analysisContent.getBoundingClientRect();
+                            var charRect = charEl.getBoundingClientRect();
+                            if (charRect.bottom > containerRect.bottom) {
+                                analysisContent.scrollTop += (charRect.bottom - containerRect.bottom);
                             }
                         }
                     }
