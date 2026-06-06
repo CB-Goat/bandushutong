@@ -4951,9 +4951,14 @@
                 if (originalEl) {
                     originalEl.style.display = 'none';
                 }
-                document.getElementById('annotationDisplay').classList.add('active');
+                var annotationDisplay = document.getElementById('annotationDisplay');
+                if (annotationDisplay) {
+                    annotationDisplay.classList.add('active');
+                    // 确保点评显示区域滚动到顶部，避免开头文字被遮挡
+                    annotationDisplay.scrollTop = 0;
+                }
                 
-                // 确保内容区域滚动到顶部，避免开头文字被遮挡
+                // 确保内容区域也滚动到顶部
                 if (analysisContent) {
                     analysisContent.scrollTop = 0;
                 }
@@ -5450,7 +5455,12 @@
                 }
                 
                 // 隐藏点评区域（小结内容通过 tab 显示，不通过 annotationComment）
-                document.getElementById('annotationDisplay').classList.remove('active');
+                var annotationDisplay = document.getElementById('annotationDisplay');
+                if (annotationDisplay) {
+                    annotationDisplay.classList.remove('active');
+                    // 确保滚动到顶部
+                    annotationDisplay.scrollTop = 0;
+                }
                 
                 // 确保内容区域滚动到顶部，避免开头文字被遮挡
                 if (analysisContent) {
