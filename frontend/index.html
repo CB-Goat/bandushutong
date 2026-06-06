@@ -414,7 +414,7 @@
             letter-spacing: 1px;
             flex: 1;
             overflow-y: auto;
-            min-height: 0;
+            min-height: 100px;
             padding: 0 2px;
         }
 
@@ -753,6 +753,11 @@
             text-align: center;
             padding: 60px 20px;
             color: #999;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
 
         .empty-state .icon {
@@ -3357,14 +3362,20 @@
                         var tabEl = e.target;
                         if (!tabEl.classList.contains('tab')) return;
                         if (state && (state.isPlayingAnnotation || state.isPlayingSummary)) return;
+                        if (self._tabClickLock) return;
                         var now = Date.now();
-                        if (now - (self._tabClickCooldown || 0) < 600) return;
+                        if (now - (self._tabClickCooldown || 0) < 1000) return;
                         self._tabClickCooldown = now;
+                        self._tabClickLock = true;
                         var tabId = tabEl.getAttribute('data-tab-id');
-                        if (!tabId || self.currentTab === tabId) return;
+                        if (!tabId || self.currentTab === tabId) {
+                            self._tabClickLock = false;
+                            return;
+                        }
                         self.showTab(tabId);
                         self.stopRotation();
                         self.startRotationAlways();
+                        setTimeout(function() { self._tabClickLock = false; }, 300);
                     });
                     tabsContainer._delegated = true;
                 }
@@ -3406,13 +3417,18 @@
 
             // 显示指定标签内容
             showTab: function(tabId) {
+                if (this._showTabLock) return;
+                this._showTabLock = true;
                 var prevTab = this.currentTab;
                 this.currentTab = tabId;
                 var tab = this.tabs.find(function(t) { return t.id === tabId; });
                 
                 if (tab && prevTab !== tabId) {
                     var contentEl = document.getElementById('analysisContent');
-                    if (!contentEl) return;
+                    if (!contentEl) {
+                        this._showTabLock = false;
+                        return;
+                    }
                     if (tab.annotationId && tab._played) {
                         contentEl.innerHTML = '<div class="comment-text">' + tab._commentText + '</div>';
                     } else if (tab.isSummary && tab._played) {
@@ -3428,15 +3444,15 @@
                     }
                 }
 
-                // 只有标签实际切换时才重建 DOM（避免反复点击同一标签导致的无效 DOM 操作）
                 if (prevTab !== tabId) {
                     this.renderTabs();
                 }
-                // 轮巡切换标签时重置滚动到顶部（内容区域）
                 var analysisContent = document.getElementById('analysisContent');
                 if (analysisContent) {
                     analysisContent.scrollTop = 0;
                 }
+                var self = this;
+                setTimeout(function() { self._showTabLock = false; }, 100);
             },
 
             // 开始轮巡
