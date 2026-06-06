@@ -19,8 +19,48 @@
 - 2026-06-03: TTS精品音库 person 值：男声=5003（精品度逍遥），女声=5（精品度小娇）；基础库男声=3，女声=5
 - 2026-06-05: 全面修复页面崩溃问题（详见下方）
 
-## 页面崩溃修复记录 (2026-06-05)
-### 根因分析
+## 页面崩溃修复记录 (2026-06-05 ~ 2026-06-06)
+
+### 最终根因（2026-06-06 确认）
+
+**Audio对象的addEventListener监听器累积** — 这是导致页面崩溃的根本原因！
+
+#### 问题原理
+- `on* = null` 只能清除通过on*属性赋值的监听器（如 `audio.onended = handler`）
+- **无法清除通过`addEventListener`注册的监听器**
+- 反复播放/暂停时，旧的监听器不会被清除，新的监听器不断添加
+- 当事件触发时，多个handler同时执行 → 播放链分裂 → 页面崩溃
+
+#### 关键修复（必须保留）
+在以下位置重建Audio对象，彻底清除所有addEventListener残留：
+1. `_finishInsertPoint` — 点评播放结束时
+2. `_finishSummaryPlayback` — 小结播放结束时
+3. `_resetAnnotationAudio` — 重置点评音频时
+4. `player.stop()` — 停止播放器时
+
+代码模式：
+```javascript
+// 错误方式（无法清除addEventListener残留）
+this._annotationAudio.onended = null;
+this._annotationAudio.oncanplay = null;
+this._annotationAudio.ontimeupdate = null;
+
+// 正确方式（彻底清除所有监听器）
+this._annotationAudio.pause();
+this._annotationAudio.src = '';
+this._annotationAudio = new Audio();  // 关键！
+```
+
+#### 辅助优化（提升性能但非根因）
+- ontimeupdate节流（200-250ms）
+- toggle防抖（500ms）+ 防重入锁
+- 标签点击事件委托（避免闭包累积）
+- 点击标签不再重建DOM（只更新active class）
+- revealCharsUpTo分批处理（避免UI线程阻塞）
+- TTS语音队列清理（cancelSpeech）
+- 关闭生产环境console.log（微信WebView性能）
+
+### 历史根因分析（2026-06-05）
 - **#1 根因**: `_playQuoteAudio`/`_playCommentAudio` 使用 `addEventListener('timeupdate', ...)` 注册监听器，但 `_finishInsertPoint` 仅清除 `on*` 属性，导致 timeupdate 监听器持续累积。同一节播放多个点评后，数十个 timeupdate 回调同时执行 → 崩溃。
 - **#2**: `startDeviceCheck()` 创建 setInterval 后立即 clearInterval，设备检查功能完全失效。
 - **#3**: `_checkTTSStatus()` 的 setInterval 使用局部变量，非 timeline 模式下永远轮询无法停止。
@@ -28,7 +68,7 @@
 - **#5**: `browse.loadBooks` 异步 fetch 回调操作可能已销毁的 DOM。
 - **#6**: `_preloadAllAudio` 临时 Audio 对象不清理。
 
-### 修复内容
+### 历史修复内容
 1. `_finishInsertPoint`/`_finishSummaryPlayback`/`player.stop()` — 重建 `_annotationAudio` 对象（而非清除 on* 属性），彻底清除所有 addEventListener 残留
 2. `startDeviceCheck()` — 删除错误的立即 clearInterval 代码
 3. `_checkTTSStatus()` — 改用 `this._ttsCheckInterval` 存储引用，在 `player.stop()` 中清理
@@ -38,12 +78,28 @@
 7. `_playAnnotationSegment` — 移除冗余 `removeEventListener`（已用 oncanplay 属性）
 8. 3 处未追踪 `setTimeout` 改为 `_safeSetTimeout`
 
-### 关键编码规范
+### 关键编码规范（必须遵守）
+
+#### Audio对象事件监听器清理
 - **禁止**在 `_annotationAudio` 上使用 `addEventListener` 注册非自清理的监听器
-- 所有 Audio 对象清理必须「重建 `new Audio()`」而非逐个清除事件
-- 所有页面导航后必须清理前页面的定时器/轮询/异步回调
-- 使用 `addEventListener` 的监听器必须有对应的 `removeEventListener`（或在回调内自清理）
+- 所有 Audio 对象清理必须「重建 `new Audio()`」而非逐个清除事件属性
 - `oncanplay = handler` 比 `addEventListener('canplay', handler)` 更安全（属性赋值覆盖而非累积）
+- 使用 `addEventListener` 的监听器必须有对应的 `removeEventListener`（或在回调内自清理）
+
+#### 页面资源清理
+- 所有页面导航后必须清理前页面的定时器/轮询/异步回调
+- 离开阅读页必须调用 `player.stop()` 彻底清理所有资源
+- 轮巡定时器、TTS轮询、设备检查等必须在离开页面时清理
+
+#### 防抖与并发保护
+- 用户交互操作（播放/暂停、标签切换、页面切换）必须有防抖保护
+- 异步操作必须有版本号或锁机制防止过期回调操作DOM
+- 频繁触发的ontimeupdate等事件必须节流（200-250ms）
+
+#### 性能优化
+- 大量DOM操作（如revealCharsUpTo显示几千字）必须分批处理避免阻塞UI线程
+- 微信WebView中console.log极慢，生产环境必须关闭或过滤
+- 预加载Audio对象必须复用，避免频繁new Audio()泄漏内存
 
 ## 断点系统规范 (2026-06-05 最终版)
 
