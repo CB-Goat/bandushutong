@@ -3251,6 +3251,8 @@
             init: function() {
                 this.tabs = [{ id: 'famous', label: '名言', content: '' }];
                 this.currentTab = 'famous';
+                this._tabsBuilt = false;
+                this._lastTabCount = 0;
                 this.stopRotation();
                 this.renderTabs();
                 this.showTab('famous');
@@ -3296,6 +3298,7 @@
                 }
 
                 // 添加点评时暂停轮巡
+                this._tabsBuilt = false;
                 this.stopRotation();
                 this.renderTabs();
                 this.showTab(tabId);
@@ -3322,6 +3325,7 @@
                     isSummary: true
                 });
 
+                this._tabsBuilt = false;
                 this.renderTabs();
                 this.showTab(tabId);
                 // 小结朗读期间暂停轮巡，朗读完后再恢复
@@ -3331,28 +3335,50 @@
             // 渲染标签
             renderTabs: function() {
                 var tabsContainer = document.getElementById('analysisTabs');
-                tabsContainer.innerHTML = '';
-
                 var self = this;
+
+                var needRebuild = !this._tabsBuilt || this._lastTabCount !== this.tabs.length;
+                if (!needRebuild) {
+                    var existingTabs = tabsContainer.children;
+                    for (var i = 0; i < this.tabs.length; i++) {
+                        if (existingTabs[i] && existingTabs[i].textContent === this.tabs[i].label) continue;
+                        needRebuild = true;
+                        break;
+                    }
+                }
+
+                if (!needRebuild) {
+                    var existingTabs2 = tabsContainer.children;
+                    for (var j = 0; j < existingTabs2.length; j++) {
+                        var isActive = this.tabs[j].id === this.currentTab;
+                        var isSummary = this.tabs[j].isSummary;
+                        var cls = 'tab' + (isActive ? ' active' : '') + (isSummary ? ' summary-tab' : '');
+                        if (existingTabs2[j].className !== cls) {
+                            existingTabs2[j].className = cls;
+                        }
+                    }
+                    return;
+                }
+
+                tabsContainer.innerHTML = '';
                 this.tabs.forEach(function(tab) {
                     var tabEl = document.createElement('div');
                     tabEl.className = 'tab' + (tab.id === self.currentTab ? ' active' : '') + (tab.isSummary ? ' summary-tab' : '');
                     tabEl.textContent = tab.label;
                     tabEl.onclick = function() {
-                        // 点评/小结插入播放期间（轮巡暂停），禁止用户点击其他标签
                         if (state && (state.isPlayingAnnotation || state.isPlayingSummary)) return;
-                        // 防止快速点击标签导致页面崩溃
                         var now = Date.now();
-                        if (now - (self._tabClickCooldown || 0) < 300) return;
+                        if (now - (self._tabClickCooldown || 0) < 600) return;
                         self._tabClickCooldown = now;
-                        // 点击标签切换到该标签，并作为轮巡起点
+                        if (self.currentTab === tab.id) return;
                         self.showTab(tab.id);
-                        // 重新开始轮巡（从当前点击的标签开始）
                         self.stopRotation();
                         self.startRotationAlways();
                     };
                     tabsContainer.appendChild(tabEl);
                 });
+                this._tabsBuilt = true;
+                this._lastTabCount = this.tabs.length;
             },
 
             // 从指定标签开始轮巡
@@ -3387,20 +3413,15 @@
                 this.currentTab = tabId;
                 var tab = this.tabs.find(function(t) { return t.id === tabId; });
                 
-                if (tab) {
+                if (tab && prevTab !== tabId) {
                     var contentEl = document.getElementById('analysisContent');
                     if (!contentEl) return;
-                    // 如果是点评 tab，检查是否已播放完（tab._played === true）
                     if (tab.annotationId && tab._played) {
-                        // 已播放完，直接显示完整文本
                         contentEl.innerHTML = '<div class="comment-text">' + tab._commentText + '</div>';
                     } else if (tab.isSummary && tab._played) {
-                        // 小结已播放完，显示完整文本（与点评一致，使用 comment-text）
                         contentEl.innerHTML = '<div class="comment-text">' + (tab._commentText || tab.content) + '</div>';
                     } else if (tab.isHtml) {
                         contentEl.innerHTML = tab.content;
-                        // 如果是点评的逐字HTML，显示所有字符（轮巡时不需要逐字动画）
-                        // 注意：_playCommentAudio/_playSummaryContent 会清除 visible 后逐字添加
                         if (tab.annotationId || tab.isSummary) {
                             var chars = contentEl.querySelectorAll('.comment-char');
                             chars.forEach(function(c) { c.classList.add('visible'); });
