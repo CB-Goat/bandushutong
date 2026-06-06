@@ -1780,6 +1780,23 @@
     <script>
         const API_BASE = '/api';
 
+        // 生产环境：覆盖console减少微信WebView性能开销
+        const _DEBUG = false;
+        if (!_DEBUG) {
+            const _noop = function() {};
+            const _origLog = console.log.bind(console);
+            const _origErr = console.error.bind(console);
+            console.log = function() {
+                var args = Array.prototype.slice.call(arguments);
+                var msg = args.join(' ');
+                if (msg.indexOf('[ERROR]') === 0 || msg.indexOf('播放失败') >= 0 || msg.indexOf('音频播放错误') >= 0) {
+                    _origErr.apply(console, args);
+                }
+            };
+            console.trace = _noop;
+            console.warn = _noop;
+        }
+
         // 点评序号映射：1 -> ①, 2 -> ②, ...
         const CIRCLED_NUMBERS = ['\u2460','\u2461','\u2462','\u2463','\u2464','\u2465','\u2466','\u2467','\u2468','\u2469','\u246A','\u246B','\u246C','\u246D','\u246E','\u246F','\u2470','\u2471','\u2472','\u2473'];
 
@@ -3638,13 +3655,16 @@
                     playBtn.addEventListener('click', _unlockWechatAudio, { once: true, passive: true });
                 }
 
+                this._lastTimeUpdate = 0;
                 this.audio.ontimeupdate = function() {
+                    var now = Date.now();
+                    if (now - self._lastTimeUpdate < 250) return;
+                    self._lastTimeUpdate = now;
                     self.currentTime = self.audio.currentTime;
                     self._updateDisplayByTime();
                 };
                 this.audio.onended = function() {
                     console.log('音频段播放结束');
-                    // 多步骤播放期间不触发全局结束处理（由各步骤自己的ended处理器处理）
                     if (self._insertPointStep > 0) {
                         console.log('多步骤播放中，跳过全局onended');
                         return;
@@ -3709,16 +3729,16 @@
                 this._resumeTimeInSegment = 0;
                 this._resetAnnotationAudio();
                 // 重新设置音频事件监听器（stop()可能已清除）
+                this._lastTimeUpdate = 0;
                 this.audio.ontimeupdate = function() {
+                    var now = Date.now();
+                    if (now - self._lastTimeUpdate < 250) return;
+                    self._lastTimeUpdate = now;
                     self.currentTime = self.audio.currentTime;
                     self._updateDisplayByTime();
                 };
                 this.audio.onended = function() {
-                    console.log('音频段播放结束');
-                    if (self._insertPointStep > 0) {
-                        console.log('多步骤播放中，跳过全局onended');
-                        return;
-                    }
+                    if (self._insertPointStep > 0) return;
                     self._onSegmentEnd();
                 };
                 this.audio.onerror = function(e) {
@@ -4175,28 +4195,27 @@
                 setTimeout(function() { if (el) el.style.display = 'none'; }, 3000);
             },
 
-            _toggleCooldown: 0,  // 防止快速点击播放/暂停
+            _toggleCooldown: 0,
+            _togglePending: false,
             toggle: function() {
+                var self = this;
                 var now = Date.now();
-                if (now - this._toggleCooldown < 300) return;  // 300ms 防抖
+                if (now - this._toggleCooldown < 800) return;
+                if (this._togglePending) return;
                 this._toggleCooldown = now;
+                this._togglePending = true;
                 var playBtn = document.getElementById('playBtn');
-                if (playBtn.disabled) return;
+                if (playBtn.disabled) { this._togglePending = false; return; }
                 if (this.isPlaying) {
-                    // 用户点击暂停：保存断点（仅在主线文本段播放中）
                     if (this._currentSegment && this._currentSegment.type === 'text_segment') {
                         if (typeof reader !== 'undefined' && reader._currentPosition > 0) {
                             var pausePos = reader._currentPosition;
                             var pauseResult = reader.saveProgress(pausePos);
-                            if (pauseResult && pauseResult.saved) {
-                                console.log('暂停时：断点保存成功-位置 ' + pausePos);
-                            } else if (pauseResult) {
-                                console.log('暂停时：断点保存-位置 ' + pausePos + '-' + pauseResult.reason + '-跳过保存');
-                            }
                         }
                     }
                     this.pause();
                 } else { this.play(); }
+                setTimeout(function() { self._togglePending = false; }, 500);
             },
 
             _playLock: false,  // 防止 play() 并发调用
@@ -4903,16 +4922,16 @@
                     self._executeInsertPointStep();
                 };
                 
-                // 逐字高亮更新函数
+                var _lastQuoteTimeUpdate = 0;
                 var quoteTimeUpdateHandler = function() {
+                    var now = Date.now();
+                    if (now - _lastQuoteTimeUpdate < 200) return;
+                    _lastQuoteTimeUpdate = now;
                     if (quoteAudioDuration > 0 && charCount > 0) {
                         var currentTime = self._annotationAudio.currentTime;
                         var progress = currentTime / quoteAudioDuration;
-                        // 计算当前进度对应的字符索引
                         var currentCharIdx = Math.floor(progress * charCount);
-                        // 确保不超过范围
                         currentCharIdx = Math.min(currentCharIdx, charCount);
-                        // 调用逐字高亮方法
                         if (typeof reader !== 'undefined' && reader._highlightCharsUpTo) {
                             reader._highlightCharsUpTo(quoteStartChar, quoteStartChar + currentCharIdx);
                         }
@@ -5026,38 +5045,31 @@
                 // 追踪上一次显示的字符位置
                 var lastCharIdx = 0;
                 
-                // 逐字显示更新函数（使用 ontimeupdate 事件同步）
+                var _lastCommentTimeUpdate = 0;
                 var commentTimeUpdateHandler = function() {
-                    // 在函数内部重新获取 analysisContent，避免使用外部可能为null的变量
+                    var now = Date.now();
+                    if (now - _lastCommentTimeUpdate < 200) return;
+                    _lastCommentTimeUpdate = now;
                     var currentAnalysisContent = document.getElementById('analysisContent');
-                    console.log('[逐字显示] timeupdate触发 - audioDuration=' + audioDuration + ', charCount=' + charCount + ', currentTime=' + self._annotationAudio.currentTime);
                     if (audioDuration > 0 && charCount > 0 && currentAnalysisContent) {
                         var currentTime = self._annotationAudio.currentTime;
                         var progress = currentTime / audioDuration;
-                        // 计算当前进度对应的字符索引（提前3个字符显示）
                         var currentCharIdx = Math.min(Math.floor(progress * charCount) + 3, charCount);
-                        // 确保不超过范围
                         currentCharIdx = Math.min(currentCharIdx, charCount);
-                        console.log('[逐字显示] progress=' + progress.toFixed(2) + ', currentCharIdx=' + currentCharIdx + ', lastCharIdx=' + lastCharIdx);
-                        // 只显示新增的字符
                         for (var i = lastCharIdx; i < currentCharIdx; i++) {
                             if (commentChars[i]) {
                                 commentChars[i].classList.add('visible');
                             }
                         }
                         lastCharIdx = currentCharIdx;
-                        // 智能滚动：只有当最新字符超出可视区域时才滚动，确保开头文字始终可见
                         if (commentChars[currentCharIdx - 1]) {
                             var charEl = commentChars[currentCharIdx - 1];
                             var containerRect = currentAnalysisContent.getBoundingClientRect();
                             var charRect = charEl.getBoundingClientRect();
-                            // 如果最新字符在可视区域下方，才滚动到该字符位置
                             if (charRect.bottom > containerRect.bottom) {
                                 currentAnalysisContent.scrollTop += (charRect.bottom - containerRect.bottom);
                             }
                         }
-                    } else {
-                        console.log('[逐字显示] 条件不满足 - audioDuration=' + audioDuration + ', charCount=' + charCount + ', currentAnalysisContent=' + !!currentAnalysisContent);
                     }
                 };
                 
@@ -5559,12 +5571,14 @@
                 // 追踪上一次显示的字符位置
                 var lastCharIdx = 0;
                 
-                // 逐字显示更新函数（使用 ontimeupdate 事件同步）
+                var _lastSummaryTimeUpdate = 0;
                 var timeUpdateHandler = function() {
+                    var now = Date.now();
+                    if (now - _lastSummaryTimeUpdate < 200) return;
+                    _lastSummaryTimeUpdate = now;
                     if (audioDuration > 0 && charCount > 0) {
                         var currentTime = self._annotationAudio.currentTime;
                         var progress = currentTime / audioDuration;
-                        // 提前3个字符显示
                         var currentCharIdx = Math.min(Math.floor(progress * charCount) + 3, charCount);
                         currentCharIdx = Math.min(currentCharIdx, charCount);
                         for (var i = lastCharIdx; i < currentCharIdx; i++) {
@@ -5573,7 +5587,6 @@
                             }
                         }
                         lastCharIdx = currentCharIdx;
-                        // 智能滚动：只有当最新字符超出可视区域时才滚动，确保开头文字始终可见
                         var analysisContent = document.getElementById('analysisContent');
                         if (analysisContent && commentChars[currentCharIdx - 1]) {
                             var charEl = commentChars[currentCharIdx - 1];
