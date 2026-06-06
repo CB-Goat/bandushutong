@@ -2208,16 +2208,18 @@
                 });
                 var data = await resp.json();
                 if (data.user) {
-                    // 设置登录状态（匿名版，不跳转到书架页）
                     state.currentUser = data.user;
                     state.militaryRank = data.military_rank || null;
                     localStorage.setItem('userId', data.user.id);
-                    // 更新卡片军衔显示（匿名用户也能看到阅读进度）
+                    localStorage.setItem('boundDeviceId', getDeviceId());
+                    document.getElementById('profileBtn').style.display = '';
+                    document.getElementById('loginNavBtn').style.display = 'none';
                     updateProfileCardRank(data.military_rank);
+                    updateProfileCardAnonymousItems(data.user);
+                    updateProfileCardLogoutBtn();
                     if (data.military_rank && data.military_rank.current_rank) {
                         state._lastRankName = data.military_rank.current_rank.rank_name;
                     }
-                    // 打开书籍目录
                     openBookCatalog(bookId, title, iconPath);
                 } else {
                     console.error('[anonymous] 匿名登录失败:', data.error);
@@ -7826,11 +7828,12 @@
                 document.querySelector('.container').classList.remove('admin-active');
             } else if (pageId === 'homePage') {
                 document.getElementById('homeBtn').style.display = 'none';
-                document.getElementById('loginNavBtn').style.display = 'none';
-                if (state.currentUser && state.currentUser.phone) {
-                    document.getElementById('profileBtn').style.display = '';
+                if (!state.currentUser) {
+                    document.getElementById('loginNavBtn').style.display = '';
+                    document.getElementById('profileBtn').style.display = 'none';
                 } else {
-                    document.getElementById('profileBtn').style.display = state.currentUser ? '' : 'none';
+                    document.getElementById('loginNavBtn').style.display = 'none';
+                    document.getElementById('profileBtn').style.display = '';
                 }
                 document.querySelector('.container').classList.remove('admin-active');
             } else {
