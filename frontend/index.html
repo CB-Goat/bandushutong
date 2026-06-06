@@ -3364,7 +3364,7 @@
                         if (state && (state.isPlayingAnnotation || state.isPlayingSummary)) return;
                         if (self._tabClickLock) return;
                         var now = Date.now();
-                        if (now - (self._tabClickCooldown || 0) < 1000) return;
+                        if (now - (self._tabClickCooldown || 0) < 1500) return;
                         self._tabClickCooldown = now;
                         self._tabClickLock = true;
                         var tabId = tabEl.getAttribute('data-tab-id');
@@ -3375,7 +3375,7 @@
                         self.showTab(tabId);
                         self.stopRotation();
                         self.startRotationAlways();
-                        setTimeout(function() { self._tabClickLock = false; }, 300);
+                        setTimeout(function() { self._tabClickLock = false; }, 500);
                     });
                     tabsContainer._delegated = true;
                 }
@@ -4196,7 +4196,7 @@
             toggle: function() {
                 var self = this;
                 var now = Date.now();
-                if (now - this._toggleCooldown < 800) return;
+                if (now - this._toggleCooldown < 1500) return;
                 if (this._togglePending) return;
                 this._toggleCooldown = now;
                 this._togglePending = true;
@@ -4211,7 +4211,7 @@
                     }
                     this.pause();
                 } else { this.play(); }
-                setTimeout(function() { self._togglePending = false; }, 500);
+                setTimeout(function() { self._togglePending = false; }, 1000);
             },
 
             _playLock: false,  // 防止 play() 并发调用
@@ -4408,18 +4408,16 @@
 
             pause: function() {
                 this.audio.pause();
-                // 同时暂停点评音频
+                this.audio.ontimeupdate = null;
                 if (this._annotationAudio) {
                     this._annotationAudio.pause();
+                    this._annotationAudio.ontimeupdate = null;
                 }
-                // 取消TTS语音，防止队列堆积导致手机卡死
                 this.cancelSpeech();
-                // 清除所有定时器，防止自动恢复播放
                 this._clearAllTimers();
                 this.isPlaying = false;
                 state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
-                // 更新灯笼状态为可点击
                 if (typeof thoughtEditor !== 'undefined' && thoughtEditor.updateAllLanternsState) {
                     thoughtEditor.updateAllLanternsState();
                 }
