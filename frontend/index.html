@@ -4926,7 +4926,7 @@
                 var analysisContent = document.getElementById('analysisContent');
                 var commentChars = analysisContent ? analysisContent.querySelectorAll('.comment-char') : [];
                 
-                console.log('[逐字显示] 找到 ' + commentChars.length + ' 个字符元素');
+                console.log('[逐字显示] 找到 ' + commentChars.length + ' 个字符元素, analysisContent=' + !!analysisContent);
                 
                 // 清除之前的 .visible 类（准备逐字显示）
                 for (var i = 0; i < commentChars.length; i++) {
@@ -4989,8 +4989,10 @@
                 
                 // 逐字显示更新函数（使用 ontimeupdate 事件同步）
                 var commentTimeUpdateHandler = function() {
+                    // 在函数内部重新获取 analysisContent，避免使用外部可能为null的变量
+                    var currentAnalysisContent = document.getElementById('analysisContent');
                     console.log('[逐字显示] timeupdate触发 - audioDuration=' + audioDuration + ', charCount=' + charCount + ', currentTime=' + self._annotationAudio.currentTime);
-                    if (audioDuration > 0 && charCount > 0 && analysisContent) {
+                    if (audioDuration > 0 && charCount > 0 && currentAnalysisContent) {
                         var currentTime = self._annotationAudio.currentTime;
                         var progress = currentTime / audioDuration;
                         // 计算当前进度对应的字符索引（提前3个字符显示）
@@ -5006,12 +5008,9 @@
                         }
                         lastCharIdx = currentCharIdx;
                         // 自动滚动评论区，让用户始终看到最新显示的字符
-                        var analysisContent = document.getElementById('analysisContent');
-                        if (analysisContent) {
-                            analysisContent.scrollTop = analysisContent.scrollHeight;
-                        }
+                        currentAnalysisContent.scrollTop = currentAnalysisContent.scrollHeight;
                     } else {
-                        console.log('[逐字显示] 条件不满足 - audioDuration=' + audioDuration + ', charCount=' + charCount + ', analysisContent=' + !!analysisContent);
+                        console.log('[逐字显示] 条件不满足 - audioDuration=' + audioDuration + ', charCount=' + charCount + ', currentAnalysisContent=' + !!currentAnalysisContent);
                     }
                 };
                 
