@@ -168,6 +168,8 @@ def init_db():
             age INT,
             grade VARCHAR(50),
             role VARCHAR(20) DEFAULT 'user',
+            ip_address VARCHAR(50),
+            location VARCHAR(200),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -401,23 +403,22 @@ def init_db():
 
 # ===== 用户系统 =====
 
-def create_user(phone=None, password=None, wechat_openid=None, wechat_nickname=None, wechat_avatar=None, device_id=None, device_info=None, role='user'):
+def create_user(phone=None, password=None, wechat_openid=None, wechat_nickname=None, wechat_avatar=None, device_id=None, device_info=None, role='user', ip_address=None, location=None):
     """创建用户（支持手机号或微信登录）"""
     conn = get_db()
     cursor = conn.cursor()
     try:
         cursor.execute(
-            '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
-            (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role)
+            '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role, ip_address, location) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+            (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role, ip_address, location)
         )
     except Exception as e:
-        # 兼容旧数据库有auth_code NOT NULL约束
         if 'auth_code' in str(e):
             cursor.execute(
-                '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role, auth_code) 
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, '')''',
-                (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role)
+                '''INSERT INTO users (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role, auth_code, ip_address, location) 
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, '', %s, %s)''',
+                (phone, password, wechat_openid, wechat_nickname, wechat_avatar, device_id, device_info, role, ip_address, location)
             )
         else:
             raise e

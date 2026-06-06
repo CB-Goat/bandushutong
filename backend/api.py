@@ -9,6 +9,38 @@ import sys
 import threading
 import time
 import pymysql
+import requests
+
+def get_ip_location(ip_address):
+    """根据IP地址获取地理位置"""
+    if not ip_address or ip_address in ['127.0.0.1', 'localhost', '::1']:
+        return '本地'
+    try:
+        resp = requests.get(f'http://ip-api.com/json/{ip_address}?lang=zh-CN', timeout=2)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('status') == 'success':
+                country = data.get('country', '')
+                region = data.get('regionName', '')
+                city = data.get('city', '')
+                if city and city != region:
+                    return f"{country} {region} {city}"
+                elif region:
+                    return f"{country} {region}"
+                else:
+                    return country
+    except Exception as e:
+        print(f'[IP定位] 查询失败: {e}')
+    return '未知'
+
+def get_client_ip():
+    """获取客户端真实IP"""
+    if request.headers.get('X-Forwarded-For'):
+        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    elif request.headers.get('X-Real-IP'):
+        return request.headers.get('X-Real-IP')
+    else:
+        return request.remote_addr
 
 # 导入状态存储 {book_id: {'status': str, 'message': str, 'updated_at': float}}
 _import_status = {}
@@ -1397,10 +1429,13 @@ def register():
     
     device_id = data.get('device_id', '').strip()
     device_info = data.get('device_info', '').strip()
-    user_id = create_user(phone=phone, password=password, device_id=device_id, device_info=device_info, role='user')
+    
+    ip_address = get_client_ip()
+    location = get_ip_location(ip_address)
+    
+    user_id = create_user(phone=phone, password=password, device_id=device_id, device_info=device_info, role='user', ip_address=ip_address, location=location)
     user = get_user(user_id)
     user.pop('password', None)
-    # 获取用户军衔信息（新用户为初始等级）
     military_rank = get_user_military_rank(user_id)
     return jsonify({'user': user, 'military_rank': military_rank, 'message': '注册成功'})
 
@@ -1454,14 +1489,12 @@ def anonymous_login():
     conn = get_db()
     cursor = conn.cursor()
     try:
-        # 查找该设备是否已有匿名用户（phone IS NULL AND password IS NULL）
         cursor.execute(
             "SELECT * FROM users WHERE device_id = %s AND (phone IS NULL OR phone = '') AND (password IS NULL OR password = '')",
             (device_id,)
         )
         user = cursor.fetchone()
         if user:
-            # 已有匿名用户，更新设备信息并返回
             if device_info:
                 cursor.execute("UPDATE users SET device_info = %s WHERE id = %s", (device_info, user['id']))
                 conn.commit()
@@ -1470,10 +1503,12 @@ def anonymous_login():
             military_rank = get_user_military_rank(user['id'])
             return jsonify({'user': user, 'military_rank': military_rank, 'is_new': False})
         
-        # 不存在，创建新的匿名用户
+        ip_address = get_client_ip()
+        location = get_ip_location(ip_address)
+        
         cursor.execute(
-            "INSERT INTO users (device_id, device_info, role) VALUES (%s, %s, 'user')",
-            (device_id, device_info)
+            "INSERT INTO users (device_id, device_info, role, ip_address, location) VALUES (%s, %s, 'user', %s, %s)",
+            (device_id, device_info, ip_address, location)
         )
         conn.commit()
         new_user_id = cursor.lastrowid
