@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>悦读小将 - 儿童课外阅读</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="shortcut icon" href="favicon.png">
+    <style>
+        /* 从index.html提取CSS */
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div class="navbar">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <img id="navbarIcon" src="favicon.png" style="width:28px;height:28px;border-radius:4px;display:block;">
+            <h1 id="navbarTitle">悦读小将</h1>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <button class="navbar-btn" id="homeBtn" onclick="goBack()" style="display:none;">← 返回</button>
+            <button class="navbar-btn" id="loginNavBtn" onclick="showPage('loginPage')" style="display:none;">更多阅读请登录系统</button>
+            <div id="profileBtn" style="cursor:pointer;font-size:24px;display:none;" onclick="toggleProfileCard()">☰</div>
+        </div>
+    </div>
+
+    <!-- 汉堡菜单 -->
+    <div id="profileCard" style="display:none;position:fixed;top:52px;right:10px;background:linear-gradient(135deg,#2d5016 0%,#1a3a0a 100%);color:#e8e0c8;border-radius:12px;padding:12px 0;min-width:160px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:1000;border:2px solid rgba(255,215,0,0.2);">
+        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToRankMerits();toggleProfileCard();">🏅 军衔军功</div>
+        <div id="profileCardUserInfo" style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToUserInfo();toggleProfileCard();">👤 用户信息</div>
+        <div id="profileCardPassword" style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToPassword();toggleProfileCard();">🔐 密码安全</div>
+        <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToMessage();toggleProfileCard();">💬 我要留言</div>
+        <div id="profileCardLogoutBtn" style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.1);" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="logout();">🚪 退出</div>
+    </div>
+
+    <div class="container">
+        <!-- 登录页 -->
+        <div class="page" id="loginPage">
+            <div style="max-width:400px;margin:20px auto;padding:20px;">
+                <div style="background:white;border-radius:12px;padding:30px;box-shadow:0 2px 12px rgba(0,0,0,0.1);">
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">手机号码</label>
+                        <input type="tel" id="loginPhone" placeholder="请输入手机号" maxlength="11" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">密码</label>
+                        <input type="password" id="loginPassword" placeholder="请输入密码" onkeypress="if(event.key==='Enter')doLogin()" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                    </div>
+                    <button onclick="doLogin()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">登录</button>
+                    <button onclick="showRegister()" style="width:100%;padding:12px;background:white;color:#2d5016;border:1px solid #2d5016;border-radius:8px;font-size:16px;cursor:pointer;margin-top:10px;">注册新账号</button>
+                    <p id="loginError" style="color:red;font-size:13px;text-align:center;margin-top:10px;display:none;"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 注册弹窗 -->
+        <div id="registerModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;">
+            <div style="background:white;border-radius:12px;padding:30px;width:90%;max-width:350px;">
+                <h3 style="margin:0 0 20px;text-align:center;color:#333;">注册新账号</h3>
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">手机号码</label>
+                    <input type="tel" id="registerPhone" placeholder="请输入手机号" maxlength="11" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">密码</label>
+                    <input type="password" id="registerPassword" placeholder="至少6位，需包含字母、数字、符号中的两种" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box;">
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="hideRegister()" style="flex:1;padding:12px;background:#f5f5f5;color:#333;border:none;border-radius:8px;font-size:16px;cursor:pointer;">取消</button>
+                    <button onclick="doRegister()" style="flex:1;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">注册</button>
+                </div>
+                <p id="registerError" style="color:red;font-size:13px;text-align:center;margin-top:10px;display:none;"></p>
+            </div>
+        </div>
+
+        <!-- 书架页（首页） -->
+        <div class="page active" id="homePage" style="flex-direction:column;">
+            <div id="homeStats" style="flex-shrink:0;width:100%;padding:8px 15px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;font-size:13px;display:flex;justify-content:center;align-items:center;gap:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <span>📚 收录书籍 <strong id="statBooks">0</strong> 本</span>
+                <span>👥 当前用户 <strong id="statUsers">0</strong> 人</span>
+                <span>🔥 思考热度 <strong id="statHeat">0</strong>°</span>
+            </div>
+            <div class="book-list" id="bookList" style="flex:1;overflow-y:auto;min-height:200px;width:100%;padding:10px 15px;box-sizing:border-box;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        var state = {
+            currentUser: null,
+            books: [],
+            militaryRank: null
+        };
+
+        // 页面切换
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+            var target = document.getElementById(pageId);
+            if (target) target.classList.add('active');
+
+            document.getElementById('profileCard').style.display = 'none';
+
+            if (pageId === 'homePage') {
+                document.getElementById('homeBtn').style.display = 'none';
+                if (!state.currentUser) {
+                    document.getElementById('loginNavBtn').style.display = '';
+                    document.getElementById('profileBtn').style.display = 'none';
+                } else {
+                    document.getElementById('loginNavBtn').style.display = 'none';
+                    document.getElementById('profileBtn').style.display = '';
+                }
+            } else if (pageId === 'loginPage') {
+                document.getElementById('homeBtn').style.display = '';
+                document.getElementById('profileBtn').style.display = 'none';
+                document.getElementById('loginNavBtn').style.display = 'none';
+            }
+        }
+
+        // 登录
+        function doLogin() {
+            var phone = document.getElementById('loginPhone').value.trim();
+            var password = document.getElementById('loginPassword').value.trim();
+            if (!phone || !password) {
+                document.getElementById('loginError').textContent = '请输入手机号和密码';
+                document.getElementById('loginError').style.display = 'block';
+                return;
+            }
+            fetch(API_BASE + '/auth/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({phone: phone, password: password})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.user) {
+                    onLoginSuccess(data.user, data.military_rank);
+                } else {
+                    document.getElementById('loginError').textContent = data.error || '登录失败';
+                    document.getElementById('loginError').style.display = 'block';
+                }
+            });
+        }
+
+        function onLoginSuccess(user, militaryRank) {
+            state.currentUser = user;
+            state.militaryRank = militaryRank || null;
+            localStorage.setItem('userId', user.id);
+            document.getElementById('profileBtn').style.display = '';
+            document.getElementById('loginNavBtn').style.display = 'none';
+            updateProfileCardLogoutBtn();
+            showPage('homePage');
+            loadBooks();
+        }
+
+        function logout() {
+            state.currentUser = null;
+            localStorage.removeItem('userId');
+            document.getElementById('profileBtn').style.display = 'none';
+            document.getElementById('loginNavBtn').style.display = '';
+            showPage('homePage');
+            loadPublicBooks();
+        }
+
+        // 注册
+        function showRegister() {
+            document.getElementById('registerModal').style.display = 'flex';
+        }
+
+        function hideRegister() {
+            document.getElementById('registerModal').style.display = 'none';
+        }
+
+        function doRegister() {
+            var phone = document.getElementById('registerPhone').value.trim();
+            var password = document.getElementById('registerPassword').value.trim();
+            if (!phone || !password) {
+                document.getElementById('registerError').textContent = '请输入手机号和密码';
+                document.getElementById('registerError').style.display = 'block';
+                return;
+            }
+            fetch(API_BASE + '/auth/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({phone: phone, password: password})
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.user) {
+                    hideRegister();
+                    onLoginSuccess(data.user, data.military_rank);
+                } else {
+                    document.getElementById('registerError').textContent = data.error || '注册失败';
+                    document.getElementById('registerError').style.display = 'block';
+                }
+            });
+        }
+
+        // 加载书籍
+        async function loadBooks() {
+            loadStats();
+            var userId = (state.currentUser && state.currentUser.id) ? state.currentUser.id : '';
+            var response = await fetch(API_BASE + '/books?user_id=' + userId);
+            var data = await response.json();
+            state.books = data.books || [];
+            renderBookList();
+        }
+
+        async function loadPublicBooks() {
+            loadStats();
+            var response = await fetch(API_BASE + '/public/books');
+            var data = await response.json();
+            state.books = data.books || [];
+            renderBookList();
+        }
+
+        function renderBookList() {
+            var container = document.getElementById('bookList');
+            if (state.books.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">📖</div><p>还没有书籍</p></div>';
+                return;
+            }
+            var isLoggedIn = state.currentUser && state.currentUser.phone;
+            container.innerHTML = state.books.map(function(book, index) {
+                var safeTitle = (book.title || '').replace(/[<>"'&]/g, function(c) {
+                    return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
+                });
+                var safeAuthor = (book.author || '').replace(/[<>"'&]/g, function(c) {
+                    return ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'})[c];
+                });
+                var rs = book.reading_stats || {};
+                var totalSec = rs.total_sections || book.total_sections || 0;
+                var readSec = rs.read || 0;
+                var totalCh = book.total_chapters || 0;
+                var totalWords = book.total_words || 0;
+                var totalAnno = book.total_annotations || 0;
+                var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
+                var coverHtml = book.icon_path
+                    ? '<img src="' + book.icon_path + '" style="width:100%;height:100%;border-radius:6px;object-fit:fill;">'
+                    : '📚';
+                var heatValue = book.thought_heat || 0;
+                var heatLabel = heatValue > 0 ? '<div style="position:absolute;top:8px;right:8px;background:linear-gradient(135deg,#2C3E50,#34495E);color:white;font-size:11px;padding:2px 6px;border-radius:10px;font-weight:bold;z-index:1;box-shadow:0 2px 4px rgba(0,0,0,0.2);">🔥' + heatValue + '°</div>' : '';
+                var clickHandler = isLoggedIn
+                    ? 'openBookCatalog(' + book.id + ')'
+                    : 'openBookAsGuest(' + book.id + ')';
+                return '<div class="book-card" onclick="' + clickHandler + '" style="position:relative;">' +
+                    '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
+                    heatLabel +
+                    '<div class="cover">' + coverHtml + '</div>' +
+                    '<div class="info">' +
+                    '<div class="title">' + safeTitle + '</div>' +
+                    '<div class="meta">' + safeAuthor + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + '</div>' +
+                    '<div class="book-stats-row">' +
+                    '<span>' + (totalCh > 0 ? totalCh + '章' : '') + totalSec + '节</span>' +
+                    '<span>' + wordsStr + '字</span>' +
+                    '<span>点评' + totalAnno + '</span>' +
+                    '</div></div></div>';
+            }).join('');
+        }
+
+        function loadStats() {
+            fetch(API_BASE + '/stats').then(function(r) { return r.json(); }).then(function(data) {
+                document.getElementById('statBooks').textContent = data.book_count || 0;
+                document.getElementById('statUsers').textContent = data.user_count || 0;
+                document.getElementById('statHeat').textContent = data.thought_heat || 0;
+            });
+        }
+
+        // 跳转到目录页
+        function openBookCatalog(bookId) {
+            location.href = 'catalog.html?book_id=' + bookId;
+        }
+
+        // 匿名用户登录
+        async function openBookAsGuest(bookId) {
+            if (state.currentUser && !state.currentUser.phone) {
+                openBookCatalog(bookId);
+                return;
+            }
+            var deviceInfo = getDeviceInfo();
+            var resp = await fetch(API_BASE + '/auth/anonymous', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    device_id: deviceInfo.deviceId,
+                    device_info: getDeviceFullInfo()
+                })
+            });
+            var data = await resp.json();
+            if (data.user) {
+                state.currentUser = data.user;
+                localStorage.setItem('userId', data.user.id);
+                document.getElementById('profileBtn').style.display = '';
+                document.getElementById('loginNavBtn').style.display = 'none';
+                openBookCatalog(bookId);
+            }
+        }
+
+        // 设备信息
+        function getDeviceInfo() {
+            var deviceId = localStorage.getItem('deviceId');
+            if (!deviceId) {
+                deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('deviceId', deviceId);
+            }
+            return { deviceId: deviceId };
+        }
+
+        function getDeviceFullInfo() {
+            return navigator.userAgent;
+        }
+
+        // 汉堡菜单
+        function toggleProfileCard() {
+            var card = document.getElementById('profileCard');
+            card.style.display = (card.style.display === 'none' || card.style.display === '') ? 'block' : 'none';
+        }
+
+        function updateProfileCardLogoutBtn() {
+            var btn = document.getElementById('profileCardLogoutBtn');
+            if (state.currentUser && state.currentUser.phone) {
+                btn.innerHTML = '🚪 退出';
+                btn.onclick = function() { logout(); };
+            } else {
+                btn.innerHTML = '📝 登录/注册';
+                btn.onclick = function() { toggleProfileCard(); showPage('loginPage'); };
+            }
+        }
+
+        function goToRankMerits() {
+            location.href = 'catalog.html?page=rankMerits';
+        }
+
+        function goToUserInfo() {
+            location.href = 'catalog.html?page=userInfo';
+        }
+
+        function goToPassword() {
+            location.href = 'catalog.html?page=password';
+        }
+
+        function goToMessage() {
+            location.href = 'catalog.html?page=message';
+        }
+
+        // 初始化
+        function checkLogin() {
+            var userId = localStorage.getItem('userId');
+            if (userId) {
+                fetch(API_BASE + '/auth/check?user_id=' + userId).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.user) {
+                        onLoginSuccess(data.user, data.military_rank);
+                    } else {
+                        showPage('homePage');
+                        loadPublicBooks();
+                        updateProfileCardLogoutBtn();
+                    }
+                });
+            } else {
+                showPage('homePage');
+                loadPublicBooks();
+                updateProfileCardLogoutBtn();
+            }
+        }
+
+        // 点击页面其他区域关闭菜单
+        document.addEventListener('click', function(e) {
+            var card = document.getElementById('profileCard');
+            var btn = document.getElementById('profileBtn');
+            if (card.style.display === 'block' && !card.contains(e.target) && e.target !== btn) {
+                card.style.display = 'none';
+            }
+        });
+
+        checkLogin();
+    </script>
+</body>
+</html>
