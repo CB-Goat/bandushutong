@@ -1533,6 +1533,11 @@
         <!-- 公开浏览页（登录前可见） -->
         <!-- 首页 - 书架 -->
         <div class="page active" id="homePage" style="flex-direction:column;">
+            <div id="homeStats" style="flex-shrink:0;width:100%;padding:8px 15px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;font-size:13px;display:flex;justify-content:center;align-items:center;gap:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <span>📚 收录书籍 <strong id="statBooks">0</strong> 本</span>
+                <span>👥 当前用户 <strong id="statUsers">0</strong> 人</span>
+                <span>🔥 思考热度 <strong id="statHeat">0</strong>°</span>
+            </div>
             <div class="book-list" id="bookList" style="flex:1;overflow-y:auto;min-height:200px;width:100%;padding:10px 15px;box-sizing:border-box;"></div>
             <!-- 书架页宣传区域 -->
             <div id="homePromotion" style="flex-shrink:0;max-width:500px;width:100%;margin:15px auto 0;margin-top:auto;padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));background:linear-gradient(160deg,#1a3a0a 0%,#2d5016 35%,#3a6520 100%);color:#e8e0c8;border-radius:12px 12px 0 0;box-shadow:0 -2px 12px rgba(0,0,0,0.15);border:2px solid rgba(255,215,0,0.25);border-bottom:none;overflow:hidden;">
@@ -2164,6 +2169,7 @@
         async function loadPublicBooks() {
             if (_loadPublicBooksLock) return;
             _loadPublicBooksLock = true;
+            loadStats();
             try {
                 var response = await fetch(API_BASE + '/public/books');
                 var data = await response.json();
@@ -2229,10 +2235,11 @@
             }
         }
 
-        var _loadBooksLock = false;  // 防止并发调用
+        var _loadBooksLock = false;
         async function loadBooks() {
             if (_loadBooksLock) return;
             _loadBooksLock = true;
+            loadStats();
             try {
                 var response = await fetch(API_BASE + '/books');
                 var data = await response.json();
@@ -2247,6 +2254,14 @@
                 state.userSubscriptions = [];
                 renderBookList();
             } catch (e) { console.error('加载书籍失败:', e); } finally { _loadBooksLock = false; }
+        }
+
+        function loadStats() {
+            fetch(API_BASE + '/stats').then(function(r) { return r.json(); }).then(function(data) {
+                document.getElementById('statBooks').textContent = data.book_count || 0;
+                document.getElementById('statUsers').textContent = data.user_count || 0;
+                document.getElementById('statHeat').textContent = data.thought_heat || 0;
+            }).catch(function(e) { console.error('加载统计失败:', e); });
         }
 
         function renderBookList() {

@@ -2921,6 +2921,38 @@ def edit_thought(thought_id):
     """更新思考"""
     data = request.json
     user_id = data.get('user_id')
+    content = data.get('content')
+    if not user_id or not content:
+        return jsonify({'error': '缺少参数'}), 400
+    update_thought(thought_id, int(user_id), content)
+    return jsonify({'message': '已更新'})
+
+@api_bp.route('/stats', methods=['GET'])
+def get_stats():
+    """获取系统统计数据"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) as cnt FROM books')
+    book_count = cursor.fetchone()['cnt']
+    
+    cursor.execute('SELECT COUNT(*) as cnt FROM users')
+    user_count = cursor.fetchone()['cnt']
+    
+    cursor.execute('SELECT ai_score FROM thoughts WHERE ai_score IS NOT NULL')
+    thoughts = cursor.fetchall()
+    heat = 0
+    for t in thoughts:
+        score = t['ai_score'] or 0
+        heat += (score + 1)
+    
+    conn.close()
+    
+    return jsonify({
+        'book_count': book_count,
+        'user_count': user_count,
+        'thought_heat': heat
+    })
     if not user_id:
         return jsonify({'error': '未登录'}), 401
     update_thought(thought_id, int(user_id), data.get('content', ''))
