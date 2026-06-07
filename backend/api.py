@@ -644,6 +644,14 @@ def upload_book():
     except Exception as e:
         return jsonify({'error': f'解析失败: {str(e)}'}), 500
 
+@api_bp.route('/sections/<int:section_id>', methods=['GET'])
+def get_section_detail(section_id):
+    """获取小节详情"""
+    section = get_section(section_id)
+    if not section:
+        return jsonify({'error': '小节不存在'}), 404
+    return jsonify({'section': section})
+
 @api_bp.route('/sections/<int:section_id>/audio', methods=['POST'])
 def generate_section_audio(section_id):
     """生成小节的语音"""
