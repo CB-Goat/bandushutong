@@ -171,24 +171,19 @@
                 return;
             }
 
-            try {
-                var response = await fetch(API_BASE + '/sections/' + sectionId);
-                var data = await response.json();
-
-                if (!response.ok) {
-                    alert('加载失败: ' + data.error);
-                    goBack();
+            var sectionData = localStorage.getItem('currentSection');
+            if (sectionData) {
+                try {
+                    state.currentSection = JSON.parse(sectionData);
+                    document.getElementById('sectionTitle').textContent = state.currentSection.title || '阅读';
+                    document.getElementById('chalkText').textContent = state.currentSection.content || '暂无内容';
                     return;
+                } catch (e) {
+                    console.error('解析章节数据失败:', e);
                 }
-
-                state.currentSection = data.section;
-                document.getElementById('sectionTitle').textContent = data.section.title || '阅读';
-                document.getElementById('chalkText').textContent = data.section.content || '暂无内容';
-
-            } catch (e) {
-                alert('网络错误: ' + e.message);
-                goBack();
             }
+
+            document.getElementById('chalkText').innerHTML = '<div class="loading">暂无章节数据，请从目录页进入</div>';
         }
 
         // 播放/暂停

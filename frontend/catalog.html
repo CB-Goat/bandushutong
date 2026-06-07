@@ -217,6 +217,10 @@
 
         // 打开章节
         function openSection(sectionId) {
+            var section = state.sections.find(function(s) { return s.id === sectionId; });
+            if (section) {
+                localStorage.setItem('currentSection', JSON.stringify(section));
+            }
             location.href = 'reader.html?book_id=' + state.currentBook.id + '&section_id=' + sectionId;
         }
 
