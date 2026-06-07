@@ -2298,7 +2298,7 @@
                     : 'openBookAsGuest(' + book.id + ', \'' + safeTitle.replace(/'/g, "\\'") + '\', \'' + (book.icon_path || '').replace(/'/g, "\\'") + '\')';
                 var readStyle = readSec > 0 ? 'background:linear-gradient(135deg,#4CAF50,#45a049);color:white;padding:2px 6px;border-radius:3px;' : '';
                 var heatValue = book.thought_heat || 0;
-                var heatLabel = heatValue > 0 ? '<div style="position:absolute;top:8px;right:8px;background:linear-gradient(135deg,#FF6B6B,#FF8E53);color:white;font-size:11px;padding:2px 6px;border-radius:10px;font-weight:bold;z-index:1;">🔥' + heatValue + '°</div>' : '';
+                var heatLabel = heatValue > 0 ? '<div style="position:absolute;top:8px;right:8px;background:linear-gradient(135deg,#2C3E50,#34495E);color:white;font-size:11px;padding:2px 6px;border-radius:10px;font-weight:bold;z-index:1;box-shadow:0 2px 4px rgba(0,0,0,0.2);">🔥' + heatValue + '°</div>' : '';
                 return '<div class="book-card" onclick="' + clickHandler + '" style="position:relative;">' +
                     '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
                     heatLabel +
