@@ -2296,8 +2296,8 @@
                 var clickHandler = isLoggedIn 
                     ? 'openBookCatalog(' + book.id + ',\'' + safeTitle.replace(/'/g, "\\'") + '\',\'' + (book.icon_path || '').replace(/'/g, "\\'") + '\')'
                     : 'openBookAsGuest(' + book.id + ', \'' + safeTitle.replace(/'/g, "\\'") + '\', \'' + (book.icon_path || '').replace(/'/g, "\\'") + '\')';
-                var cardStyle = readSec > 0 ? 'position:relative;background:linear-gradient(135deg,#e8f5e9 0%,#c8e6c9 100%);' : 'position:relative;';
-                return '<div class="book-card" onclick="' + clickHandler + '" style="' + cardStyle + '">' +
+                var readStyle = readSec > 0 ? 'background:linear-gradient(135deg,#4CAF50,#45a049);color:white;padding:2px 6px;border-radius:3px;' : '';
+                return '<div class="book-card" onclick="' + clickHandler + '" style="position:relative;">' +
                     '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
                     '<div class="cover">' + coverHtml + '</div>' +
                     '<div class="info">' +
@@ -2305,7 +2305,7 @@
                     '<div class="meta">' + safeAuthor + (book.author_nationality ? ' [' + book.author_nationality + ']' : '') + (book.version ? ' · ' + book.version : '') + '</div>' +
                     '<div class="book-stats-row">' +
                     '<span>' + (totalCh > 0 ? totalCh + '章' : '') + totalSec + '节</span>' +
-                    '<span>已读' + readSec + '节</span>' +
+                    '<span style="' + readStyle + '">已读' + readSec + '节</span>' +
                     '<span>' + wordsStr + '字</span>' +
                     '<span>点评' + totalAnno + '</span>' +
                     accessLabel +
