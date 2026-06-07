@@ -75,6 +75,10 @@
             cursor: pointer;
             flex-shrink: 0;
         }
+        .play-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         .progress-area {
             flex: 1;
             padding: 0 10px;
@@ -91,6 +95,14 @@
             width: 0%;
             transition: width 0.3s;
         }
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #8a7e6a;
+            margin-top: 3px;
+            font-family: -apple-system, sans-serif;
+        }
         .chalkboard {
             flex: 1;
             padding: 20px;
@@ -106,6 +118,14 @@
             color: #f0e8d0;
             text-shadow: 0 0 5px rgba(240,232,208,0.3), 1px 1px 0 rgba(0,0,0,0.2);
             letter-spacing: 1px;
+        }
+        .chalk-char {
+            display: inline;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+        .chalk-char.visible {
+            opacity: 1;
         }
         .loading {
             text-align: center;
@@ -127,6 +147,10 @@
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill"></div>
                 </div>
+                <div class="time-display">
+                    <span id="currentTime">0:00</span>
+                    <span id="totalTime">0:00</span>
+                </div>
             </div>
         </div>
         <div class="chalkboard">
@@ -139,12 +163,16 @@
     <script>
         const API_BASE = '/api';
         var state = {
-            currentBook: null,
             currentSection: null,
-            isPlaying: false
+            isPlaying: false,
+            playbackPlan: null,
+            audioIndex: 0,
+            charTimeline: [],
+            totalDuration: 0,
+            currentTime: 0
         };
+        var audio = new Audio();
 
-        // 获取URL参数
         function getUrlParam(name) {
             var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
             var r = window.location.search.substr(1).match(reg);
@@ -152,7 +180,6 @@
             return null;
         }
 
-        // 返回目录
         function goBack() {
             var bookId = getUrlParam('book_id');
             if (bookId) {
@@ -162,7 +189,6 @@
             }
         }
 
-        // 加载章节
         async function loadSection() {
             var sectionId = getUrlParam('section_id');
             if (!sectionId) {
@@ -176,24 +202,138 @@
                 try {
                     state.currentSection = JSON.parse(sectionData);
                     document.getElementById('sectionTitle').textContent = state.currentSection.title || '阅读';
-                    document.getElementById('chalkText').textContent = state.currentSection.content || '暂无内容';
+                    renderText(state.currentSection.content || '');
+                    loadPlaybackPlan(sectionId);
                     return;
                 } catch (e) {
                     console.error('解析章节数据失败:', e);
                 }
             }
 
-            document.getElementById('chalkText').innerHTML = '<div class="loading">暂无章节数据，请从目录页进入</div>';
+            document.getElementById('chalkText').innerHTML = '<div class="loading">暂无章节数据</div>';
         }
 
-        // 播放/暂停
+        async function loadPlaybackPlan(sectionId) {
+            try {
+                var response = await fetch(API_BASE + '/sections/' + sectionId + '/playback-plan');
+                var data = await response.json();
+
+                if (data.playlist && data.playlist.length > 0) {
+                    state.playbackPlan = data.playlist;
+                    state.totalDuration = data.total_duration || 0;
+                    document.getElementById('totalTime').textContent = formatTime(state.totalDuration);
+
+                    for (var i = 0; i < data.playlist.length; i++) {
+                        var item = data.playlist[i];
+                        if (item.type === 'text_segment' && item.char_timeline) {
+                            var timeline = item.char_timeline;
+                            if (typeof timeline === 'string') {
+                                try { timeline = JSON.parse(timeline); } catch (e) { timeline = []; }
+                            }
+                            state.charTimeline = state.charTimeline.concat(timeline);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('加载播放计划失败:', e);
+            }
+        }
+
+        function renderText(text) {
+            var container = document.getElementById('chalkText');
+            var html = '';
+            for (var i = 0; i < text.length; i++) {
+                var char = text[i];
+                if (char === '\n') {
+                    html += '<br>';
+                } else {
+                    html += '<span class="chalk-char" data-index="' + i + '">' + char + '</span>';
+                }
+            }
+            container.innerHTML = html;
+        }
+
         function togglePlay() {
-            state.isPlaying = !state.isPlaying;
-            document.getElementById('playBtn').textContent = state.isPlaying ? '⏸' : '▶';
-            // TODO: 实现播放逻辑
+            if (!state.playbackPlan || state.playbackPlan.length === 0) {
+                alert('暂无音频');
+                return;
+            }
+
+            if (state.isPlaying) {
+                pause();
+            } else {
+                play();
+            }
         }
 
-        // 初始化
+        function play() {
+            state.isPlaying = true;
+            document.getElementById('playBtn').textContent = '⏸';
+
+            if (audio.paused && audio.src) {
+                audio.play();
+            } else {
+                playNextAudio();
+            }
+        }
+
+        function pause() {
+            state.isPlaying = false;
+            document.getElementById('playBtn').textContent = '▶';
+            audio.pause();
+        }
+
+        function playNextAudio() {
+            if (state.audioIndex >= state.playbackPlan.length) {
+                state.audioIndex = 0;
+                pause();
+                return;
+            }
+
+            var item = state.playbackPlan[state.audioIndex];
+            if (item.type === 'text_segment' && item.audio_path) {
+                audio.src = item.audio_path;
+                audio.play();
+            } else {
+                state.audioIndex++;
+                playNextAudio();
+            }
+        }
+
+        audio.onended = function() {
+            state.audioIndex++;
+            if (state.isPlaying) {
+                playNextAudio();
+            }
+        };
+
+        audio.ontimeupdate = function() {
+            state.currentTime = audio.currentTime;
+            var progress = (audio.currentTime / state.totalDuration) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('currentTime').textContent = formatTime(audio.currentTime);
+
+            updateCharDisplay(audio.currentTime);
+        };
+
+        function updateCharDisplay(currentTime) {
+            if (state.charTimeline.length === 0) return;
+
+            var chars = document.querySelectorAll('.chalk-char');
+            for (var i = 0; i < state.charTimeline.length; i++) {
+                var point = state.charTimeline[i];
+                if (currentTime >= point.time && chars[point.char_index]) {
+                    chars[point.char_index].classList.add('visible');
+                }
+            }
+        }
+
+        function formatTime(seconds) {
+            var mins = Math.floor(seconds / 60);
+            var secs = Math.floor(seconds % 60);
+            return mins + ':' + (secs < 10 ? '0' : '') + secs;
+        }
+
         loadSection();
     </script>
 </body>
