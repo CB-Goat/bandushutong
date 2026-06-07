@@ -2297,8 +2297,11 @@
                     ? 'openBookCatalog(' + book.id + ',\'' + safeTitle.replace(/'/g, "\\'") + '\',\'' + (book.icon_path || '').replace(/'/g, "\\'") + '\')'
                     : 'openBookAsGuest(' + book.id + ', \'' + safeTitle.replace(/'/g, "\\'") + '\', \'' + (book.icon_path || '').replace(/'/g, "\\'") + '\')';
                 var readStyle = readSec > 0 ? 'background:linear-gradient(135deg,#4CAF50,#45a049);color:white;padding:2px 6px;border-radius:3px;' : '';
+                var heatValue = book.thought_heat || 0;
+                var heatLabel = heatValue > 0 ? '<div style="position:absolute;top:8px;right:8px;background:linear-gradient(135deg,#FF6B6B,#FF8E53);color:white;font-size:11px;padding:2px 6px;border-radius:10px;font-weight:bold;z-index:1;">🔥' + heatValue + '°</div>' : '';
                 return '<div class="book-card" onclick="' + clickHandler + '" style="position:relative;">' +
                     '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
+                    heatLabel +
                     '<div class="cover">' + coverHtml + '</div>' +
                     '<div class="info">' +
                     '<div class="title">' + safeTitle + '</div>' +

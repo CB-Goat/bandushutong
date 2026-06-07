@@ -372,12 +372,10 @@ def list_books():
     from backend.database import get_db
     user_id = request.args.get('user_id', type=int)
     books = get_all_books()
-    # 为每本书附加统计信息
     for book in books:
         bid = book['id']
         stats = get_book_reading_stats(user_id, bid)
         book['reading_stats'] = stats
-        # 获取总字数和点评总数
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute('SELECT COALESCE(SUM(word_count),0) as total_words FROM sections WHERE book_id=%s', (bid,))
@@ -385,6 +383,11 @@ def list_books():
         cursor.execute('''SELECT COUNT(*) as cnt FROM annotations a
                           JOIN sections s ON a.section_id = s.id WHERE s.book_id=%s''', (bid,))
         book['total_annotations'] = cursor.fetchone()['cnt']
+        cursor.execute('''SELECT t.ai_score FROM thoughts t
+                          JOIN sections s ON t.section_id = s.id WHERE s.book_id=%s AND t.ai_score IS NOT NULL''', (bid,))
+        thoughts = cursor.fetchall()
+        heat = sum((t['ai_score'] or 0) + 1 for t in thoughts)
+        book['thought_heat'] = heat
         conn.close()
     return jsonify({'books': books})
 
