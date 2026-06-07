@@ -2241,7 +2241,8 @@
             _loadBooksLock = true;
             loadStats();
             try {
-                var response = await fetch(API_BASE + '/books');
+                var userId = (state.currentUser && state.currentUser.id) ? state.currentUser.id : '';
+                var response = await fetch(API_BASE + '/books?user_id=' + userId);
                 var data = await response.json();
                 state.books = data.books || [];
                 if (state.currentUser && state.currentUser.role !== 'admin') {
@@ -2295,7 +2296,8 @@
                 var clickHandler = isLoggedIn 
                     ? 'openBookCatalog(' + book.id + ',\'' + safeTitle.replace(/'/g, "\\'") + '\',\'' + (book.icon_path || '').replace(/'/g, "\\'") + '\')'
                     : 'openBookAsGuest(' + book.id + ', \'' + safeTitle.replace(/'/g, "\\'") + '\', \'' + (book.icon_path || '').replace(/'/g, "\\'") + '\')';
-                return '<div class="book-card" onclick="' + clickHandler + '" style="position:relative;">' +
+                var cardStyle = readSec > 0 ? 'position:relative;background:linear-gradient(135deg,#e8f5e9 0%,#c8e6c9 100%);' : 'position:relative;';
+                return '<div class="book-card" onclick="' + clickHandler + '" style="' + cardStyle + '">' +
                     '<div style="position:absolute;top:8px;left:8px;background:#FF9800;color:white;font-size:12px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:1;">' + (index + 1) + '</div>' +
                     '<div class="cover">' + coverHtml + '</div>' +
                     '<div class="info">' +
