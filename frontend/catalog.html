@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>目录 - 悦读小将</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'KaiTi', 'STKaiti', '楷体', cursive, serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            overflow: hidden;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #2d5016 0%, #1a3a0a 100%);
+            color: #e8e0c8;
+            padding: 10px 20px;
+            height: 52px;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #8B7355;
+        }
+        .navbar h1 {
+            font-size: 18px;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+        .navbar .back-btn {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #e8e0c8;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+            margin-right: 10px;
+        }
+        .catalog-container {
+            margin-top: 52px;
+            padding: 15px;
+            overflow-y: auto;
+            height: calc(100vh - 52px);
+        }
+        .book-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .book-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #2d5016;
+            margin-bottom: 8px;
+        }
+        .book-meta {
+            font-size: 14px;
+            color: #666;
+        }
+        .chapter {
+            margin-bottom: 15px;
+        }
+        .chapter-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 15px;
+            background: #f8f8f5;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d5016;
+        }
+        .section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px 10px 36px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.15s;
+            font-size: 15px;
+        }
+        .section:hover {
+            background: #f0f0e8;
+        }
+        .section .status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .section .status.read { background: #4CAF50; }
+        .section .status.reading { background: #FF9800; }
+        .section .status.unread { background: #ddd; }
+        .section .title {
+            flex: 1;
+            color: #333;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <button class="back-btn" onclick="goBack()">← 返回</button>
+        <h1 id="bookTitle">加载中...</h1>
+    </div>
+
+    <div class="catalog-container" id="catalogContent">
+        <div class="loading">加载中...</div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        var state = {
+            currentUser: null,
+            currentBook: null,
+            sections: []
+        };
+
+        // 获取URL参数
+        function getUrlParam(name) {
+            var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+            var r = window.location.search.substr(1).match(reg);
+            if (r != null) return decodeURIComponent(r[2]);
+            return null;
+        }
+
+        // 返回书架
+        function goBack() {
+            location.href = 'bookshelf.html';
+        }
+
+        // 加载目录
+        async function loadCatalog() {
+            var bookId = getUrlParam('book_id');
+            if (!bookId) {
+                alert('缺少书籍ID');
+                goBack();
+                return;
+            }
+
+            var userId = localStorage.getItem('userId') || '';
+
+            try {
+                var response = await fetch(API_BASE + '/books/' + bookId + '?user_id=' + userId);
+                var data = await response.json();
+
+                if (!response.ok) {
+                    alert('加载失败: ' + data.error);
+                    goBack();
+                    return;
+                }
+
+                state.currentBook = data.book;
+                state.sections = data.sections || [];
+                state.currentUser = { id: userId };
+
+                document.getElementById('bookTitle').textContent = data.book.title + (data.book.author ? ' - ' + data.book.author : '');
+
+                renderCatalog();
+            } catch (e) {
+                alert('网络错误: ' + e.message);
+                goBack();
+            }
+        }
+
+        // 渲染目录
+        function renderCatalog() {
+            var container = document.getElementById('catalogContent');
+
+            if (state.sections.length === 0) {
+                container.innerHTML = '<div class="loading">暂无章节</div>';
+                return;
+            }
+
+            var html = '<div class="book-header">' +
+                '<div class="book-title">' + state.currentBook.title + '</div>' +
+                '<div class="book-meta">' + (state.currentBook.author || '') +
+                (state.currentBook.author_nationality ? ' [' + state.currentBook.author_nationality + ']' : '') +
+                '</div></div>';
+
+            var currentChapter = null;
+            state.sections.forEach(function(section, index) {
+                if (section.chapter_number && section.chapter_number !== currentChapter) {
+                    currentChapter = section.chapter_number;
+                    html += '<div class="chapter">' +
+                        '<div class="chapter-header">第' + currentChapter + '章</div>';
+                }
+
+                var status = section.status || 'unread';
+                var statusClass = status === 'read' ? 'read' : (status === 'reading' ? 'reading' : 'unread');
+
+                html += '<div class="section" onclick="openSection(' + section.id + ')">' +
+                    '<div class="status ' + statusClass + '"></div>' +
+                    '<div class="title">' + (section.title || '第' + section.section_number + '节') + '</div>' +
+                    '</div>';
+            });
+
+            container.innerHTML = html;
+        }
+
+        // 打开章节
+        function openSection(sectionId) {
+            location.href = 'reader.html?book_id=' + state.currentBook.id + '&section_id=' + sectionId;
+        }
+
+        // 初始化
+        loadCatalog();
+    </script>
+</body>
+</html>
