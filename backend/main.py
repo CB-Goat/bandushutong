@@ -37,6 +37,16 @@ def index():
     """提供前端首页"""
     return send_from_directory(FRONTEND_DIR, 'index.html')
 
+@app.route('/<page>.html')
+def serve_page(page):
+    """提供分页HTML文件"""
+    allowed = {'bookshelf', 'catalog', 'reader', 'usercenter', 'admin'}
+    if page in allowed:
+        filepath = os.path.join(FRONTEND_DIR, page + '.html')
+        if os.path.exists(filepath):
+            return send_from_directory(FRONTEND_DIR, page + '.html')
+    return jsonify({'error': 'Not found'}), 404
+
 @app.route('/ranks/<path:filename>')
 def serve_ranks(filename):
     """提供军衔肩章图片和头像"""
