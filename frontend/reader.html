@@ -150,26 +150,7 @@
         }
         .section-nav button:hover:not(:disabled) { background: rgba(255,255,255,0.2); }
         .section-nav button:disabled { color: #665e50; cursor: not-allowed; border-color: transparent; }
-        .section-nav .play-btn {
-            background: linear-gradient(135deg, #4a8c2a 0%, #2d5016 100%);
-            border: 2px solid #6ab04c;
-            color: #f0e8d0;
-            width: 44px; height: 44px; padding: 0;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; flex-shrink: 0;
-        }
-        .section-nav .edit-annotation-btn {
-            background: rgba(255, 215, 0, 0.15);
-            border: 1px solid rgba(255, 215, 0, 0.4);
-            color: #FFD700; font-size: 13px; padding: 8px 12px;
-            border-radius: 20px; cursor: pointer; font-family: inherit;
-            white-space: nowrap; transition: all 0.3s;
-        }
-        .section-nav .edit-annotation-btn.active {
-            background: rgba(255, 215, 0, 0.35);
-            border-color: #FFD700;
-            box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
-        }
+
         .section-nav .progress-area { flex: 1; max-width: 200px; padding: 0 10px; }
         .section-nav .progress-bar {
             height: 4px; background: rgba(255,255,255,0.1);
@@ -344,8 +325,7 @@
 
         <div class="section-nav">
             <button id="prevBtn" onclick="reader.prevSection()" disabled>← 上一节</button>
-            <button class="play-btn" id="playBtnNav" onclick="player.toggle()">&#9654;</button>
-            <button class="edit-annotation-btn" id="editAnnotationBtnNav" onclick="thoughtEditor.toggleEditMode()">+思考</button>
+
             <div class="progress-area">
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFillNav"></div>
@@ -1231,7 +1211,7 @@
                 this.audio.onerror = function() {
                     self.isPlaying = false; state.isPlaying = false; self.audio.pause();
                     document.getElementById('playBtn').textContent = '\u26A0';
-                    document.getElementById('playBtnNav').textContent = '\u26A0';
+
                 };
             },
 
@@ -1298,7 +1278,7 @@
             _preloadAllAudio: function() {
                 var self = this;
                 var playBtn = document.getElementById('playBtn');
-                var playBtnNav = document.getElementById('playBtnNav');
+
                 function normalizeAudioPath(path) {
                     if (!path) return null;
                     if (path.startsWith('audio_files/')) return '/api/audio/' + path.replace('audio_files/', '');
@@ -1320,16 +1300,14 @@
                 });
                 if (missingSegs) {
                     playBtn.disabled = true; playBtn.style.opacity = '0.5'; playBtn.textContent = '\u26A0';
-                    playBtnNav.disabled = true; playBtnNav.style.opacity = '0.5'; playBtnNav.textContent = '\u26A0';
                     return;
                 }
                 playBtn.disabled = true; playBtn.style.opacity = '0.5'; playBtn.textContent = '\u23F3';
-                playBtnNav.disabled = true; playBtnNav.style.opacity = '0.5'; playBtnNav.textContent = '\u23F3';
                 var loaded = 0;
                 var total = audioPaths.length;
                 if (total === 0) {
                     playBtn.disabled = false; playBtn.style.opacity = '1'; playBtn.textContent = '\u25B6';
-                    playBtnNav.disabled = false; playBtnNav.style.opacity = '1'; playBtnNav.textContent = '\u25B6';
+
                     return;
                 }
                 audioPaths.forEach(function(path) {
@@ -1338,12 +1316,12 @@
                         loaded++;
                         if (loaded >= total) {
                             playBtn.disabled = false; playBtn.style.opacity = '1'; playBtn.textContent = '\u25B6'; playBtn.title = '';
-                            playBtnNav.disabled = false; playBtnNav.style.opacity = '1'; playBtnNav.textContent = '\u25B6';
+
                         }
                     }, { once: true });
                     a.addEventListener('error', function() {
                         playBtn.disabled = true; playBtn.style.opacity = '0.5'; playBtn.textContent = '\u26A0'; playBtn.title = '音频不完整';
-                        playBtnNav.disabled = true; playBtnNav.style.opacity = '0.5'; playBtnNav.textContent = '\u26A0';
+
                     }, { once: true });
                     a.load();
                 });
@@ -1369,7 +1347,7 @@
                 this.audio.pause();
                 this.isPlaying = false; state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
-                document.getElementById('playBtnNav').textContent = '\u25B6';
+                document.getElementById('playBtnNav')?.textContent = '\u25B6';
                 thoughtEditor.updateAllLanternsState();
             },
 
@@ -1389,7 +1367,7 @@
                         this.audio.play().then(function() {
                             self.isPlaying = true; state.isPlaying = true;
                             document.getElementById('playBtn').textContent = '\u23F8';
-                            document.getElementById('playBtnNav').textContent = '\u23F8';
+                            document.getElementById('playBtnNav')?.textContent = '\u23F8';
                             thoughtEditor.updateAllLanternsState();
                             if (self._resumeTimeInSegment > 0) {
                                 self.audio.currentTime = self._resumeTimeInSegment;
@@ -1397,7 +1375,7 @@
                             }
                         }).catch(function() {
                             document.getElementById('playBtn').textContent = '\u25B6';
-                            document.getElementById('playBtnNav').textContent = '\u25B6';
+                            document.getElementById('playBtnNav')?.textContent = '\u25B6';
                         });
                     } else { this._onSegmentEnd(); }
                 } else if (seg.type === 'insert_point') {
@@ -1466,7 +1444,7 @@
             _onAllSegmentsEnd: function() {
                 this.isPlaying = false; state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
-                document.getElementById('playBtnNav').textContent = '\u25B6';
+                document.getElementById('playBtnNav')?.textContent = '\u25B6';
                 document.getElementById('progressFill').style.width = '100%';
                 document.getElementById('progressFillNav').style.width = '100%';
                 if (reader.revealAll) reader.revealAll();
@@ -1574,7 +1552,7 @@
                     this.audio.onended = function() {
                         self.isPlaying = false; state.isPlaying = false;
                         document.getElementById('playBtn').textContent = '\u25B6';
-                        document.getElementById('playBtnNav').textContent = '\u25B6';
+                        document.getElementById('playBtnNav')?.textContent = '\u25B6';
                         self._onSegmentEnd();
                     };
                     if (reader.revealCharsUpTo) {
@@ -1588,7 +1566,7 @@
                             self.audio.play().then(function() {
                                 self.isPlaying = true; state.isPlaying = true;
                                 document.getElementById('playBtn').textContent = '\u23F8';
-                                document.getElementById('playBtnNav').textContent = '\u23F8';
+                                document.getElementById('playBtnNav')?.textContent = '\u23F8';
                             }).catch(function() {});
                             self.audio.removeEventListener('canplay', canPlayHandler);
                         };
@@ -1676,9 +1654,7 @@
                 this._wasPlayingBeforeEdit = state.isPlaying || player.isPlaying;
                 if (this._wasPlayingBeforeEdit) player.pause();
                 var btn = document.getElementById('editAnnotationBtn');
-                var btnNav = document.getElementById('editAnnotationBtnNav');
                 if (btn) btn.textContent = '✓ 完成思考';
-                if (btnNav) { btnNav.textContent = '✓ 完成思考'; btnNav.classList.add('active'); }
                 var self = this;
                 document.querySelectorAll('.chalk-char.visible').forEach(function(c) {
                     c.classList.add('selectable');
@@ -1689,9 +1665,7 @@
             exitEditMode: function() {
                 this.isEditMode = false; this._startChar = -1; this._endChar = -1; this._wasPlayingBeforeEdit = false;
                 var btn = document.getElementById('editAnnotationBtn');
-                var btnNav = document.getElementById('editAnnotationBtnNav');
                 if (btn) btn.textContent = '+思考';
-                if (btnNav) { btnNav.textContent = '+思考'; btnNav.classList.remove('active'); }
                 document.querySelectorAll('.chalk-char.selectable').forEach(function(c) {
                     c.classList.remove('selectable', 'thought-selected');
                     c.removeEventListener('click', thoughtEditor._onCharClick);
