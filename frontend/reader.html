@@ -80,6 +80,16 @@
             text-overflow: ellipsis;
             flex: 1;
         }
+        .reader-header .nav-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #e8e0c8;
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; cursor: pointer; flex-shrink: 0;
+        }
+        .reader-header .nav-btn:disabled { color: #665e50; cursor: not-allowed; border-color: transparent; }
         .reader-header .header-controls {
             display: flex;
             align-items: center;
@@ -126,45 +136,7 @@
             font-family: inherit;
             white-space: nowrap;
         }
-        .section-nav {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 12px;
-            background: #3a3226;
-            padding: 10px 15px;
-            border-left: 2px solid #8B7355;
-            border-right: 2px solid #8B7355;
-            flex-wrap: wrap;
-        }
-        .section-nav button {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            padding: 8px 14px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 14px;
-            color: #e8e0c8;
-            font-family: inherit;
-            white-space: nowrap;
-        }
-        .section-nav button:hover:not(:disabled) { background: rgba(255,255,255,0.2); }
-        .section-nav button:disabled { color: #665e50; cursor: not-allowed; border-color: transparent; }
 
-        .section-nav .progress-area { flex: 1; max-width: 200px; padding: 0 10px; }
-        .section-nav .progress-bar {
-            height: 4px; background: rgba(255,255,255,0.1);
-            border-radius: 2px; overflow: hidden;
-        }
-        .section-nav .progress-fill {
-            height: 100%; background: linear-gradient(90deg, #6ab04c, #f0e8d0);
-            width: 0%; transition: width 0.3s; border-radius: 2px;
-        }
-        .section-nav .time-display {
-            display: flex; justify-content: space-between;
-            font-size: 11px; color: #8a7e6a; margin-top: 3px;
-            font-family: -apple-system, sans-serif;
-        }
         .chalkboard {
             background: #2a4a1a; border: 3px solid #8B7355; border-top: none;
             border-radius: 0; padding: 10px 6px; position: relative;
@@ -311,7 +283,9 @@
 
     <div class="reader-container">
         <div class="reader-header">
+            <button class="nav-btn" id="prevBtn" onclick="reader.prevSection()" disabled title="上一节">←</button>
             <span class="section-title" id="readerSectionTitle">第1节</span>
+            <button class="nav-btn" id="nextBtn" onclick="reader.nextSection()" disabled title="下一节">→</button>
             <div class="header-controls">
                 <div class="mini-progress">
                     <div class="mini-progress-bar">
@@ -323,20 +297,6 @@
             </div>
         </div>
 
-        <div class="section-nav">
-            <button id="prevBtn" onclick="reader.prevSection()" disabled>← 上一节</button>
-
-            <div class="progress-area">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFillNav"></div>
-                </div>
-                <div class="time-display">
-                    <span id="currentTime">0:00</span>
-                    <span id="totalTime">0:00</span>
-                </div>
-            </div>
-            <button id="nextBtn" onclick="reader.nextSection()" disabled>下一节 →</button>
-        </div>
 
         <div class="chalkboard" id="chalkboard">
             <div class="chalk-text" id="chalkText">
@@ -563,7 +523,7 @@
                 if (sectionStatus === 'read') {
                     this.revealAll();
                     document.getElementById('progressFill').style.width = '100%';
-                    document.getElementById('progressFillNav').style.width = '100%';
+
                     analysisManager.init();
                     if (section.annotations && section.annotations.length > 0) {
                         section.annotations.forEach(function(ann) { analysisManager.addAnnotationTab(ann, true); });
@@ -657,7 +617,6 @@
                 this._totalChars = charIndex;
                 this._container = container;
                 document.getElementById('progressFill').style.width = '0%';
-                document.getElementById('progressFillNav').style.width = '0%';
             },
 
             _renderAnnotationMarkers: function() {
@@ -712,7 +671,7 @@
                     self._revealedUpTo = current;
                     var percent = self._totalChars ? (current / self._totalChars) * 100 : 0;
                     document.getElementById('progressFill').style.width = percent + '%';
-                    document.getElementById('progressFillNav').style.width = percent + '%';
+
                     if (current < target) requestAnimationFrame(processBatch);
                     else self._scrollToTarget(target);
                 }
@@ -782,7 +741,7 @@
                 this._allChars.forEach(function(c) { c.classList.add('visible'); });
                 this._revealedUpTo = this._allChars.length;
                 document.getElementById('progressFill').style.width = '100%';
-                document.getElementById('progressFillNav').style.width = '100%';
+
                 if (this._container) this._container.scrollTop = this._container.scrollHeight;
             },
 
@@ -792,7 +751,6 @@
                 document.querySelectorAll('.annotation-superscript').forEach(function(m) { m.remove(); });
                 if (this._container) this._container.scrollTop = 0;
                 document.getElementById('progressFill').style.width = '0%';
-                document.getElementById('progressFillNav').style.width = '0%';
                 this._revealedUpTo = 0;
                 state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
                 document.getElementById('annotationDisplay').classList.remove('active');
@@ -868,7 +826,6 @@
                     var scrollPercent = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
                     self._currentPosition = Math.floor(self._totalChars * scrollPercent);
                     document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
-                    document.getElementById('progressFillNav').style.width = (scrollPercent * 100) + '%';
                 };
                 container.addEventListener('scroll', this._scrollListener);
                 this._saveTimer = setInterval(function() {
@@ -917,7 +874,6 @@
                     var scrollPercent = Math.min(savedPosition / self._totalChars, 1);
                     self._currentPosition = savedPosition;
                     document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
-                    document.getElementById('progressFillNav').style.width = (scrollPercent * 100) + '%';
                     if (container.scrollHeight > container.clientHeight) {
                         var charIdx = Math.min(savedPosition - 1, self._totalChars - 1);
                         if (charIdx >= 0 && self._allChars && self._allChars[charIdx]) {
@@ -1257,7 +1213,7 @@
                             if (sectionStatus === 'reading' && reader._restoreBookmarkAndPosition) reader._restoreBookmarkAndPosition();
                             self._preloadAllAudio();
                             loadRandomQuote(sectionId);
-                            document.getElementById('totalTime').textContent = formatTime(self.audioDuration);
+
                         } else {
                             self.mode = 'generating'; self.audioUrl = null; self._checkTTSStatus();
                         }
@@ -1446,7 +1402,7 @@
                 document.getElementById('playBtn').textContent = '\u25B6';
 
                 document.getElementById('progressFill').style.width = '100%';
-                document.getElementById('progressFillNav').style.width = '100%';
+
                 if (reader.revealAll) reader.revealAll();
                 if (reader.markSectionRead) reader.markSectionRead();
                 thoughtEditor.updateAllLanternsState();
@@ -1491,9 +1447,9 @@
                 if (this.audioDuration > 0) {
                     var progress = (this.currentTime / this.audioDuration) * 100;
                     document.getElementById('progressFill').style.width = progress + '%';
-                    document.getElementById('progressFillNav').style.width = progress + '%';
+
                 }
-                document.getElementById('currentTime').textContent = formatTime(this.currentTime);
+
             },
 
             _triggerAnnotationPlayback: function(annotation) {
