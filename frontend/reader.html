@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>阅读 - 悦读小将</title>
     <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="shortcut icon" href="favicon.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -13,6 +17,9 @@
             color: #f0e8d0;
             line-height: 1.6;
             overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         .navbar {
             background: linear-gradient(135deg, #2d5016 0%, #1a3a0a 100%);
@@ -53,125 +60,390 @@
             display: flex;
             flex-direction: column;
         }
-        .controls {
+        .reader-header {
             background: #3a3226;
             padding: 10px 15px;
             display: flex;
+            justify-content: space-between;
             align-items: center;
+            border: 2px solid #8B7355;
+            border-bottom: none;
             gap: 10px;
-            border-bottom: 2px solid #8B7355;
         }
-        .play-btn {
-            background: linear-gradient(135deg, #4a8c2a 0%, #2d5016 100%);
-            border: 2px solid #6ab04c;
-            color: #f0e8d0;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
+        .reader-header .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #e8e0c8;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+        .reader-header .header-controls {
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            cursor: pointer;
-            flex-shrink: 0;
+            gap: 10px;
+            position: relative;
         }
-        .play-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .progress-area {
-            flex: 1;
-            padding: 0 10px;
-        }
-        .progress-bar {
+        .reader-header .mini-progress { width: 60px; }
+        .reader-header .mini-progress-bar {
             height: 4px;
             background: rgba(255,255,255,0.1);
             border-radius: 2px;
             overflow: hidden;
         }
-        .progress-fill {
+        .reader-header .mini-progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #6ab04c, #f0e8d0);
             width: 0%;
             transition: width 0.3s;
+            border-radius: 2px;
         }
-        .time-display {
+        .reader-header .play-btn-mini {
+            background: linear-gradient(135deg, #4a8c2a 0%, #2d5016 100%);
+            border: 2px solid #6ab04c;
+            color: #f0e8d0;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
             display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            color: #8a7e6a;
-            margin-top: 3px;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .reader-header .play-btn-mini:disabled { opacity: 0.5; cursor: not-allowed; }
+        .reader-header .add-thought-btn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #FFD700;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        .section-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            background: #3a3226;
+            padding: 10px 15px;
+            border-left: 2px solid #8B7355;
+            border-right: 2px solid #8B7355;
+            flex-wrap: wrap;
+        }
+        .section-nav button {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #e8e0c8;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        .section-nav button:hover:not(:disabled) { background: rgba(255,255,255,0.2); }
+        .section-nav button:disabled { color: #665e50; cursor: not-allowed; border-color: transparent; }
+        .section-nav .play-btn {
+            background: linear-gradient(135deg, #4a8c2a 0%, #2d5016 100%);
+            border: 2px solid #6ab04c;
+            color: #f0e8d0;
+            width: 44px; height: 44px; padding: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+        .section-nav .edit-annotation-btn {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #FFD700; font-size: 13px; padding: 8px 12px;
+            border-radius: 20px; cursor: pointer; font-family: inherit;
+            white-space: nowrap; transition: all 0.3s;
+        }
+        .section-nav .edit-annotation-btn.active {
+            background: rgba(255, 215, 0, 0.35);
+            border-color: #FFD700;
+            box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+        }
+        .section-nav .progress-area { flex: 1; max-width: 200px; padding: 0 10px; }
+        .section-nav .progress-bar {
+            height: 4px; background: rgba(255,255,255,0.1);
+            border-radius: 2px; overflow: hidden;
+        }
+        .section-nav .progress-fill {
+            height: 100%; background: linear-gradient(90deg, #6ab04c, #f0e8d0);
+            width: 0%; transition: width 0.3s; border-radius: 2px;
+        }
+        .section-nav .time-display {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: #8a7e6a; margin-top: 3px;
             font-family: -apple-system, sans-serif;
         }
         .chalkboard {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
+            background: #2a4a1a; border: 3px solid #8B7355; border-top: none;
+            border-radius: 0; padding: 10px 6px; position: relative;
+            overflow: hidden; flex: 1; display: flex; flex-direction: column;
             background-image:
                 radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.03) 0%, transparent 50%),
                 radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.02) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(0,0,0,0.1) 0%, transparent 50%),
                 linear-gradient(180deg, #2a4a1a 0%, #1e3a12 50%, #2a4a1a 100%);
+            box-shadow: inset 0 0 60px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.3);
         }
-        .chalk-text {
-            font-size: 20px;
-            line-height: 2;
-            color: #f0e8d0;
-            text-shadow: 0 0 5px rgba(240,232,208,0.3), 1px 1px 0 rgba(0,0,0,0.2);
-            letter-spacing: 1px;
+        .chalkboard::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border: 6px solid transparent;
+            border-image: linear-gradient(135deg, #a08060, #8B7355, #6d5a3e, #8B7355, #a08060) 1;
+            pointer-events: none;
         }
-        .chalk-char {
-            display: inline;
-            opacity: 0;
-            transition: opacity 0.15s ease;
+        .chalkboard .chalk-text {
+            position: relative; z-index: 1; font-size: 20px; line-height: 2;
+            color: #f0e8d0; text-shadow: 0 0 5px rgba(240,232,208,0.3), 1px 1px 0 rgba(0,0,0,0.2);
+            letter-spacing: 1px; flex: 1; overflow-y: auto; min-height: 100px; padding: 0 2px;
         }
-        .chalk-char.visible {
+        .chalkboard .chalk-char {
+            display: inline; opacity: 0; transition: opacity 0.15s ease; cursor: default;
+        }
+        .chalkboard .chalk-char.visible {
             opacity: 1;
+            text-shadow: 0 0 4px rgba(240,232,208,0.4), 0 0 8px rgba(240,232,208,0.1), 1px 1px 0 rgba(0,0,0,0.15);
         }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: rgba(240,232,208,0.5);
+        .chalkboard .chalk-char.punct { font-size: 18px; }
+        .chalkboard .chalk-linebreak { display: block; height: 10px; }
+        .chalkboard .chalk-char.selectable { cursor: pointer; }
+        .chalkboard .chalk-char.selectable:hover { background: rgba(255, 215, 0, 0.2); border-radius: 2px; }
+        .chalkboard .chalk-char.thought-selected { background: rgba(255, 215, 0, 0.35); border-radius: 2px; }
+        .chalkboard .chalk-char.thought-quote-highlight { background: rgba(100, 200, 255, 0.3); border-radius: 2px; }
+        .chalkboard .chalk-char.annotated {
+            color: #FFD700 !important; font-weight: bold;
+            text-decoration-line: underline; text-decoration-style: wavy;
+            text-decoration-color: #FFD700; text-underline-offset: 4px;
+            text-decoration-thickness: from-font;
+        }
+        @supports not (text-decoration-style: wavy) {
+            .chalkboard .chalk-char.annotated { text-decoration-line: none; position: relative; }
+            .chalkboard .chalk-char.annotated::after {
+                content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 5px;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='8' viewBox='0 0 24 8'%3E%3Cpath d='M0,4 Q3,2 6,4 Q9,6 12,4 Q15,2 18,4 Q21,6 24,4' fill='none' stroke='%23FFD700' stroke-width='1.2'/%3E%3C/svg%3E");
+                background-repeat: repeat-x; background-position: center bottom;
+                background-size: 12px 5px; pointer-events: none;
+            }
+        }
+        .annotation-superscript {
+            font-size: 12px; color: #FFD700; vertical-align: super; font-weight: bold;
+            margin-left: 1px; text-shadow: 0 0 4px rgba(255, 215, 0, 0.4);
+            cursor: pointer; position: relative; z-index: 2;
+        }
+        .chalkboard .analysis-area {
+            position: relative; z-index: 1;
+            border-top: 2px dashed rgba(240,232,208,0.2);
+            padding: 8px 0; margin-top: auto;
+            height: 280px; min-height: 280px; max-height: 280px;
+            flex-shrink: 0; background: rgba(0,0,0,0.15);
+        }
+        .chalkboard .analysis-area .analysis-tabs {
+            display: flex; gap: 4px; padding: 0 8px 8px;
+            overflow-x: auto; flex-shrink: 0;
+        }
+        .chalkboard .analysis-area .analysis-tabs .tab {
+            padding: 4px 12px; border-radius: 12px; font-size: 13px;
+            cursor: pointer; white-space: nowrap;
+            background: rgba(240,232,208,0.1); color: rgba(240,232,208,0.6);
+            border: 1px solid rgba(240,232,208,0.1); transition: all 0.2s; flex-shrink: 0;
+        }
+        .chalkboard .analysis-area .analysis-tabs .tab.active {
+            background: rgba(240,232,208,0.2); color: #FFD700;
+            border-color: rgba(255, 215, 0, 0.3);
+        }
+        .chalkboard .analysis-area .analysis-tabs .tab.summary-tab {
+            background: rgba(255, 215, 0, 0.1); color: rgba(255, 215, 0, 0.7);
+            border-color: rgba(255, 215, 0, 0.2);
+        }
+        .chalkboard .analysis-area .analysis-tabs .tab.summary-tab.active {
+            background: rgba(255, 215, 0, 0.2); color: #FFD700;
+            border-color: rgba(255, 215, 0, 0.4);
+        }
+        .chalkboard .analysis-area .content {
+            font-size: 16px; line-height: 1.8; color: #7EC8E3;
+            position: absolute; top: 50px; left: 0; right: 0; bottom: 0;
+            overflow-y: auto; padding: 0 8px;
+        }
+        .chalkboard .analysis-area .content::-webkit-scrollbar { width: 6px; }
+        .chalkboard .analysis-area .content::-webkit-scrollbar-track { background: rgba(240,232,208,0.05); border-radius: 3px; }
+        .chalkboard .analysis-area .content::-webkit-scrollbar-thumb { background: rgba(240,232,208,0.2); border-radius: 3px; }
+        .chalkboard .analysis-area .content .quote-item { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(240,232,208,0.15); }
+        .chalkboard .analysis-area .content .quote-item:last-child { border-bottom: none; margin-bottom: 0; }
+        .chalkboard .analysis-area .content .quote-content { color: #7EC8E3; font-size: 18px; }
+        .chalkboard .analysis-area .content .quote-meta { color: rgba(240,232,208,0.5); font-size: 14px; margin-top: 6px; }
+        .chalkboard .analysis-area .content .comment-text { color: #7EC8E3; font-size: 18px; }
+        .chalkboard .analysis-area .content .comment-char { opacity: 0; transition: opacity 0.1s; }
+        .chalkboard .analysis-area .content .comment-char.visible { opacity: 1; }
+        .chalkboard .analysis-area .content .original-text { color: #FFD700; font-style: italic; margin-bottom: 10px; }
+        .chalkboard .analysis-area .annotation-display {
+            display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3); padding: 15px; z-index: 2;
+        }
+        .chalkboard .analysis-area .annotation-display.active { display: block; }
+        .chalkboard .analysis-area .annotation-display .annotation-index { color: #FFD700; font-size: 16px; margin-bottom: 8px; }
+        .chalkboard .analysis-area .annotation-display .annotation-original { color: #FFD700; font-style: italic; margin-bottom: 10px; }
+        .chalkboard .analysis-area .annotation-display .annotation-comment { color: #7EC8E3; font-size: 18px; }
+        .bookmark-icon { display: none; position: absolute; z-index: 10; font-size: 16px; pointer-events: none; }
+        .thought-lanterns-container {
+            position: fixed; z-index: 200; display: flex; gap: 6px; pointer-events: none;
+        }
+        .thought-lantern {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #FFD700; color: #8B4513; font-size: 12px; font-weight: bold;
+            cursor: pointer; pointer-events: auto; position: relative;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4); transition: transform 0.2s;
+        }
+        .thought-lantern:hover { transform: scale(1.2); }
+        .thought-lantern.lantern-orange { background: #FF9800; color: white; }
+        .thought-lantern.lantern-pink { background: #E91E63; color: white; }
+        .thought-lantern.lantern-red { background: #F44336; color: white; }
+        .thought-lantern .tassel {
+            position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+            width: 2px; height: 8px; background: rgba(255, 215, 0, 0.6);
+        }
+        .thought-lantern.playing { opacity: 0.5; cursor: default; }
+        .thought-lanterns-container.playing .thought-lantern { opacity: 0.5; cursor: default; }
+        .loading { text-align: center; padding: 40px; color: rgba(240,232,208,0.5); }
+        .wait-hint { text-align: center; color: rgba(240,232,208,0.4); font-size: 16px; padding: 20px; }
+        .tts-status-bar {
+            background: rgba(255,193,7,0.15); color: #856404;
+            padding: 8px 15px; font-size: 13px; text-align: center;
+            border-radius: 6px; margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
     <div class="navbar">
         <button class="back-btn" onclick="goBack()">← 返回</button>
-        <h1 id="sectionTitle">加载中...</h1>
+        <h1 id="navbarTitle">加载中...</h1>
     </div>
 
     <div class="reader-container">
-        <div class="controls">
-            <button class="play-btn" id="playBtn" onclick="togglePlay()">▶</button>
+        <div class="reader-header">
+            <span class="section-title" id="readerSectionTitle">第1节</span>
+            <div class="header-controls">
+                <div class="mini-progress">
+                    <div class="mini-progress-bar">
+                        <div class="mini-progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
+                <button class="play-btn-mini" id="playBtn" onclick="player.toggle()">&#9654;</button>
+                <button class="add-thought-btn" id="editAnnotationBtn" onclick="thoughtEditor.toggleEditMode()">+思考</button>
+            </div>
+        </div>
+
+        <div class="section-nav">
+            <button id="prevBtn" onclick="reader.prevSection()" disabled>← 上一节</button>
+            <button class="play-btn" id="playBtnNav" onclick="player.toggle()">&#9654;</button>
+            <button class="edit-annotation-btn" id="editAnnotationBtnNav" onclick="thoughtEditor.toggleEditMode()">+思考</button>
             <div class="progress-area">
                 <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
+                    <div class="progress-fill" id="progressFillNav"></div>
                 </div>
                 <div class="time-display">
                     <span id="currentTime">0:00</span>
                     <span id="totalTime">0:00</span>
                 </div>
             </div>
+            <button id="nextBtn" onclick="reader.nextSection()" disabled>下一节 →</button>
         </div>
-        <div class="chalkboard">
+
+        <div class="chalkboard" id="chalkboard">
             <div class="chalk-text" id="chalkText">
-                <div class="loading">加载中...</div>
+                <div class="wait-hint">点击 ▶ 开始朗读</div>
+            </div>
+            <div class="analysis-area" id="analysisArea">
+                <div class="analysis-tabs" id="analysisTabs">
+                    <div class="tab active" data-tab="famous">名言</div>
+                </div>
+                <div class="content" id="analysisContent"></div>
+                <div class="annotation-display" id="annotationDisplay">
+                    <div class="annotation-index" id="annotationIndex"></div>
+                    <div class="annotation-original" id="annotationOriginal"></div>
+                    <div class="annotation-comment" id="annotationComment"></div>
+                </div>
             </div>
         </div>
     </div>
 
+    <div id="thoughtModalOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;">
+        <div style="background:white;border-radius:12px;padding:24px;width:90%;max-width:450px;">
+            <h3 style="margin:0 0 12px;">💭 添加思考</h3>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:12px;color:#999;">选中的原文：</label>
+                <p id="thoughtOriginalText" style="background:#f5f5f5;padding:8px;border-radius:6px;font-size:13px;margin:4px 0 0;max-height:80px;overflow-y:auto;"></p>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:12px;color:#999;">我的思考：</label>
+                <textarea id="thoughtContent" rows="4" placeholder="在这里写下你的思考..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-top:4px;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+            </div>
+            <input type="hidden" id="thoughtStartChar">
+            <input type="hidden" id="thoughtEndChar">
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button onclick="thoughtEditor._closeModal()" style="padding:8px 16px;background:#f5f5f5;color:#333;border:none;border-radius:6px;cursor:pointer;">取消</button>
+                <button id="thoughtSaveBtn" onclick="thoughtEditor.saveThought()" style="padding:8px 16px;background:#2d5016;color:white;border:none;border-radius:6px;cursor:pointer;">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="thoughtResultModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1001;justify-content:center;align-items:center;" onclick="this.style.display='none'">
+        <div style="background:white;border-radius:12px;padding:24px;width:85%;max-width:320px;text-align:center;" onclick="event.stopPropagation()">
+            <div style="font-size:20px;margin-bottom:12px;">✅ 思考已保存</div>
+            <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin-bottom:12px;">
+                <div style="font-size:13px;color:#666;margin-bottom:8px;">AI评分</div>
+                <div id="resultScore" style="font-size:24px;margin-bottom:8px;">-</div>
+                <div style="font-size:12px;color:#888;">理由</div>
+                <div id="resultReason" style="font-size:14px;color:#333;margin-top:4px;">-</div>
+            </div>
+            <button onclick="document.getElementById('thoughtResultModal').style.display='none'" style="margin-top:12px;padding:8px 32px;background:#2d5016;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">确定</button>
+        </div>
+    </div>
+
+    <div id="thoughtDetailModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;" onclick="thoughtEditor.closeDetailModal()">
+        <div style="background:white;border-radius:12px;padding:24px;width:90%;max-width:500px;" onclick="event.stopPropagation()">
+            <h3 style="margin:0 0 16px;color:#333;">🏮 我的思考</h3>
+            <div style="margin-bottom:12px;">
+                <div style="color:#666;font-size:13px;">引用原文：</div>
+                <div id="thoughtDetailQuote" style="background:#f5f5f5;padding:8px;border-radius:6px;font-size:13px;margin-top:4px;"></div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <div style="color:#666;font-size:13px;">思考内容：</div>
+                <div id="thoughtDetailContent" style="font-size:15px;margin-top:4px;"></div>
+            </div>
+            <div style="margin-bottom:8px;">
+                <span style="color:#666;font-size:13px;">AI 评分：</span>
+                <span id="thoughtDetailScore" style="display:none;">-</span>
+            </div>
+            <div id="thoughtDetailReasonSection" style="display:none;margin-top:8px;">
+                <span style="color:#666;font-size:13px;">理由：</span>
+                <span id="thoughtDetailReason" style="color:#333;font-size:13px;"></span>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+                <button onclick="thoughtEditor.closeDetailModal()" style="padding:8px 24px;background:#2d5016;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audioPlayer" preload="auto" style="display:none"></audio>
+
     <script>
-        const API_BASE = '/api';
-        var state = {
-            currentSection: null,
-            isPlaying: false,
-            playbackPlan: null,
-            audioIndex: 0,
-            charTimeline: [],
-            totalDuration: 0,
-            currentTime: 0
-        };
-        var audio = new Audio();
+        var API_BASE = '/api';
+
+        var CIRCLED_NUMBERS = ['\u2460','\u2461','\u2462','\u2463','\u2464','\u2465','\u2466','\u2467','\u2468','\u2469','\u246A','\u246B','\u246C','\u246D','\u246E','\u246F','\u2470','\u2471','\u2472','\u2473'];
+        function getCircledNumber(num) {
+            if (num >= 1 && num <= 20) return CIRCLED_NUMBERS[num - 1];
+            return String(num);
+        }
 
         function getUrlParam(name) {
             var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
@@ -180,7 +452,37 @@
             return null;
         }
 
+        function formatTime(seconds) {
+            var mins = Math.floor(seconds / 60);
+            var secs = Math.floor(seconds % 60);
+            return mins + ':' + (secs < 10 ? '0' : '') + secs;
+        }
+
+        function formatChapterTitle(chNum, title, type) {
+            var cnNums = ['零','一','二','三','四','五','六','七','八','九','十',
+                '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十'];
+            var numStr = chNum <= 20 ? cnNums[chNum] : String(chNum);
+            if (type === 'chapter') return '第' + numStr + '章 ' + (title || '');
+            return '第' + chNum + '节 ' + (title || '');
+        }
+
+        var state = {
+            currentUser: null,
+            currentBook: null,
+            currentSections: [],
+            currentSectionIndex: 0,
+            currentAnnotations: [],
+            currentProgress: null,
+            currentProgressV2: null,
+            catalogStatusMap: {},
+            isPlaying: false,
+            isPlayingAnnotation: false,
+            isPlayingSummary: false,
+            wakeLock: null
+        };
+
         function goBack() {
+            reader.saveProgress(reader._currentPosition || 0);
             var bookId = getUrlParam('book_id');
             if (bookId) {
                 location.href = 'catalog.html?book_id=' + bookId;
@@ -189,152 +491,1433 @@
             }
         }
 
-        async function loadSection() {
+        async function initReader() {
+            var bookId = getUrlParam('book_id');
             var sectionId = getUrlParam('section_id');
-            if (!sectionId) {
-                alert('缺少章节ID');
-                goBack();
-                return;
-            }
+            if (!bookId || !sectionId) { alert('缺少参数'); goBack(); return; }
 
-            var sectionData = localStorage.getItem('currentSection');
-            if (sectionData) {
+            var userId = localStorage.getItem('userId') || '';
+            if (!userId) { alert('请先登录'); goBack(); return; }
+
+            state.currentUser = { id: userId };
+
+            try {
+                var response = await fetch(API_BASE + '/books/' + bookId + '?user_id=' + userId);
+                var data = await response.json();
+                if (!response.ok) { alert('加载失败: ' + data.error); goBack(); return; }
+
+                state.currentBook = data.book;
+                state.currentSections = data.sections || [];
+                state.currentProgress = data.progress || null;
+                state.currentProgressV2 = data.progress_v2 || null;
+
                 try {
-                    state.currentSection = JSON.parse(sectionData);
-                    document.getElementById('sectionTitle').textContent = state.currentSection.title || '阅读';
-                    renderText(state.currentSection.content || '');
-                    loadPlaybackPlan(sectionId);
-                    return;
-                } catch (e) {
-                    console.error('解析章节数据失败:', e);
-                }
-            }
+                    var statusResponse = await fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + userId);
+                    var statusData = await statusResponse.json();
+                    if (statusData.statuses) {
+                        var statusMap = {};
+                        statusData.statuses.forEach(function(s) { statusMap[s.section_id] = s.status; });
+                        state.catalogStatusMap = statusMap;
+                    }
+                } catch(e) {}
 
-            document.getElementById('chalkText').innerHTML = '<div class="loading">暂无章节数据</div>';
+                for (var i = 0; i < state.currentSections.length; i++) {
+                    if (String(state.currentSections[i].id) === String(sectionId)) {
+                        state.currentSectionIndex = i;
+                        break;
+                    }
+                }
+
+                if (data.progress && data.progress.current_section_id) {
+                    var pIndex = state.currentSections.findIndex(function(s) { return s.id === data.progress.current_section_id; });
+                    if (pIndex !== -1) state.currentSectionIndex = pIndex;
+                }
+
+                player.init();
+                reader.renderCurrentSection();
+            } catch (e) {
+                alert('加载出错: ' + e.message);
+                goBack();
+            }
         }
 
-        async function loadPlaybackPlan(sectionId) {
-            try {
-                var response = await fetch(API_BASE + '/sections/' + sectionId + '/playback-plan');
-                var data = await response.json();
+        var reader = {
+            _allChars: [],
+            _totalChars: 0,
+            _container: null,
+            _content: null,
+            _revealedUpTo: 0,
+            _currentPosition: 0,
 
-                if (data.playlist && data.playlist.length > 0) {
-                    state.playbackPlan = data.playlist;
-                    state.totalDuration = data.total_duration || 0;
-                    document.getElementById('totalTime').textContent = formatTime(state.totalDuration);
+            renderCurrentSection: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return;
 
-                    for (var i = 0; i < data.playlist.length; i++) {
-                        var item = data.playlist[i];
-                        if (item.type === 'text_segment' && item.char_timeline) {
-                            var timeline = item.char_timeline;
-                            if (typeof timeline === 'string') {
-                                try { timeline = JSON.parse(timeline); } catch (e) { timeline = []; }
+                this._hideBookmark();
+                document.getElementById('readerSectionTitle').textContent =
+                    formatChapterTitle(section.section_number, section.title, 'section');
+
+                if (state.currentBook && state.currentBook.total_chapters > 0 && section.chapter_title) {
+                    document.getElementById('navbarTitle').innerHTML =
+                        formatChapterTitle(section.chapter_number, section.chapter_title, 'chapter');
+                } else {
+                    document.getElementById('navbarTitle').textContent = state.currentBook.title;
+                }
+
+                state.currentAnnotations = (section.annotations || []).slice();
+                state.currentAnnotations.sort(function(a, b) { return a.annotation_index - b.annotation_index; });
+
+                this._prepareChalkText(section.content);
+
+                var sectionStatus = 'unread';
+                if (state.catalogStatusMap && state.catalogStatusMap[section.id]) {
+                    sectionStatus = state.catalogStatusMap[section.id];
+                } else {
+                    var progressV2 = state.currentProgressV2;
+                    if (progressV2) {
+                        if (parseInt(progressV2.current_section_id) === parseInt(section.id)) sectionStatus = 'reading';
+                        else if (parseInt(progressV2.current_section_id) > parseInt(section.id)) sectionStatus = 'read';
+                    }
+                }
+
+                if (sectionStatus === 'read') {
+                    this.revealAll();
+                    document.getElementById('progressFill').style.width = '100%';
+                    document.getElementById('progressFillNav').style.width = '100%';
+                    analysisManager.init();
+                    if (section.annotations && section.annotations.length > 0) {
+                        section.annotations.forEach(function(ann) { analysisManager.addAnnotationTab(ann, true); });
+                    }
+                    if (section.summary) analysisManager.addSummaryTab(section.summary);
+                    analysisManager.startRotationAlways();
+                    this._renderAnnotationMarkers();
+                    state.currentAnnotations.forEach(function(ann) {
+                        if (reader._highlightAnnotation) reader._highlightAnnotation(ann);
+                    });
+                } else if (sectionStatus === 'reading') {
+                    analysisManager.init();
+                    document.getElementById('annotationDisplay').classList.remove('active');
+                    analysisManager.startRotationAlways();
+                    this._restoreBookmarkAndPosition();
+                } else {
+                    analysisManager.init();
+                    document.getElementById('annotationDisplay').classList.remove('active');
+                    analysisManager.startRotationAlways();
+                }
+
+                loadRandomQuote(section.id);
+                thoughtEditor.loadThoughts();
+
+                if (state.currentUser && state.currentUser.id) {
+                    fetch(API_BASE + '/sections/' + section.id + '/thoughts/repair', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({user_id: state.currentUser.id})
+                    }).then(function(r) { return r.json(); }).then(function(d) {
+                        if (d.repaired > 0) thoughtEditor.loadThoughts();
+                    }).catch(function() {});
+                }
+
+                player.loadSection(section.id);
+                this.setupScrollListener();
+                this._updateNavButtons();
+
+                if (sectionStatus !== 'read') {
+                    fetch(API_BASE + '/sections/' + section.id + '/status', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({book_id: state.currentBook.id, status: 'reading', user_id: state.currentUser.id})
+                    }).catch(function() {});
+                }
+            },
+
+            _prepareChalkText: function(content) {
+                var container = document.getElementById('chalkText');
+                container.innerHTML = '';
+                container.scrollTop = 0;
+
+                var bookmarkIcon = document.createElement('span');
+                bookmarkIcon.className = 'bookmark-icon';
+                bookmarkIcon.id = 'bookmarkIcon';
+                bookmarkIcon.textContent = '\uD83D\uDD16';
+                container.appendChild(bookmarkIcon);
+
+                this._allChars = [];
+                this._content = content;
+                this._revealedUpTo = 0;
+
+                var puncts = '\uFF0C\u3002\uFF01\uFF1F\u3001\uFF1B\uFF1A\u201C\u201D\u2018\u2019\uFF08\uFF09\u3010\u3011\u300A\u300B\u2014\u2026\u00B7,.!?\;:\'\"()-[]{}';
+                var paragraphs = content.split('\n');
+                var charIndex = 0;
+
+                paragraphs.forEach(function(para, pIdx) {
+                    if (pIdx > 0) {
+                        var br = document.createElement('div');
+                        br.className = 'chalk-linebreak';
+                        br.style.height = '10px';
+                        container.appendChild(br);
+                    }
+                    var paraDiv = document.createElement('div');
+                    paraDiv.className = 'chalk-line';
+                    paraDiv.style.textIndent = '2em';
+                    if (para) {
+                        for (var ci = 0; ci < para.length; ci++) {
+                            var char = para[ci];
+                            var span = document.createElement('span');
+                            span.className = 'chalk-char';
+                            if (puncts.indexOf(char) >= 0) span.classList.add('punct');
+                            span.textContent = char;
+                            span.dataset.index = charIndex;
+                            paraDiv.appendChild(span);
+                            reader._allChars.push(span);
+                            charIndex++;
+                        }
+                        container.appendChild(paraDiv);
+                    }
+                });
+
+                this._totalChars = charIndex;
+                this._container = container;
+                document.getElementById('progressFill').style.width = '0%';
+                document.getElementById('progressFillNav').style.width = '0%';
+            },
+
+            _renderAnnotationMarkers: function() {
+                document.querySelectorAll('.annotation-superscript').forEach(function(m) { m.remove(); });
+                state.currentAnnotations.forEach(function(ann) {
+                    var endIdx = ann.end_char - 1;
+                    if (endIdx >= 0 && endIdx < reader._allChars.length) {
+                        var endCharSpan = reader._allChars[endIdx];
+                        var sup = document.createElement('span');
+                        sup.className = 'annotation-superscript';
+                        sup.textContent = getCircledNumber(ann.annotation_index);
+                        sup.dataset.annotationId = ann.id;
+                        sup.title = ann.comment;
+                        endCharSpan.parentNode.insertBefore(sup, endCharSpan.nextSibling);
+                    }
+                });
+            },
+
+            _showAnnotationMarker: function(annotation) {
+                if (document.querySelector('.annotation-superscript[data-annotation-id="' + annotation.id + '"]')) return;
+                var endIdx = annotation.end_char - 1;
+                if (endIdx >= 0 && endIdx < this._allChars.length) {
+                    var endCharSpan = this._allChars[endIdx];
+                    var sup = document.createElement('span');
+                    sup.className = 'annotation-superscript';
+                    sup.textContent = getCircledNumber(annotation.annotation_index);
+                    sup.dataset.annotationId = annotation.id;
+                    sup.title = annotation.comment;
+                    endCharSpan.parentNode.insertBefore(sup, endCharSpan.nextSibling);
+                }
+            },
+
+            revealCharsUpTo: function(index, options) {
+                var target = Math.min(index, this._totalChars);
+                var prevTarget = this._revealedUpTo || 0;
+                var skipAnnotationClear = options && options.skipAnnotationClear;
+                if (target < prevTarget) return;
+
+                var self = this;
+                var batchSize = 200;
+                var current = prevTarget;
+
+                function processBatch() {
+                    var end = Math.min(current + batchSize, target);
+                    for (var i = current; i < end; i++) {
+                        if (self._allChars[i]) {
+                            self._allChars[i].classList.add('visible');
+                            if (!skipAnnotationClear) self._allChars[i].classList.remove('annotated');
+                        }
+                    }
+                    current = end;
+                    self._revealedUpTo = current;
+                    var percent = self._totalChars ? (current / self._totalChars) * 100 : 0;
+                    document.getElementById('progressFill').style.width = percent + '%';
+                    document.getElementById('progressFillNav').style.width = percent + '%';
+                    if (current < target) requestAnimationFrame(processBatch);
+                    else self._scrollToTarget(target);
+                }
+                requestAnimationFrame(processBatch);
+            },
+
+            _scrollToTarget: function(target) {
+                if (target > 0 && target <= this._allChars.length) {
+                    var lastChar = this._allChars[target - 1];
+                    var charRect = lastChar.getBoundingClientRect();
+                    var containerRect = this._container.getBoundingClientRect();
+                    if (charRect.bottom > containerRect.bottom - 5) {
+                        this._container.scrollTop += charRect.bottom - containerRect.bottom + 5;
+                    }
+                }
+            },
+
+            _checkAnnotationTrigger: function(currentCharIndex) {
+                if (state.isPlayingAnnotation) return false;
+                var section = state.currentSections[state.currentSectionIndex];
+                var sectionStatus = (section && state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                if (sectionStatus === 'read') return false;
+                var annotations = state.currentAnnotations;
+                if (!annotations) return false;
+                for (var i = 0; i < annotations.length; i++) {
+                    var ann = annotations[i];
+                    if (!ann._triggered && currentCharIndex >= ann.end_char) {
+                        ann._triggered = true;
+                        if (player.audio) player.audio.pause();
+                        state.isPlayingAnnotation = true;
+                        (function(triggeredAnn) {
+                            setTimeout(function() { player._triggerAnnotationPlayback(triggeredAnn); }, 1000);
+                        })(ann);
+                        return true;
+                    }
+                }
+                return false;
+            },
+
+            _highlightAnnotation: function(annotation) {
+                var startIdx = annotation.start_char;
+                var endIdx = annotation.end_char - 1;
+                for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
+                    this._allChars[i].classList.add('annotated');
+                }
+            },
+
+            _clearAnnotationHighlight: function(annotation) {
+                if (!annotation) return;
+                var startIdx = annotation.start_char;
+                var endIdx = annotation.end_char - 1;
+                for (var i = startIdx; i <= endIdx && i < this._allChars.length; i++) {
+                    this._allChars[i].classList.remove('annotated');
+                }
+            },
+
+            _contentCharToDisplayChar: function(contentCharIdx) {
+                if (!this._content) return contentCharIdx;
+                var newlineCount = 0;
+                for (var i = 0; i < contentCharIdx && i < this._content.length; i++) {
+                    if (this._content[i] === '\n') newlineCount++;
+                }
+                return contentCharIdx - newlineCount;
+            },
+
+            revealAll: function() {
+                this._allChars.forEach(function(c) { c.classList.add('visible'); });
+                this._revealedUpTo = this._allChars.length;
+                document.getElementById('progressFill').style.width = '100%';
+                document.getElementById('progressFillNav').style.width = '100%';
+                if (this._container) this._container.scrollTop = this._container.scrollHeight;
+            },
+
+            hideAll: function() {
+                this._allChars.forEach(function(c) { c.classList.remove('visible'); });
+                this._allChars.forEach(function(c) { c.classList.remove('annotated'); });
+                document.querySelectorAll('.annotation-superscript').forEach(function(m) { m.remove(); });
+                if (this._container) this._container.scrollTop = 0;
+                document.getElementById('progressFill').style.width = '0%';
+                document.getElementById('progressFillNav').style.width = '0%';
+                this._revealedUpTo = 0;
+                state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
+                document.getElementById('annotationDisplay').classList.remove('active');
+                analysisManager.reset();
+            },
+
+            resetDisplay: function() {
+                this.hideAll();
+                this._hideBookmark();
+            },
+
+            prevSection: function() {
+                if (state.currentSectionIndex > 0) {
+                    this.saveProgress(this._currentPosition || 0);
+                    state.currentSectionIndex--;
+                    this.renderCurrentSection();
+                }
+            },
+
+            nextSection: function() {
+                if (state.currentSectionIndex < state.currentSections.length - 1) {
+                    this.saveProgress(this._currentPosition || 0);
+                    state.currentSectionIndex++;
+                    this.renderCurrentSection();
+                }
+            },
+
+            _updateNavButtons: function() {
+                document.getElementById('prevBtn').disabled = state.currentSectionIndex <= 0;
+                document.getElementById('nextBtn').disabled = state.currentSectionIndex >= state.currentSections.length - 1;
+            },
+
+            saveProgress: function(position) {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section || !state.currentBook || !state.currentBook.id) return;
+                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                if (sectionStatus === 'read') return;
+                var pos = position !== undefined ? position : this._currentPosition || 0;
+                if (pos <= 0) return;
+                var segmentId = 0, textPosition = 0, audioPosition = 0;
+                if (typeof player !== 'undefined' && player._currentSegment && player._currentSegment.type === 'text_segment') {
+                    segmentId = player._currentSegment.id;
+                    textPosition = pos - player._currentSegment.start_char;
+                    audioPosition = player.currentTime || 0;
+                } else { return; }
+                var progressData = {
+                    book_id: state.currentBook.id, section_id: section.id,
+                    segment_id: segmentId, text_position: textPosition,
+                    audio_position: audioPosition, current_section_id: section.id
+                };
+                if (state.currentUser && state.currentUser.id) {
+                    progressData.user_id = state.currentUser.id;
+                    fetch(API_BASE + '/progress/v2', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(progressData)
+                    }).catch(function() {});
+                }
+            },
+
+            _scrollListener: null,
+            _saveTimer: null,
+
+            setupScrollListener: function() {
+                var self = this;
+                var container = document.getElementById('chalkText');
+                if (!container) return;
+                if (this._scrollListener) container.removeEventListener('scroll', this._scrollListener);
+                if (this._saveTimer) clearInterval(this._saveTimer);
+                this._scrollListener = function() {
+                    var scrollTop = container.scrollTop;
+                    var scrollHeight = container.scrollHeight;
+                    var clientHeight = container.clientHeight;
+                    var scrollPercent = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
+                    self._currentPosition = Math.floor(self._totalChars * scrollPercent);
+                    document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
+                    document.getElementById('progressFillNav').style.width = (scrollPercent * 100) + '%';
+                };
+                container.addEventListener('scroll', this._scrollListener);
+                this._saveTimer = setInterval(function() {
+                    if (self._currentPosition > 0) self.saveProgress(self._currentPosition);
+                }, 10000);
+            },
+
+            markSectionRead: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section || section._markedRead) return;
+                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                if (sectionStatus === 'read') { section._markedRead = true; return; }
+                section._markedRead = true;
+                fetch(API_BASE + '/sections/' + section.id + '/status', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({book_id: state.currentBook.id, status: 'read', user_id: state.currentUser.id})
+                }).then(function() {
+                    if (state.catalogStatusMap) state.catalogStatusMap[section.id] = 'read';
+                }).catch(function() {});
+            },
+
+            _restoreBookmarkAndPosition: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section) return;
+                var progressV2 = state.currentProgressV2;
+                if (!progressV2 || parseInt(progressV2.current_section_id) !== parseInt(section.id)) return;
+                var savedPosition = 0;
+                var segId = progressV2.current_segment_id;
+                var textPos = progressV2.text_position || 0;
+                if (textPos > 0 && segId && segId > 0 && player.audioSegments && player.audioSegments.length > 0) {
+                    for (var i = 0; i < player.audioSegments.length; i++) {
+                        var seg = player.audioSegments[i];
+                        if (seg.type === 'text_segment' && seg.id === segId) {
+                            savedPosition = seg.start_char + textPos;
+                            break;
+                        }
+                    }
+                    if (savedPosition <= 0) return;
+                } else { return; }
+                if (savedPosition <= 0) return;
+                var self = this;
+                setTimeout(function() {
+                    var container = document.getElementById('chalkText');
+                    if (!container || self._totalChars <= 0) return;
+                    self.revealCharsUpTo(savedPosition, {skipAnnotationClear: true});
+                    var scrollPercent = Math.min(savedPosition / self._totalChars, 1);
+                    self._currentPosition = savedPosition;
+                    document.getElementById('progressFill').style.width = (scrollPercent * 100) + '%';
+                    document.getElementById('progressFillNav').style.width = (scrollPercent * 100) + '%';
+                    if (container.scrollHeight > container.clientHeight) {
+                        var charIdx = Math.min(savedPosition - 1, self._totalChars - 1);
+                        if (charIdx >= 0 && self._allChars && self._allChars[charIdx]) {
+                            var cr = self._allChars[charIdx].getBoundingClientRect();
+                            var contRect = container.getBoundingClientRect();
+                            if (cr.bottom > contRect.bottom - 5 || cr.top < contRect.top) {
+                                container.scrollTop += cr.top - contRect.top - 20;
                             }
-                            state.charTimeline = state.charTimeline.concat(timeline);
+                        }
+                    }
+                    setTimeout(function() { self._showBookmarkAt(savedPosition); }, 50);
+                    if (section.annotations) {
+                        section.annotations.forEach(function(ann) {
+                            if (savedPosition >= ann.end_char) {
+                                analysisManager.addAnnotationTab(ann);
+                                var tabId = 'annotation_' + ann.id;
+                                var tab = analysisManager.tabs.find(function(t) { return t.id === tabId; });
+                                if (tab) { tab._played = true; tab._commentText = ann.comment; }
+                                if (reader._showAnnotationMarker) reader._showAnnotationMarker(ann);
+                                if (reader._highlightAnnotation) reader._highlightAnnotation(ann);
+                                ann._triggered = true;
+                            }
+                        });
+                    }
+                }, 100);
+            },
+
+            _showBookmarkAt: function(charIndex) {
+                var bookmark = document.getElementById('bookmarkIcon');
+                if (!bookmark || charIndex <= 0 || charIndex >= this._totalChars) { this._hideBookmark(); return; }
+                var charEl = this._allChars[charIndex - 1];
+                if (!charEl) { this._hideBookmark(); return; }
+                var chalkText = document.getElementById('chalkText');
+                if (!chalkText) { this._hideBookmark(); return; }
+                var charRect = charEl.getBoundingClientRect();
+                var textRect = chalkText.getBoundingClientRect();
+                var top = charRect.top - textRect.top + chalkText.scrollTop;
+                var left = charRect.right - textRect.left + 5;
+                if (top < 0) top = 0;
+                if (top > chalkText.clientHeight - 24) top = chalkText.clientHeight - 24;
+                if (left > chalkText.clientWidth - 30) left = chalkText.clientWidth - 30;
+                bookmark.style.top = top + 'px';
+                bookmark.style.left = left + 'px';
+                bookmark.style.right = 'auto';
+                bookmark.style.display = 'block';
+            },
+
+            _hideBookmark: function() {
+                var bookmark = document.getElementById('bookmarkIcon');
+                if (bookmark) bookmark.style.display = 'none';
+            }
+        };
+
+        var analysisManager = {
+            tabs: [{ id: 'famous', label: '名言', content: '' }],
+            currentTab: 'famous',
+            rotationTimer: null,
+            isRotating: false,
+            _renderTabsLock: false,
+            _showTabLock: false,
+            _tabClickLock: false,
+            _tabClickCooldown: 0,
+
+            init: function() {
+                this.tabs = [{ id: 'famous', label: '名言', content: '' }];
+                this.currentTab = 'famous';
+                this.stopRotation();
+                this.renderTabs();
+                this.showTab('famous');
+            },
+
+            addAnnotationTab: function(annotation, isPlayed) {
+                var tabId = 'annotation_' + annotation.id;
+                var tabLabel = getCircledNumber(annotation.annotation_index);
+                if (this.tabs.some(function(t) { return t.id === tabId; })) return;
+                if (isPlayed) {
+                    this.tabs.push({ id: tabId, label: tabLabel, content: annotation.comment, annotationId: annotation.id, isHtml: false, _played: true, _commentText: annotation.comment });
+                } else {
+                    var chars = annotation.comment.split('').map(function(c) {
+                        return '<span class="comment-char">' + c.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>';
+                    }).join('');
+                    this.tabs.push({ id: tabId, label: tabLabel, content: '<div class="comment-text">' + chars + '</div>', annotationId: annotation.id, isHtml: true });
+                }
+                this.stopRotation();
+                this.renderTabs();
+                this.showTab(tabId);
+                if (isPlayed) { var self = this; setTimeout(function() { self.startRotationAlways(); }, 10000); }
+            },
+
+            addSummaryTab: function(summary) {
+                if (this.tabs.some(function(t) { return t.id === 'summary'; })) return;
+                this.tabs.push({ id: 'summary', label: '小结', content: summary, isSummary: true });
+                this.renderTabs();
+                this.showTab('summary');
+                this.stopRotation();
+            },
+
+            renderTabs: function() {
+                if (this._renderTabsLock) return;
+                this._renderTabsLock = true;
+                var tabsContainer = document.getElementById('analysisTabs');
+                var self = this;
+                if (!tabsContainer._delegated) {
+                    tabsContainer.addEventListener('click', function(e) {
+                        var tabEl = e.target;
+                        if (!tabEl.classList.contains('tab')) return;
+                        if (state && (state.isPlayingAnnotation || state.isPlayingSummary)) return;
+                        if (self._tabClickLock) return;
+                        var now = Date.now();
+                        if (now - (self._tabClickCooldown || 0) < 1500) return;
+                        self._tabClickCooldown = now;
+                        self._tabClickLock = true;
+                        var tabId = tabEl.getAttribute('data-tab-id');
+                        if (!tabId || self.currentTab === tabId) { self._tabClickLock = false; return; }
+                        self.showTab(tabId);
+                        setTimeout(function() { self._tabClickLock = false; }, 300);
+                    });
+                    tabsContainer._delegated = true;
+                }
+                tabsContainer.innerHTML = '';
+                this.tabs.forEach(function(tab) {
+                    var tabEl = document.createElement('div');
+                    tabEl.className = 'tab' + (tab.id === self.currentTab ? ' active' : '') + (tab.isSummary ? ' summary-tab' : '');
+                    tabEl.setAttribute('data-tab-id', tab.id);
+                    tabEl.textContent = tab.label;
+                    tabsContainer.appendChild(tabEl);
+                });
+                this._renderTabsLock = false;
+            },
+
+            showTab: function(tabId) {
+                if (this._showTabLock) return;
+                this._showTabLock = true;
+                var prevTab = this.currentTab;
+                this.currentTab = tabId;
+                var tab = this.tabs.find(function(t) { return t.id === tabId; });
+                if (tab && prevTab !== tabId) {
+                    var contentEl = document.getElementById('analysisContent');
+                    if (!contentEl) { this._showTabLock = false; return; }
+                    if (tab.annotationId && tab._played) {
+                        contentEl.innerHTML = '<div class="comment-text">' + tab._commentText + '</div>';
+                    } else if (tab.isSummary && tab._played) {
+                        contentEl.innerHTML = '<div class="comment-text">' + (tab._commentText || tab.content) + '</div>';
+                    } else if (tab.isHtml) {
+                        contentEl.innerHTML = tab.content;
+                        if (tab.annotationId || tab.isSummary) {
+                            contentEl.querySelectorAll('.comment-char').forEach(function(c) { c.classList.add('visible'); });
+                        }
+                    } else { contentEl.textContent = tab.content; }
+                    var tabsContainer = document.getElementById('analysisTabs');
+                    if (tabsContainer) {
+                        var tabEls = tabsContainer.querySelectorAll('.tab');
+                        for (var i = 0; i < tabEls.length && i < this.tabs.length; i++) {
+                            var isActive = this.tabs[i].id === tabId;
+                            tabEls[i].className = 'tab' + (this.tabs[i].isSummary ? ' summary-tab' : '') + (isActive ? ' active' : '');
                         }
                     }
                 }
-            } catch (e) {
-                console.error('加载播放计划失败:', e);
+                var analysisContent = document.getElementById('analysisContent');
+                if (analysisContent) analysisContent.scrollTop = 0;
+                var self = this;
+                setTimeout(function() { self._showTabLock = false; }, 50);
+            },
+
+            startRotationFrom: function(startTabId) {
+                if (this.rotationTimer) return;
+                this.isRotating = true;
+                this.currentTab = startTabId;
+                var self = this;
+                this.rotationTimer = setInterval(function() {
+                    var currentIndex = self.tabs.findIndex(function(t) { return t.id === self.currentTab; });
+                    var nextIndex = (currentIndex + 1) % self.tabs.length;
+                    self.showTab(self.tabs[nextIndex].id);
+                }, 10000);
+            },
+
+            startRotationAlways: function() { if (!this.rotationTimer) this.startRotationFrom(this.currentTab); },
+            startRotation: function() { this.startRotationFrom(this.currentTab); },
+            stopRotation: function() { if (this.rotationTimer) { clearInterval(this.rotationTimer); this.rotationTimer = null; } this.isRotating = false; },
+            resumeRotation: function() { if (!this.isRotating) this.startRotationFromCurrent(); },
+            startRotationFromCurrent: function() {
+                if (this.rotationTimer) return;
+                this.isRotating = true;
+                var self = this;
+                this.rotationTimer = setInterval(function() {
+                    var currentIndex = self.tabs.findIndex(function(t) { return t.id === self.currentTab; });
+                    self.showTab(self.tabs[(currentIndex + 1) % self.tabs.length].id);
+                }, 10000);
+            },
+            reset: function() { this.stopRotation(); this.init(); }
+        };
+
+        function loadRandomQuote(sectionId) {
+            var params = '?section_id=' + encodeURIComponent(sectionId);
+            if (state.currentBook) params += '&book_id=' + encodeURIComponent(state.currentBook.id);
+            if (state.currentUser) params += '&user_id=' + encodeURIComponent(state.currentUser.id);
+            fetch(API_BASE + '/quote/random' + params).then(function(res) { return res.json(); }).then(function(data) {
+                var quotes = data.quotes || [];
+                if (quotes.length === 0) {
+                    updateFamousTab('<div class="quote-item" style="text-align:center;padding:20px 0;"><p style="color:rgba(240,232,208,0.5);font-size:15px;margin:0;">📜 暂无名言</p></div>');
+                    return;
+                }
+                updateFamousTab(quotes.map(function(q) {
+                    return '<div class="quote-item"><p class="quote-content">' + q.content + '</p><p class="quote-meta">' + (q.author ? ' —— ' + q.author : '') + (q.source ? '《' + q.source + '》' : '') + '</p></div>';
+                }).join(''));
+            }).catch(function() {});
+        }
+
+        function updateFamousTab(html) {
+            var famousTab = analysisManager.tabs.find(function(t) { return t.id === 'famous'; });
+            if (famousTab) {
+                famousTab.content = html;
+                famousTab.isHtml = true;
+                var contentEl = document.getElementById('analysisContent');
+                if (contentEl && analysisManager.currentTab === 'famous') contentEl.innerHTML = html;
             }
         }
 
-        function renderText(text) {
-            var container = document.getElementById('chalkText');
-            var html = '';
-            for (var i = 0; i < text.length; i++) {
-                var char = text[i];
-                if (char === '\n') {
-                    html += '<br>';
+        var player = {
+            TEXT_AHEAD_OFFSET: 3,
+            audio: null,
+            mode: 'timeline',
+            audioUrl: null,
+            audioDuration: 0,
+            charTimeline: [],
+            isPlaying: false,
+            currentTime: 0,
+            _hasPlayed: false,
+            _isLeaving: false,
+            _currentSectionId: null,
+            audioSegments: [],
+            _playlistIndex: -1,
+            _currentSegment: null,
+            _isSegmentMode: false,
+            _insertPointStep: 0,
+            _currentInsertPoint: null,
+            _annotationAudio: null,
+            _originalAudioSrc: null,
+            _originalAudioMode: null,
+            _currentAnnotation: null,
+            _lastTimeUpdate: 0,
+            _resumeTimeInSegment: 0,
+
+            init: function() {
+                this.audio = document.getElementById('audioPlayer');
+                var self = this;
+                this._annotationAudio = new Audio();
+
+                (function wrapPlay(audio) {
+                    var _origPlay = audio.play;
+                    audio.play = function() {
+                        var p = _origPlay.apply(audio, arguments);
+                        if (p && typeof p.catch === 'function') {
+                            p.catch(function() {
+                                function _retry() { audio.play().catch(function(){}); }
+                                ['touchstart','click'].forEach(function(evt) { document.addEventListener(evt, _retry, { once: true, passive: true }); });
+                            });
+                        }
+                        return p;
+                    };
+                })(this._annotationAudio);
+
+                var _wechatAudioUnlocked = false;
+                function _unlockWechatAudio() {
+                    if (_wechatAudioUnlocked) return;
+                    _wechatAudioUnlocked = true;
+                    if (self.audio && self.audio.paused) {
+                        var p = self.audio.play();
+                        if (p && p.then) p.then(function() { self.audio.pause(); self.audio.currentTime = 0; }).catch(function() {});
+                    }
+                    if (self._annotationAudio && self._annotationAudio.paused) {
+                        var p2 = self._annotationAudio.play();
+                        if (p2 && p2.then) p2.then(function() { self._annotationAudio.pause(); self._annotationAudio.currentTime = 0; }).catch(function() {});
+                    }
+                }
+                ['touchstart','touchend','mousedown','click'].forEach(function(evt) {
+                    document.addEventListener(evt, _unlockWechatAudio, { once: true, passive: true });
+                });
+
+                this.audio.ontimeupdate = function() {
+                    var now = Date.now();
+                    if (now - self._lastTimeUpdate < 250) return;
+                    self._lastTimeUpdate = now;
+                    self.currentTime = self.audio.currentTime;
+                    self._updateDisplayByTime();
+                };
+                this.audio.onended = function() {
+                    if (self._insertPointStep > 0) return;
+                    self._onSegmentEnd();
+                };
+                this.audio.onerror = function() {
+                    self.isPlaying = false; state.isPlaying = false; self.audio.pause();
+                    document.getElementById('playBtn').textContent = '\u26A0';
+                    document.getElementById('playBtnNav').textContent = '\u26A0';
+                };
+            },
+
+            loadSection: function(sectionId) {
+                var self = this;
+                this._isLeaving = false;
+                if (this._currentSectionId === sectionId && this.audioSegments.length > 0) {
+                    this._playlistIndex = -1; this._currentSegment = null;
+                    this._insertPointStep = 0; this._hasPlayed = false; this.isPlaying = false;
+                    this.audio.pause(); this.audio.removeAttribute('src'); this.audio.load(); this.audio.currentTime = 0;
+                    this._resetAnnotationAudio();
+                    if (reader.resetDisplay) reader.resetDisplay();
+                    analysisManager.reset();
+                    this._preloadAllAudio();
+                    return;
+                }
+                this._currentSectionId = sectionId;
+                this._playlistIndex = -1; this._currentSegment = null;
+                this._insertPointStep = 0; this._hasPlayed = false; this.isPlaying = false;
+                this.audio.pause(); this.audio.removeAttribute('src'); this.audio.currentTime = 0;
+                this._resetAnnotationAudio();
+
+                fetch(API_BASE + '/sections/' + sectionId + '/playback-plan')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.playlist && data.playlist.length > 0) {
+                            self.mode = 'timeline';
+                            self.audioDuration = data.total_duration || 0;
+                            self.charTimeline = [];
+                            data.playlist.forEach(function(item) {
+                                if (item.type === 'text_segment') {
+                                    var tl = item.char_timeline;
+                                    if (tl !== undefined && tl !== null) {
+                                        if (typeof tl === 'string') { try { tl = JSON.parse(tl); } catch(e) { tl = []; } }
+                                        if (Array.isArray(tl)) self.charTimeline = self.charTimeline.concat(tl);
+                                    }
+                                }
+                            });
+                            self.audioUrl = null;
+                            self._buildPlaylist(data.playlist);
+                            var section = state.currentSections[state.currentSectionIndex];
+                            var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                            if (sectionStatus === 'reading' && reader._restoreBookmarkAndPosition) reader._restoreBookmarkAndPosition();
+                            self._preloadAllAudio();
+                            loadRandomQuote(sectionId);
+                            document.getElementById('totalTime').textContent = formatTime(self.audioDuration);
+                        } else {
+                            self.mode = 'generating'; self.audioUrl = null; self._checkTTSStatus();
+                        }
+                    }).catch(function() {});
+            },
+
+            _buildPlaylist: function(playlist) {
+                this.audioSegments = playlist || [];
+                this._isSegmentMode = true;
+                this._playlistIndex = -1;
+            },
+
+            _resetAnnotationAudio: function() {
+                if (this._annotationAudio) { this._annotationAudio.pause(); this._annotationAudio.src = ''; this._annotationAudio = new Audio(); }
+                this._currentInsertPoint = null; this._insertPointStep = 0;
+            },
+
+            _preloadAllAudio: function() {
+                var self = this;
+                var playBtn = document.getElementById('playBtn');
+                var playBtnNav = document.getElementById('playBtnNav');
+                function normalizeAudioPath(path) {
+                    if (!path) return null;
+                    if (path.startsWith('audio_files/')) return '/api/audio/' + path.replace('audio_files/', '');
+                    return path;
+                }
+                var missingSegs = false;
+                var audioPaths = [];
+                this.audioSegments.forEach(function(seg) {
+                    if (seg.type === 'text_segment') {
+                        var normPath = normalizeAudioPath(seg.audio_path);
+                        if (normPath) { audioPaths.push(normPath); seg.audio_path = normPath; }
+                        else missingSegs = true;
+                    } else if (seg.type === 'insert_point') {
+                        var p1 = normalizeAudioPath(seg.audio_path);
+                        var p2 = normalizeAudioPath(seg.quote_audio_path);
+                        if (p1) { audioPaths.push(p1); seg.audio_path = p1; }
+                        if (p2) { audioPaths.push(p2); seg.quote_audio_path = p2; }
+                    }
+                });
+                if (missingSegs) {
+                    playBtn.disabled = true; playBtn.style.opacity = '0.5'; playBtn.textContent = '\u26A0';
+                    playBtnNav.disabled = true; playBtnNav.style.opacity = '0.5'; playBtnNav.textContent = '\u26A0';
+                    return;
+                }
+                playBtn.disabled = true; playBtn.style.opacity = '0.5'; playBtn.textContent = '\u23F3';
+                playBtnNav.disabled = true; playBtnNav.style.opacity = '0.5'; playBtnNav.textContent = '\u23F3';
+                var loaded = 0;
+                var total = audioPaths.length;
+                if (total === 0) {
+                    playBtn.disabled = false; playBtn.style.opacity = '1'; playBtn.textContent = '\u25B6';
+                    playBtnNav.disabled = false; playBtnNav.style.opacity = '1'; playBtnNav.textContent = '\u25B6';
+                    return;
+                }
+                audioPaths.forEach(function(path) {
+                    var a = new Audio(); a.preload = 'auto'; a.src = path;
+                    a.addEventListener('canplaythrough', function() {
+                        loaded++;
+                        if (loaded >= total) {
+                            playBtn.disabled = false; playBtn.style.opacity = '1'; playBtn.textContent = '\u25B6'; playBtn.title = '';
+                            playBtnNav.disabled = false; playBtnNav.style.opacity = '1'; playBtnNav.textContent = '\u25B6';
+                        }
+                    }, { once: true });
+                    a.addEventListener('error', function() {
+                        playBtn.disabled = true; playBtn.style.opacity = '0.5'; playBtn.textContent = '\u26A0'; playBtn.title = '音频不完整';
+                        playBtnNav.disabled = true; playBtnNav.style.opacity = '0.5'; playBtnNav.textContent = '\u26A0';
+                    }, { once: true });
+                    a.load();
+                });
+            },
+
+            toggle: function() { if (this.isPlaying) this.pause(); else this.play(); },
+
+            play: function() {
+                var playBtn = document.getElementById('playBtn');
+                if (playBtn && playBtn.disabled) return;
+                var section = state.currentSections[state.currentSectionIndex];
+                var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                if (sectionStatus === 'read') {
+                    reader.hideAll(); analysisManager.init();
+                    document.getElementById('annotationDisplay').classList.remove('active');
+                    if (this.audio) this.audio.currentTime = 0;
+                }
+                if (this._isSegmentMode && this.audioSegments.length > 0) this._playNextSegment();
+                else if (this.mode === 'generating') this._showTTSStatus('语音正在生成中，请稍候...');
+            },
+
+            pause: function() {
+                this.audio.pause();
+                this.isPlaying = false; state.isPlaying = false;
+                document.getElementById('playBtn').textContent = '\u25B6';
+                document.getElementById('playBtnNav').textContent = '\u25B6';
+                thoughtEditor.updateAllLanternsState();
+            },
+
+            _playNextSegment: function() {
+                var self = this;
+                this._playlistIndex++;
+                if (this._playlistIndex >= this.audioSegments.length) { this._onAllSegmentsEnd(); return; }
+                var seg = this.audioSegments[this._playlistIndex];
+                this._currentSegment = seg;
+
+                if (seg.type === 'text_segment') {
+                    if (seg.audio_path) {
+                        this.audio.src = seg.audio_path;
+                        this.audio.load();
+                        this._hasPlayed = false;
+                        this.audio.onended = function() { if (self._insertPointStep > 0) return; self._onSegmentEnd(); };
+                        this.audio.play().then(function() {
+                            self.isPlaying = true; state.isPlaying = true;
+                            document.getElementById('playBtn').textContent = '\u23F8';
+                            document.getElementById('playBtnNav').textContent = '\u23F8';
+                            thoughtEditor.updateAllLanternsState();
+                            if (self._resumeTimeInSegment > 0) {
+                                self.audio.currentTime = self._resumeTimeInSegment;
+                                self._resumeTimeInSegment = 0;
+                            }
+                        }).catch(function() {
+                            document.getElementById('playBtn').textContent = '\u25B6';
+                            document.getElementById('playBtnNav').textContent = '\u25B6';
+                        });
+                    } else { this._onSegmentEnd(); }
+                } else if (seg.type === 'insert_point') {
+                    this._playInsertPoint(seg);
+                } else { this._playNextSegment(); }
+            },
+
+            _playInsertPoint: function(seg) {
+                var self = this;
+                this._currentInsertPoint = seg;
+                this._insertPointStep = 1;
+                state.isPlayingAnnotation = true;
+                this.audio.pause();
+
+                if (seg.point_type === 'annotation' && seg.audio_path) {
+                    this._annotationAudio.src = seg.audio_path;
+                    this._annotationAudio.onended = function() {
+                        self._insertPointStep = 0; state.isPlayingAnnotation = false; self._currentInsertPoint = null;
+                        analysisManager.resumeRotation(); self._playNextSegment();
+                    };
+                    this._annotationAudio.onerror = function() {
+                        self._insertPointStep = 0; state.isPlayingAnnotation = false; self._currentInsertPoint = null; self._playNextSegment();
+                    };
+                    this._annotationAudio.play().catch(function() {
+                        self._insertPointStep = 0; state.isPlayingAnnotation = false; self._currentInsertPoint = null; self._playNextSegment();
+                    });
+                    if (seg.comment) {
+                        var annotation = state.currentAnnotations.find(function(a) { return a.id === seg.annotation_id; });
+                        if (annotation) {
+                            analysisManager.addAnnotationTab(annotation);
+                            if (reader._showAnnotationMarker) reader._showAnnotationMarker(annotation);
+                            if (reader._highlightAnnotation) reader._highlightAnnotation(annotation);
+                        }
+                    }
+                } else if (seg.point_type === 'summary') {
+                    if (seg.audio_path) {
+                        this._annotationAudio.src = seg.audio_path;
+                        this._annotationAudio.onended = function() {
+                            self._insertPointStep = 0; state.isPlayingAnnotation = false; state.isPlayingSummary = false;
+                            self._currentInsertPoint = null; analysisManager.resumeRotation(); self._playNextSegment();
+                        };
+                        this._annotationAudio.onerror = function() {
+                            self._insertPointStep = 0; state.isPlayingAnnotation = false; state.isPlayingSummary = false;
+                            self._currentInsertPoint = null; self._playNextSegment();
+                        };
+                        this._annotationAudio.play().catch(function() {
+                            self._insertPointStep = 0; state.isPlayingAnnotation = false; state.isPlayingSummary = false;
+                            self._currentInsertPoint = null; self._playNextSegment();
+                        });
+                    } else {
+                        this._insertPointStep = 0; state.isPlayingAnnotation = false; this._playNextSegment();
+                    }
+                    var section = state.currentSections[state.currentSectionIndex];
+                    if (section && section.summary) analysisManager.addSummaryTab(section.summary);
                 } else {
-                    html += '<span class="chalk-char" data-index="' + i + '">' + char + '</span>';
+                    this._insertPointStep = 0; state.isPlayingAnnotation = false; this._playNextSegment();
                 }
-            }
-            container.innerHTML = html;
-        }
+            },
 
-        function togglePlay() {
-            if (!state.playbackPlan || state.playbackPlan.length === 0) {
-                alert('暂无音频');
-                return;
-            }
+            _onSegmentEnd: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (section) reader.saveProgress(reader._currentPosition || 0);
+                this._playNextSegment();
+            },
 
-            if (state.isPlaying) {
-                pause();
-            } else {
-                play();
-            }
-        }
+            _onAllSegmentsEnd: function() {
+                this.isPlaying = false; state.isPlaying = false;
+                document.getElementById('playBtn').textContent = '\u25B6';
+                document.getElementById('playBtnNav').textContent = '\u25B6';
+                document.getElementById('progressFill').style.width = '100%';
+                document.getElementById('progressFillNav').style.width = '100%';
+                if (reader.revealAll) reader.revealAll();
+                if (reader.markSectionRead) reader.markSectionRead();
+                thoughtEditor.updateAllLanternsState();
+                var section = state.currentSections[state.currentSectionIndex];
+                if (section && section.summary) {
+                    analysisManager.addSummaryTab(section.summary);
+                    analysisManager.resumeRotation();
+                }
+            },
 
-        function play() {
-            state.isPlaying = true;
-            document.getElementById('playBtn').textContent = '⏸';
+            _getCharIndexFromTime: function(time) {
+                if (!this.charTimeline || this.charTimeline.length === 0) return 0;
+                var charIndex = this.charTimeline.length;
+                for (var i = 0; i < this.charTimeline.length; i++) {
+                    if (this.charTimeline[i] > time) { charIndex = i; break; }
+                }
+                return charIndex;
+            },
 
-            if (audio.paused && audio.src) {
-                audio.play();
-            } else {
-                playNextAudio();
-            }
-        }
+            _updateDisplayByTime: function() {
+                if (this._isLeaving || state.isPlayingAnnotation) return;
+                if (this.currentTime > 0.5) this._hasPlayed = true;
+                if (!this._hasPlayed && this.currentTime < 0.5) return;
 
-        function pause() {
-            state.isPlaying = false;
-            document.getElementById('playBtn').textContent = '▶';
-            audio.pause();
-        }
+                if (this._currentSegment && this._currentSegment.type === 'text_segment') {
+                    var segTimeline = this._currentSegment.char_timeline;
+                    if (typeof segTimeline === 'string') { try { segTimeline = JSON.parse(segTimeline); } catch(e) { segTimeline = []; } }
+                    if (segTimeline && segTimeline.length > 0) {
+                        var charIndex = 0;
+                        for (var i = 0; i < segTimeline.length; i++) {
+                            if (segTimeline[i] > this.currentTime) { charIndex = i; break; }
+                            charIndex = i + 1;
+                        }
+                        charIndex = Math.min(segTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET);
+                        var globalCharIndex = this._currentSegment.start_char + charIndex;
+                        reader.revealCharsUpTo(globalCharIndex);
+                        reader._currentPosition = globalCharIndex;
+                        reader._checkAnnotationTrigger(globalCharIndex);
+                    }
+                }
 
-        function playNextAudio() {
-            if (state.audioIndex >= state.playbackPlan.length) {
-                state.audioIndex = 0;
-                pause();
-                return;
-            }
+                if (this.audioDuration > 0) {
+                    var progress = (this.currentTime / this.audioDuration) * 100;
+                    document.getElementById('progressFill').style.width = progress + '%';
+                    document.getElementById('progressFillNav').style.width = progress + '%';
+                }
+                document.getElementById('currentTime').textContent = formatTime(this.currentTime);
+            },
 
-            var item = state.playbackPlan[state.audioIndex];
-            if (item.type === 'text_segment' && item.audio_path) {
-                audio.src = item.audio_path;
-                audio.play();
-            } else {
-                state.audioIndex++;
-                playNextAudio();
-            }
-        }
+            _triggerAnnotationPlayback: function(annotation) {
+                var self = this;
+                state.isPlayingAnnotation = true;
+                this.audio.pause();
+                if (reader.revealCharsUpTo) {
+                    var displayChar = reader._contentCharToDisplayChar(annotation.end_char);
+                    reader.revealCharsUpTo(displayChar);
+                    reader._currentPosition = displayChar;
+                }
+                if (reader._highlightAnnotation) reader._highlightAnnotation(annotation);
+                this._currentAnnotation = annotation;
+                analysisManager.addAnnotationTab(annotation);
 
-        audio.onended = function() {
-            state.audioIndex++;
-            if (state.isPlaying) {
-                playNextAudio();
+                if (annotation.audio_path && annotation.audio_duration) {
+                    this._playAnnotationAudio(annotation);
+                } else {
+                    this._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
+                        setTimeout(function() { self._resumeAfterAnnotation(); }, 1000);
+                    });
+                }
+            },
+
+            _playAnnotationAudio: function(annotation) {
+                var self = this;
+                this._originalAudioSrc = this.audioUrl;
+                this._originalAudioMode = this.mode;
+                this.audio.src = annotation.audio_path;
+                this.audio.load();
+                this.audio.onended = function() { self._restoreMainAudio(0); };
+                this.audio.onerror = function() {
+                    self._restoreMainAudio(0);
+                    self._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
+                        setTimeout(function() { self._resumeAfterAnnotation(); }, 1000);
+                    });
+                };
+                this.audio.play().catch(function() {
+                    self._restoreMainAudio(0);
+                    self._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
+                        setTimeout(function() { self._resumeAfterAnnotation(); }, 1000);
+                    });
+                });
+            },
+
+            _restoreMainAudio: function(resumeTime) {
+                if (this._originalAudioSrc) {
+                    this._hasPlayed = true;
+                    this.audio.src = this._originalAudioSrc;
+                    this.audioUrl = this._originalAudioSrc;
+                    this.mode = this._originalAudioMode;
+                    this._originalAudioSrc = null;
+                    this._originalAudioMode = null;
+                    state.isPlayingAnnotation = false;
+                    var self = this;
+                    this.audio.onended = function() {
+                        self.isPlaying = false; state.isPlaying = false;
+                        document.getElementById('playBtn').textContent = '\u25B6';
+                        document.getElementById('playBtnNav').textContent = '\u25B6';
+                        self._onSegmentEnd();
+                    };
+                    if (reader.revealCharsUpTo) {
+                        var charIndex = this._getCharIndexFromTime(resumeTime);
+                        reader.revealCharsUpTo(Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET));
+                        reader._currentPosition = charIndex;
+                    }
+                    if (resumeTime > 0) {
+                        var canPlayHandler = function() {
+                            self.audio.currentTime = resumeTime; self.currentTime = resumeTime;
+                            self.audio.play().then(function() {
+                                self.isPlaying = true; state.isPlaying = true;
+                                document.getElementById('playBtn').textContent = '\u23F8';
+                                document.getElementById('playBtnNav').textContent = '\u23F8';
+                            }).catch(function() {});
+                            self.audio.removeEventListener('canplay', canPlayHandler);
+                        };
+                        this.audio.addEventListener('canplay', canPlayHandler);
+                        setTimeout(function() {
+                            if (self.audio.currentTime < resumeTime - 1) {
+                                self.audio.currentTime = resumeTime; self.currentTime = resumeTime;
+                                self.audio.play().catch(function() {});
+                            }
+                        }, 3000);
+                        this.audio.load();
+                    }
+                }
+            },
+
+            _speakComment: function(text, callback) {
+                if (!window.speechSynthesis) { if (callback) callback(); return; }
+                var u = new SpeechSynthesisUtterance(text);
+                u.lang = 'zh-CN'; u.rate = 1.0; u.pitch = 1.0;
+                u.onend = function() { if (callback) callback(); };
+                u.onerror = function() { if (callback) callback(); };
+                window.speechSynthesis.speak(u);
+            },
+
+            _resumeAfterAnnotation: function() {
+                if (reader._clearAnnotationHighlight && this._currentAnnotation) reader._clearAnnotationHighlight(this._currentAnnotation);
+                this._currentAnnotation = null;
+                state.isPlayingAnnotation = false;
+                analysisManager.resumeRotation();
+            },
+
+            _checkTTSStatus: function() {
+                var self = this;
+                if (!state.currentBook) return;
+                fetch(API_BASE + '/books/' + state.currentBook.id + '/tts-status')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        var status = data.tts_status || 'none';
+                        var progress = data.tts_progress || '';
+                        if (status === 'done') {
+                            self._hideTTSStatus();
+                            var section = state.currentSections[state.currentSectionIndex];
+                            if (section) self.loadSection(section.id);
+                        } else if (status === 'generating') {
+                            self._showTTSStatus('正在生成语音 ' + progress + '...');
+                            setTimeout(function() { self._checkTTSStatus(); }, 5000);
+                        } else if (status === 'error') {
+                            self._showTTSStatus('语音生成失败');
+                        } else {
+                            self._showTTSStatus('语音尚未生成，请等待...');
+                            setTimeout(function() { self._checkTTSStatus(); }, 5000);
+                        }
+                    }).catch(function() {});
+            },
+
+            _showTTSStatus: function(msg) {
+                var el = document.getElementById('ttsStatusBar');
+                if (!el) {
+                    el = document.createElement('div'); el.id = 'ttsStatusBar'; el.className = 'tts-status-bar';
+                    var container = document.querySelector('.chalkboard');
+                    if (container) container.insertBefore(el, container.firstChild);
+                }
+                el.textContent = msg; el.style.display = 'block';
+            },
+
+            _hideTTSStatus: function() {
+                var el = document.getElementById('ttsStatusBar');
+                if (el) el.style.display = 'none';
             }
         };
 
-        audio.ontimeupdate = function() {
-            state.currentTime = audio.currentTime;
-            var progress = (audio.currentTime / state.totalDuration) * 100;
-            document.getElementById('progressFill').style.width = progress + '%';
-            document.getElementById('currentTime').textContent = formatTime(audio.currentTime);
+        var thoughtEditor = {
+            isEditMode: false,
+            _startChar: -1,
+            _endChar: -1,
+            _wasPlayingBeforeEdit: false,
+            _saveCompleted: false,
 
-            updateCharDisplay(audio.currentTime);
+            toggleEditMode: function() {
+                if (this.isEditMode) this.exitEditMode(); else this.enterEditMode();
+            },
+
+            enterEditMode: function() {
+                this.isEditMode = true;
+                this._wasPlayingBeforeEdit = state.isPlaying || player.isPlaying;
+                if (this._wasPlayingBeforeEdit) player.pause();
+                var btn = document.getElementById('editAnnotationBtn');
+                var btnNav = document.getElementById('editAnnotationBtnNav');
+                if (btn) btn.textContent = '✓ 完成思考';
+                if (btnNav) { btnNav.textContent = '✓ 完成思考'; btnNav.classList.add('active'); }
+                var self = this;
+                document.querySelectorAll('.chalk-char.visible').forEach(function(c) {
+                    c.classList.add('selectable');
+                    c.addEventListener('click', self._onCharClick);
+                });
+            },
+
+            exitEditMode: function() {
+                this.isEditMode = false; this._startChar = -1; this._endChar = -1; this._wasPlayingBeforeEdit = false;
+                var btn = document.getElementById('editAnnotationBtn');
+                var btnNav = document.getElementById('editAnnotationBtnNav');
+                if (btn) btn.textContent = '+思考';
+                if (btnNav) { btnNav.textContent = '+思考'; btnNav.classList.remove('active'); }
+                document.querySelectorAll('.chalk-char.selectable').forEach(function(c) {
+                    c.classList.remove('selectable', 'thought-selected');
+                    c.removeEventListener('click', thoughtEditor._onCharClick);
+                });
+            },
+
+            _onCharClick: function(e) {
+                var charSpan = e.currentTarget;
+                var charIndex = parseInt(charSpan.dataset.index);
+                if (thoughtEditor._startChar === -1) {
+                    thoughtEditor._startChar = charIndex;
+                    thoughtEditor._highlightSelection(charIndex, charIndex);
+                } else {
+                    thoughtEditor._endChar = charIndex;
+                    var start = Math.min(thoughtEditor._startChar, thoughtEditor._endChar);
+                    var end = Math.max(thoughtEditor._startChar, thoughtEditor._endChar);
+                    thoughtEditor._highlightSelection(start, end);
+                    thoughtEditor._showModal(start, end);
+                }
+            },
+
+            _highlightSelection: function(start, end) {
+                document.querySelectorAll('.chalk-char.thought-selected').forEach(function(c) { c.classList.remove('thought-selected'); });
+                reader._allChars.forEach(function(c, i) { if (i >= start && i <= end) c.classList.add('thought-selected'); });
+            },
+
+            _showModal: function(start, end) {
+                var originalText = '';
+                for (var i = start; i <= end && i < reader._allChars.length; i++) originalText += reader._allChars[i].textContent;
+                document.getElementById('thoughtOriginalText').textContent = originalText;
+                document.getElementById('thoughtContent').value = '';
+                document.getElementById('thoughtStartChar').value = start;
+                document.getElementById('thoughtEndChar').value = end;
+                document.getElementById('thoughtModalOverlay').style.display = 'flex';
+            },
+
+            saveThought: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section || !state.currentUser) { alert('请先登录'); return; }
+                var content = document.getElementById('thoughtContent').value.trim();
+                if (!content) { alert('请输入思考内容'); return; }
+                var startChar = parseInt(document.getElementById('thoughtStartChar').value);
+                var endChar = parseInt(document.getElementById('thoughtEndChar').value);
+                var originalText = document.getElementById('thoughtOriginalText').textContent;
+                var self = this;
+                this._saveCompleted = false;
+                var saveBtn = document.getElementById('thoughtSaveBtn');
+                var cancelBtn = saveBtn.previousElementSibling;
+                var originalSaveText = saveBtn.textContent;
+                saveBtn.disabled = true; cancelBtn.disabled = true;
+                var countdown = 30;
+                var countdownInterval = setInterval(function() { saveBtn.textContent = 'AI评分中 ' + countdown + '秒'; countdown--; if (countdown < 0) countdown = 0; }, 1000);
+                var timeoutId = setTimeout(function() {
+                    if (self._saveCompleted) return; self._saveCompleted = true;
+                    clearInterval(countdownInterval); saveBtn.textContent = originalSaveText; saveBtn.disabled = false; cancelBtn.disabled = false;
+                    self._showResultModal(null, null);
+                    var shouldResume = self._wasPlayingBeforeEdit;
+                    thoughtEditor.exitEditMode(); thoughtEditor._closeModal(); thoughtEditor.loadThoughts();
+                    if (shouldResume) player.play();
+                }, 30000);
+
+                fetch(API_BASE + '/sections/' + section.id + '/thoughts', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user_id: state.currentUser.id, start_char: startChar, end_char: endChar, original_text: originalText, content: content })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (self._saveCompleted) return; self._saveCompleted = true;
+                    clearTimeout(timeoutId); clearInterval(countdownInterval);
+                    saveBtn.textContent = originalSaveText; saveBtn.disabled = false; cancelBtn.disabled = false;
+                    if (data.thought_id) {
+                        self._showResultModal(data.ai_score, data.score_reason);
+                        var shouldResume = self._wasPlayingBeforeEdit;
+                        thoughtEditor.exitEditMode(); thoughtEditor._closeModal(); thoughtEditor.loadThoughts();
+                        if (shouldResume) player.play();
+                    } else { alert(data.error || '保存失败'); }
+                }).catch(function(e) {
+                    if (self._saveCompleted) return; self._saveCompleted = true;
+                    clearTimeout(timeoutId); clearInterval(countdownInterval);
+                    saveBtn.textContent = originalSaveText; saveBtn.disabled = false; cancelBtn.disabled = false;
+                    alert('保存失败: ' + e);
+                });
+            },
+
+            _showResultModal: function(aiScore, scoreReason) {
+                var scoreEl = document.getElementById('resultScore');
+                var reasonEl = document.getElementById('resultReason');
+                if (aiScore !== null && aiScore !== undefined) {
+                    var stars = '';
+                    for (var i = 0; i < 3; i++) stars += (i < aiScore) ? '⭐' : '☆';
+                    scoreEl.innerHTML = stars + ' <span style="font-size:14px;color:#666;">（' + aiScore + '星）</span>';
+                    reasonEl.textContent = scoreReason || '';
+                } else {
+                    scoreEl.innerHTML = '<span style="color:#999;">无</span>';
+                    reasonEl.textContent = '未获得AI结果，请过后查看';
+                }
+                document.getElementById('thoughtResultModal').style.display = 'flex';
+            },
+
+            _closeModal: function() {
+                document.getElementById('thoughtModalOverlay').style.display = 'none';
+                this._startChar = -1; this._endChar = -1;
+                document.querySelectorAll('.chalk-char.thought-selected').forEach(function(c) { c.classList.remove('thought-selected'); });
+            },
+
+            loadThoughts: function() {
+                var section = state.currentSections[state.currentSectionIndex];
+                if (!section || !state.currentUser) return;
+                fetch(API_BASE + '/sections/' + section.id + '/thoughts?user_id=' + state.currentUser.id)
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        thoughtEditor._clearLanterns();
+                        (data.thoughts || []).sort(function(a, b) { return (a.thought_index || a.id) - (b.thought_index || b.id); })
+                            .forEach(function(t, index) { t.displayIndex = index + 1; thoughtEditor._addLantern(t); });
+                    });
+            },
+
+            _clearLanterns: function() {
+                var container = document.getElementById('thoughtLanternsContainer');
+                if (container) container.innerHTML = '';
+            },
+
+            _getLanternContainer: function() {
+                var btn = document.getElementById('editAnnotationBtn');
+                if (!btn) return null;
+                var container = document.getElementById('thoughtLanternsContainer');
+                if (!container) {
+                    container = document.createElement('div');
+                    container.id = 'thoughtLanternsContainer';
+                    container.className = 'thought-lanterns-container';
+                    document.body.appendChild(container);
+                }
+                this._updateLanternContainerPosition();
+                return container;
+            },
+
+            _updateLanternContainerPosition: function() {
+                var btn = document.getElementById('editAnnotationBtn');
+                var container = document.getElementById('thoughtLanternsContainer');
+                if (!btn || !container) return;
+                var rect = btn.getBoundingClientRect();
+                container.style.left = (rect.left + rect.width / 2) + 'px';
+                container.style.top = (rect.bottom + 10) + 'px';
+            },
+
+            _addLantern: function(thought) {
+                var container = this._getLanternContainer();
+                if (!container) return;
+                var lantern = document.createElement('span');
+                lantern.className = 'thought-lantern';
+                lantern.textContent = thought.displayIndex;
+                lantern.dataset.thoughtId = thought.id;
+                var score = thought.ai_score;
+                if (score === 1) lantern.classList.add('lantern-orange');
+                else if (score === 2) lantern.classList.add('lantern-pink');
+                else if (score === 3) lantern.classList.add('lantern-red');
+                var tassel = document.createElement('span');
+                tassel.className = 'tassel';
+                lantern.appendChild(tassel);
+                this._updateLanternState(lantern);
+                lantern.onclick = function(e) {
+                    e.stopPropagation();
+                    if (state.isPlaying || player.isPlaying) return;
+                    thoughtEditor._showDetail(thought);
+                };
+                container.appendChild(lantern);
+            },
+
+            _updateLanternState: function(lantern) {
+                if (state.isPlaying || player.isPlaying) lantern.classList.add('playing');
+                else lantern.classList.remove('playing');
+            },
+
+            updateAllLanternsState: function() {
+                var container = document.getElementById('thoughtLanternsContainer');
+                if (!container) return;
+                if (state.isPlaying || player.isPlaying) container.classList.add('playing');
+                else container.classList.remove('playing');
+            },
+
+            _highlightQuote: function(start, end) {
+                this._clearQuoteHighlight();
+                for (var i = start; i <= end && i < reader._allChars.length; i++) reader._allChars[i].classList.add('thought-quote-highlight');
+            },
+
+            _clearQuoteHighlight: function() {
+                document.querySelectorAll('.chalk-char.thought-quote-highlight').forEach(function(c) { c.classList.remove('thought-quote-highlight'); });
+            },
+
+            _showDetail: function(thought) {
+                this._highlightQuote(thought.start_char, thought.end_char);
+                document.getElementById('thoughtDetailQuote').textContent = thought.original_text || '';
+                document.getElementById('thoughtDetailContent').textContent = thought.content || '';
+                var aiScore = thought.ai_score;
+                var scoreEl = document.getElementById('thoughtDetailScore');
+                var reasonSection = document.getElementById('thoughtDetailReasonSection');
+                var reasonEl = document.getElementById('thoughtDetailReason');
+                if (aiScore !== null && aiScore !== undefined) {
+                    var stars = '';
+                    for (var i = 0; i < 3; i++) stars += (i < aiScore) ? '⭐' : '☆';
+                    scoreEl.textContent = stars + '（' + aiScore + '星）';
+                    scoreEl.style.display = 'inline';
+                } else { scoreEl.textContent = '无'; scoreEl.style.display = 'inline'; }
+                if (thought.score_reason) { reasonEl.textContent = thought.score_reason; reasonSection.style.display = 'block'; }
+                else { reasonSection.style.display = 'none'; }
+                document.getElementById('thoughtDetailModal').style.display = 'flex';
+            },
+
+            closeDetailModal: function() {
+                document.getElementById('thoughtDetailModal').style.display = 'none';
+                this._clearQuoteHighlight();
+            }
         };
 
-        function updateCharDisplay(currentTime) {
-            if (state.charTimeline.length === 0) return;
+        window.addEventListener('beforeunload', function() {
+            player._isLeaving = true;
+            reader.saveProgress(reader._currentPosition || 0);
+        });
 
-            var chars = document.querySelectorAll('.chalk-char');
-            for (var i = 0; i < state.charTimeline.length; i++) {
-                var point = state.charTimeline[i];
-                if (currentTime >= point.time && chars[point.char_index]) {
-                    chars[point.char_index].classList.add('visible');
-                }
-            }
-        }
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                player._isLeaving = true;
+                reader.saveProgress(reader._currentPosition || 0);
+                if (player.isPlaying) player.pause();
+            } else { player._isLeaving = false; }
+        });
 
-        function formatTime(seconds) {
-            var mins = Math.floor(seconds / 60);
-            var secs = Math.floor(seconds % 60);
-            return mins + ':' + (secs < 10 ? '0' : '') + secs;
-        }
-
-        loadSection();
+        initReader();
     </script>
 </body>
 </html>
