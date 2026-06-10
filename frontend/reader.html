@@ -542,7 +542,7 @@
 
                 player.loadSection(section.id);
                 this.setupScrollListener();
-                this._updateNavButtons();
+
 
                 if (sectionStatus !== 'read') {
                     fetch(API_BASE + '/sections/' + section.id + '/status', {
@@ -761,9 +761,6 @@
                 }
             },
 
-            _updateNavButtons: function() {
-                document.getElementById('prevBtn').disabled = state.currentSectionIndex <= 0;
-                document.getElementById('nextBtn').disabled = state.currentSectionIndex >= state.currentSections.length - 1;
             },
 
             saveProgress: function(position) {
