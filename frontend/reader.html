@@ -1347,7 +1347,7 @@
                 this.audio.pause();
                 this.isPlaying = false; state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
-                document.getElementById('playBtnNav')?.textContent = '\u25B6';
+
                 thoughtEditor.updateAllLanternsState();
             },
 
@@ -1367,7 +1367,7 @@
                         this.audio.play().then(function() {
                             self.isPlaying = true; state.isPlaying = true;
                             document.getElementById('playBtn').textContent = '\u23F8';
-                            document.getElementById('playBtnNav')?.textContent = '\u23F8';
+
                             thoughtEditor.updateAllLanternsState();
                             if (self._resumeTimeInSegment > 0) {
                                 self.audio.currentTime = self._resumeTimeInSegment;
@@ -1375,7 +1375,7 @@
                             }
                         }).catch(function() {
                             document.getElementById('playBtn').textContent = '\u25B6';
-                            document.getElementById('playBtnNav')?.textContent = '\u25B6';
+
                         });
                     } else { this._onSegmentEnd(); }
                 } else if (seg.type === 'insert_point') {
@@ -1444,7 +1444,7 @@
             _onAllSegmentsEnd: function() {
                 this.isPlaying = false; state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
-                document.getElementById('playBtnNav')?.textContent = '\u25B6';
+
                 document.getElementById('progressFill').style.width = '100%';
                 document.getElementById('progressFillNav').style.width = '100%';
                 if (reader.revealAll) reader.revealAll();
@@ -1552,7 +1552,7 @@
                     this.audio.onended = function() {
                         self.isPlaying = false; state.isPlaying = false;
                         document.getElementById('playBtn').textContent = '\u25B6';
-                        document.getElementById('playBtnNav')?.textContent = '\u25B6';
+
                         self._onSegmentEnd();
                     };
                     if (reader.revealCharsUpTo) {
@@ -1566,7 +1566,7 @@
                             self.audio.play().then(function() {
                                 self.isPlaying = true; state.isPlaying = true;
                                 document.getElementById('playBtn').textContent = '\u23F8';
-                                document.getElementById('playBtnNav')?.textContent = '\u23F8';
+
                             }).catch(function() {});
                             self.audio.removeEventListener('canplay', canPlayHandler);
                         };
