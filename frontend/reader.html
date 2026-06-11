@@ -824,12 +824,7 @@
                     var ann = annotations[i];
                     if (!ann._triggered && currentCharIndex >= ann.end_char) {
                         ann._triggered = true;
-                        if (player.audio) player.audio.pause();
-                        state.isPlayingAnnotation = true;
-                        (function(triggeredAnn) {
-                            setTimeout(function() { player._triggerAnnotationPlayback(triggeredAnn); }, 1000);
-                        })(ann);
-                        return true;
+
                     }
                 }
                 return false;
@@ -2186,98 +2181,8 @@
 
             },
 
-
-
-                if (annotation.audio_path && annotation.audio_duration) {
-                    this._playAnnotationAudio(annotation);
-                } else {
-                    this._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
-                        setTimeout(function() { self._resumeAfterAnnotation(); }, 1000);
-                    });
-                }
-            },
-
-            _playAnnotationAudio: function(annotation) {
-                var self = this;
-                this._originalAudioSrc = this.audioUrl;
-                this._originalAudioMode = this.mode;
-                this.audio.src = annotation.audio_path;
-                this.audio.load();
-                this.audio.onended = function() { self._restoreMainAudio(0); };
-                this.audio.onerror = function() {
-                    self._restoreMainAudio(0);
-                    self._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
-                        setTimeout(function() { self._resumeAfterAnnotation(); }, 1000);
-                    });
-                };
-                this.audio.play().catch(function() {
-                    self._restoreMainAudio(0);
-                    self._speakComment('我们看下这里。' + annotation.original_text + '。' + annotation.comment + '。回到原文。', function() {
-                        setTimeout(function() { self._resumeAfterAnnotation(); }, 1000);
-                    });
-                });
-            },
-
-            _restoreMainAudio: function(resumeTime) {
-                if (this._originalAudioSrc) {
-                    this._hasPlayed = true;
-                    this.audio.src = this._originalAudioSrc;
-                    this.audioUrl = this._originalAudioSrc;
-                    this.mode = this._originalAudioMode;
-                    this._originalAudioSrc = null;
-                    this._originalAudioMode = null;
-                    state.isPlayingAnnotation = false;
-                    var self = this;
-                    this.audio.onended = function() {
-                        self.isPlaying = false; state.isPlaying = false;
-                        document.getElementById('playBtn').textContent = '\u25B6';
-
-                        self._onSegmentEnd();
-                    };
-                    if (reader.revealCharsUpTo) {
-                        var charIndex = this._getCharIndexFromTime(resumeTime);
-                        reader.revealCharsUpTo(Math.min(this.charTimeline.length, charIndex + this.TEXT_AHEAD_OFFSET));
-                        reader._currentPosition = charIndex;
-                    }
-                    if (resumeTime > 0) {
-                        var canPlayHandler = function() {
-                            self.audio.currentTime = resumeTime; self.currentTime = resumeTime;
-                            self.audio.play().then(function() {
-                                self.isPlaying = true; state.isPlaying = true;
-                                document.getElementById('playBtn').textContent = '\u23F8';
-
-                            }).catch(function() {});
-                            self.audio.removeEventListener('canplay', canPlayHandler);
-                        };
-                        this.audio.addEventListener('canplay', canPlayHandler);
-                        setTimeout(function() {
-                            if (self.audio.currentTime < resumeTime - 1) {
-                                self.audio.currentTime = resumeTime; self.currentTime = resumeTime;
-                                self.audio.play().catch(function() {});
-                            }
-                        }, 3000);
-                        this.audio.load();
-                    }
-                }
-            },
-
-            _speakComment: function(text, callback) {
-                if (!window.speechSynthesis) { if (callback) callback(); return; }
-                var u = new SpeechSynthesisUtterance(text);
-                u.lang = 'zh-CN'; u.rate = 1.0; u.pitch = 1.0;
-                u.onend = function() { if (callback) callback(); };
-                u.onerror = function() { if (callback) callback(); };
-                window.speechSynthesis.speak(u);
-            },
-
-            _resumeAfterAnnotation: function() {
-                if (reader._clearAnnotationHighlight && this._currentAnnotation) reader._clearAnnotationHighlight(this._currentAnnotation);
-                this._currentAnnotation = null;
-                state.isPlayingAnnotation = false;
-                analysisManager.resumeRotation();
-            },
-
             _checkTTSStatus: function() {
+
                 var self = this;
                 if (!state.currentBook) return;
                 fetch(API_BASE + '/books/' + state.currentBook.id + '/tts-status')
