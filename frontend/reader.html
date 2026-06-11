@@ -212,6 +212,9 @@
             background: rgba(255, 215, 0, 0.2); color: #FFD700;
             border-color: rgba(255, 215, 0, 0.4);
         }
+        .chalkboard .analysis-area .analysis-tabs.disabled .tab {
+            opacity: 0.4; cursor: default;
+        }
         .chalkboard .analysis-area .content {
             font-size: 16px; line-height: 1.8; color: #7EC8E3;
             position: absolute; top: 50px; left: 0; right: 0; bottom: 0;
@@ -230,7 +233,7 @@
         .chalkboard .analysis-area .content .original-text { color: #FFD700; font-style: italic; margin-bottom: 10px; }
         .chalkboard .analysis-area .annotation-display {
             display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.3); padding: 15px; z-index: 2;
+            padding: 15px; z-index: 2;
         }
         .chalkboard .analysis-area .annotation-display.active { display: block; }
         .chalkboard .analysis-area .annotation-display .annotation-index { color: #FFD700; font-size: 16px; margin-bottom: 8px; }
@@ -1428,9 +1431,11 @@
                         comment: seg.comment
                     };
                     state.isPlayingAnnotation = true;
+                    document.getElementById('analysisTabs').classList.add('disabled');
                 } else if (seg.point_type === 'summary') {
                     document.getElementById('annotationDisplay').classList.remove('active');
                     state.isPlayingSummary = true;
+                    document.getElementById('analysisTabs').classList.add('disabled');
                 }
 
                 this._executeInsertPointStep();
@@ -1970,6 +1975,7 @@
                 this._currentInsertPoint = null;
                 state.isPlayingAnnotation = false;
                 state.isPlayingSummary = false;
+                document.getElementById('analysisTabs').classList.remove('disabled');
 
                 var playBtn = document.getElementById('playBtn');
                 if (playBtn) { playBtn.disabled = false; playBtn.style.opacity = '1'; playBtn.title = ''; }
