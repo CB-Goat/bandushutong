@@ -241,25 +241,111 @@
         .chalkboard .analysis-area .annotation-display .annotation-comment { color: #7EC8E3; font-size: 18px; }
         .bookmark-icon { display: none; position: absolute; z-index: 10; font-size: 16px; pointer-events: none; }
         .thought-lanterns-container {
-            position: fixed; z-index: 200; display: flex; gap: 6px; pointer-events: none;
+            position: fixed;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10000;
+            transform: translateX(-50%);
+        }
+        .thought-lanterns-container::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 10px;
+            background: linear-gradient(to bottom, #8B7355, #A08060);
         }
         .thought-lantern {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 28px; height: 28px; border-radius: 50%;
-            background: #FFD700; color: #8B4513; font-size: 12px; font-weight: bold;
-            cursor: pointer; pointer-events: auto; position: relative;
-            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4); transition: transform 0.2s;
+            width: 28px;
+            height: 20px;
+            background: radial-gradient(ellipse at center, #FFD700 0%, #FFA500 60%, #FF8C00 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            color: #8B4513;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 
+                0 2px 6px rgba(0,0,0,0.4),
+                inset 0 -2px 4px rgba(0,0,0,0.2),
+                inset 0 2px 4px rgba(255,255,255,0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            margin-top: 8px;
         }
-        .thought-lantern:hover { transform: scale(1.2); }
-        .thought-lantern.lantern-orange { background: #FF9800; color: white; }
-        .thought-lantern.lantern-pink { background: #E91E63; color: white; }
-        .thought-lantern.lantern-red { background: #F44336; color: white; }
+        .thought-lantern:first-child {
+            margin-top: 0;
+        }
+        .thought-lantern::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 14px;
+            height: 5px;
+            background: linear-gradient(to bottom, #8B4513, #CD853F);
+            border-radius: 3px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .thought-lantern::after {
+            content: '';
+            position: absolute;
+            bottom: -3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 14px;
+            height: 5px;
+            background: linear-gradient(to bottom, #CD853F, #8B4513);
+            border-radius: 3px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
         .thought-lantern .tassel {
-            position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
-            width: 2px; height: 8px; background: rgba(255, 215, 0, 0.6);
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 6px;
+            background: #FFD700;
+            border-radius: 0 0 50% 50%;
         }
-        .thought-lantern.playing { opacity: 0.5; cursor: default; }
-        .thought-lanterns-container.playing .thought-lantern { opacity: 0.5; cursor: default; }
+        .thought-lanterns-container.playing {
+            opacity: 0.3;
+            filter: grayscale(0.5);
+        }
+        .thought-lanterns-container.playing .thought-lantern {
+            cursor: not-allowed;
+        }
+        .thought-lantern.lantern-orange {
+            background: radial-gradient(ellipse at center, #FF6B35 0%, #E85D26 60%, #CC4E1A 100%);
+        }
+        .thought-lantern.lantern-orange .tassel {
+            background: #FF6B35;
+        }
+        .thought-lantern.lantern-pink {
+            background: radial-gradient(ellipse at center, #FF69B4 0%, #FF1493 60%, #DB1077 100%);
+        }
+        .thought-lantern.lantern-pink .tassel {
+            background: #FF69B4;
+        }
+        .thought-lantern.lantern-red {
+            background: radial-gradient(ellipse at center, #FF2D2D 0%, #E60000 60%, #CC0000 100%);
+        }
+        .thought-lantern.lantern-red .tassel {
+            background: #FF2D2D;
+        }
+        .thought-lantern:not(.playing):hover {
+            transform: scale(1.15);
+            box-shadow: 0 3px 10px rgba(255, 215, 0, 0.5), inset 0 -2px 4px rgba(0,0,0,0.1);
+        }
         .loading { text-align: center; padding: 40px; color: rgba(240,232,208,0.5); }
         .wait-hint { text-align: center; color: rgba(240,232,208,0.4); font-size: 16px; padding: 20px; }
         .tts-status-bar {
