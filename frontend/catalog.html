@@ -127,6 +127,10 @@
             flex: 1;
             color: #333;
         }
+        .section .sec-bookmark {
+            font-size: 14px;
+            flex-shrink: 0;
+        }
         .loading {
             text-align: center;
             padding: 40px;
@@ -199,6 +203,7 @@
                 state.sections = data.sections || [];
                 state.currentUser = { id: userId };
                 state.progress = data.progress || null;
+                state.currentProgressV2 = data.progress_v2 || null;
 
                 try {
                     var statusResponse = await fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + userId);
@@ -250,6 +255,11 @@
 
             var html = '';
 
+            var bookmarkSectionId = null;
+            if (state.currentProgressV2 && state.currentProgressV2.current_section_id) {
+                bookmarkSectionId = parseInt(state.currentProgressV2.current_section_id);
+            }
+
             var currentChapter = null;
             state.sections.forEach(function(section, index) {
                 if (section.chapter_number && section.chapter_number !== currentChapter) {
@@ -260,10 +270,12 @@
 
                 var status = state.catalogStatusMap[section.id] || 'unread';
                 var statusClass = status === 'read' ? 'read' : (status === 'reading' ? 'reading' : 'unread');
+                var isBookmark = (parseInt(section.id) === bookmarkSectionId);
 
                 html += '<div class="section" onclick="openSection(' + section.id + ')">' +
                     '<div class="status ' + statusClass + '"></div>' +
                     '<div class="title">' + (section.title || '第' + section.section_number + '节') + '</div>' +
+                    (isBookmark ? '<span class="sec-bookmark">🔖</span>' : '') +
                     '</div>';
             });
 

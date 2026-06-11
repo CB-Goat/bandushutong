@@ -1454,13 +1454,30 @@
                 if (playBtn && playBtn.disabled) return;
                 var section = state.currentSections[state.currentSectionIndex];
                 var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+                reader._hideBookmark();
                 if (sectionStatus === 'read') {
                     reader.hideAll(); analysisManager.init();
                     document.getElementById('annotationDisplay').classList.remove('active');
                     if (this.audio) this.audio.currentTime = 0;
                     state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
-
                     analysisManager.startRotationAlways();
+                } else if (sectionStatus === 'reading') {
+                    var progressV2 = state.currentProgressV2;
+                    if (progressV2 && parseInt(progressV2.current_section_id) === parseInt(section.id)) {
+                        var segId = progressV2.current_segment_id;
+                        var audioPos = progressV2.audio_position || 0;
+                        if (segId && this.audioSegments && this.audioSegments.length > 0) {
+                            for (var i = 0; i < this.audioSegments.length; i++) {
+                                var seg = this.audioSegments[i];
+                                if (seg.type === 'text_segment' && seg.id === segId) {
+                                    this._playlistIndex = i - 1;
+                                    if (audioPos > 0) this._resumeTimeInSegment = audioPos;
+                                    console.log('[播放] 断点续播: 段' + i + ' id=' + segId + ' audioPos=' + audioPos + 's');
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
                 if (this._isSegmentMode && this.audioSegments.length > 0) this._playNextSegment();
                 else if (this.mode === 'generating') this._showTTSStatus('语音正在生成中，请稍候...');
@@ -1470,7 +1487,7 @@
                 this.audio.pause();
                 this.isPlaying = false; state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
-
+                reader.saveProgress(reader._currentPosition || 0);
                 thoughtEditor.updateAllLanternsState();
             },
 
@@ -1497,6 +1514,7 @@
                                 self.audio.currentTime = self._resumeTimeInSegment;
                                 self._resumeTimeInSegment = 0;
                             }
+                            state.currentProgressV2 = null;
                         }).catch(function() {
                             document.getElementById('playBtn').textContent = '\u25B6';
 
@@ -2114,8 +2132,12 @@
 
                 if (reader.revealAll) reader.revealAll();
                 if (reader.markSectionRead) reader.markSectionRead();
-                thoughtEditor.updateAllLanternsState();
                 var section = state.currentSections[state.currentSectionIndex];
+                if (section) {
+                    reader.saveProgress(reader._totalChars || 0);
+                    if (state.catalogStatusMap) state.catalogStatusMap[section.id] = 'read';
+                }
+                thoughtEditor.updateAllLanternsState();
                 if (section && section.summary) {
                     analysisManager.addSummaryTab(section.summary);
                     analysisManager.resumeRotation();
@@ -2150,6 +2172,7 @@
                         reader.revealCharsUpTo(globalCharIndex);
                         reader._currentPosition = globalCharIndex;
                         reader._checkAnnotationTrigger(globalCharIndex);
+                        if (globalCharIndex % 100 < 5) reader.saveProgress(globalCharIndex);
                         var now = Date.now();
                         if (!this._lastLogTime || now - this._lastLogTime > 5000) {
                             this._lastLogTime = now;
@@ -2551,7 +2574,23 @@
 
         window.addEventListener('beforeunload', function() {
             player._isLeaving = true;
-            reader.saveProgress(reader._currentPosition || 0);
+            var section = state.currentSections[state.currentSectionIndex];
+            if (!section || !state.currentBook || !state.currentBook.id) return;
+            var sectionStatus = (state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
+            if (sectionStatus === 'read') return;
+            var pos = reader._currentPosition || 0;
+            if (pos <= 0) return;
+            if (typeof player !== 'undefined' && player._currentSegment && player._currentSegment.type === 'text_segment') {
+                var progressData = {
+                    book_id: state.currentBook.id, section_id: section.id,
+                    segment_id: player._currentSegment.id,
+                    text_position: pos - player._currentSegment.start_char,
+                    audio_position: player.currentTime || 0,
+                    current_section_id: section.id
+                };
+                if (state.currentUser && state.currentUser.id) progressData.user_id = state.currentUser.id;
+                navigator.sendBeacon(API_BASE + '/progress/v2', JSON.stringify(progressData));
+            }
         });
 
         document.addEventListener('visibilitychange', function() {
