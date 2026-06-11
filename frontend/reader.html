@@ -42,17 +42,19 @@
             overflow: hidden;
             text-overflow: ellipsis;
             flex: 1;
+            text-align: center;
+            margin: 0;
+            padding: 0 10px;
         }
         .navbar .back-btn {
             background: rgba(255,255,255,0.15);
             border: 1px solid rgba(255,255,255,0.2);
             color: #e8e0c8;
-            padding: 8px 15px;
+            padding: 8px 12px;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             font-family: inherit;
-            margin-right: 10px;
         }
         .reader-container {
             margin-top: 52px;
@@ -400,8 +402,11 @@
 </head>
 <body>
     <div class="navbar">
-        <button class="back-btn" onclick="goBack()">← 返回</button>
+        <div style="display:flex;align-items:center;">
+            <img src="favicon.png" style="width:28px;height:28px;border-radius:4px;margin-left:10px;">
+        </div>
         <h1 id="navbarTitle">加载中...</h1>
+        <button class="back-btn" onclick="goBack()">🔙</button>
     </div>
 
     <div class="reader-container">
@@ -618,7 +623,12 @@
                 this._hideBookmark();
                 document.getElementById('readerSectionTitle').textContent = section.title || '';
 
-                document.getElementById('navbarTitle').textContent = state.currentBook.title;
+                var titleHtml = '<span style="font-size:14px;">' + state.currentBook.title + '</span>';
+                if (state.currentBook.author) {
+                    var authorInfo = state.currentBook.author + (state.currentBook.author_nationality ? ' [' + state.currentBook.author_nationality + ']' : '');
+                    titleHtml += ' <span style="font-size:11px;">' + authorInfo + '</span>';
+                }
+                document.getElementById('navbarTitle').innerHTML = titleHtml;
 
                 state.currentAnnotations = (section.annotations || []).slice();
                 state.currentAnnotations.sort(function(a, b) { return a.annotation_index - b.annotation_index; });

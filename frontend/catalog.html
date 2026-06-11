@@ -35,23 +35,36 @@
             overflow: hidden;
             text-overflow: ellipsis;
             flex: 1;
+            text-align: center;
+            margin: 0;
+            padding: 0 10px;
         }
         .navbar .back-btn {
             background: rgba(255,255,255,0.15);
             border: 1px solid rgba(255,255,255,0.2);
             color: #e8e0c8;
-            padding: 8px 15px;
+            padding: 8px 12px;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             font-family: inherit;
-            margin-right: 10px;
+        }
+        .book-stats-bar {
+            background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+            color: white; font-size: 13px;
+            display: flex; justify-content: center; align-items: center; gap: 20px;
+            padding: 8px 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .catalog-container {
             margin-top: 52px;
             padding: 15px;
             overflow-y: auto;
             height: calc(100vh - 52px);
+        }
+        .catalog-container.with-stats {
+            margin-top: 88px;
+            height: calc(100vh - 88px);
         }
         .book-header {
             margin-bottom: 20px;
@@ -117,8 +130,17 @@
 </head>
 <body>
     <div class="navbar">
-        <button class="back-btn" onclick="goBack()">← 返回</button>
+        <div style="display:flex;align-items:center;">
+            <img src="favicon.png" style="width:28px;height:28px;border-radius:4px;margin-left:10px;">
+        </div>
         <h1 id="bookTitle">加载中...</h1>
+        <button class="back-btn" onclick="goBack()">🔙</button>
+    </div>
+
+    <div class="book-stats-bar" id="bookStatsBar" style="display:none;">
+        <span>📚 收录书籍 <strong id="statBooks">0</strong> 本</span>
+        <span>👥 当前用户 <strong id="statUsers">0</strong> 人</span>
+        <span>🔥 思考热度 <strong id="statHeat">0</strong>°</span>
     </div>
 
     <div class="catalog-container" id="catalogContent">
@@ -184,7 +206,20 @@
                     }
                 } catch(e) {}
 
-                document.getElementById('bookTitle').textContent = data.book.title + (data.book.author ? ' - ' + data.book.author : '');
+                var titleHtml = '<span style="font-size:16px;">' + data.book.title + '</span>';
+                if (data.book.author) {
+                    var authorInfo = data.book.author + (data.book.author_nationality ? ' [' + data.book.author_nationality + ']' : '');
+                    titleHtml += ' <span style="font-size:12px;">' + authorInfo + '</span>';
+                }
+                document.getElementById('bookTitle').innerHTML = titleHtml;
+
+                fetch(API_BASE + '/stats').then(function(r) { return r.json(); }).then(function(stats) {
+                    document.getElementById('statBooks').textContent = stats.book_count || 0;
+                    document.getElementById('statUsers').textContent = stats.user_count || 0;
+                    document.getElementById('statHeat').textContent = stats.thought_heat || 0;
+                    document.getElementById('bookStatsBar').style.display = '';
+                    document.getElementById('catalogContent').classList.add('with-stats');
+                }).catch(function() {});
 
                 renderCatalog();
             } catch (e) {
