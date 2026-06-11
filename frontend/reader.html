@@ -264,6 +264,49 @@
             padding: 8px 15px; font-size: 13px; text-align: center;
             border-radius: 6px; margin-bottom: 10px;
         }
+    .summary-countdown-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+        flex-direction: column;
+    }
+    .summary-countdown-overlay.active {
+        display: flex;
+    }
+    .summary-countdown-text {
+        font-size: 24px;
+        color: #f0e8d0;
+        margin-bottom: 30px;
+        font-family: inherit;
+    }
+    .summary-countdown-number {
+        font-size: 120px;
+        color: #FFD700;
+        font-weight: bold;
+        animation: countdownPulse 1s ease-in-out;
+        font-family: inherit;
+    }
+    @keyframes countdownPulse {
+        0% {
+            transform: scale(0.5);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.2);
+            opacity: 1;
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
     </style>
 </head>
 <body>
@@ -303,6 +346,11 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div id="summaryCountdownOverlay" class="summary-countdown-overlay">
+        <div class="summary-countdown-text">准备回顾...</div>
+        <div class="summary-countdown-number" id="summaryCountdownNumber">5</div>
     </div>
 
     <div id="thoughtModalOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;">
@@ -1597,26 +1645,275 @@
 
             _playSummaryAudio: function(seg) {
                 var self = this;
-                console.log('[点评] 播放小结音频');
-                if (seg.audio_path) {
-                    this._annotationAudio.src = seg.audio_path;
-                    this._annotationAudio.onended = function() {
-                        self._insertPointStep = 0; state.isPlayingAnnotation = false; state.isPlayingSummary = false;
-                        self._currentInsertPoint = null; analysisManager.resumeRotation(); self._playNextSegment();
-                    };
-                    this._annotationAudio.onerror = function() {
-                        self._insertPointStep = 0; state.isPlayingAnnotation = false; state.isPlayingSummary = false;
-                        self._currentInsertPoint = null; self._playNextSegment();
-                    };
-                    this._annotationAudio.play().catch(function() {
-                        self._insertPointStep = 0; state.isPlayingAnnotation = false; state.isPlayingSummary = false;
-                        self._currentInsertPoint = null; self._playNextSegment();
-                    });
-                } else {
-                    this._insertPointStep = 0; state.isPlayingAnnotation = false; this._playNextSegment();
+                console.log('[小结] 播放小结音频（5步骤流程）');
+                if (this._isFinishing) {
+                    console.log('[小结] 已在完成中，跳过重复调用');
+                    return;
                 }
-                var section = state.currentSections[state.currentSectionIndex];
-                if (section && section.summary) analysisManager.addSummaryTab(section.summary);
+                if (typeof analysisManager !== 'undefined' && analysisManager.stopRotation) {
+                    analysisManager.stopRotation();
+                    console.log('[小结] 暂停轮询');
+                }
+                this._currentSummarySeg = seg;
+                this._summaryStep = 0;
+                this._executeSummaryStep();
+            },
+
+            _currentSummarySeg: null,
+            _summaryStep: 0,
+
+            _executeSummaryStep: function() {
+                var self = this;
+                var seg = this._currentSummarySeg;
+                if (!seg) {
+                    console.log('[小结] 无小结数据，结束');
+                    this._finishSummaryPlayback();
+                    return;
+                }
+                this._summaryStep++;
+                console.log('[小结] 步骤 ' + this._summaryStep);
+                switch (this._summaryStep) {
+                    case 1: this._playSummaryOpening(); break;
+                    case 2: this._playSummaryCountdown(); break;
+                    case 3: this._playSummaryContent(); break;
+                    case 4: this._playSummaryPause(); break;
+                    case 5: this._playSummaryClosing(); break;
+                    default: this._finishSummaryPlayback(); break;
+                }
+            },
+
+            _playSummaryOpening: function() {
+                var self = this;
+                var stepCompleted = false;
+                document.getElementById('annotationDisplay').classList.remove('active');
+                var voiceType = (state.currentBook && state.currentBook.voice_type) || 'male';
+                var suffix = voiceType === 'female' ? '_male' : '_female';
+                this._annotationAudio.src = '/api/audio/summary_opening' + suffix + '.mp3';
+                this._annotationAudio.load();
+                var completeStep = function() {
+                    if (stepCompleted) return;
+                    stepCompleted = true;
+                    self._annotationAudio.oncanplay = null;
+                    self._annotationAudio.onerror = null;
+                    self._annotationAudio.onended = null;
+                    self._executeSummaryStep();
+                };
+                var canPlayHandler = function() {
+                    self._annotationAudio.oncanplay = null;
+                    self._annotationAudio.play().then(function() {
+                        self.isPlaying = true; state.isPlaying = true;
+                    }).catch(function(e) {
+                        console.log('[小结] 开场播放失败:', e);
+                        completeStep();
+                    });
+                };
+                this._annotationAudio.oncanplay = canPlayHandler;
+                this._annotationAudio.onended = function() { completeStep(); };
+                this._annotationAudio.onerror = function(e) {
+                    console.log('[小结] 开场音频加载失败:', e);
+                    completeStep();
+                };
+                this._safeSetTimeout(function() {
+                    if (!stepCompleted) { console.log('[小结] 开场超时(3秒)，跳过'); completeStep(); }
+                }, 3000);
+            },
+
+            _playSummaryCountdown: function() {
+                var self = this;
+                var countdownOverlay = document.getElementById('summaryCountdownOverlay');
+                var countdownNumber = document.getElementById('summaryCountdownNumber');
+                if (!countdownOverlay || !countdownNumber) {
+                    console.log('[小结] 倒计时元素不存在，跳过');
+                    this._executeSummaryStep();
+                    return;
+                }
+                document.getElementById('annotationDisplay').classList.remove('active');
+                countdownOverlay.classList.add('active');
+                var count = 5;
+                countdownNumber.textContent = count;
+                countdownNumber.style.animation = 'none';
+                countdownNumber.offsetHeight;
+                countdownNumber.style.animation = 'countdownPulse 1s ease-in-out';
+                var countdownInterval = setInterval(function() {
+                    count--;
+                    if (count > 0) {
+                        countdownNumber.textContent = count;
+                        countdownNumber.style.animation = 'none';
+                        countdownNumber.offsetHeight;
+                        countdownNumber.style.animation = 'countdownPulse 1s ease-in-out';
+                    } else {
+                        clearInterval(countdownInterval);
+                        countdownOverlay.classList.remove('active');
+                        self._executeSummaryStep();
+                    }
+                }, 1000);
+                this._safeSetTimeout(function() { clearInterval(countdownInterval); }, 6000);
+            },
+
+            _playSummaryContent: function() {
+                var self = this;
+                var seg = this._currentSummarySeg;
+                if (!seg.audio_path) {
+                    console.log('[小结] 无音频路径，跳过内容播放');
+                    this._executeSummaryStep();
+                    return;
+                }
+                var commentText = seg.comment || '';
+                var audioDuration = seg.audio_duration || 1;
+                var commentChars = [];
+                if (typeof analysisManager !== 'undefined') {
+                    analysisManager.addSummaryTab('');
+                }
+                var analysisContent = document.getElementById('analysisContent');
+                if (analysisContent) {
+                    analysisContent.innerHTML = '<div class="comment-text"></div>';
+                    var commentContainer = analysisContent.querySelector('.comment-text');
+                    var chars = commentText.split('');
+                    for (var i = 0; i < chars.length; i++) {
+                        var span = document.createElement('span');
+                        span.className = 'comment-char';
+                        span.textContent = chars[i];
+                        commentContainer.appendChild(span);
+                        commentChars.push(span);
+                    }
+                }
+                var annotationDisplay = document.getElementById('annotationDisplay');
+                if (annotationDisplay) { annotationDisplay.classList.remove('active'); annotationDisplay.scrollTop = 0; }
+                if (analysisContent) { analysisContent.scrollTop = 0; }
+                var charCount = commentChars.length;
+                this._annotationAudio.src = seg.audio_path;
+                this._annotationAudio.load();
+                var stepCompleted = false;
+                var completeStep = function() {
+                    if (stepCompleted) return;
+                    stepCompleted = true;
+                    self._annotationAudio.oncanplay = null;
+                    self._annotationAudio.onerror = null;
+                    self._annotationAudio.onended = null;
+                    self._annotationAudio.ontimeupdate = null;
+                    for (var i = 0; i < commentChars.length; i++) { commentChars[i].classList.add('visible'); }
+                    var ad = document.getElementById('annotationDisplay');
+                    if (ad) ad.classList.remove('active');
+                    if (typeof analysisManager !== 'undefined') {
+                        var tab = analysisManager.tabs.find(function(t) { return t.id === 'summary'; });
+                        if (tab) {
+                            tab._played = true;
+                            tab._commentText = commentText;
+                            tab.content = commentText;
+                            var ac = document.getElementById('analysisContent');
+                            if (ac) { ac.innerHTML = '<div class="comment-text">' + commentText + '</div>'; }
+                        }
+                    }
+                    self._executeSummaryStep();
+                };
+                var canPlayHandler = function() {
+                    self._annotationAudio.oncanplay = null;
+                    self._annotationAudio.play().then(function() {
+                        self.isPlaying = true; state.isPlaying = true;
+                    }).catch(function(e) {
+                        console.log('[小结] 内容播放失败:', e);
+                        completeStep();
+                    });
+                };
+                this._annotationAudio.oncanplay = canPlayHandler;
+                this._annotationAudio.onended = function() { completeStep(); };
+                this._annotationAudio.onerror = function(e) {
+                    console.log('[小结] 内容音频加载失败:', e);
+                    completeStep();
+                };
+                var lastCharIdx = 0;
+                var _lastSummaryTimeUpdate = 0;
+                var timeUpdateHandler = function() {
+                    var now = Date.now();
+                    if (now - _lastSummaryTimeUpdate < 200) return;
+                    _lastSummaryTimeUpdate = now;
+                    if (audioDuration > 0 && charCount > 0) {
+                        var currentTime = self._annotationAudio.currentTime;
+                        var progress = currentTime / audioDuration;
+                        var currentCharIdx = Math.min(Math.floor(progress * charCount) + 3, charCount);
+                        for (var i = lastCharIdx; i < currentCharIdx; i++) {
+                            if (commentChars[i]) commentChars[i].classList.add('visible');
+                        }
+                        lastCharIdx = currentCharIdx;
+                        var ac = document.getElementById('analysisContent');
+                        if (ac && commentChars[currentCharIdx - 1]) {
+                            var charEl = commentChars[currentCharIdx - 1];
+                            var containerRect = ac.getBoundingClientRect();
+                            var charRect = charEl.getBoundingClientRect();
+                            if (charRect.bottom > containerRect.bottom) {
+                                ac.scrollTop += (charRect.bottom - containerRect.bottom);
+                            }
+                        }
+                    }
+                };
+                this._annotationAudio.ontimeupdate = timeUpdateHandler;
+                this._safeSetTimeout(function() {
+                    if (!stepCompleted) { console.log('[小结] 内容播放超时，跳过'); completeStep(); }
+                }, Math.max(audioDuration * 1000 + 5000, 60000));
+            },
+
+            _playSummaryPause: function() {
+                var self = this;
+                this._safeSetTimeout(function() { self._executeSummaryStep(); }, 2000);
+            },
+
+            _playSummaryClosing: function() {
+                var self = this;
+                var stepCompleted = false;
+                var audioStarted = false;
+                document.getElementById('annotationDisplay').classList.remove('active');
+                var voiceType = (state.currentBook && state.currentBook.voice_type) || 'male';
+                var suffix = voiceType === 'female' ? '_male' : '_female';
+                this._annotationAudio.src = '/api/audio/summary_closing' + suffix + '.mp3';
+                this._annotationAudio.load();
+                var completeStep = function() {
+                    if (stepCompleted) return;
+                    stepCompleted = true;
+                    self._annotationAudio.oncanplay = null;
+                    self._annotationAudio.onerror = null;
+                    self._annotationAudio.onended = null;
+                    self._annotationAudio.onplaying = null;
+                    self._finishSummaryPlayback();
+                };
+                var playingHandler = function() {
+                    audioStarted = true;
+                    self._annotationAudio.onplaying = null;
+                };
+                var canPlayHandler = function() {
+                    self._annotationAudio.oncanplay = null;
+                    self._annotationAudio.play().then(function() {
+                        self.isPlaying = true; state.isPlaying = true;
+                    }).catch(function(e) {
+                        console.log('[小结] 结束语播放失败:', e);
+                        completeStep();
+                    });
+                };
+                this._annotationAudio.oncanplay = canPlayHandler;
+                this._annotationAudio.onended = function() { completeStep(); };
+                this._annotationAudio.onerror = function(e) {
+                    console.log('[小结] 结束语音频加载失败:', e);
+                    completeStep();
+                };
+                this._annotationAudio.onplaying = playingHandler;
+                this._safeSetTimeout(function() {
+                    if (!stepCompleted && !audioStarted) { console.log('[小结] 结束语加载超时(5秒)，跳过'); completeStep(); }
+                }, 5000);
+            },
+
+            _finishSummaryPlayback: function() {
+                if (this._isFinishing) return;
+                this._isFinishing = true;
+                this._currentSummarySeg = null;
+                this._summaryStep = 0;
+                var countdownOverlay = document.getElementById('summaryCountdownOverlay');
+                if (countdownOverlay) countdownOverlay.classList.remove('active');
+                var annotationDisplay = document.getElementById('annotationDisplay');
+                if (annotationDisplay) annotationDisplay.classList.remove('active');
+                this._clearAllTimers();
+                if (this._commentTextAnimationTimer) { clearInterval(this._commentTextAnimationTimer); this._commentTextAnimationTimer = null; }
+                if (this._annotationAudio) { this._annotationAudio.pause(); this._annotationAudio.src = ''; this._annotationAudio = new Audio(); }
+                this._isFinishing = false;
+                this._finishInsertPoint();
             },
 
             _isLastAnnotation: function() {
