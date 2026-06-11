@@ -817,10 +817,7 @@
             },
 
             _checkAnnotationTrigger: function(currentCharIndex) {
-                if (state.isPlayingAnnotation) return false;
-                var section = state.currentSections[state.currentSectionIndex];
-                var sectionStatus = (section && state.catalogStatusMap && state.catalogStatusMap[section.id]) || '';
-                if (sectionStatus === 'read') return false;
+                if (player.isPlaying || state.isPlayingAnnotation || state.isPlayingSummary) return false;
                 var annotations = state.currentAnnotations;
                 if (!annotations) return false;
                 for (var i = 0; i < annotations.length; i++) {
@@ -2189,19 +2186,7 @@
 
             },
 
-            _triggerAnnotationPlayback: function(annotation) {
-                var self = this;
-                console.log('[点评] 触发点评播放: id=' + annotation.id + ' index=' + annotation.annotation_index + ' chars=' + annotation.start_char + '-' + annotation.end_char);
-                state.isPlayingAnnotation = true;
-                this.audio.pause();
-                if (reader.revealCharsUpTo) {
-                    var displayChar = reader._contentCharToDisplayChar(annotation.end_char);
-                    reader.revealCharsUpTo(displayChar);
-                    reader._currentPosition = displayChar;
-                }
-                if (reader._highlightAnnotation) reader._highlightAnnotation(annotation);
-                this._currentAnnotation = annotation;
-                analysisManager.addAnnotationTab(annotation);
+
 
                 if (annotation.audio_path && annotation.audio_duration) {
                     this._playAnnotationAudio(annotation);
