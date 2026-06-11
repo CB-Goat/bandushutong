@@ -103,10 +103,8 @@ init_db()
 cleanup_duplicate_progress()
 
 # 确保目录存在
-if not os.path.exists('books'):
-    os.makedirs('books')
-if not os.path.exists('audio_files'):
-    os.makedirs('audio_files')
+os.makedirs('books', exist_ok=True)
+os.makedirs('audio_files', exist_ok=True)
 
 # 系统启动时检查并补齐固定音频文件（男声女声各4个，共8个）
 # 幂等操作：已存在的文件不会重新生成
