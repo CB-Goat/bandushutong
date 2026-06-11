@@ -1199,6 +1199,20 @@
                 this.audioSegments = playlist || [];
                 this._isSegmentMode = true;
                 this._playlistIndex = -1;
+                console.log('[播放器] 播放队列构建完成: ' + this.audioSegments.length + '段');
+                this.audioSegments.forEach(function(seg, i) {
+                    if (seg.type === 'text_segment') {
+                        var tlInfo = '无';
+                        if (seg.char_timeline !== undefined && seg.char_timeline !== null) {
+                            if (typeof seg.char_timeline === 'string') {
+                                try { var parsed = JSON.parse(seg.char_timeline); tlInfo = 'JSON(' + parsed.length + ')'; } catch(e) { tlInfo = '无效JSON'; }
+                            } else if (Array.isArray(seg.char_timeline)) { tlInfo = '数组(' + seg.char_timeline.length + ')'; }
+                        }
+                        console.log('  段' + i + ': 文本 id=' + seg.id + ' chars=' + seg.start_char + '-' + seg.end_char + ' audio=' + (seg.audio_path || '').replace(/^.*[\\/]/, '') + ' duration=' + (seg.audio_duration || 0) + 's timeline=' + tlInfo);
+                    } else if (seg.type === 'insert_point') {
+                        console.log('  段' + i + ': ' + seg.point_type + ' id=' + seg.id + ' audio=' + (seg.audio_path || '').replace(/^.*[\\/]/, ''));
+                    }
+                });
             },
 
             _resetAnnotationAudio: function() {
@@ -1295,6 +1309,7 @@
                 this._currentSegment = seg;
 
                 if (seg.type === 'text_segment') {
+                    console.log('[播放] 段' + this._playlistIndex + ': 文本 id=' + seg.id + ' chars=' + seg.start_char + '-' + seg.end_char + ' audio=' + (seg.audio_path || '').replace(/^.*[\\/]/, '') + ' duration=' + (seg.audio_duration || 0) + 's');
                     if (seg.audio_path) {
                         this.audio.src = seg.audio_path;
                         this.audio.load();
@@ -1325,6 +1340,8 @@
                 this._insertPointStep = 1;
                 state.isPlayingAnnotation = true;
                 this.audio.pause();
+
+                console.log('[播放] 段' + this._playlistIndex + ': ' + seg.point_type + ' id=' + seg.id + ' audio=' + (seg.audio_path || '').replace(/^.*[\\/]/, ''));
 
                 if (seg.point_type === 'annotation' && seg.audio_path) {
                     this._annotationAudio.src = seg.audio_path;
@@ -1372,12 +1389,14 @@
             },
 
             _onSegmentEnd: function() {
+                console.log('[播放] 段结束: 段' + this._playlistIndex);
                 var section = state.currentSections[state.currentSectionIndex];
                 if (section) reader.saveProgress(reader._currentPosition || 0);
                 this._playNextSegment();
             },
 
             _onAllSegmentsEnd: function() {
+                console.log('[播放] 全部段播放结束');
                 this.isPlaying = false; state.isPlaying = false;
                 document.getElementById('playBtn').textContent = '\u25B6';
 
@@ -1421,6 +1440,11 @@
                         reader.revealCharsUpTo(globalCharIndex);
                         reader._currentPosition = globalCharIndex;
                         reader._checkAnnotationTrigger(globalCharIndex);
+                        var now = Date.now();
+                        if (!this._lastLogTime || now - this._lastLogTime > 5000) {
+                            this._lastLogTime = now;
+                            console.log('[同步] seg=' + this._currentSegment.id + ' time=' + this.currentTime.toFixed(1) + 's charIdx=' + charIndex + '/' + segTimeline.length + ' globalChar=' + globalCharIndex);
+                        }
                     }
                 }
 
@@ -1434,6 +1458,7 @@
 
             _triggerAnnotationPlayback: function(annotation) {
                 var self = this;
+                console.log('[点评] 触发点评播放: id=' + annotation.id + ' index=' + annotation.annotation_index + ' chars=' + annotation.start_char + '-' + annotation.end_char);
                 state.isPlayingAnnotation = true;
                 this.audio.pause();
                 if (reader.revealCharsUpTo) {
