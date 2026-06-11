@@ -1308,10 +1308,7 @@
                     reader.hideAll(); analysisManager.init();
                     document.getElementById('annotationDisplay').classList.remove('active');
                     if (this.audio) this.audio.currentTime = 0;
-                    if (section.annotations && section.annotations.length > 0) {
-                        section.annotations.forEach(function(ann) { analysisManager.addAnnotationTab(ann, true); });
-                    }
-                    if (section.summary) analysisManager.addSummaryTab(section.summary);
+                    state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
                     analysisManager.startRotationAlways();
                 }
                 if (this._isSegmentMode && this.audioSegments.length > 0) this._playNextSegment();
