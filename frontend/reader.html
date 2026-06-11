@@ -1961,9 +1961,11 @@
 
                 if (typeof analysisManager !== 'undefined') {
                     var famousTab = analysisManager.tabs.find(function(t) { return t.id === 'famous'; });
+                    console.log('[调试] _finishInsertPoint: famousTab=' + (famousTab ? 'found' : 'not found') + ' content=' + (famousTab ? famousTab.content.substring(0, 50) : 'N/A') + ' isHtml=' + (famousTab ? famousTab.isHtml : 'N/A'));
                     if (famousTab) {
                         analysisManager.currentTab = '';
                         analysisManager.showTab('famous');
+                        console.log('[调试] showTab(famous) 已调用, analysisContent=' + document.getElementById('analysisContent').innerHTML.substring(0, 80));
                     }
                     if (analysisManager.resumeRotation) analysisManager.resumeRotation();
                 }
