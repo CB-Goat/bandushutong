@@ -130,7 +130,9 @@
         var state = {
             currentUser: null,
             currentBook: null,
-            sections: []
+            sections: [],
+            catalogStatusMap: {},
+            progress: null
         };
 
         // 获取URL参数
@@ -170,6 +172,17 @@
                 state.currentBook = data.book;
                 state.sections = data.sections || [];
                 state.currentUser = { id: userId };
+                state.progress = data.progress || null;
+
+                try {
+                    var statusResponse = await fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + userId);
+                    var statusData = await statusResponse.json();
+                    if (statusData.statuses) {
+                        var statusMap = {};
+                        statusData.statuses.forEach(function(s) { statusMap[s.section_id] = s.status; });
+                        state.catalogStatusMap = statusMap;
+                    }
+                } catch(e) {}
 
                 document.getElementById('bookTitle').textContent = data.book.title + (data.book.author ? ' - ' + data.book.author : '');
 
@@ -203,7 +216,7 @@
                         '<div class="chapter-header">第' + currentChapter + '章</div>';
                 }
 
-                var status = section.status || 'unread';
+                var status = state.catalogStatusMap[section.id] || 'unread';
                 var statusClass = status === 'read' ? 'read' : (status === 'reading' ? 'reading' : 'unread');
 
                 html += '<div class="section" onclick="openSection(' + section.id + ')">' +
@@ -217,10 +230,21 @@
 
         // 打开章节
         function openSection(sectionId) {
-            var section = state.sections.find(function(s) { return s.id === sectionId; });
-            if (section) {
-                localStorage.setItem('currentSection', JSON.stringify(section));
+            var sectionIndex = state.sections.findIndex(function(s) { return s.id === sectionId; });
+            if (sectionIndex < 0) return;
+
+            var sectionStatus = state.catalogStatusMap[sectionId] || 'unread';
+            if (sectionStatus === 'unread') {
+                if (sectionIndex > 0) {
+                    var prevSection = state.sections[sectionIndex - 1];
+                    var prevStatus = state.catalogStatusMap[prevSection.id] || 'unread';
+                    if (prevStatus !== 'read') {
+                        alert('请先完成上一节的阅读');
+                        return;
+                    }
+                }
             }
+
             location.href = 'reader.html?book_id=' + state.currentBook.id + '&section_id=' + sectionId;
         }
 

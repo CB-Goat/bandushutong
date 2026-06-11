@@ -457,10 +457,6 @@
                     }
                 }
 
-                if (data.progress && data.progress.current_section_id) {
-                    var pIndex = state.currentSections.findIndex(function(s) { return s.id === data.progress.current_section_id; });
-                    if (pIndex !== -1) state.currentSectionIndex = pIndex;
-                }
 
                 player.init();
                 reader.renderCurrentSection();
