@@ -1054,6 +1054,9 @@
                 var prevTab = this.currentTab;
                 this.currentTab = tabId;
                 var tab = this.tabs.find(function(t) { return t.id === tabId; });
+                if (tabId === 'famous') {
+                    console.log('[调试-showTab] famous: prevTab=' + prevTab + ' tab=' + (tab ? 'found' : 'null') + ' isHtml=' + (tab ? tab.isHtml : 'N/A') + ' contentLen=' + (tab && tab.content ? tab.content.length : 0) + ' content=' + (tab && tab.content ? tab.content.substring(0, 60) : 'EMPTY'));
+                }
                 if (tab && prevTab !== tabId) {
                     var contentEl = document.getElementById('analysisContent');
                     if (!contentEl) { this._showTabLock = false; return; }
@@ -1067,6 +1070,9 @@
                             contentEl.querySelectorAll('.comment-char').forEach(function(c) { c.classList.add('visible'); });
                         }
                     } else { contentEl.textContent = tab.content; }
+                    if (tabId === 'famous') {
+                        console.log('[调试-showTab] famous 渲染后 analysisContent=' + contentEl.innerHTML.substring(0, 80));
+                    }
                     var tabsContainer = document.getElementById('analysisTabs');
                     if (tabsContainer) {
                         var tabEls = tabsContainer.querySelectorAll('.tab');
@@ -1075,6 +1081,8 @@
                             tabEls[i].className = 'tab' + (this.tabs[i].isSummary ? ' summary-tab' : '') + (isActive ? ' active' : '');
                         }
                     }
+                } else if (tabId === 'famous') {
+                    console.log('[调试-showTab] famous 跳过渲染: prevTab=' + prevTab + ' tabId=' + tabId + ' same=' + (prevTab === tabId));
                 }
                 var analysisContent = document.getElementById('analysisContent');
                 if (analysisContent) analysisContent.scrollTop = 0;
