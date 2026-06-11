@@ -1051,8 +1051,10 @@
                 if (!chalkText) { this._hideBookmark(); return; }
                 var charRect = charEl.getBoundingClientRect();
                 var textRect = chalkText.getBoundingClientRect();
-                var top = charRect.top - textRect.top;
+                var top = charRect.top - textRect.top + chalkText.scrollTop;
                 var left = charRect.right - textRect.left + 5;
+                if (top < 0) top = 0;
+                if (top > chalkText.clientHeight - 24) top = chalkText.clientHeight - 24;
                 if (left > chalkText.clientWidth - 30) left = chalkText.clientWidth - 30;
                 bookmark.style.top = top + 'px';
                 bookmark.style.left = left + 'px';
