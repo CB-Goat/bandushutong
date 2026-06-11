@@ -1054,9 +1054,6 @@
                 var prevTab = this.currentTab;
                 this.currentTab = tabId;
                 var tab = this.tabs.find(function(t) { return t.id === tabId; });
-                if (tabId === 'famous') {
-                    console.log('[调试-showTab] famous: prevTab=' + prevTab + ' tab=' + (tab ? 'found' : 'null') + ' isHtml=' + (tab ? tab.isHtml : 'N/A') + ' contentLen=' + (tab && tab.content ? tab.content.length : 0) + ' content=' + (tab && tab.content ? tab.content.substring(0, 60) : 'EMPTY'));
-                }
                 if (tab && prevTab !== tabId) {
                     var contentEl = document.getElementById('analysisContent');
                     if (!contentEl) { this._showTabLock = false; return; }
@@ -1070,9 +1067,6 @@
                             contentEl.querySelectorAll('.comment-char').forEach(function(c) { c.classList.add('visible'); });
                         }
                     } else { contentEl.textContent = tab.content; }
-                    if (tabId === 'famous') {
-                        console.log('[调试-showTab] famous 渲染后 analysisContent=' + contentEl.innerHTML.substring(0, 80));
-                    }
                     var tabsContainer = document.getElementById('analysisTabs');
                     if (tabsContainer) {
                         var tabEls = tabsContainer.querySelectorAll('.tab');
@@ -1081,8 +1075,6 @@
                             tabEls[i].className = 'tab' + (this.tabs[i].isSummary ? ' summary-tab' : '') + (isActive ? ' active' : '');
                         }
                     }
-                } else if (tabId === 'famous') {
-                    console.log('[调试-showTab] famous 跳过渲染: prevTab=' + prevTab + ' tabId=' + tabId + ' same=' + (prevTab === tabId));
                 }
                 var analysisContent = document.getElementById('analysisContent');
                 if (analysisContent) analysisContent.scrollTop = 0;
@@ -1365,6 +1357,7 @@
                     document.getElementById('annotationDisplay').classList.remove('active');
                     if (this.audio) this.audio.currentTime = 0;
                     state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
+                    loadRandomQuote(section.id);
                     analysisManager.startRotationAlways();
                 }
                 if (this._isSegmentMode && this.audioSegments.length > 0) this._playNextSegment();
@@ -1969,11 +1962,9 @@
 
                 if (typeof analysisManager !== 'undefined') {
                     var famousTab = analysisManager.tabs.find(function(t) { return t.id === 'famous'; });
-                    console.log('[调试] _finishInsertPoint: famousTab=' + (famousTab ? 'found' : 'not found') + ' content=' + (famousTab ? famousTab.content.substring(0, 50) : 'N/A') + ' isHtml=' + (famousTab ? famousTab.isHtml : 'N/A'));
                     if (famousTab) {
                         analysisManager.currentTab = '';
                         analysisManager.showTab('famous');
-                        console.log('[调试] showTab(famous) 已调用, analysisContent=' + document.getElementById('analysisContent').innerHTML.substring(0, 80));
                     }
                     if (analysisManager.resumeRotation) analysisManager.resumeRotation();
                 }
