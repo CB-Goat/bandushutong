@@ -982,12 +982,13 @@
             _tabClickCooldown: 0,
 
             init: function() {
-                var oldFamous = this.tabs.find(function(t) { return t.id === 'famous'; });
-                this.tabs = [{ id: 'famous', label: '名言', content: oldFamous ? oldFamous.content : '', isHtml: oldFamous ? oldFamous.isHtml : undefined }];
+                this.tabs = [{ id: 'famous', label: '名言', content: '' }];
                 this.currentTab = 'famous';
                 this.stopRotation();
                 this.renderTabs();
                 this.showTab('famous');
+                var section = state.currentSections[state.currentSectionIndex];
+                if (section) loadRandomQuote(section.id);
             },
 
             addAnnotationTab: function(annotation, isPlayed) {
@@ -1358,7 +1359,7 @@
                     document.getElementById('annotationDisplay').classList.remove('active');
                     if (this.audio) this.audio.currentTime = 0;
                     state.currentAnnotations.forEach(function(ann) { ann._triggered = false; });
-                    loadRandomQuote(section.id);
+
                     analysisManager.startRotationAlways();
                 }
                 if (this._isSegmentMode && this.audioSegments.length > 0) this._playNextSegment();
