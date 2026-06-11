@@ -50,11 +50,11 @@
             font-family: inherit;
         }
         .book-stats-bar {
-            background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-            color: white; font-size: 13px;
-            display: flex; justify-content: center; align-items: center; gap: 20px;
-            padding: 8px 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: #f8f8f5;
+            color: #666;
+            font-size: 14px;
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
         }
         .catalog-container {
             margin-top: 52px;
@@ -138,9 +138,7 @@
     </div>
 
     <div class="book-stats-bar" id="bookStatsBar" style="display:none;">
-        <span>📚 收录书籍 <strong id="statBooks">0</strong> 本</span>
-        <span>👥 当前用户 <strong id="statUsers">0</strong> 人</span>
-        <span>🔥 思考热度 <strong id="statHeat">0</strong>°</span>
+        <span id="bookStatsText"></span>
     </div>
 
     <div class="catalog-container" id="catalogContent">
@@ -213,13 +211,20 @@
                 }
                 document.getElementById('bookTitle').innerHTML = titleHtml;
 
-                fetch(API_BASE + '/stats').then(function(r) { return r.json(); }).then(function(stats) {
-                    document.getElementById('statBooks').textContent = stats.book_count || 0;
-                    document.getElementById('statUsers').textContent = stats.user_count || 0;
-                    document.getElementById('statHeat').textContent = stats.thought_heat || 0;
-                    document.getElementById('bookStatsBar').style.display = '';
-                    document.getElementById('catalogContent').classList.add('with-stats');
-                }).catch(function() {});
+                var totalSec = state.sections.length;
+                var readSec = 0;
+                var totalWords = 0;
+                var totalAnno = 0;
+                state.sections.forEach(function(sec) {
+                    var st = state.catalogStatusMap[sec.id] || 'unread';
+                    if (st === 'read') readSec++;
+                    totalWords += sec.word_count || 0;
+                    totalAnno += (sec.annotations || []).length;
+                });
+                var wordsStr = totalWords >= 10000 ? (totalWords / 10000).toFixed(1) + '万' : totalWords;
+                document.getElementById('bookStatsText').textContent = '本书共：' + totalSec + '节 | ' + wordsStr + '字 | ' + totalAnno + '点评 | 已读' + readSec + '节';
+                document.getElementById('bookStatsBar').style.display = '';
+                document.getElementById('catalogContent').classList.add('with-stats');
 
                 renderCatalog();
             } catch (e) {
