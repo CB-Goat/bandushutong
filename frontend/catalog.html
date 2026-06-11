@@ -42,14 +42,19 @@
         .navbar .back-btn {
             background: rgba(255,255,255,0.15);
             border: 1px solid rgba(255,255,255,0.2);
-            color: #e8e0c8;
-            padding: 8px 12px;
+            color: #FF4444;
+            padding: 6px 10px;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 18px;
             font-family: inherit;
         }
         .book-stats-bar {
+            position: fixed;
+            top: 52px;
+            left: 0;
+            right: 0;
+            z-index: 99;
             background: #f8f8f5;
             color: #666;
             font-size: 14px;
@@ -242,11 +247,7 @@
                 return;
             }
 
-            var html = '<div class="book-header">' +
-                '<div class="book-title">' + state.currentBook.title + '</div>' +
-                '<div class="book-meta">' + (state.currentBook.author || '') +
-                (state.currentBook.author_nationality ? ' [' + state.currentBook.author_nationality + ']' : '') +
-                '</div></div>';
+            var html = '';
 
             var currentChapter = null;
             state.sections.forEach(function(section, index) {
