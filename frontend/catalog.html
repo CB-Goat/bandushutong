@@ -46,15 +46,9 @@
             cursor: pointer;
             line-height: 1;
         }
-        .navbar .back-btn .back-arrow {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border-left: 3px solid #FF4444;
-            border-bottom: 3px solid #FF4444;
-            border-radius: 0 0 0 6px;
-            transform: rotate(45deg);
-            margin-right: 2px;
+        .navbar .back-btn img {
+            width: 24px;
+            height: 24px;
         }
         .book-stats-bar {
             position: fixed;
@@ -146,7 +140,7 @@
             <img src="favicon.png" style="width:28px;height:28px;border-radius:4px;margin-left:10px;">
         </div>
         <h1 id="bookTitle">加载中...</h1>
-        <button class="back-btn" onclick="goBack()"><span class="back-arrow"></span></button>
+        <button class="back-btn" onclick="goBack()"><img src="back.png" alt="返回"></button>
     </div>
 
     <div class="book-stats-bar" id="bookStatsBar" style="display:none;">
