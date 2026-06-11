@@ -982,7 +982,8 @@
             _tabClickCooldown: 0,
 
             init: function() {
-                this.tabs = [{ id: 'famous', label: '名言', content: '' }];
+                var oldFamous = this.tabs.find(function(t) { return t.id === 'famous'; });
+                this.tabs = [{ id: 'famous', label: '名言', content: oldFamous ? oldFamous.content : '', isHtml: oldFamous ? oldFamous.isHtml : undefined }];
                 this.currentTab = 'famous';
                 this.stopRotation();
                 this.renderTabs();
@@ -1960,14 +1961,7 @@
                 var annotationDisplay = document.getElementById('annotationDisplay');
                 if (annotationDisplay) annotationDisplay.classList.remove('active');
 
-                if (typeof analysisManager !== 'undefined') {
-                    var famousTab = analysisManager.tabs.find(function(t) { return t.id === 'famous'; });
-                    if (famousTab) {
-                        analysisManager.currentTab = '';
-                        analysisManager.showTab('famous');
-                    }
-                    if (analysisManager.resumeRotation) analysisManager.resumeRotation();
-                }
+                if (typeof analysisManager !== 'undefined' && analysisManager.resumeRotation) analysisManager.resumeRotation();
 
                 if (this._annotationAudio) { this._annotationAudio.pause(); this._annotationAudio.src = ''; this._annotationAudio = new Audio(); }
 
