@@ -1504,7 +1504,22 @@
                             thoughtEditor.updateAllLanternsState();
                             if (self._resumeTimeInSegment > 0) {
                                 self.audio.currentTime = self._resumeTimeInSegment;
+                                self.currentTime = self._resumeTimeInSegment;
                                 self._resumeTimeInSegment = 0;
+                                if (self._currentSegment && self._currentSegment.type === 'text_segment') {
+                                    var segTimeline = self._currentSegment.char_timeline;
+                                    if (typeof segTimeline === 'string') { try { segTimeline = JSON.parse(segTimeline); } catch(e) { segTimeline = []; } }
+                                    if (segTimeline && segTimeline.length > 0) {
+                                        var charIndex = 0;
+                                        for (var i = 0; i < segTimeline.length; i++) {
+                                            if (segTimeline[i] > self.currentTime) { charIndex = i; break; }
+                                            charIndex = i + 1;
+                                        }
+                                        var globalCharIndex = self._currentSegment.start_char + charIndex;
+                                        reader.revealCharsUpTo(globalCharIndex);
+                                        reader._currentPosition = globalCharIndex;
+                                    }
+                                }
                             }
                             state.currentProgressV2 = null;
                         }).catch(function() {
