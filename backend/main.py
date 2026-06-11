@@ -64,6 +64,11 @@ def serve_favicon():
     """提供网站图标"""
     return send_from_directory(FRONTEND_DIR, 'favicon.png')
 
+@app.route('/back.png')
+def serve_back_icon():
+    """提供返回按钮图标"""
+    return send_from_directory(FRONTEND_DIR, 'back.png')
+
 @app.route('/wechat_qrcode.png')
 def serve_wechat_qrcode():
     """提供微信二维码图片"""
