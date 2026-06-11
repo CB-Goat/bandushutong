@@ -1015,10 +1015,12 @@
                             var charIdx = Math.min(savedPosition - 1, self._totalChars - 1);
                             if (charIdx >= 0 && self._allChars && self._allChars[charIdx]) {
                                 var charEl = self._allChars[charIdx];
-                                var charBottom = charEl.offsetTop + charEl.offsetHeight;
-                                var visibleHeight = container.clientHeight;
-                                if (charBottom > container.scrollTop + visibleHeight) {
-                                    container.scrollTop = charBottom - visibleHeight + 20;
+                                var charTop = charEl.offsetTop;
+                                var charBottom = charTop + charEl.offsetHeight;
+                                var viewTop = container.scrollTop;
+                                var viewBottom = viewTop + container.clientHeight;
+                                if (charBottom > viewBottom - 30 || charTop < viewTop) {
+                                    container.scrollTop = charBottom - container.clientHeight + 30;
                                 }
                             }
                         }
@@ -1049,7 +1051,7 @@
                 if (!chalkText) { this._hideBookmark(); return; }
                 var top = charEl.offsetTop - chalkText.scrollTop;
                 var left = charEl.offsetLeft + charEl.offsetWidth + 5;
-                if (top < -10 || top > chalkText.clientHeight) { this._hideBookmark(); return; }
+
                 if (left > chalkText.clientWidth - 30) left = chalkText.clientWidth - 30;
                 bookmark.style.top = top + 'px';
                 bookmark.style.left = left + 'px';
