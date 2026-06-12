@@ -293,7 +293,7 @@
             updateRankBadge();
             updateProfileCardLogoutBtn();
             showPage('homePage');
-            loadBooks();
+            if (user.phone) { loadBooks(); } else { loadPublicBooks(); }
         }
 
         function logout() {

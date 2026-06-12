@@ -164,6 +164,7 @@
             catalogStatusMap: {},
             progress: null
         };
+        var isRegisteredUser = false;
 
         // 获取URL参数
         function getUrlParam(name) {
@@ -230,6 +231,16 @@
                     }
                 } catch(e) {}
             }
+
+            var isRegisteredUser = false;
+            try {
+                var checkResp = await fetch(API_BASE + '/auth/check?user_id=' + userId);
+                var checkData = await checkResp.json();
+                if (checkData.user) {
+                    isRegisteredUser = !!checkData.user.phone;
+                    state.currentUser = checkData.user;
+                }
+            } catch(e) {}
 
             try {
                 var response = await fetch(API_BASE + '/books/' + bookId + '?user_id=' + userId);
@@ -313,12 +324,20 @@
                 var status = state.catalogStatusMap[section.id] || 'unread';
                 var statusClass = status === 'read' ? 'read' : (status === 'reading' ? 'reading' : 'unread');
                 var isBookmark = (parseInt(section.id) === bookmarkSectionId);
+                var isLocked = !isRegisteredUser && index >= 3;
 
-                html += '<div class="section" onclick="openSection(' + section.id + ')">' +
-                    '<div class="status ' + statusClass + '"></div>' +
-                    '<div class="title">' + (section.title || '第' + section.section_number + '节') + '</div>' +
-                    (isBookmark ? '<span class="sec-bookmark">🔖</span>' : '') +
-                    '</div>';
+                if (isLocked) {
+                    html += '<div class="section" style="opacity:0.5;" onclick="showLoginTip()">' +
+                        '<div class="status unread"></div>' +
+                        '<div class="title">' + (section.title || '第' + section.section_number + '节') + ' 🔒</div>' +
+                        '</div>';
+                } else {
+                    html += '<div class="section" onclick="openSection(' + section.id + ')">' +
+                        '<div class="status ' + statusClass + '"></div>' +
+                        '<div class="title">' + (section.title || '第' + section.section_number + '节') + '</div>' +
+                        (isBookmark ? '<span class="sec-bookmark">🔖</span>' : '') +
+                        '</div>';
+                }
             });
 
             container.innerHTML = html;
@@ -328,6 +347,11 @@
         function openSection(sectionId) {
             var sectionIndex = state.sections.findIndex(function(s) { return s.id === sectionId; });
             if (sectionIndex < 0) return;
+
+            if (!isRegisteredUser && sectionIndex >= 3) {
+                showLoginTip();
+                return;
+            }
 
             var sectionStatus = state.catalogStatusMap[sectionId] || 'unread';
             if (sectionStatus === 'unread') {
@@ -342,6 +366,10 @@
             }
 
             location.href = 'reader.html?book_id=' + state.currentBook.id + '&section_id=' + sectionId;
+        }
+
+        function showLoginTip() {
+            alert('注册登录后可阅读全书，匿名用户仅可阅读前3节');
         }
 
         // 初始化

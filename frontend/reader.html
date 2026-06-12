@@ -624,6 +624,16 @@
 
             state.currentUser = { id: userId };
 
+            var isRegisteredUser = true;
+            try {
+                var checkResp = await fetch(API_BASE + '/auth/check?user_id=' + userId);
+                var checkData = await checkResp.json();
+                if (checkData.user) {
+                    isRegisteredUser = !!checkData.user.phone;
+                    state.currentUser = checkData.user;
+                }
+            } catch(e) {}
+
             try {
                 var rankResp = await fetch(API_BASE + '/users/' + userId + '/military-rank');
                 var rankData = await rankResp.json();
@@ -641,6 +651,15 @@
                 state.currentSections = data.sections || [];
                 state.currentProgress = data.progress || null;
                 state.currentProgressV2 = data.progress_v2 || null;
+
+                if (!isRegisteredUser) {
+                    var sectionIndex = state.currentSections.findIndex(function(s) { return parseInt(s.id) === parseInt(sectionId); });
+                    if (sectionIndex >= 3) {
+                        alert('注册登录后可阅读全书，匿名用户仅可阅读前3节');
+                        location.href = 'catalog.html?book_id=' + bookId;
+                        return;
+                    }
+                }
 
                 try {
                     var statusResponse = await fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + userId);
