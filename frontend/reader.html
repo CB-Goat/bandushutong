@@ -1635,10 +1635,16 @@
                     };
                     state.isPlayingAnnotation = true;
                     document.getElementById('analysisTabs').classList.add('disabled');
+                    document.getElementById('playBtn').disabled = true;
+                    document.getElementById('editAnnotationBtn').disabled = true;
+                    document.getElementById('editAnnotationBtn').style.opacity = '0.5';
                 } else if (seg.point_type === 'summary') {
                     document.getElementById('annotationDisplay').classList.remove('active');
                     state.isPlayingSummary = true;
                     document.getElementById('analysisTabs').classList.add('disabled');
+                    document.getElementById('playBtn').disabled = true;
+                    document.getElementById('editAnnotationBtn').disabled = true;
+                    document.getElementById('editAnnotationBtn').style.opacity = '0.5';
                 }
 
                 this._executeInsertPointStep();
@@ -2182,6 +2188,8 @@
 
                 var playBtn = document.getElementById('playBtn');
                 if (playBtn) { playBtn.disabled = false; playBtn.style.opacity = '1'; playBtn.title = ''; }
+                var thoughtBtn = document.getElementById('editAnnotationBtn');
+                if (thoughtBtn) { thoughtBtn.disabled = false; thoughtBtn.style.opacity = '1'; }
 
                 this._onSegmentEnd();
             },
@@ -2326,6 +2334,7 @@
             _saveCompleted: false,
 
             toggleEditMode: function() {
+                if (state.isPlayingAnnotation || state.isPlayingSummary) return;
                 if (this.isEditMode) this.exitEditMode(); else this.enterEditMode();
             },
 
