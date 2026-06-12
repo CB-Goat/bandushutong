@@ -512,13 +512,13 @@
 
         // ===== 认证检查 =====
         function goBack() {
-            window.location.href = 'index.html';
+            window.location.href = '/';
         }
 
         function doLogout() {
             localStorage.removeItem('userId');
             localStorage.removeItem('currentUser');
-            window.location.href = 'index.html';
+            window.location.href = '/';
         }
 
         // ===== 管理员功能 =====
@@ -1753,7 +1753,7 @@
             var userId = localStorage.getItem('userId');
             if (!userId) {
                 // 未登录，跳回首页
-                window.location.href = 'index.html';
+                window.location.href = '/';
                 return;
             }
             // 检查是否为管理员
@@ -1762,7 +1762,7 @@
                 .then(function(data) {
                     if (!data.user || data.user.role !== 'admin') {
                         alert('您没有管理权限，即将返回首页');
-                        window.location.href = 'index.html';
+                        window.location.href = '/';
                         return;
                     }
                     // 默认加载用户管理
@@ -1770,7 +1770,7 @@
                 })
                 .catch(function() {
                     alert('验证失败，请重新登录');
-                    window.location.href = 'index.html';
+                    window.location.href = '/';
                 });
         });
     </script>
