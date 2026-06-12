@@ -242,7 +242,7 @@
         .chalkboard .analysis-area .annotation-display .annotation-index { color: #FFD700; font-size: 16px; margin-bottom: 8px; }
         .chalkboard .analysis-area .annotation-display .annotation-original { color: #FFD700; font-style: italic; margin-bottom: 10px; }
         .chalkboard .analysis-area .annotation-display .annotation-comment { color: #7EC8E3; font-size: 18px; }
-        .bookmark-icon { display: none; position: absolute; z-index: 10; font-size: 16px; pointer-events: none; }
+        .bookmark-icon { display: inline; font-size: 14px; pointer-events: none; vertical-align: middle; }
         .thought-lanterns-container {
             position: fixed;
             display: flex;
@@ -701,11 +701,6 @@
                 container.innerHTML = '';
                 container.scrollTop = 0;
 
-                var bookmarkIcon = document.createElement('span');
-                bookmarkIcon.className = 'bookmark-icon';
-                bookmarkIcon.id = 'bookmarkIcon';
-                bookmarkIcon.textContent = '\uD83D\uDD16';
-                container.appendChild(bookmarkIcon);
 
                 this._allChars = [];
                 this._content = content;
@@ -1043,28 +1038,21 @@
             },
 
             _showBookmarkAt: function(charIndex) {
-                var bookmark = document.getElementById('bookmarkIcon');
-                if (!bookmark || charIndex <= 0 || charIndex >= this._totalChars) { this._hideBookmark(); return; }
+                this._hideBookmark();
+                if (charIndex <= 0 || charIndex >= this._totalChars) return;
                 var charEl = this._allChars[charIndex - 1];
-                if (!charEl) { this._hideBookmark(); return; }
-                var chalkText = document.getElementById('chalkText');
-                if (!chalkText) { this._hideBookmark(); return; }
-                var charRect = charEl.getBoundingClientRect();
-                var textRect = chalkText.getBoundingClientRect();
-                var top = charRect.top - textRect.top + chalkText.scrollTop;
-                var left = charRect.right - textRect.left + 5;
-                if (top < 0) top = 0;
-                if (top > chalkText.clientHeight - 24) top = chalkText.clientHeight - 24;
-                if (left > chalkText.clientWidth - 30) left = chalkText.clientWidth - 30;
-                bookmark.style.top = top + 'px';
-                bookmark.style.left = left + 'px';
-                bookmark.style.right = 'auto';
-                bookmark.style.display = 'block';
+                if (!charEl) return;
+                var bookmark = document.createElement('span');
+                bookmark.id = 'bookmarkIcon';
+                bookmark.className = 'bookmark-icon';
+                bookmark.textContent = '\uD83D\uDD16';
+                bookmark.style.display = 'inline';
+                charEl.parentNode.insertBefore(bookmark, charEl.nextSibling);
             },
 
             _hideBookmark: function() {
                 var bookmark = document.getElementById('bookmarkIcon');
-                if (bookmark) bookmark.style.display = 'none';
+                if (bookmark && bookmark.parentNode) bookmark.parentNode.removeChild(bookmark);
             }
         };
 
