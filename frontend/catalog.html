@@ -173,6 +173,32 @@
             return null;
         }
 
+        function getDeviceInfo() {
+            var ua = navigator.userAgent;
+            var deviceModel = '';
+            var buildMatch = ua.match(/;\s*([^;]+)\s+Build\//);
+            if (buildMatch) { deviceModel = buildMatch[1].trim(); }
+            else if (/iPhone|iPad|iPod/.test(ua)) { deviceModel = /iPad/.test(ua) ? 'iPad' : 'iPhone'; }
+            var hardwareFingerprint = deviceModel + '|' + window.screen.width + 'x' + window.screen.height;
+            var hash = 0;
+            for (var i = 0; i < hardwareFingerprint.length; i++) {
+                var char = hardwareFingerprint.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return { deviceId: 'D' + Math.abs(hash).toString(16).toUpperCase() };
+        }
+
+        function getDeviceDisplayName() {
+            var ua = navigator.userAgent;
+            if (/iPhone/.test(ua)) return 'iPhone';
+            if (/iPad/.test(ua)) return 'iPad';
+            if (/Android/.test(ua)) return 'Android设备';
+            if (/Windows/.test(ua)) return 'Windows电脑';
+            if (/Mac/.test(ua)) return 'Mac电脑';
+            return '未知设备';
+        }
+
         // 返回书架
         function goBack() {
             location.href = 'bookshelf.html';
@@ -188,6 +214,22 @@
             }
 
             var userId = localStorage.getItem('userId') || '';
+
+            if (!userId) {
+                try {
+                    var deviceInfo = getDeviceInfo();
+                    var anonResp = await fetch(API_BASE + '/auth/anonymous', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ device_id: deviceInfo.deviceId, device_info: getDeviceDisplayName() })
+                    });
+                    var anonData = await anonResp.json();
+                    if (anonData.user) {
+                        userId = String(anonData.user.id);
+                        localStorage.setItem('userId', userId);
+                    }
+                } catch(e) {}
+            }
 
             try {
                 var response = await fetch(API_BASE + '/books/' + bookId + '?user_id=' + userId);
