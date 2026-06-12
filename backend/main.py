@@ -37,9 +37,6 @@ def index():
     """提供前端首页"""
     return send_from_directory(FRONTEND_DIR, 'index.html')
 
-@app.route('/index.html')
-def serve_index():
-    return send_from_directory(FRONTEND_DIR, 'index.html')
 
 @app.route('/<page>.html')
 def serve_page(page):
