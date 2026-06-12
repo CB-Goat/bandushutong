@@ -26,38 +26,28 @@
             align-items: center;
             border-bottom: 3px solid #8B7355;
         }
-        .navbar .nav-left {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .navbar .back-btn {
-            background: none;
-            border: none;
-            padding: 0;
-            cursor: pointer;
-            line-height: 1;
-        }
-        .navbar .back-btn img {
-            width: 28px;
-            height: 28px;
-            filter: brightness(0) invert(1);
-            opacity: 0.85;
-        }
-        .navbar .project-icon {
-            width: 30px;
-            height: 30px;
-            border-radius: 6px;
-        }
         .navbar h1 {
             font-size: 18px;
             font-weight: 600;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             flex: 1;
             text-align: center;
+            margin: 0;
+            padding: 0 10px;
         }
-        .navbar .nav-right {
-            width: 38px;
+        .navbar .back-btn {
+            background: none;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .navbar .back-btn img {
+            width: 24px;
+            height: 24px;
         }
         .container {
             margin-top: 52px;
@@ -199,12 +189,11 @@
 </head>
 <body>
     <div class="navbar">
-        <div class="nav-left">
-            <button class="back-btn" onclick="goBack()"><img src="back.png" alt="返回"></button>
-            <img class="project-icon" src="favicon.png" alt="悦读小将">
+        <div style="display:flex;align-items:center;">
+            <img src="favicon.png" style="width:28px;height:28px;border-radius:4px;margin-left:10px;">
         </div>
         <h1 id="pageTitle">用户中心</h1>
-        <div class="nav-right"></div>
+        <button class="back-btn" onclick="goBack()"><img src="back.png" alt="返回"></button>
     </div>
 
     <div class="container">
