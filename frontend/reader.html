@@ -568,11 +568,14 @@
             return String(num);
         }
 
-        function getUrlParam(name) {
-            var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
-            var r = window.location.search.substr(1).match(reg);
-            if (r != null) return decodeURIComponent(r[2]);
-            return null;
+        function encodeParams(obj) {
+            return 'p=' + btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+        }
+
+        function decodeParams() {
+            var m = window.location.search.match(/[?&]p=([^&]+)/);
+            if (!m) return {};
+            try { return JSON.parse(decodeURIComponent(escape(atob(m[1])))); } catch(e) { return {}; }
         }
 
         function formatTime(seconds) {
@@ -606,17 +609,19 @@
 
         function goBack() {
             reader.saveProgress(reader._currentPosition || 0);
-            var bookId = getUrlParam('book_id');
+            var params = decodeParams();
+            var bookId = params.book_id;
             if (bookId) {
-                location.href = 'catalog.html?book_id=' + bookId;
+                location.href = 'catalog.html?' + encodeParams({book_id: bookId});
             } else {
                 location.href = '/';
             }
         }
 
         async function initReader() {
-            var bookId = getUrlParam('book_id');
-            var sectionId = getUrlParam('section_id');
+            var params = decodeParams();
+            var bookId = params.book_id;
+            var sectionId = params.section_id;
             if (!bookId || !sectionId) { alert('缺少参数'); goBack(); return; }
 
             var userId = localStorage.getItem('userId') || '';
@@ -656,7 +661,7 @@
                     var sectionIndex = state.currentSections.findIndex(function(s) { return parseInt(s.id) === parseInt(sectionId); });
                     if (sectionIndex >= 3) {
                         alert('注册登录后可阅读全书，匿名用户仅可阅读前3节');
-                        location.href = 'catalog.html?book_id=' + bookId;
+                        location.href = 'catalog.html?' + encodeParams({book_id: bookId});
                         return;
                     }
                 }

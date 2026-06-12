@@ -409,9 +409,13 @@
             });
         }
 
+        function encodeParams(obj) {
+            return 'p=' + btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+        }
+
         // 跳转到目录页
         function openBookCatalog(bookId) {
-            location.href = 'catalog.html?book_id=' + bookId;
+            location.href = 'catalog.html?' + encodeParams({book_id: bookId});
         }
 
         // 匿名用户登录
@@ -511,19 +515,19 @@
         }
 
         function goToRankMerits() {
-            location.href = 'usercenter.html?page=rankMerits';
+            location.href = 'usercenter.html?' + encodeParams({page: 'rankMerits'});
         }
 
         function goToUserInfo() {
-            location.href = 'usercenter.html?page=userInfo';
+            location.href = 'usercenter.html?' + encodeParams({page: 'userInfo'});
         }
 
         function goToPassword() {
-            location.href = 'usercenter.html?page=password';
+            location.href = 'usercenter.html?' + encodeParams({page: 'password'});
         }
 
         function goToMessage() {
-            location.href = 'usercenter.html?page=message';
+            location.href = 'usercenter.html?' + encodeParams({page: 'message'});
         }
 
         function showContactAdmin() {

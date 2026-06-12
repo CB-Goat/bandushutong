@@ -200,12 +200,14 @@
         };
         var isRegisteredUser = false;
 
-        // 获取URL参数
-        function getUrlParam(name) {
-            var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
-            var r = window.location.search.substr(1).match(reg);
-            if (r != null) return decodeURIComponent(r[2]);
-            return null;
+        function encodeParams(obj) {
+            return 'p=' + btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+        }
+
+        function decodeParams() {
+            var m = window.location.search.match(/[?&]p=([^&]+)/);
+            if (!m) return {};
+            try { return JSON.parse(decodeURIComponent(escape(atob(m[1])))); } catch(e) { return {}; }
         }
 
         function getDeviceInfo() {
@@ -241,7 +243,8 @@
 
         // 加载目录
         async function loadCatalog() {
-            var bookId = getUrlParam('book_id');
+            var params = decodeParams();
+            var bookId = params.book_id;
             if (!bookId) {
                 alert('缺少书籍ID');
                 goBack();
@@ -399,7 +402,7 @@
                 }
             }
 
-            location.href = 'reader.html?book_id=' + state.currentBook.id + '&section_id=' + sectionId;
+            location.href = 'reader.html?' + encodeParams({book_id: state.currentBook.id, section_id: sectionId});
         }
 
         function showLoginTip() {

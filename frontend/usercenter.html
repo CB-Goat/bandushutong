@@ -430,11 +430,14 @@
 
         var transferCodeCountdown = null;
 
-        function getUrlParam(name) {
-            var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
-            var r = window.location.search.substr(1).match(reg);
-            if (r != null) return decodeURIComponent(r[2]);
-            return null;
+        function encodeParams(obj) {
+            return 'p=' + btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+        }
+
+        function decodeParams() {
+            var m = window.location.search.match(/[?&]p=([^&]+)/);
+            if (!m) return {};
+            try { return JSON.parse(decodeURIComponent(escape(atob(m[1])))); } catch(e) { return {}; }
         }
 
         function goBack() {
@@ -825,7 +828,8 @@
         }
 
         // 初始化
-        var page = getUrlParam('page') || 'userInfo';
+        var params = decodeParams();
+        var page = params.page || 'userInfo';
         var pageMap = {
             'userInfo': 'userInfoPage',
             'password': 'passwordPage',
