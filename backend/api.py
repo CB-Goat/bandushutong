@@ -1530,6 +1530,14 @@ def anonymous_login():
     finally:
         conn.close()
 
+@api_bp.route('/users/<int:user_id>', methods=['GET'])
+def get_user_info(user_id):
+    user = get_user(user_id)
+    if not user:
+        return jsonify({'error': '用户不存在'}), 404
+    user.pop('password', None)
+    return jsonify({'user': user})
+
 @api_bp.route('/users/<int:user_id>/profile', methods=['PUT'])
 def update_profile(user_id):
     """更新用户个人信息"""
