@@ -16,7 +16,7 @@
         .navbar {
             background: linear-gradient(135deg, #2d5016 0%, #1a3a0a 100%);
             color: #e8e0c8;
-            padding: 10px 20px;
+            padding: 0 16px;
             height: 52px;
             position: fixed;
             top: 0; left: 0; right: 0;
@@ -26,21 +26,38 @@
             align-items: center;
             border-bottom: 3px solid #8B7355;
         }
+        .navbar .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .navbar .back-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .navbar .back-btn img {
+            width: 28px;
+            height: 28px;
+            filter: brightness(0) invert(1);
+            opacity: 0.85;
+        }
+        .navbar .project-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+        }
         .navbar h1 {
             font-size: 18px;
             font-weight: 600;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            flex: 1;
+            text-align: center;
         }
-        .navbar .back-btn {
-            background: rgba(255,255,255,0.15);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #e8e0c8;
-            padding: 8px 15px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 14px;
-            font-family: inherit;
-            margin-right: 10px;
+        .navbar .nav-right {
+            width: 38px;
         }
         .container {
             margin-top: 52px;
@@ -101,25 +118,93 @@
         .rank-card {
             background: linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);
             border-radius: 12px;
-            padding: 20px;
+            padding: 14px 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            margin-bottom: 16px;
             color: white;
+        }
+        .merits-card {
+            background: linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);
+            border-radius: 12px;
+            padding: 14px 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            margin-bottom: 16px;
+            color: white;
+        }
+        .rule-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .rule-table th {
+            padding: 8px;
+            text-align: left;
+            border: 1px solid #eee;
+        }
+        .rule-table td {
+            padding: 8px;
+            border: 1px solid #eee;
+        }
+        .rule-table thead tr {
+            background: #f5f5f5;
+        }
+        .avatar-row {
+            display: flex;
+            align-items: center;
             margin-bottom: 20px;
         }
-        .rank-name {
-            font-size: 24px;
-            color: #FFD700;
-            margin-bottom: 10px;
+        .avatar-row img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin-right: 15px;
+            background: #f5f5f5;
         }
-        .rank-progress {
-            font-size: 14px;
-            color: #e8e0c8;
+        .device-info-box {
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .transfer-code-display {
+            display: none;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .transfer-code-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2d5016;
+            letter-spacing: 8px;
+        }
+        .transfer-code-timer {
+            font-size: 12px;
+            color: #999;
+            margin-top: 8px;
+        }
+        .message-item {
+            border-top: 1px solid #eee;
+            padding: 15px 0;
+        }
+        .admin-reply {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 6px;
         }
     </style>
 </head>
 <body>
     <div class="navbar">
-        <button class="back-btn" onclick="goBack()">← 返回</button>
+        <div class="nav-left">
+            <button class="back-btn" onclick="goBack()"><img src="back.png" alt="返回"></button>
+            <img class="project-icon" src="favicon.png" alt="悦读小将">
+        </div>
         <h1 id="pageTitle">用户中心</h1>
+        <div class="nav-right"></div>
     </div>
 
     <div class="container">
@@ -127,6 +212,13 @@
         <div class="page" id="userInfoPage">
             <div class="card">
                 <h3>个人信息</h3>
+                <div class="avatar-row">
+                    <img id="userAvatar" src="" alt="头像">
+                    <div>
+                        <div id="userDisplayName" style="font-size:18px;font-weight:bold;color:#333;"></div>
+                        <div id="userPhone" style="font-size:13px;color:#999;margin-top:4px;"></div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>性别</label>
                     <select id="userGender">
@@ -165,21 +257,40 @@
 
         <!-- 密码安全页 -->
         <div class="page" id="passwordPage">
-            <div class="card">
+            <div id="passwordSection" class="card">
                 <h3>修改密码</h3>
-                <div class="form-group">
+                <div id="oldPasswordDiv" class="form-group">
                     <label>原密码</label>
                     <input type="password" id="oldPassword" placeholder="请输入原密码">
                 </div>
                 <div class="form-group">
                     <label>新密码</label>
-                    <input type="password" id="newPassword" placeholder="至少6位">
+                    <input type="password" id="newPassword" placeholder="至少6位，需包含字母、数字、符号中的两种">
                 </div>
                 <div class="form-group">
                     <label>确认密码</label>
                     <input type="password" id="confirmPassword" placeholder="请再次输入新密码">
                 </div>
                 <button class="btn" onclick="changePassword()">修改密码</button>
+            </div>
+
+            <div id="deviceInfoSection" class="card">
+                <h3>当前设备</h3>
+                <div class="device-info-box">
+                    <div style="font-size:15px;color:#333;font-weight:bold;" id="deviceName">--</div>
+                    <div style="font-size:12px;color:#999;margin-top:5px;" id="deviceDetail">--</div>
+                </div>
+                <p style="font-size:12px;color:#999;margin:0;">如需在新设备登录，请先生成换机校验码</p>
+            </div>
+
+            <div class="card">
+                <h3>换机校验码</h3>
+                <p style="font-size:13px;color:#666;margin-bottom:15px;">在新设备上输入此验证码可登录您的账号（1分钟内有效）</p>
+                <div id="transferCodeDisplay" class="transfer-code-display">
+                    <div class="transfer-code-value" id="transferCodeValue"></div>
+                    <div class="transfer-code-timer" id="transferCodeTimer"></div>
+                </div>
+                <button class="btn" onclick="generateTransferCode()">生成换机校验码</button>
             </div>
         </div>
 
@@ -191,27 +302,144 @@
                     <textarea id="messageContent" rows="4" placeholder="请输入您的需求、意见或建议..."></textarea>
                 </div>
                 <button class="btn" onclick="submitMessage()">提交留言</button>
+                <div id="messageList" style="margin-top:20px;"></div>
             </div>
         </div>
 
         <!-- 军衔军功页 -->
         <div class="page" id="rankMeritsPage">
+            <!-- 军衔卡片 -->
             <div class="rank-card">
-                <div class="rank-name" id="rankName">暂无军衔</div>
-                <div class="rank-progress" id="rankProgress">阅读更多书籍获得军衔晋升</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <h3 style="margin:0;color:#FFD700;font-size:15px;">🎖️ 我的军衔</h3>
+                    <div style="display:flex;align-items:baseline;gap:6px;">
+                        <span id="pageRankName" style="font-size:16px;font-weight:bold;color:#FFD700;">列兵</span>
+                        <span id="pageRankTitle" style="font-size:12px;color:rgba(255,255,255,0.7);">[阅读新兵]</span>
+                    </div>
+                </div>
+                <div style="background:white;border-radius:8px;padding:10px 20px;margin-bottom:10px;">
+                    <div style="display:flex;justify-content:center;align-items:flex-start;gap:20px;">
+                        <div style="flex:0 0 auto;position:relative;width:23px;height:100px;">
+                            <div id="pageRankEpauletteLeft" style="position:absolute;top:60px;left:0;"></div>
+                        </div>
+                        <div style="flex:0 0 auto;">
+                            <img src="ranks/avatar_military.png" style="width:100px;height:100px;display:block;object-fit:contain;" alt="军衔头像">
+                        </div>
+                        <div style="flex:0 0 auto;position:relative;width:23px;height:100px;">
+                            <div id="pageRankEpauletteRight" style="position:absolute;top:60px;left:0;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:4px;">
+                        <span>累计阅读 <span id="pageRankWords">0</span> 字</span>
+                        <span>下一级: <span id="pageNextRankName">上等兵</span> (<span id="pageNextRankWords">5,000</span>字)</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="flex:1;background:rgba(255,255,255,0.15);border-radius:10px;height:12px;overflow:hidden;">
+                            <div id="pageRankProgress" style="height:100%;background:linear-gradient(90deg,#FFD700,#FFA500);border-radius:10px;width:0%;transition:width 0.5s ease;"></div>
+                        </div>
+                        <span style="font-size:11px;color:rgba(255,255,255,0.5);"><span id="pageRankPercent">0</span>%</span>
+                    </div>
+                </div>
             </div>
+
+            <!-- 军功卡片 -->
+            <div class="merits-card">
+                <h3 style="margin:0 0 12px;color:#FFD700;font-size:15px;">🏅 我的军功</h3>
+                <div id="pageMeritsList" style="display:flex;flex-wrap:wrap;gap:10px;">
+                    <div style="color:rgba(255,255,255,0.5);font-size:13px;text-align:center;width:100%;">💪...💪...争取早日建立功勋！</div>
+                </div>
+            </div>
+
+            <!-- 军功评定规则 -->
             <div class="card">
-                <h3>我的军功</h3>
-                <div id="meritsList" style="color: #999; text-align: center; padding: 20px;">暂无军功</div>
+                <h3 style="font-size:15px;">🏅 军功评定规则</h3>
+                <p style="color:#999;font-size:12px;margin-bottom:10px;">每满50个已评分思考进行一次统计，按星级率判定军功类型（取最高）</p>
+                <table class="rule-table">
+                    <thead>
+                        <tr>
+                            <th>军功</th>
+                            <th>思考量</th>
+                            <th>星级要求</th>
+                            <th>统计说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><img src="medals/merit_1.png" style="height:18px;vertical-align:middle;"> <span style="color:#FFD700;font-weight:bold;">一等功</span></td>
+                            <td>≥ 350</td>
+                            <td>3星率 ≥ 50%</td>
+                            <td style="color:#999;">仅统计3星</td>
+                        </tr>
+                        <tr style="background:#fafafa;">
+                            <td><img src="medals/merit_2.png" style="height:18px;vertical-align:middle;"> <span style="color:#C0C0C0;font-weight:bold;">二等功</span></td>
+                            <td>≥ 250</td>
+                            <td>3星率 ≥ 30%</td>
+                            <td style="color:#999;">仅统计3星</td>
+                        </tr>
+                        <tr>
+                            <td><img src="medals/merit_3.png" style="height:18px;vertical-align:middle;"> <span style="color:#CD7F32;font-weight:bold;">三等功</span></td>
+                            <td>≥ 150</td>
+                            <td>2星率 ≥ 50%</td>
+                            <td style="color:#999;">统计≥2星</td>
+                        </tr>
+                        <tr style="background:#fafafa;">
+                            <td><img src="medals/merit_4.png" style="height:18px;vertical-align:middle;"> <span style="color:#8B4513;font-weight:bold;">嘉奖</span></td>
+                            <td>≥ 50</td>
+                            <td>1星率 ≥ 80%</td>
+                            <td style="color:#999;">统计≥1星</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 勋章评定规则 -->
+            <div class="card">
+                <h3 style="font-size:15px;">🏆 勋章评定规则</h3>
+                <p style="color:#999;font-size:12px;margin-bottom:10px;">按累积3星数达标颁发，最高可拥有三枚</p>
+                <table class="rule-table">
+                    <thead>
+                        <tr>
+                            <th>勋章</th>
+                            <th>3星累积数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><img src="medals/medal_red_star.png" style="height:18px;vertical-align:middle;"> <span style="color:#FFD700;font-weight:bold;">红星勋章</span></td>
+                            <td>100</td>
+                        </tr>
+                        <tr style="background:#fafafa;">
+                            <td><img src="medals/medal_red_flag.png" style="height:18px;vertical-align:middle;"> <span style="color:#FFD700;font-weight:bold;">红旗勋章</span></td>
+                            <td>200</td>
+                        </tr>
+                        <tr>
+                            <td><img src="medals/medal_bayi.png" style="height:18px;vertical-align:middle;"> <span style="color:#FFD700;font-weight:bold;">八一勋章</span></td>
+                            <td>300</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
     <script>
-        const API_BASE = '/api';
+        var API_BASE = '/api';
         var state = {
             currentUser: null
         };
+
+        var iconToLevel = {
+            'private': 1, 'private_first': 2,
+            'sergeant_1': 3, 'sergeant_2': 4, 'sergeant_3': 5,
+            'sergeant_4': 6, 'sergeant_5': 7, 'sergeant_6': 8, 'sergeant_7': 9,
+            '2lt': 10, '1lt': 11, 'cpt': 12,
+            'maj': 13, 'ltc': 14, 'col': 15, 'sen_col': 16,
+            'bg': 17, 'mg': 18, 'lg': 19, 'marshal': 20
+        };
+
+        var transferCodeCountdown = null;
 
         function getUrlParam(name) {
             var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
@@ -238,6 +466,32 @@
             document.getElementById('pageTitle').textContent = titles[pageId] || '用户中心';
         }
 
+        function renderEpaulette(icon) {
+            var level = iconToLevel[icon] || 1;
+            return '<img src="ranks/rank_' + level + '.png" style="width:100%;max-width:80px;display:block;margin:0 auto;" alt="肩章">';
+        }
+
+        function getDeviceInfo() {
+            var ua = navigator.userAgent;
+            var deviceId = localStorage.getItem('deviceId') || (function() {
+                var id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
+                localStorage.setItem('deviceId', id);
+                return id;
+            })();
+            return { userAgent: ua, deviceId: deviceId };
+        }
+
+        function getDeviceDisplayName() {
+            var ua = navigator.userAgent;
+            if (/iPhone/.test(ua)) return 'iPhone';
+            if (/iPad/.test(ua)) return 'iPad';
+            if (/Android/.test(ua)) return 'Android设备';
+            if (/Windows/.test(ua)) return 'Windows电脑';
+            if (/Mac/.test(ua)) return 'Mac电脑';
+            if (/Linux/.test(ua)) return 'Linux电脑';
+            return '未知设备';
+        }
+
         async function loadUserProfile() {
             var userId = localStorage.getItem('userId');
             if (!userId) {
@@ -251,9 +505,34 @@
                 var data = await response.json();
                 if (data.user) {
                     state.currentUser = data.user;
-                    document.getElementById('userGender').value = data.user.gender || '';
-                    document.getElementById('userAge').value = data.user.age || '';
-                    document.getElementById('userGrade').value = data.user.grade || '';
+                    var user = data.user;
+
+                    var avatar = user.wechat_avatar || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23ddd"/><text x="50" y="60" text-anchor="middle" font-size="40" fill="%23999">👤</text></svg>';
+                    document.getElementById('userAvatar').src = avatar;
+                    document.getElementById('userDisplayName').textContent = user.wechat_nickname || user.phone || '用户';
+                    document.getElementById('userPhone').textContent = user.phone ? '手机: ' + user.phone : '未绑定手机号';
+
+                    document.getElementById('userGender').value = user.gender || '';
+                    document.getElementById('userAge').value = user.age || '';
+                    document.getElementById('userGrade').value = user.grade || '';
+
+                    if (!user.phone) {
+                        var ps = document.getElementById('passwordSection');
+                        if (ps) ps.style.display = 'none';
+                    } else {
+                        var ps = document.getElementById('passwordSection');
+                        if (ps) ps.style.display = '';
+                        var oldDiv = document.getElementById('oldPasswordDiv');
+                        if (oldDiv) oldDiv.style.display = 'block';
+                        var oldInput = document.getElementById('oldPassword');
+                        if (oldInput) oldInput.placeholder = user.password ? '请输入原密码' : '首次设置密码可留空';
+                    }
+
+                    var deviceInfo = getDeviceInfo();
+                    var dn = document.getElementById('deviceName');
+                    var dd = document.getElementById('deviceDetail');
+                    if (dn) dn.textContent = getDeviceDisplayName();
+                    if (dd) dd.textContent = '设备ID: ' + deviceInfo.deviceId;
                 }
             } catch (e) {
                 console.error('加载用户信息失败:', e);
@@ -262,6 +541,7 @@
 
         async function saveProfile() {
             var userId = localStorage.getItem('userId');
+            if (!userId) return;
             var data = {
                 user_id: userId,
                 gender: document.getElementById('userGender').value,
@@ -276,30 +556,42 @@
                     body: JSON.stringify(data)
                 });
                 var result = await response.json();
-                if (response.ok) {
+                if (result.user) {
+                    state.currentUser = result.user;
                     alert('保存成功');
                 } else {
-                    alert('保存失败: ' + result.error);
+                    alert(result.error || '保存失败');
                 }
             } catch (e) {
                 alert('网络错误: ' + e.message);
             }
         }
 
+        function validatePasswordStrength(password) {
+            if (!password || password.length < 6) {
+                return { valid: false, message: '密码至少6位' };
+            }
+            var hasLetter = /[a-zA-Z]/.test(password);
+            var hasNumber = /\d/.test(password);
+            var hasSymbol = /[^a-zA-Z0-9]/.test(password);
+            var typeCount = (hasLetter ? 1 : 0) + (hasNumber ? 1 : 0) + (hasSymbol ? 1 : 0);
+            if (typeCount < 2) {
+                return { valid: false, message: '密码需包含字母、数字、符号中的至少两种' };
+            }
+            return { valid: true };
+        }
+
         async function changePassword() {
             var userId = localStorage.getItem('userId');
+            if (!userId) return;
             var oldPwd = document.getElementById('oldPassword').value;
             var newPwd = document.getElementById('newPassword').value;
             var confirmPwd = document.getElementById('confirmPassword').value;
 
-            if (!oldPwd || !newPwd || !confirmPwd) {
-                alert('请填写完整');
-                return;
-            }
-            if (newPwd !== confirmPwd) {
-                alert('两次密码不一致');
-                return;
-            }
+            var strengthCheck = validatePasswordStrength(newPwd);
+            if (!strengthCheck.valid) { alert(strengthCheck.message); return; }
+
+            if (newPwd !== confirmPwd) { alert('两次输入的新密码不一致'); return; }
 
             try {
                 var response = await fetch(API_BASE + '/users/' + userId + '/password', {
@@ -312,27 +604,58 @@
                     })
                 });
                 var result = await response.json();
-                if (response.ok) {
-                    alert('修改成功');
+                if (result.message) {
+                    alert('密码修改成功');
                     document.getElementById('oldPassword').value = '';
                     document.getElementById('newPassword').value = '';
                     document.getElementById('confirmPassword').value = '';
                 } else {
-                    alert('修改失败: ' + result.error);
+                    alert(result.error || '修改失败');
                 }
             } catch (e) {
                 alert('网络错误: ' + e.message);
             }
         }
 
+        function generateTransferCode() {
+            var userId = localStorage.getItem('userId');
+            if (!userId) return;
+            fetch(API_BASE + '/users/' + userId + '/transfer-code', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.transfer_code) {
+                    document.getElementById('transferCodeValue').textContent = data.transfer_code;
+                    document.getElementById('transferCodeDisplay').style.display = 'block';
+                    startTransferCodeCountdown(60);
+                } else {
+                    alert(data.error || '生成失败');
+                }
+            }).catch(function() { alert('网络错误'); });
+        }
+
+        function startTransferCodeCountdown(seconds) {
+            if (transferCodeCountdown) clearInterval(transferCodeCountdown);
+            var remaining = seconds;
+            var timerEl = document.getElementById('transferCodeTimer');
+            timerEl.textContent = remaining + '秒后过期';
+            transferCodeCountdown = setInterval(function() {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(transferCodeCountdown);
+                    document.getElementById('transferCodeDisplay').style.display = 'none';
+                    timerEl.textContent = '已过期';
+                } else {
+                    timerEl.textContent = remaining + '秒后过期';
+                }
+            }, 1000);
+        }
+
         async function submitMessage() {
             var userId = localStorage.getItem('userId');
+            if (!userId) return;
             var content = document.getElementById('messageContent').value.trim();
-
-            if (!content) {
-                alert('请输入留言内容');
-                return;
-            }
+            if (!content) { alert('请输入留言内容'); return; }
 
             try {
                 var response = await fetch(API_BASE + '/messages', {
@@ -344,29 +667,106 @@
                     })
                 });
                 var result = await response.json();
-                if (response.ok) {
-                    alert('提交成功');
+                if (result.message) {
                     document.getElementById('messageContent').value = '';
+                    loadUserMessages();
+                    alert('留言提交成功');
                 } else {
-                    alert('提交失败: ' + result.error);
+                    alert(result.error || '提交失败');
                 }
             } catch (e) {
                 alert('网络错误: ' + e.message);
             }
         }
 
+        function loadUserMessages() {
+            var userId = localStorage.getItem('userId');
+            if (!userId) return;
+            fetch(API_BASE + '/users/' + userId + '/messages').then(function(r) { return r.json(); }).then(function(data) {
+                var list = document.getElementById('messageList');
+                list.innerHTML = '';
+                if (!data.messages || data.messages.length === 0) {
+                    list.innerHTML = '<p style="color:#999;text-align:center;">暂无留言记录</p>';
+                    return;
+                }
+                data.messages.forEach(function(msg) {
+                    var div = document.createElement('div');
+                    div.className = 'message-item';
+                    var timeStr = msg.created_at ? (function(d) {
+                        var pad = function(n) { return n < 10 ? '0' + n : n; };
+                        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+                    })(new Date(msg.created_at)) : '';
+                    div.innerHTML = '<div style="font-size:13px;color:#666;margin-bottom:8px;">' + timeStr + '</div>' +
+                        '<div style="font-size:15px;color:#333;">' + msg.content + '</div>';
+                    if (msg.admin_reply) {
+                        div.innerHTML += '<div class="admin-reply">' +
+                            '<div style="font-size:12px;color:#2d5016;margin-bottom:5px;">管理员回复：</div>' +
+                            '<div style="font-size:14px;color:#333;">' + msg.admin_reply + '</div></div>';
+                    }
+                    list.appendChild(div);
+                });
+            });
+        }
+
         async function loadMilitaryRank() {
             var userId = localStorage.getItem('userId');
+            if (!userId) return;
             try {
                 var response = await fetch(API_BASE + '/users/' + userId + '/military-rank');
                 var data = await response.json();
-                if (data.military_rank && data.military_rank.current_rank) {
-                    document.getElementById('rankName').textContent = data.military_rank.current_rank.rank_name;
-                    document.getElementById('rankProgress').textContent = '累计阅读 ' + (data.military_rank.total_sections_read || 0) + ' 节';
+                var rank = data.current_rank;
+                if (rank && rank.rank_name) {
+                    var svgHtml = renderEpaulette(rank.icon || 'private');
+                    var leftHtml = svgHtml.replace('<img', '<img style="transform:rotate(-90deg);width:23px;height:auto;"');
+                    document.getElementById('pageRankEpauletteLeft').innerHTML = leftHtml;
+                    var rightHtml = svgHtml.replace('<img', '<img style="transform:rotate(90deg);width:23px;height:auto;"');
+                    document.getElementById('pageRankEpauletteRight').innerHTML = rightHtml;
+                    document.getElementById('pageRankName').textContent = rank.rank_name;
+                    document.getElementById('pageRankTitle').textContent = rank.title ? '[' + rank.title + ']' : '';
+                    document.getElementById('pageRankWords').textContent = (data.total_words || 0).toLocaleString();
+                    var progressPercent = data.progress || 0;
+                    document.getElementById('pageRankProgress').style.width = progressPercent + '%';
+                    document.getElementById('pageRankPercent').textContent = Math.floor(progressPercent);
+                    if (data.next_rank) {
+                        document.getElementById('pageNextRankName').textContent = data.next_rank.rank_name;
+                        document.getElementById('pageNextRankWords').textContent = (data.next_rank.min_words || 0).toLocaleString();
+                    } else {
+                        document.getElementById('pageNextRankName').textContent = '已满级';
+                        document.getElementById('pageNextRankWords').textContent = '--';
+                    }
                 }
             } catch (e) {
                 console.error('加载军衔失败:', e);
             }
+        }
+
+        function loadPageMerits() {
+            var userId = localStorage.getItem('userId');
+            if (!userId) return;
+            fetch(API_BASE + '/users/' + userId + '/merits')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var merits = data.merits || {};
+                    var container = document.getElementById('pageMeritsList');
+                    if (!merits || Object.keys(merits).length === 0) {
+                        container.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:13px;text-align:center;width:100%;">💪...💪...争取早日建立功勋！</div>';
+                        return;
+                    }
+                    var order = ['一等功', '二等功', '三等功', '嘉奖'];
+                    var icons = {'一等功': 'medals/merit_1.png', '二等功': 'medals/merit_2.png', '三等功': 'medals/merit_3.png', '嘉奖': 'medals/merit_4.png'};
+                    var colors = {'一等功': '#FFD700', '二等功': '#C0C0C0', '三等功': '#CD7F32', '嘉奖': '#8B4513'};
+                    var html = '';
+                    order.forEach(function(type) {
+                        if (merits[type]) {
+                            html += '<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;text-align:center;min-width:70px;">'
+                                + '<img src="' + (icons[type] || 'medals/merit_4.png') + '" style="height:36px;display:block;margin:0 auto;" alt="' + type + '">'
+                                + '<div style="font-size:12px;color:' + (colors[type] || '#fff') + ';font-weight:bold;margin-top:4px;">' + type + '</div>'
+                                + '<div style="font-size:11px;color:rgba(255,255,255,0.6);">&times;' + merits[type] + '</div>'
+                                + '</div>';
+                        }
+                    });
+                    container.innerHTML = html;
+                });
         }
 
         // 初始化
@@ -382,8 +782,13 @@
 
         if (targetPage === 'userInfoPage') {
             loadUserProfile();
+        } else if (targetPage === 'passwordPage') {
+            loadUserProfile();
+        } else if (targetPage === 'messagePage') {
+            loadUserMessages();
         } else if (targetPage === 'rankMeritsPage') {
             loadMilitaryRank();
+            loadPageMerits();
         }
     </script>
 </body>
