@@ -399,6 +399,20 @@
             opacity: 1;
         }
     }
+    @keyframes celebrationBounce {
+        0% { transform: scale(0.3); opacity: 0; }
+        50% { transform: scale(1.08); }
+        70% { transform: scale(0.95); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes celebrationFloat {
+        0%, 100% { transform: translateX(-50%) translateY(0); }
+        50% { transform: translateX(-50%) translateY(-8px); }
+    }
+    @keyframes celebrationShine {
+        0% { background-position: -200% center; }
+        100% { background-position: 200% center; }
+    }
     </style>
 </head>
 <body>
@@ -481,6 +495,27 @@
         </div>
     </div>
 
+    <div id="rankUpModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2000;justify-content:center;align-items:center;" onclick="closeRankUpModal()">
+        <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:16px;padding:32px 24px;width:85%;max-width:360px;text-align:center;color:white;position:relative;animation:celebrationBounce 0.6s cubic-bezier(0.34,1.56,0.64,1);" onclick="event.stopPropagation()">
+            <div style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);font-size:48px;animation:celebrationFloat 2s ease-in-out infinite;">🎉</div>
+            <div style="font-size:16px;color:rgba(255,255,255,0.7);margin-bottom:4px;margin-top:10px;">恭喜军衔晋升！</div>
+            <div id="rankUpEpaulette" style="margin:12px auto;"></div>
+            <div style="font-size:30px;font-weight:bold;color:#FFD700;margin-bottom:4px;text-shadow:0 0 20px rgba(255,215,0,0.5);" id="rankUpName">上等兵</div>
+            <div style="font-size:15px;color:rgba(255,255,255,0.6);margin-bottom:16px;" id="rankUpTitle">阅读学徒</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:20px;">累计阅读 <span id="rankUpWords" style="color:#FFD700;font-weight:bold;">0</span> 字</div>
+            <button onclick="closeRankUpModal()" style="padding:12px 48px;background:linear-gradient(90deg,#FFD700,#FFA500);color:#1a1a2e;border:none;border-radius:24px;font-size:17px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(255,215,0,0.4);">太棒了！</button>
+        </div>
+    </div>
+
+    <div id="awardModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2000;justify-content:center;align-items:center;" onclick="closeAwardModal()">
+        <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:16px;padding:32px 24px;width:85%;max-width:360px;text-align:center;color:white;position:relative;animation:celebrationBounce 0.6s cubic-bezier(0.34,1.56,0.64,1);" onclick="event.stopPropagation()">
+            <div style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);font-size:48px;animation:celebrationFloat 2s ease-in-out infinite;">🏆</div>
+            <div style="font-size:16px;color:rgba(255,255,255,0.7);margin-bottom:8px;margin-top:10px;">恭喜获得新荣誉！</div>
+            <div id="awardContent" style="margin:16px 0;"></div>
+            <button onclick="closeAwardModal()" style="padding:12px 48px;background:linear-gradient(90deg,#FFD700,#FFA500);color:#1a1a2e;border:none;border-radius:24px;font-size:17px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(255,215,0,0.4);">太棒了！</button>
+        </div>
+    </div>
+
     <div id="thoughtDetailModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;" onclick="thoughtEditor.closeDetailModal()">
         <div style="background:white;border-radius:12px;padding:24px;width:90%;max-width:500px;" onclick="event.stopPropagation()">
             <h3 style="margin:0 0 16px;color:#333;">🏮 我的思考</h3>
@@ -510,6 +545,22 @@
 
     <script>
         var API_BASE = '/api';
+
+        var iconToLevel = {
+            'private': 1, 'private_first': 2,
+            'sergeant_1': 3, 'sergeant_2': 4, 'sergeant_3': 5,
+            'sergeant_4': 6, 'sergeant_5': 7, 'sergeant_6': 8, 'sergeant_7': 9,
+            '2lt': 10, '1lt': 11, 'cpt': 12,
+            'maj': 13, 'ltc': 14, 'col': 15, 'sen_col': 16,
+            'bg': 17, 'mg': 18, 'lg': 19, 'marshal': 20
+        };
+
+        function renderEpaulette(icon) {
+            var level = iconToLevel[icon] || 1;
+            return '<img src="ranks/rank_' + level + '.png" style="width:80px;display:block;margin:0 auto;" alt="肩章">';
+        }
+
+        var _lastRankName = null;
 
         var CIRCLED_NUMBERS = ['\u2460','\u2461','\u2462','\u2463','\u2464','\u2465','\u2466','\u2467','\u2468','\u2469','\u246A','\u246B','\u246C','\u246D','\u246E','\u246F','\u2470','\u2471','\u2472','\u2473'];
         function getCircledNumber(num) {
@@ -572,6 +623,14 @@
             if (!userId) { alert('请先登录'); goBack(); return; }
 
             state.currentUser = { id: userId };
+
+            try {
+                var rankResp = await fetch(API_BASE + '/users/' + userId + '/military-rank');
+                var rankData = await rankResp.json();
+                if (rankData.current_rank && rankData.current_rank.rank_name) {
+                    _lastRankName = rankData.current_rank.rank_name;
+                }
+            } catch(e) {}
 
             try {
                 var response = await fetch(API_BASE + '/books/' + bookId + '?user_id=' + userId);
@@ -973,8 +1032,15 @@
                 fetch(API_BASE + '/sections/' + section.id + '/status', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({book_id: state.currentBook.id, status: 'read', user_id: state.currentUser.id})
-                }).then(function() {
+                }).then(function(r) { return r.json(); }).then(function(data) {
                     if (state.catalogStatusMap) state.catalogStatusMap[section.id] = 'read';
+                    if (data.military_rank && data.military_rank.current_rank) {
+                        var newRank = data.military_rank.current_rank.rank_name;
+                        if (_lastRankName && newRank !== _lastRankName) {
+                            showRankUpCelebration(data.military_rank.current_rank, data.military_rank.total_words);
+                        }
+                        _lastRankName = newRank;
+                    }
                 }).catch(function() {});
             },
 
@@ -2331,6 +2397,12 @@
                         var shouldResume = self._wasPlayingBeforeEdit;
                         thoughtEditor.exitEditMode(); thoughtEditor._closeModal(); thoughtEditor.loadThoughts();
                         if (shouldResume) player.play();
+                        if (data.new_merits && data.new_merits.length > 0) {
+                            setTimeout(function() { showAwardCelebration(data.new_merits, []); }, 800);
+                        }
+                        if (data.new_medals && data.new_medals.length > 0) {
+                            setTimeout(function() { showAwardCelebration([], data.new_medals); }, data.new_merits && data.new_merits.length > 0 ? 2500 : 800);
+                        }
                     } else { alert(data.error || '保存失败'); }
                 }).catch(function(e) {
                     if (self._saveCompleted) return; self._saveCompleted = true;
@@ -2498,6 +2570,54 @@
                 if (player.isPlaying) player.pause();
             } else { player._isLeaving = false; }
         });
+
+        function showRankUpCelebration(rank, totalWords) {
+            document.getElementById('rankUpEpaulette').innerHTML = renderEpaulette(rank.icon || 'private');
+            document.getElementById('rankUpName').textContent = rank.rank_name;
+            document.getElementById('rankUpTitle').textContent = rank.title || '';
+            document.getElementById('rankUpWords').textContent = (totalWords || 0).toLocaleString();
+            document.getElementById('rankUpModal').style.display = 'flex';
+        }
+
+        function closeRankUpModal() {
+            document.getElementById('rankUpModal').style.display = 'none';
+        }
+
+        function showAwardCelebration(newMerits, newMedals) {
+            var meritIcons = {'一等功': 'medals/merit_1.png', '二等功': 'medals/merit_2.png', '三等功': 'medals/merit_3.png', '嘉奖': 'medals/merit_4.png'};
+            var meritColors = {'一等功': '#FFD700', '二等功': '#C0C0C0', '三等功': '#CD7F32', '嘉奖': '#8B4513'};
+            var medalIcons = {'红星勋章': 'medals/medal_red_star.png', '红旗勋章': 'medals/medal_red_flag.png', '八一勋章': 'medals/medal_bayi.png'};
+            var html = '';
+            if (newMerits && newMerits.length > 0) {
+                html += '<div style="margin-bottom:12px;">';
+                newMerits.forEach(function(m) {
+                    var type = m.merit_type || m;
+                    html += '<div style="display:inline-block;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;margin:4px;text-align:center;">'
+                        + '<img src="' + (meritIcons[type] || 'medals/merit_4.png') + '" style="height:44px;display:block;margin:0 auto;" alt="' + type + '">'
+                        + '<div style="font-size:14px;color:' + (meritColors[type] || '#FFD700') + ';font-weight:bold;margin-top:6px;">' + type + '</div>'
+                        + '</div>';
+                });
+                html += '</div>';
+            }
+            if (newMedals && newMedals.length > 0) {
+                html += '<div style="margin-bottom:8px;">';
+                newMedals.forEach(function(m) {
+                    var type = m.medal_type || m;
+                    html += '<div style="display:inline-block;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;margin:4px;text-align:center;">'
+                        + '<img src="' + (medalIcons[type] || 'medals/medal_red_star.png') + '" style="height:44px;display:block;margin:0 auto;" alt="' + type + '">'
+                        + '<div style="font-size:14px;color:#FFD700;font-weight:bold;margin-top:6px;">' + type + '</div>'
+                        + '</div>';
+                });
+                html += '</div>';
+            }
+            if (!html) return;
+            document.getElementById('awardContent').innerHTML = html;
+            document.getElementById('awardModal').style.display = 'flex';
+        }
+
+        function closeAwardModal() {
+            document.getElementById('awardModal').style.display = 'none';
+        }
 
         initReader();
     </script>
