@@ -473,23 +473,90 @@
 
         function getDeviceInfo() {
             var ua = navigator.userAgent;
-            var deviceId = localStorage.getItem('deviceId') || (function() {
-                var id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
-                localStorage.setItem('deviceId', id);
-                return id;
-            })();
-            return { userAgent: ua, deviceId: deviceId };
+            var deviceInfo = {
+                deviceId: '',
+                deviceType: '未知设备',
+                deviceBrand: '',
+                deviceModel: '',
+                os: '未知系统',
+                osVersion: '',
+                browser: '未知浏览器',
+                browserVersion: '',
+                screenSize: window.screen.width + 'x' + window.screen.height,
+                devicePixelRatio: window.devicePixelRatio || 1,
+                language: navigator.language || 'zh-CN'
+            };
+            var deviceModel = '';
+            var buildMatch = ua.match(/;\s*([^;]+)\s+Build\//);
+            if (buildMatch) {
+                deviceModel = buildMatch[1].trim();
+            } else if (/iPhone|iPad|iPod/.test(ua)) {
+                deviceModel = /iPad/.test(ua) ? 'iPad' : 'iPhone';
+            }
+            var hardwareFingerprint = deviceModel + '|' + window.screen.width + 'x' + window.screen.height;
+            var hash = 0;
+            for (var i = 0; i < hardwareFingerprint.length; i++) {
+                var char = hardwareFingerprint.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            deviceInfo.deviceId = 'D' + Math.abs(hash).toString(16).toUpperCase();
+            if (/iPhone|iPad|iPod/.test(ua)) {
+                if (/iPad/.test(ua)) { deviceInfo.deviceType = 'iPad'; } else { deviceInfo.deviceType = 'iPhone'; }
+                deviceInfo.deviceBrand = 'Apple';
+                var iosMatch = ua.match(/OS (\d+)[_\d]+/);
+                if (iosMatch) { deviceInfo.os = 'iOS'; deviceInfo.osVersion = iosMatch[1]; }
+            } else if (/Android/.test(ua)) {
+                deviceInfo.deviceBrand = 'Android';
+                var androidBrandMatch = ua.match(/;\s*([^;]+)\s+Build\//);
+                if (androidBrandMatch) {
+                    var brandModel = androidBrandMatch[1].trim();
+                    var brands = ['Samsung', 'HUAWEI', 'Xiaomi', 'OPPO', 'vivo', 'OnePlus', 'Realme', 'Redmi', 'Honor'];
+                    for (var i = 0; i < brands.length; i++) {
+                        if (brandModel.toLowerCase().indexOf(brands[i].toLowerCase()) !== -1 || ua.toLowerCase().indexOf(brands[i].toLowerCase()) !== -1) {
+                            deviceInfo.deviceBrand = brands[i]; break;
+                        }
+                    }
+                    deviceInfo.deviceModel = brandModel;
+                }
+                deviceInfo.deviceType = /Mobile/.test(ua) ? '安卓手机' : '安卓平板';
+                var androidVersion = ua.match(/Android (\d+\.?\d*)/);
+                if (androidVersion) { deviceInfo.os = 'Android'; deviceInfo.osVersion = androidVersion[1]; }
+            } else if (/Windows/.test(ua)) {
+                deviceInfo.deviceType = '电脑'; deviceInfo.deviceBrand = 'Windows PC'; deviceInfo.os = 'Windows';
+                var winVersion = ua.match(/Windows NT (\d+\.\d+)/);
+                if (winVersion) { var verMap = {'10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7'}; deviceInfo.osVersion = verMap[winVersion[1]] || winVersion[1]; }
+            } else if (/Mac/.test(ua)) {
+                deviceInfo.deviceType = '电脑'; deviceInfo.deviceBrand = 'Apple'; deviceInfo.os = 'macOS';
+                var macVersion = ua.match(/Mac OS X (\d+[._]\d+)/);
+                if (macVersion) { deviceInfo.osVersion = macVersion[1].replace('_', '.'); }
+            }
+            if (/WeChat|MicroMessenger/.test(ua)) {
+                deviceInfo.browser = '微信'; var wxVer = ua.match(/MicroMessenger\/(\d+\.\d+)/); if (wxVer) deviceInfo.browserVersion = wxVer[1];
+            } else if (/Edg/.test(ua)) {
+                deviceInfo.browser = 'Edge'; var edgeVer = ua.match(/Edg\/(\d+\.\d+)/); if (edgeVer) deviceInfo.browserVersion = edgeVer[1];
+            } else if (/Chrome/.test(ua)) {
+                deviceInfo.browser = 'Chrome'; var chromeVer = ua.match(/Chrome\/(\d+\.\d+)/); if (chromeVer) deviceInfo.browserVersion = chromeVer[1];
+            } else if (/Firefox/.test(ua)) {
+                deviceInfo.browser = 'Firefox'; var ffVer = ua.match(/Firefox\/(\d+\.\d+)/); if (ffVer) deviceInfo.browserVersion = ffVer[1];
+            } else if (/Safari/.test(ua) && !/Chrome/.test(ua)) {
+                deviceInfo.browser = 'Safari'; var sfVer = ua.match(/Version\/(\d+\.\d+)/); if (sfVer) deviceInfo.browserVersion = sfVer[1];
+            }
+            return deviceInfo;
+        }
+
+        function getDeviceId() {
+            return getDeviceInfo().deviceId;
         }
 
         function getDeviceDisplayName() {
-            var ua = navigator.userAgent;
-            if (/iPhone/.test(ua)) return 'iPhone';
-            if (/iPad/.test(ua)) return 'iPad';
-            if (/Android/.test(ua)) return 'Android设备';
-            if (/Windows/.test(ua)) return 'Windows电脑';
-            if (/Mac/.test(ua)) return 'Mac电脑';
-            if (/Linux/.test(ua)) return 'Linux电脑';
-            return '未知设备';
+            var info = getDeviceInfo();
+            var parts = [];
+            if (info.deviceBrand) parts.push(info.deviceBrand);
+            if (info.deviceModel && info.deviceModel !== info.deviceBrand) parts.push(info.deviceModel);
+            if (info.deviceType) parts.push(info.deviceType);
+            if (info.browser) parts.push(info.browser);
+            return parts.join(' ');
         }
 
         async function loadUserProfile() {
@@ -528,11 +595,10 @@
                         if (oldInput) oldInput.placeholder = user.password ? '请输入原密码' : '首次设置密码可留空';
                     }
 
-                    var deviceInfo = getDeviceInfo();
                     var dn = document.getElementById('deviceName');
                     var dd = document.getElementById('deviceDetail');
                     if (dn) dn.textContent = getDeviceDisplayName();
-                    if (dd) dd.textContent = '设备ID: ' + deviceInfo.deviceId;
+                    if (dd) dd.textContent = '设备ID: ' + getDeviceId();
                 }
             } catch (e) {
                 console.error('加载用户信息失败:', e);
