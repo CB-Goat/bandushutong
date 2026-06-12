@@ -1056,7 +1056,10 @@
                     if (data.military_rank && data.military_rank.current_rank) {
                         var newRank = data.military_rank.current_rank.rank_name;
                         if (_lastRankName && newRank !== _lastRankName) {
-                            showRankUpCelebration(data.military_rank.current_rank, data.military_rank.total_words);
+                            localStorage.setItem('pendingRankUp', JSON.stringify({
+                                rank: data.military_rank.current_rank,
+                                total_words: data.military_rank.total_words
+                            }));
                         }
                         _lastRankName = newRank;
                     }
@@ -2417,10 +2420,16 @@
                         thoughtEditor.exitEditMode(); thoughtEditor._closeModal(); thoughtEditor.loadThoughts();
                         if (shouldResume) player.play();
                         if (data.new_merits && data.new_merits.length > 0) {
-                            setTimeout(function() { showAwardCelebration(data.new_merits, []); }, 800);
+                            var pending = JSON.parse(localStorage.getItem('pendingAwards') || '{}');
+                            if (!pending.merits) pending.merits = [];
+                            data.new_merits.forEach(function(m) { pending.merits.push(m); });
+                            localStorage.setItem('pendingAwards', JSON.stringify(pending));
                         }
                         if (data.new_medals && data.new_medals.length > 0) {
-                            setTimeout(function() { showAwardCelebration([], data.new_medals); }, data.new_merits && data.new_merits.length > 0 ? 2500 : 800);
+                            var pending = JSON.parse(localStorage.getItem('pendingAwards') || '{}');
+                            if (!pending.medals) pending.medals = [];
+                            data.new_medals.forEach(function(m) { pending.medals.push(m); });
+                            localStorage.setItem('pendingAwards', JSON.stringify(pending));
                         }
                     } else { alert(data.error || '保存失败'); }
                 }).catch(function(e) {

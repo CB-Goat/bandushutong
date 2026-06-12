@@ -155,6 +155,40 @@
         <div class="loading">加载中...</div>
     </div>
 
+    <div id="rankUpModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2000;justify-content:center;align-items:center;" onclick="closeRankUpModal()">
+        <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:16px;padding:32px 24px;width:85%;max-width:360px;text-align:center;color:white;position:relative;animation:celebrationBounce 0.6s cubic-bezier(0.34,1.56,0.64,1);" onclick="event.stopPropagation()">
+            <div style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);font-size:48px;animation:celebrationFloat 2s ease-in-out infinite;">🎉</div>
+            <div style="font-size:16px;color:rgba(255,255,255,0.7);margin-bottom:4px;margin-top:10px;">恭喜军衔晋升！</div>
+            <div id="rankUpEpaulette" style="margin:12px auto;"></div>
+            <div style="font-size:30px;font-weight:bold;color:#FFD700;margin-bottom:4px;text-shadow:0 0 20px rgba(255,215,0,0.5);" id="rankUpName">上等兵</div>
+            <div style="font-size:15px;color:rgba(255,255,255,0.6);margin-bottom:16px;" id="rankUpTitle">阅读学徒</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:20px;">累计阅读 <span id="rankUpWords" style="color:#FFD700;font-weight:bold;">0</span> 字</div>
+            <button onclick="closeRankUpModal()" style="padding:12px 48px;background:linear-gradient(90deg,#FFD700,#FFA500);color:#1a1a2e;border:none;border-radius:24px;font-size:17px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(255,215,0,0.4);">太棒了！</button>
+        </div>
+    </div>
+
+    <div id="awardModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2000;justify-content:center;align-items:center;" onclick="closeAwardModal()">
+        <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:16px;padding:32px 24px;width:85%;max-width:360px;text-align:center;color:white;position:relative;animation:celebrationBounce 0.6s cubic-bezier(0.34,1.56,0.64,1);" onclick="event.stopPropagation()">
+            <div style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);font-size:48px;animation:celebrationFloat 2s ease-in-out infinite;">🏆</div>
+            <div style="font-size:16px;color:rgba(255,255,255,0.7);margin-bottom:8px;margin-top:10px;">恭喜获得新荣誉！</div>
+            <div id="awardContent" style="margin:16px 0;"></div>
+            <button onclick="closeAwardModal()" style="padding:12px 48px;background:linear-gradient(90deg,#FFD700,#FFA500);color:#1a1a2e;border:none;border-radius:24px;font-size:17px;font-weight:bold;cursor:pointer;box-shadow:0 4px 15px rgba(255,215,0,0.4);">太棒了！</button>
+        </div>
+    </div>
+
+    <style>
+        @keyframes celebrationBounce {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.08); }
+            70% { transform: scale(0.95); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes celebrationFloat {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-8px); }
+        }
+    </style>
+
     <script>
         const API_BASE = '/api';
         var state = {
@@ -372,8 +406,100 @@
             alert('注册登录后可阅读全书，匿名用户仅可阅读前3节');
         }
 
+        var iconToLevel = {
+            'private': 1, 'private_first': 2,
+            'sergeant_1': 3, 'sergeant_2': 4, 'sergeant_3': 5,
+            'sergeant_4': 6, 'sergeant_5': 7, 'sergeant_6': 8, 'sergeant_7': 9,
+            '2lt': 10, '1lt': 11, 'cpt': 12,
+            'maj': 13, 'ltc': 14, 'col': 15, 'sen_col': 16,
+            'bg': 17, 'mg': 18, 'lg': 19, 'marshal': 20
+        };
+
+        function renderEpaulette(icon) {
+            var level = iconToLevel[icon] || 1;
+            return '<img src="ranks/rank_' + level + '.png" style="width:80px;display:block;margin:0 auto;" alt="肩章">';
+        }
+
+        function showRankUpCelebration(rank, totalWords) {
+            document.getElementById('rankUpEpaulette').innerHTML = renderEpaulette(rank.icon || 'private');
+            document.getElementById('rankUpName').textContent = rank.rank_name;
+            document.getElementById('rankUpTitle').textContent = rank.title || '';
+            document.getElementById('rankUpWords').textContent = (totalWords || 0).toLocaleString();
+            document.getElementById('rankUpModal').style.display = 'flex';
+        }
+
+        function closeRankUpModal() {
+            document.getElementById('rankUpModal').style.display = 'none';
+            checkPendingAwards();
+        }
+
+        function showAwardCelebration(newMerits, newMedals) {
+            var meritIcons = {'一等功': 'medals/merit_1.png', '二等功': 'medals/merit_2.png', '三等功': 'medals/merit_3.png', '嘉奖': 'medals/merit_4.png'};
+            var meritColors = {'一等功': '#FFD700', '二等功': '#C0C0C0', '三等功': '#CD7F32', '嘉奖': '#8B4513'};
+            var medalIcons = {'红星勋章': 'medals/medal_red_star.png', '红旗勋章': 'medals/medal_red_flag.png', '八一勋章': 'medals/medal_bayi.png'};
+            var html = '';
+            if (newMerits && newMerits.length > 0) {
+                html += '<div style="margin-bottom:12px;">';
+                newMerits.forEach(function(m) {
+                    var type = m.merit_type || m;
+                    html += '<div style="display:inline-block;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;margin:4px;text-align:center;">'
+                        + '<img src="' + (meritIcons[type] || 'medals/merit_4.png') + '" style="height:44px;display:block;margin:0 auto;" alt="' + type + '">'
+                        + '<div style="font-size:14px;color:' + (meritColors[type] || '#FFD700') + ';font-weight:bold;margin-top:6px;">' + type + '</div>'
+                        + '</div>';
+                });
+                html += '</div>';
+            }
+            if (newMedals && newMedals.length > 0) {
+                html += '<div style="margin-bottom:8px;">';
+                newMedals.forEach(function(m) {
+                    var type = m.medal_type || m;
+                    html += '<div style="display:inline-block;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;margin:4px;text-align:center;">'
+                        + '<img src="' + (medalIcons[type] || 'medals/medal_red_star.png') + '" style="height:44px;display:block;margin:0 auto;" alt="' + type + '">'
+                        + '<div style="font-size:14px;color:#FFD700;font-weight:bold;margin-top:6px;">' + type + '</div>'
+                        + '</div>';
+                });
+                html += '</div>';
+            }
+            if (!html) return;
+            document.getElementById('awardContent').innerHTML = html;
+            document.getElementById('awardModal').style.display = 'flex';
+        }
+
+        function closeAwardModal() {
+            document.getElementById('awardModal').style.display = 'none';
+        }
+
+        function checkPendingCelebrations() {
+            var rankUpData = localStorage.getItem('pendingRankUp');
+            if (rankUpData) {
+                localStorage.removeItem('pendingRankUp');
+                try {
+                    var parsed = JSON.parse(rankUpData);
+                    showRankUpCelebration(parsed.rank, parsed.total_words);
+                } catch(e) {}
+                return;
+            }
+            checkPendingAwards();
+        }
+
+        function checkPendingAwards() {
+            var awardData = localStorage.getItem('pendingAwards');
+            if (awardData) {
+                localStorage.removeItem('pendingAwards');
+                try {
+                    var parsed = JSON.parse(awardData);
+                    var merits = parsed.merits || [];
+                    var medals = parsed.medals || [];
+                    if (merits.length > 0 || medals.length > 0) {
+                        showAwardCelebration(merits, medals);
+                    }
+                } catch(e) {}
+            }
+        }
+
         // 初始化
         loadCatalog();
+        setTimeout(checkPendingCelebrations, 500);
     </script>
 </body>
 </html>
