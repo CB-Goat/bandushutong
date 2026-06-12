@@ -37,6 +37,10 @@ def index():
     """提供前端首页"""
     return send_from_directory(FRONTEND_DIR, 'index.html')
 
+@app.route('/index.html')
+def serve_index():
+    return send_from_directory(FRONTEND_DIR, 'index.html')
+
 @app.route('/<page>.html')
 def serve_page(page):
     """提供分页HTML文件"""
@@ -59,6 +63,7 @@ def serve_medals(filename):
     medals_dir = os.path.join(FRONTEND_DIR, 'medals')
     return send_from_directory(medals_dir, filename)
 
+@app.route('/favicon.ico')
 @app.route('/favicon.png')
 def serve_favicon():
     """提供网站图标"""
