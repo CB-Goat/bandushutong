@@ -40,7 +40,7 @@ def index():
 @app.route('/<page>.html')
 def serve_page(page):
     """提供分页HTML文件"""
-    allowed = {'bookshelf', 'catalog', 'reader', 'usercenter', 'admin'}
+    allowed = {'catalog', 'reader', 'usercenter', 'admin'}
     if page in allowed:
         filepath = os.path.join(FRONTEND_DIR, page + '.html')
         if os.path.exists(filepath):
