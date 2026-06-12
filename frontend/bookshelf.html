@@ -129,7 +129,7 @@
         <div style="display:flex;align-items:center;gap:10px;">
             <button class="back-btn" id="homeBtn" onclick="goBack()" style="display:none;"><img src="back.png" alt="返回"></button>
             <button class="navbar-btn" id="loginNavBtn" onclick="showPage('loginPage')" style="display:none;">更多阅读请登录系统</button>
-            <div id="profileBtn" style="cursor:pointer;font-size:24px;display:none;" onclick="toggleProfileCard()">☰</div>
+            <div id="profileBtn" style="cursor:pointer;font-size:24px;display:none;align-items:center;gap:4px;" onclick="toggleProfileCard()"><span id="rankBadge" style="font-size:12px;color:#FFD700;font-weight:bold;"></span>☰</div>
         </div>
     </div>
 
@@ -241,7 +241,7 @@
                     document.getElementById('profileBtn').style.display = 'none';
                 } else {
                     document.getElementById('loginNavBtn').style.display = 'none';
-                    document.getElementById('profileBtn').style.display = '';
+                    document.getElementById('profileBtn').style.display = 'flex';
                 }
             } else if (pageId === 'loginPage') {
                 document.getElementById('homeBtn').style.display = '';
@@ -277,8 +277,9 @@
             state.currentUser = user;
             state.militaryRank = militaryRank || null;
             localStorage.setItem('userId', user.id);
-            document.getElementById('profileBtn').style.display = '';
+            document.getElementById('profileBtn').style.display = 'flex';
             document.getElementById('loginNavBtn').style.display = 'none';
+            updateRankBadge();
             updateProfileCardLogoutBtn();
             showPage('homePage');
             loadBooks();
@@ -286,9 +287,11 @@
 
         function logout() {
             state.currentUser = null;
+            state.militaryRank = null;
             localStorage.removeItem('userId');
             document.getElementById('profileBtn').style.display = 'none';
             document.getElementById('loginNavBtn').style.display = '';
+            document.getElementById('rankBadge').textContent = '';
             showPage('homePage');
             loadPublicBooks();
         }
@@ -443,6 +446,28 @@
         function toggleProfileCard() {
             var card = document.getElementById('profileCard');
             card.style.display = (card.style.display === 'none' || card.style.display === '') ? 'block' : 'none';
+        }
+
+        function updateRankBadge() {
+            var badge = document.getElementById('rankBadge');
+            if (!state.currentUser) { badge.textContent = ''; return; }
+            var phone = state.currentUser.phone || '';
+            var last4 = phone.length >= 4 ? phone.slice(-4) : '';
+            var rankName = '';
+            if (state.militaryRank && state.militaryRank.current_rank) {
+                rankName = state.militaryRank.current_rank.rank_name;
+            }
+            if (!rankName) {
+                fetch(API_BASE + '/users/' + state.currentUser.id + '/military-rank').then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.current_rank && data.current_rank.rank_name) {
+                        badge.textContent = data.current_rank.rank_name + last4;
+                    } else {
+                        badge.textContent = last4;
+                    }
+                });
+            } else {
+                badge.textContent = rankName + last4;
+            }
         }
 
         function updateProfileCardLogoutBtn() {
