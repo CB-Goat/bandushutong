@@ -354,6 +354,7 @@
             }
 
             var currentChapter = null;
+            var lockCount = 0;
             state.sections.forEach(function(section, index) {
                 if (section.chapter_number && section.chapter_number !== currentChapter) {
                     currentChapter = section.chapter_number;
@@ -365,6 +366,7 @@
                 var statusClass = status === 'read' ? 'read' : (status === 'reading' ? 'reading' : 'unread');
                 var isBookmark = (parseInt(section.id) === bookmarkSectionId);
                 var isLocked = !isRegisteredUser && index >= 3;
+                if (isLocked) lockCount++;
 
                 if (isLocked) {
                     html += '<div class="section" style="opacity:0.5;" onclick="showLoginTip()">' +
@@ -381,6 +383,7 @@
             });
 
             container.innerHTML = html;
+            console.log('[目录渲染] isRegisteredUser:', isRegisteredUser, '锁定节数:', lockCount, '总节数:', state.sections.length);
         }
 
         // 打开章节
