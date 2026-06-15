@@ -278,8 +278,9 @@
                         isRegisteredUser = true;
                         localStorage.setItem('isRegistered', '1');
                     }
-                } catch(e) {}
+                } catch(e) { console.error('[注册检查] 失败:', e); }
             }
+            console.log('[目录页] isRegisteredUser:', isRegisteredUser, 'userId:', userId);
 
             try {
                 var response = await fetch(API_BASE + '/books/' + bookId + '?user_id=' + userId);
