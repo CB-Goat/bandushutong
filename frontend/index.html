@@ -288,6 +288,7 @@
             state.currentUser = user;
             state.militaryRank = militaryRank || null;
             localStorage.setItem('userId', user.id);
+            localStorage.setItem('isRegistered', user.phone ? '1' : '0');
             document.getElementById('profileBtn').style.display = 'flex';
             document.getElementById('loginNavBtn').style.display = 'none';
             updateRankBadge();
@@ -300,6 +301,7 @@
             state.currentUser = null;
             state.militaryRank = null;
             localStorage.removeItem('userId');
+            localStorage.removeItem('isRegistered');
             document.getElementById('profileBtn').style.display = 'none';
             document.getElementById('loginNavBtn').style.display = '';
             document.getElementById('rankBadge').textContent = '';

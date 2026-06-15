@@ -629,15 +629,17 @@
 
             state.currentUser = { id: userId };
 
-            var isRegisteredUser = true;
-            try {
-                var checkResp = await fetch(API_BASE + '/auth/check?user_id=' + userId);
-                var checkData = await checkResp.json();
-                if (checkData.user) {
-                    isRegisteredUser = !!checkData.user.phone;
-                    state.currentUser = checkData.user;
-                }
-            } catch(e) {}
+            var isRegisteredUser = localStorage.getItem('isRegistered') === '1';
+            if (!isRegisteredUser && userId) {
+                try {
+                    var checkResp = await fetch(API_BASE + '/auth/check?user_id=' + userId);
+                    var checkData = await checkResp.json();
+                    if (checkData.user && checkData.user.phone) {
+                        isRegisteredUser = true;
+                        localStorage.setItem('isRegistered', '1');
+                    }
+                } catch(e) {}
+            }
 
             try {
                 var rankResp = await fetch(API_BASE + '/users/' + userId + '/military-rank');
