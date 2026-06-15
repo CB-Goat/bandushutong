@@ -269,7 +269,7 @@
                 } catch(e) {}
             }
 
-            var isRegisteredUser = localStorage.getItem('isRegistered') === '1';
+            isRegisteredUser = localStorage.getItem('isRegistered') === '1';
             if (!isRegisteredUser && userId) {
                 try {
                     var checkResp = await fetch(API_BASE + '/auth/check?user_id=' + userId);
