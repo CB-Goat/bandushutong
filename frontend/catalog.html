@@ -376,15 +376,19 @@
                 var statusClass = status === 'read' ? 'read' : (status === 'reading' ? 'reading' : 'unread');
                 var isBookmark = (parseInt(section.id) === bookmarkSectionId);
                 var isLocked = false;
+                var lockType = '';
                 if (!isRegisteredUser) {
                     isLocked = index >= 3;
+                    lockType = 'anonymous';
                 } else if (!state.isUnlocked) {
                     isLocked = index >= state.freeSections;
+                    lockType = 'unlock';
                 }
                 if (isLocked) lockCount++;
 
                 if (isLocked) {
-                    html += '<div class="section" style="opacity:0.5;" onclick="showLoginTip()">' +
+                    var clickHandler = lockType === 'anonymous' ? 'showLoginTip()' : 'showUnlockTip()';
+                    html += '<div class="section" style="opacity:0.5;" onclick="' + clickHandler + '">' +
                         '<div class="status unread"></div>' +
                         '<div class="title">' + (section.title || '第' + section.section_number + '节') + ' 🔒</div>' +
                         '</div>';
@@ -434,7 +438,11 @@
         }
 
         function showUnlockTip() {
-            if (confirm('解锁本书需消耗 ' + state.unlockPoints + ' 积分，是否解锁？')) {
+            if (state.unlockPoints === 0) {
+                alert('该书籍暂未开放解锁，请联系管理员');
+                return;
+            }
+            if (confirm('解锁《' + state.currentBook.title + '》将消耗 ' + state.unlockPoints + ' 积分\n\n确定解锁吗？')) {
                 unlockBook();
             }
         }
