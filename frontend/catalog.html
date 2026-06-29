@@ -273,13 +273,16 @@
             }
 
             isRegisteredUser = localStorage.getItem('isRegistered') === '1';
+            console.log('[初始] localStorage.isRegistered:', localStorage.getItem('isRegistered'), '=> isRegisteredUser:', isRegisteredUser);
             if (!isRegisteredUser && userId) {
                 try {
                     var checkResp = await fetch(API_BASE + '/auth/check?user_id=' + userId);
                     var checkData = await checkResp.json();
+                    console.log('[auth/check] 响应:', checkData);
                     if (checkData.user && checkData.user.phone) {
                         isRegisteredUser = true;
                         localStorage.setItem('isRegistered', '1');
+                        console.log('[auth/check] 检测到注册用户，已更新 isRegistered=1');
                     }
                 } catch(e) { console.error('[注册检查] 失败:', e); }
             }
@@ -403,11 +406,13 @@
             if (sectionIndex < 0) return;
 
             if (!isRegisteredUser && sectionIndex >= 3) {
+                console.log('[锁检查] 匿名用户锁: isRegisteredUser=', isRegisteredUser, 'sectionIndex=', sectionIndex);
                 showLoginTip();
                 return;
             }
 
             if (isRegisteredUser && !state.isUnlocked && sectionIndex >= state.freeSections) {
+                console.log('[锁检查] 注册用户锁: isUnlocked=', state.isUnlocked, 'freeSections=', state.freeSections, 'sectionIndex=', sectionIndex);
                 showUnlockTip();
                 return;
             }
