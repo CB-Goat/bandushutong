@@ -306,6 +306,7 @@
                 state.freeSections = data.book.free_sections || 3;
                 state.unlockPoints = data.book.unlock_points || 0;
                 state.isUnlocked = data.book.is_unlocked || false;
+                console.log('[书籍数据] freeSections:', state.freeSections, 'unlockPoints:', state.unlockPoints, 'isUnlocked:', state.isUnlocked);
 
                 try {
                     var statusResponse = await fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + userId);
