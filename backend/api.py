@@ -1798,6 +1798,23 @@ def admin_update_book_public(book_id):
     conn.close()
     return jsonify({'message': '公版设置更新成功', 'is_public': is_public})
 
+@api_bp.route('/admin/books/<int:book_id>/unlock', methods=['PUT'])
+def admin_update_book_unlock(book_id):
+    """更新书籍解锁设置"""
+    book = get_book(book_id)
+    if not book:
+        return jsonify({'error': '书籍不存在'}), 404
+    data = request.json
+    free_sections = data.get('free_sections', 3)
+    unlock_points = data.get('unlock_points', 0)
+    from backend.database import get_db
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE books SET free_sections=%s, unlock_points=%s WHERE id=%s', (free_sections, unlock_points, book_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'message': '解锁设置更新成功', 'free_sections': free_sections, 'unlock_points': unlock_points})
+
 @api_bp.route('/admin/books/<int:book_id>/fix-char-timeline', methods=['POST'])
 def admin_fix_char_timeline(book_id):
     """修复书籍的 char_timeline（不重新生成音频）"""

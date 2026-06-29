@@ -249,6 +249,10 @@
                         <div class="form-group"><label>朗读声音</label><select id="editBookVoiceType"><option value="male">男声</option><option value="female">女声</option></select></div>
                     </div>
                     <div class="form-row">
+                        <div class="form-group"><label>免费节数（注册用户）</label><input type="number" id="editBookFreeSections" placeholder="3" min="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"><p style="font-size:12px;color:#999;margin:4px 0 0;">注册用户可免费阅读的节数，超过需积分解锁</p></div>
+                        <div class="form-group"><label>解锁积分</label><input type="number" id="editBookUnlockPoints" placeholder="0" min="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;"><p style="font-size:12px;color:#999;margin:4px 0 0;">解锁全书所需的积分值</p></div>
+                    </div>
+                    <div class="form-row">
                         <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:28px;"><input type="checkbox" id="editBookIsPublic" style="width:18px;height:18px;"><label for="editBookIsPublic" style="margin:0;cursor:pointer;">公版书籍（无需登录即可浏览）</label></div>
                     </div>
                     <div class="form-row" style="align-items:flex-start;">
@@ -679,6 +683,8 @@
                     document.getElementById('editBookPrice').value = book.subscription_price || '';
                     document.getElementById('editBookIsPublic').checked = book.is_public ? true : false;
                     document.getElementById('editBookVoiceType').value = book.voice_type || 'male';
+                    document.getElementById('editBookFreeSections').value = book.free_sections || 3;
+                    document.getElementById('editBookUnlockPoints').value = book.unlock_points || 0;
                     var iconPreview = document.getElementById('editBookIconPreview');
                     var iconPlaceholder = document.getElementById('editBookIconPlaceholder');
                     if (book.icon_path) {
@@ -950,6 +956,8 @@
             var price = document.getElementById('editBookPrice').value;
             var isPublic = document.getElementById('editBookIsPublic').checked ? 1 : 0;
             var voiceType = document.getElementById('editBookVoiceType').value;
+            var freeSections = parseInt(document.getElementById('editBookFreeSections').value) || 3;
+            var unlockPoints = parseInt(document.getElementById('editBookUnlockPoints').value) || 0;
 
             if (!title) { alert('请输入书名'); return; }
 
@@ -962,6 +970,10 @@
                     fetch(API_BASE + '/admin/books/' + id + '/public', {
                         method: 'PUT', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({is_public: isPublic})
+                    }),
+                    fetch(API_BASE + '/admin/books/' + id + '/unlock', {
+                        method: 'PUT', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({free_sections: freeSections, unlock_points: unlockPoints})
                     })
                 ]).then(function() {
                     var iconFile = document.getElementById('editBookIconFile');
