@@ -196,7 +196,10 @@
             currentBook: null,
             sections: [],
             catalogStatusMap: {},
-            progress: null
+            progress: null,
+            freeSections: 3,
+            unlockPoints: 0,
+            isUnlocked: false
         };
         var isRegisteredUser = false;
 
@@ -297,6 +300,9 @@
                 state.currentUser = { id: userId };
                 state.progress = data.progress || null;
                 state.currentProgressV2 = data.progress_v2 || null;
+                state.freeSections = data.book.free_sections || 3;
+                state.unlockPoints = data.book.unlock_points || 0;
+                state.isUnlocked = data.book.is_unlocked || false;
 
                 try {
                     var statusResponse = await fetch(API_BASE + '/books/' + bookId + '/reading-status?user_id=' + userId);
@@ -365,7 +371,12 @@
                 var status = state.catalogStatusMap[section.id] || 'unread';
                 var statusClass = status === 'read' ? 'read' : (status === 'reading' ? 'reading' : 'unread');
                 var isBookmark = (parseInt(section.id) === bookmarkSectionId);
-                var isLocked = !isRegisteredUser && index >= 3;
+                var isLocked = false;
+                if (!isRegisteredUser) {
+                    isLocked = index >= 3;
+                } else if (!state.isUnlocked) {
+                    isLocked = index >= state.freeSections;
+                }
                 if (isLocked) lockCount++;
 
                 if (isLocked) {
@@ -396,6 +407,11 @@
                 return;
             }
 
+            if (isRegisteredUser && !state.isUnlocked && sectionIndex >= state.freeSections) {
+                showUnlockTip();
+                return;
+            }
+
             var sectionStatus = state.catalogStatusMap[sectionId] || 'unread';
             if (sectionStatus === 'unread') {
                 if (sectionIndex > 0) {
@@ -409,6 +425,34 @@
             }
 
             location.href = 'reader.html?' + encodeParams({book_id: state.currentBook.id, section_id: sectionId});
+        }
+
+        function showUnlockTip() {
+            if (confirm('解锁本书需消耗 ' + state.unlockPoints + ' 积分，是否解锁？')) {
+                unlockBook();
+            }
+        }
+
+        async function unlockBook() {
+            var userId = localStorage.getItem('userId');
+            if (!userId) { alert('请先登录'); return; }
+            try {
+                var response = await fetch(API_BASE + '/books/' + state.currentBook.id + '/unlock', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: userId})
+                });
+                var data = await response.json();
+                if (data.message) {
+                    alert('解锁成功！');
+                    state.isUnlocked = true;
+                    renderCatalog();
+                } else {
+                    alert(data.error || '解锁失败');
+                }
+            } catch (e) {
+                alert('网络错误: ' + e.message);
+            }
         }
 
         function showLoginTip() {

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>积分账单 - 悦读小将</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'KaiTi', 'STKaiti', '楷体', cursive, serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #2d5016 0%, #1a3a0a 100%);
+            color: #e8e0c8;
+            padding: 0 16px;
+            height: 52px;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #8B7355;
+        }
+        .navbar h1 {
+            font-size: 18px;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+            text-align: center;
+            margin: 0;
+            padding: 0 10px;
+        }
+        .navbar .back-btn {
+            background: none;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .navbar .back-btn img {
+            width: 24px;
+            height: 24px;
+        }
+        .container {
+            margin-top: 52px;
+            padding: 20px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .card h3 {
+            margin: 0 0 20px;
+            color: #333;
+            font-size: 18px;
+        }
+        .points-display {
+            text-align: center;
+            padding: 30px 0;
+        }
+        .points-display .number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .points-display .label {
+            font-size: 14px;
+            color: #999;
+            margin-top: 5px;
+        }
+        .qrcode-box {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        .qrcode-box img {
+            width: 200px;
+            height: 200px;
+            border-radius: 8px;
+        }
+        .qrcode-box p {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .log-item:last-child {
+            border-bottom: none;
+        }
+        .log-item .left {
+            flex: 1;
+        }
+        .log-item .desc {
+            font-size: 15px;
+            color: #333;
+        }
+        .log-item .time {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+        .log-item .points {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .log-item .points.positive {
+            color: #2d5016;
+        }
+        .log-item .points.negative {
+            color: #e74c3c;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 0;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div style="display:flex;align-items:center;">
+            <img src="favicon.png" style="width:28px;height:28px;border-radius:4px;margin-left:10px;">
+        </div>
+        <h1>积分账单</h1>
+        <button class="back-btn" onclick="goBack()"><img src="back.png" alt="返回"></button>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h3>积分余额</h3>
+            <div class="points-display">
+                <div class="number" id="pointsNumber">0</div>
+                <div class="label">可用积分</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>积分充值</h3>
+            <p style="font-size:14px;color:#666;margin-bottom:10px;">扫描下方二维码关注公众号，获取积分充值入口</p>
+            <div class="qrcode-box">
+                <img src="qrcode_jiwa.jpg" alt="公众号二维码">
+                <p>公众号：鸡娃有方</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>积分流水</h3>
+            <div id="logList"></div>
+        </div>
+    </div>
+
+    <script>
+        var API_BASE = '/api';
+
+        function goBack() {
+            location.href = '/';
+        }
+
+        function formatTime(dateStr) {
+            if (!dateStr) return '';
+            var d = new Date(dateStr);
+            var pad = function(n) { return n < 10 ? '0' + n : n; };
+            return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        }
+
+        async function loadPoints() {
+            var userId = localStorage.getItem('userId');
+            if (!userId) {
+                alert('请先登录');
+                goBack();
+                return;
+            }
+
+            try {
+                var response = await fetch(API_BASE + '/users/' + userId + '/points');
+                var data = await response.json();
+
+                document.getElementById('pointsNumber').textContent = data.points || 0;
+
+                var logList = document.getElementById('logList');
+                if (!data.logs || data.logs.length === 0) {
+                    logList.innerHTML = '<div class="empty-state">暂无积分记录</div>';
+                    return;
+                }
+
+                var html = '';
+                data.logs.forEach(function(log) {
+                    var points = log.points;
+                    var isPositive = points > 0;
+                    var sign = isPositive ? '+' : '';
+                    var className = isPositive ? 'positive' : 'negative';
+                    html += '<div class="log-item">' +
+                        '<div class="left">' +
+                        '<div class="desc">' + (log.description || log.type) + '</div>' +
+                        '<div class="time">' + formatTime(log.created_at) + '</div>' +
+                        '</div>' +
+                        '<div class="points ' + className + '">' + sign + points + '</div>' +
+                        '</div>';
+                });
+                logList.innerHTML = html;
+            } catch (e) {
+                alert('加载失败: ' + e.message);
+            }
+        }
+
+        loadPoints();
+    </script>
+</body>
+</html>

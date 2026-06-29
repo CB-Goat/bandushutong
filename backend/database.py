@@ -63,7 +63,9 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             subscription_price DECIMAL(10,2) DEFAULT 0,
             is_public TINYINT DEFAULT 0,
-            icon_path VARCHAR(500)
+            icon_path VARCHAR(500),
+            unlock_points INT DEFAULT 0,
+            free_sections INT DEFAULT 3
         )
     ''')
 
@@ -170,6 +172,7 @@ def init_db():
             role VARCHAR(20) DEFAULT 'user',
             ip_address VARCHAR(50),
             location VARCHAR(200),
+            points INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -185,6 +188,34 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             replied_at TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+
+    # 积分流水表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS points_log (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            points INT NOT NULL,
+            type VARCHAR(50) NOT NULL,
+            ref_id INT,
+            description VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_user (user_id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+
+    # 用户解锁书籍表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_books (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            book_id INT NOT NULL,
+            unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_user_book (user_id, book_id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
         )
     ''')
 

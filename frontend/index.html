@@ -136,6 +136,7 @@
     <!-- 汉堡菜单 -->
     <div id="profileCard" style="display:none;position:fixed;top:52px;right:10px;background:linear-gradient(135deg,#2d5016 0%,#1a3a0a 100%);color:#e8e0c8;border-radius:12px;padding:12px 0;min-width:160px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:1000;border:2px solid rgba(255,215,0,0.2);">
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToRankMerits();toggleProfileCard();">🏅 军衔军功</div>
+        <div id="profileCardPoints" style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToPoints();toggleProfileCard();">💰 积分账单</div>
         <div id="profileCardUserInfo" style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToUserInfo();toggleProfileCard();">👤 用户信息</div>
         <div id="profileCardPassword" style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToPassword();toggleProfileCard();">🔐 密码安全</div>
         <div style="padding:8px 16px;cursor:pointer;color:#e8e0c8;font-size:14px;border-radius:6px;margin:0 8px;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'" onclick="goToMessage();toggleProfileCard();">💬 我要留言</div>
@@ -159,6 +160,7 @@
                     </div>
                     <button onclick="doLogin()" style="width:100%;padding:12px;background:#2d5016;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;">登录</button>
                     <button onclick="showRegister()" style="width:100%;padding:12px;background:white;color:#2d5016;border:1px solid #2d5016;border-radius:8px;font-size:16px;cursor:pointer;margin-top:10px;">注册新账号</button>
+                    <p style="text-align:center;margin-top:10px;font-size:12px;color:#FFD700;">🎁 注册即送100积分</p>
                     <p id="loginError" style="color:red;font-size:13px;text-align:center;margin-top:10px;display:none;"></p>
                 </div>
             </div>
@@ -530,6 +532,10 @@
 
         function goToMessage() {
             location.href = 'usercenter.html?' + encodeParams({page: 'message'});
+        }
+
+        function goToPoints() {
+            location.href = 'points.html';
         }
 
         function showContactAdmin() {

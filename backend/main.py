@@ -41,7 +41,7 @@ def index():
 @app.route('/<page>.html')
 def serve_page(page):
     """提供分页HTML文件"""
-    allowed = {'catalog', 'reader', 'usercenter', 'admin', 'creative-showcase'}
+    allowed = {'catalog', 'reader', 'usercenter', 'admin', 'creative-showcase', 'points'}
     if page in allowed:
         filepath = os.path.join(FRONTEND_DIR, page + '.html')
         if os.path.exists(filepath):
@@ -75,6 +75,11 @@ def serve_back_icon():
 def serve_wechat_qrcode():
     """提供微信二维码图片"""
     return send_from_directory(FRONTEND_DIR, 'wechat_qrcode.png')
+
+@app.route('/qrcode_jiwa.jpg')
+def serve_qrcode_jiwa():
+    """提供公众号二维码图片"""
+    return send_from_directory(FRONTEND_DIR, 'qrcode_jiwa.jpg')
 
 @app.route('/book_icons/<path:filename>')
 def serve_book_icons(filename):

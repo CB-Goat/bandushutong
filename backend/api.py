@@ -372,12 +372,12 @@ def list_books():
     from backend.database import get_db
     user_id = request.args.get('user_id', type=int)
     books = get_all_books()
+    conn = get_db()
+    cursor = conn.cursor()
     for book in books:
         bid = book['id']
         stats = get_book_reading_stats(user_id, bid)
         book['reading_stats'] = stats
-        conn = get_db()
-        cursor = conn.cursor()
         cursor.execute('SELECT COALESCE(SUM(word_count),0) as total_words FROM sections WHERE book_id=%s', (bid,))
         book['total_words'] = cursor.fetchone()['total_words']
         cursor.execute('''SELECT COUNT(*) as cnt FROM annotations a
@@ -388,7 +388,14 @@ def list_books():
         thoughts = cursor.fetchall()
         heat = sum((t['ai_score'] or 0) + 1 for t in thoughts)
         book['thought_heat'] = heat
-        conn.close()
+        book['unlock_points'] = book.get('unlock_points') or 0
+        book['free_sections'] = book.get('free_sections') or 3
+        if user_id:
+            cursor.execute('SELECT * FROM user_books WHERE user_id = %s AND book_id = %s', (user_id, bid))
+            book['is_unlocked'] = bool(cursor.fetchone())
+        else:
+            book['is_unlocked'] = False
+    conn.close()
     return jsonify({'books': books})
 
 @api_bp.route('/books/<int:book_id>', methods=['GET'])
@@ -411,6 +418,18 @@ def book_detail(book_id):
     # Debug: log annotations count
     for sec in sections[:2]:
         print(f"[API] Section {sec['id']}: {len(sec.get('annotations', []))} annotations")
+    
+    # 添加解锁信息
+    book['free_sections'] = book.get('free_sections') or 3
+    book['unlock_points'] = book.get('unlock_points') or 0
+    if user_id:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM user_books WHERE user_id = %s AND book_id = %s', (user_id, book_id))
+        book['is_unlocked'] = bool(cursor.fetchone())
+        conn.close()
+    else:
+        book['is_unlocked'] = False
     
     return jsonify({
         'book': book,
@@ -1373,12 +1392,10 @@ def wechat_login():
 
 @api_bp.route('/auth/login', methods=['POST'])
 def login():
-    """手机号密码登录（带设备校验）"""
+    """手机号密码登录"""
     data = request.json
     phone = data.get('phone', '').strip()
     password = data.get('password', '').strip()
-    device_id = data.get('device_id', '').strip()
-    transfer_code = data.get('transfer_code', '').strip()
     
     if not phone or not password:
         return jsonify({'error': '请输入手机号和密码'}), 400
@@ -1387,37 +1404,7 @@ def login():
     if not user:
         return jsonify({'error': '手机号或密码错误'}), 401
     
-    # 设备校验（管理员跳过）
-    device_info = data.get('device_info', '').strip()
-    is_admin = user.get('role') == 'admin'
-    
-    if not is_admin:
-        if user.get('device_id') and user['device_id'] != device_id:
-            # 设备不匹配，需要换机校验码
-            if not transfer_code:
-                # 获取之前绑定的设备信息
-                bound_device_info = user.get('device_info') or '未知设备'
-                return jsonify({
-                    'error': '设备不匹配，请输入换机校验码',
-                    'need_transfer_code': True,
-                    'user_id': user['id'],
-                    'bound_device': bound_device_info
-                }), 403
-            
-            # 验证换机校验码
-            success, msg = verify_transfer_code(user['id'], transfer_code)
-            if not success:
-                return jsonify({'error': msg, 'need_transfer_code': True}), 403
-            
-            # 验证成功，更新设备ID和设备信息
-            update_user_device(user['id'], device_id, device_info)
-        elif not user.get('device_id'):
-            # 首次登录，绑定设备
-            update_user_device(user['id'], device_id, device_info)
-    
-    user = get_user(user['id'])
     user.pop('password', None)
-    # 获取用户军衔信息
     military_rank = get_user_military_rank(user['id'])
     return jsonify({'user': user, 'military_rank': military_rank})
 
@@ -1445,6 +1432,18 @@ def register():
     location = get_ip_location(ip_address)
     
     user_id = create_user(phone=phone, password=password, device_id=device_id, device_info=device_info, role='user', ip_address=ip_address, location=location)
+    
+    # 注册送100积分
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET points = 100 WHERE id = %s', (user_id,))
+    cursor.execute('''
+        INSERT INTO points_log (user_id, points, type, description)
+        VALUES (%s, 100, 'register', '注册赠送')
+    ''', (user_id,))
+    conn.commit()
+    conn.close()
+    
     user = get_user(user_id)
     user.pop('password', None)
     military_rank = get_user_military_rank(user_id)
@@ -2972,7 +2971,74 @@ def get_stats():
         'user_count': user_count,
         'thought_heat': heat
     })
+
+# ===== 积分系统 API =====
+
+@api_bp.route('/users/<int:user_id>/points', methods=['GET'])
+def get_user_points(user_id):
+    """获取用户积分余额和流水"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT points FROM users WHERE id = %s', (user_id,))
+    user = cursor.fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'error': '用户不存在'}), 404
+    
+    cursor.execute('''
+        SELECT id, points, type, ref_id, description, created_at
+        FROM points_log WHERE user_id = %s ORDER BY created_at DESC LIMIT 50
+    ''', (user_id,))
+    logs = [dict(row) for row in cursor.fetchall()]
+    
+    conn.close()
+    return jsonify({'points': user['points'], 'logs': logs})
+
+@api_bp.route('/books/<int:book_id>/unlock', methods=['POST'])
+def unlock_book(book_id):
+    """消耗积分解锁书籍"""
+    data = request.json
+    user_id = data.get('user_id')
     if not user_id:
         return jsonify({'error': '未登录'}), 401
-    update_thought(thought_id, int(user_id), data.get('content', ''))
-    return jsonify({'message': '已更新'})
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # 检查是否已解锁
+    cursor.execute('SELECT * FROM user_books WHERE user_id = %s AND book_id = %s', (user_id, book_id))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({'error': '已解锁该书籍'}), 400
+    
+    # 获取书籍解锁积分
+    cursor.execute('SELECT unlock_points, title FROM books WHERE id = %s', (book_id,))
+    book = cursor.fetchone()
+    if not book:
+        conn.close()
+        return jsonify({'error': '书籍不存在'}), 404
+    
+    unlock_points = book['unlock_points'] or 0
+    if unlock_points == 0:
+        conn.close()
+        return jsonify({'error': '该书籍无需解锁'}), 400
+    
+    # 检查用户积分
+    cursor.execute('SELECT points FROM users WHERE id = %s', (user_id,))
+    user = cursor.fetchone()
+    if not user or user['points'] < unlock_points:
+        conn.close()
+        return jsonify({'error': '积分不足', 'required': unlock_points, 'current': user['points'] if user else 0}), 400
+    
+    # 扣除积分并解锁
+    cursor.execute('UPDATE users SET points = points - %s WHERE id = %s', (unlock_points, user_id))
+    cursor.execute('INSERT INTO user_books (user_id, book_id) VALUES (%s, %s)', (user_id, book_id))
+    cursor.execute('''
+        INSERT INTO points_log (user_id, points, type, ref_id, description)
+        VALUES (%s, %s, 'unlock', %s, %s)
+    ''', (user_id, -unlock_points, book_id, f'解锁《{book["title"]}》'))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'message': '解锁成功', 'points_spent': unlock_points})
