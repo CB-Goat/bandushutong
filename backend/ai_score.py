@@ -101,7 +101,7 @@ def _calculate_overlap(text1, text2):
 def _call_glm_flash(original_text, thought_content, api_key,
                     book_name='', author='', chapter_title='', section_title='', section_content=''):
     """
-    调用智谱 GLM-4.7-Flash API 进行评分（免费）
+    调用智谱 GLM-5.2 API 进行评分
     """
     import requests
     
@@ -151,7 +151,7 @@ def _call_glm_flash(original_text, thought_content, api_key,
 请严格按以下JSON格式返回（不要包含其他文字）：
 {{"score": 0-3的整数, "reason": "简短的评审意见（30字以内）"}}"""
 
-    print(f"[AI评分] 调用GLM API: model=glm-4.7-flash, prompt长度={len(prompt)}")
+    print(f"[AI评分] 调用GLM API: model=glm-5.2, prompt长度={len(prompt)}")
     
     response = requests.post(
         'https://open.bigmodel.cn/api/paas/v4/chat/completions',
@@ -160,7 +160,7 @@ def _call_glm_flash(original_text, thought_content, api_key,
             'Authorization': f'Bearer {api_key}'
         },
         json={
-            'model': 'glm-4.7-flash',
+            'model': 'glm-5.2',
             'messages': [
                 {'role': 'user', 'content': prompt}
             ],
