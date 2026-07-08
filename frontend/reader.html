@@ -2421,39 +2421,73 @@
                     var shouldResume = self._wasPlayingBeforeEdit;
                     thoughtEditor.exitEditMode(); thoughtEditor._closeModal(); thoughtEditor.loadThoughts();
                     if (shouldResume) player.play();
-                }, 30000);
+                }, 35000);
 
                 fetch(API_BASE + '/sections/' + section.id + '/thoughts', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ user_id: state.currentUser.id, start_char: startChar, end_char: endChar, original_text: originalText, content: content })
                 }).then(function(r) { return r.json(); }).then(function(data) {
-                    if (self._saveCompleted) return; self._saveCompleted = true;
-                    clearTimeout(timeoutId); clearInterval(countdownInterval);
-                    saveBtn.textContent = originalSaveText; saveBtn.disabled = false; cancelBtn.disabled = false;
+                    if (self._saveCompleted) return;
                     if (data.thought_id) {
-                        self._showResultModal(data.ai_score, data.score_reason);
-                        var shouldResume = self._wasPlayingBeforeEdit;
-                        thoughtEditor.exitEditMode(); thoughtEditor._closeModal(); thoughtEditor.loadThoughts();
-                        if (shouldResume) player.play();
-                        if (data.new_merits && data.new_merits.length > 0) {
-                            var pending = JSON.parse(localStorage.getItem('pendingAwards') || '{}');
-                            if (!pending.merits) pending.merits = [];
-                            data.new_merits.forEach(function(m) { pending.merits.push(m); });
-                            localStorage.setItem('pendingAwards', JSON.stringify(pending));
+                        if (data.ai_score !== null && data.ai_score !== undefined) {
+                            self._saveCompleted = true;
+                            clearTimeout(timeoutId); clearInterval(countdownInterval);
+                            saveBtn.textContent = originalSaveText; saveBtn.disabled = false; cancelBtn.disabled = false;
+                            self._showResultModal(data.ai_score, data.score_reason);
+                            var shouldResume = self._wasPlayingBeforeEdit;
+                            thoughtEditor.exitEditMode(); thoughtEditor._closeModal(); thoughtEditor.loadThoughts();
+                            if (shouldResume) player.play();
+                        } else {
+                            self._pollScore(data.thought_id, section.id, timeoutId, countdownInterval, saveBtn, cancelBtn, originalSaveText);
                         }
-                        if (data.new_medals && data.new_medals.length > 0) {
-                            var pending = JSON.parse(localStorage.getItem('pendingAwards') || '{}');
-                            if (!pending.medals) pending.medals = [];
-                            data.new_medals.forEach(function(m) { pending.medals.push(m); });
-                            localStorage.setItem('pendingAwards', JSON.stringify(pending));
-                        }
-                    } else { alert(data.error || '保存失败'); }
+                    } else { 
+                        self._saveCompleted = true;
+                        clearTimeout(timeoutId); clearInterval(countdownInterval);
+                        saveBtn.textContent = originalSaveText; saveBtn.disabled = false; cancelBtn.disabled = false;
+                        alert(data.error || '保存失败'); 
+                    }
                 }).catch(function(e) {
                     if (self._saveCompleted) return; self._saveCompleted = true;
                     clearTimeout(timeoutId); clearInterval(countdownInterval);
                     saveBtn.textContent = originalSaveText; saveBtn.disabled = false; cancelBtn.disabled = false;
                     alert('保存失败: ' + e);
                 });
+            },
+
+            _pollScore: function(thoughtId, sectionId, timeoutId, countdownInterval, saveBtn, cancelBtn, originalSaveText) {
+                var self = this;
+                var pollCount = 0;
+                var maxPolls = 12;
+                var pollInterval = setInterval(function() {
+                    pollCount++;
+                    if (self._saveCompleted || pollCount > maxPolls) {
+                        clearInterval(pollInterval);
+                        if (!self._saveCompleted) {
+                            self._saveCompleted = true;
+                            clearTimeout(timeoutId); clearInterval(countdownInterval);
+                            saveBtn.textContent = originalSaveText; saveBtn.disabled = false; cancelBtn.disabled = false;
+                            self._showResultModal(null, null);
+                            var shouldResume = self._wasPlayingBeforeEdit;
+                            thoughtEditor.exitEditMode(); thoughtEditor._closeModal(); thoughtEditor.loadThoughts();
+                            if (shouldResume) player.play();
+                        }
+                        return;
+                    }
+                    fetch(API_BASE + '/thoughts/' + thoughtId + '?user_id=' + state.currentUser.id)
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data.thought && data.thought.ai_score !== null && data.thought.ai_score !== undefined) {
+                                clearInterval(pollInterval);
+                                self._saveCompleted = true;
+                                clearTimeout(timeoutId); clearInterval(countdownInterval);
+                                saveBtn.textContent = originalSaveText; saveBtn.disabled = false; cancelBtn.disabled = false;
+                                self._showResultModal(data.thought.ai_score, data.thought.score_reason);
+                                var shouldResume = self._wasPlayingBeforeEdit;
+                                thoughtEditor.exitEditMode(); thoughtEditor._closeModal(); thoughtEditor.loadThoughts();
+                                if (shouldResume) player.play();
+                            }
+                        }).catch(function() {});
+                }, 3000);
             },
 
             _showResultModal: function(aiScore, scoreReason) {

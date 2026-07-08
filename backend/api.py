@@ -102,7 +102,7 @@ from backend.database import (
     # 订阅系统
     subscribe_book, get_user_subscriptions, check_book_access, get_subscription_requests, add_subscription_request, approve_subscription_request, reject_subscription_request,
     # 思考系统
-    add_thought, get_thoughts_by_section, get_all_thoughts_by_section, delete_thought, update_thought,
+    add_thought, get_thoughts_by_section, get_all_thoughts_by_section, delete_thought, update_thought, update_thought_ai_score, get_thought_by_id,
     # 书籍查找
     get_book_by_title_author_version,
     # 管理员统计
@@ -2850,14 +2850,6 @@ def create_thought(section_id):
             if ch_row:
                 chapter_title = ch_row['title'] or ''
     
-    # AI 评分（传入完整上下文）
-    ai_score, score_reason = rate_thought(
-        original_text, thought_content, section_content,
-        book_name=book_name, author=author,
-        chapter_title=chapter_title, section_title=section_title
-    )
-    print(f"[思考评分] 用户 {user_id} 的思考评分: {ai_score} - {score_reason}")
-    
     thought_id = add_thought(
         user_id=int(user_id),
         section_id=section_id,
@@ -2865,19 +2857,36 @@ def create_thought(section_id):
         end_char=data.get('end_char', 0),
         original_text=original_text,
         content=thought_content,
-        ai_score=ai_score,
-        score_reason=score_reason
+        ai_score=None,
+        score_reason=None
     )
-    # 检查军功和勋章
-    new_merits = check_and_award_merits(int(user_id))
-    new_medals = check_and_award_medals(int(user_id))
+
+    def _async_score():
+        try:
+            ai_score, score_reason = rate_thought(
+                original_text, thought_content, section_content,
+                book_name=book_name, author=author,
+                chapter_title=chapter_title, section_title=section_title
+            )
+            print(f"[思考评分] 用户 {user_id} 的思考评分: {ai_score} - {score_reason}")
+            if ai_score is not None:
+                update_thought_ai_score(thought_id, ai_score, score_reason)
+                check_and_award_merits(int(user_id))
+                check_and_award_medals(int(user_id))
+        except Exception as e:
+            print(f"[思考评分] 异步评分失败: {e}")
+
+    import threading
+    t = threading.Thread(target=_async_score, daemon=True)
+    t.start()
+
     return jsonify({
         'thought_id': thought_id,
-        'ai_score': ai_score,
-        'score_reason': score_reason,
-        'message': '思考已保存',
-        'new_merits': new_merits,
-        'new_medals': new_medals,
+        'ai_score': None,
+        'score_reason': None,
+        'message': '思考已保存，AI评分中',
+        'new_merits': [],
+        'new_medals': [],
     })
 
 @api_bp.route('/sections/<int:section_id>/thoughts/repair', methods=['POST'])
@@ -2941,6 +2950,17 @@ def repair_unscored_thoughts(section_id):
             print(f"[修复思考] thought_id={thought['id']} 失败: {e}")
     
     return jsonify({'repaired': repaired_count, 'message': f'已修复{repaired_count}条思考'})
+
+@api_bp.route('/thoughts/<int:thought_id>', methods=['GET'])
+def get_thought_detail(thought_id):
+    """获取单条思考（用于轮询AI评分结果）"""
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'error': '未登录'}), 401
+    thought = get_thought_by_id(thought_id)
+    if not thought or thought['user_id'] != int(user_id):
+        return jsonify({'error': '无权限'}), 403
+    return jsonify({'thought': thought})
 
 @api_bp.route('/thoughts/<int:thought_id>', methods=['DELETE'])
 def remove_thought(thought_id):
